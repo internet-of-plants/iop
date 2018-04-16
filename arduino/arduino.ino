@@ -66,24 +66,12 @@ void setup() {
  		goto error;
 	}
 	
-	file = SD.open("plant.log", FILE_WRITE);
-	if (!file) {
-		Serial.println("error opening plant.log");
-		goto error;
-	}
-
-	return;
-error:
-	while (1) {}
-}
-
-void print_state() {
-	while (file.available()) {
-		Serial.write(file.read());
+	while (!file) {
+		file = SD.open("plant.log", FILE_WRITE);
 	}
 }
 
-void save_state(Stream *fd) {
+void write_state(Stream *fd) {
 	fd->println("Ar");
 	fd->print("Umidade:          ");
 	fd->print(state.air.humidity);
@@ -146,8 +134,8 @@ void step() {
 void loop() {
         Serial.println("asdasd");
 	step();
-	save_state(&file);
-        save_state(&Serial);
+	write_state(&file);
+	write_state(&Serial);
 	//print_state();
 	delay(1000);
 }
