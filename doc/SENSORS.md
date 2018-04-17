@@ -1,34 +1,34 @@
 # Sensors
 
-*1 - Air temperature
-2 - Air humidity
-3 - Soil temperature
-4 - Soil humidity
-5 - Light*
+1. Air temperature
+2. Air humidity
+3. Soil temperature
+4. Soil humidity
+5. Light
 
 ## 1, 2 - Air temperature and humidity
 
-- DHT11
-- DHT21 (AM2301)
-- DHT22 (AM2302)
+- [DHT11](https://github.com/internet-of-plants/internet_of_plants/raw/master/doc/datasheets/DHT11.pdf)
+- [DHT21](https://github.com/internet-of-plants/internet_of_plants/blob/master/doc/datasheets/DHT21%20(HM2301).pdf) [(AM2301)](https://github.com/internet-of-plants/internet_of_plants/blob/master/doc/datasheets/AM2301.pdf)
+- [DHT22](https://github.com/internet-of-plants/internet_of_plants/blob/master/doc/datasheets/DHT22%20(AM2303).pdf) [(AM2302)](https://github.com/internet-of-plants/internet_of_plants/blob/master/doc/datasheets/AM2302.pdf)
 
 ### Ports
 
 1. VCC (3.3V or 5V power)
 
-  *Sometimes 3.3V is not enough.*
+    *Sometimes 3.3V is not enough*
 
 2. Digital data out
 
-  *Needs to be connected to VCC with a 10Kohm resistor between (medium-strength pull up)*
+    *Needs to be connected to VCC with a 10Kohm resistor between (medium-strength pull up)*
+
+    *Some models come with a built-in pull up resistor, so you don't need to put another, but it can't hurt*
 
 3. Unused
 
-  *Some sensors don't have this port*
+    *Some sensors don't have this port*
 
 4. Ground
-
-*Some models come with a built-in pull up resistor*
 
 ### Source Code
 
@@ -56,7 +56,7 @@
 
     void loop() {
         temperature_celcius = dht.readTemperature();
-        temperature_fahreinheit = dht.readTemperature(/*isFahreinheit = */ true);
+        temperature_fahreinheit = dht.readTemperature(/*isFahreinheit*/ true);
 
         humidity_percentage = dht.readHumidity();
 
@@ -65,7 +65,7 @@
             return;
         }
 
-        heat_index_celcius = dht.computeHeadIndex(temperature_celcius, humidity, /* isFahreinheit = */ false);
+        heat_index_celcius = dht.computeHeadIndex(temperature_celcius, humidity, /*isFahreinheit*/ false);
         heat_index_fahreinheit = dht.computeHeadIndex(temperature_fahreinheit, humidity);
 
         Serial.print("Humidity: ");
