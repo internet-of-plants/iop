@@ -20,7 +20,7 @@
 
     *Sometimes 3.3V is not enough*
 
-2. Digital data out
+2. Digital data
 
     *Needs to be connected to VCC with a 10Kohm resistor between (medium-strength pull up)*
 
@@ -44,7 +44,7 @@
 
     #include "DHT.h"
 
-    #define DHT_PIN 2      // Digital pin data-out is connected to
+    #define DHT_PIN 2      // Digital pin connected to data
     #define DHT_TYPE DHT11 // allow DHT11, DHT21, DHT22 (use DHT22 for AM2302) and AM2301
 
     DHT dht(DHT_PIN, DHT_TYPE);
