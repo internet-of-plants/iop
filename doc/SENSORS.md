@@ -1,6 +1,6 @@
 # Sensors
 
-1. Air temperature
+1. [Air temperature](https://github.com/internet-of-plants/internet_of_plants/blob/master/doc/SENSORS.md#1-2---air-temperature-and-humidity)
 2. Air humidity
 3. Soil temperature
 4. Soil humidity
@@ -8,9 +8,11 @@
 
 ## 1, 2 - Air temperature and humidity
 
-- [DHT11](https://github.com/internet-of-plants/internet_of_plants/raw/master/doc/datasheets/DHT11.pdf)
-- [DHT21](https://github.com/internet-of-plants/internet_of_plants/blob/master/doc/datasheets/DHT21%20(HM2301).pdf) [(AM2301)](https://github.com/internet-of-plants/internet_of_plants/blob/master/doc/datasheets/AM2301.pdf)
-- [DHT22](https://github.com/internet-of-plants/internet_of_plants/blob/master/doc/datasheets/DHT22%20(AM2303).pdf) [(AM2302)](https://github.com/internet-of-plants/internet_of_plants/blob/master/doc/datasheets/AM2302.pdf)
+- DHT11 [*datasheet*](https://github.com/internet-of-plants/internet_of_plants/raw/master/doc/datasheets/DHT11.pdf)
+- DHT21 [*datasheet*](https://github.com/internet-of-plants/internet_of_plants/blob/master/doc/datasheets/DHT21%20(HM2301).pdf) ([*AM2301*](https://github.com/internet-of-plants/internet_of_plants/blob/master/doc/datasheets/AM2301.pdf))
+- DHT22 [*datasheet*](https://github.com/internet-of-plants/internet_of_plants/blob/master/doc/datasheets/DHT22%20(AM2303).pdf) ([*AM2302*](https://github.com/internet-of-plants/internet_of_plants/blob/master/doc/datasheets/AM2302.pdf))
+
+![Images of the 3 models](https://raw.githubusercontent.com/internet-of-plants/internet_of_plants/master/doc/sensors/DHT11_DHT21_DHT22.png)
 
 ### Ports
 
@@ -26,17 +28,24 @@
 
 3. Unused
 
-    *Some sensors don't have this port*
+    *Some sensors don't have this port exposed*
 
 4. Ground
 
+### Wiring
+
+*Arduino*
+
+![DHT wiring (as described above)](https://raw.githubusercontent.com/internet-of-plants/internet_of_plants/master/doc/wiring/DHT%20wiring.png)
+
 ### Source Code
+
+   *Download the [DHT](https://github.com/adafruit/DHT-sensor-library) library and [add it to your Arduino IDE](https://www.arduino.cc/en/Hacking/Libraries) (or place DHT.cpp and DHT.h in the source's folder)*
 
     #include "DHT.h"
 
-    // Assure data pin has a medium-strength pull up
     #define DHT_PIN 2      // Digital pin data-out is connected to
-    #define DHT_TYPE DHT11 // allow DHT11, DHT21, DHT22 (AM2302) and AM2301
+    #define DHT_TYPE DHT11 // allow DHT11, DHT21, DHT22 (use DHT22 for AM2302) and AM2301
 
     DHT dht(DHT_PIN, DHT_TYPE);
 
