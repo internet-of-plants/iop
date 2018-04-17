@@ -20,6 +20,8 @@
 #define ANALOG_READ_MAX 1024
 #define ANALOG_WRITE_MAX 255
 
+#define LOG_FILE "plant.log"
+
 struct RawState {
 	uint16_t soil_resistivity;
 	uint16_t light;
@@ -53,6 +55,8 @@ File file;
 
 void setup() {
 	Serial.begin(9600);
+
+	// Needed for Leonardo
 	while (!Serial) {}
 
 	soil_temperature.begin();
@@ -62,12 +66,7 @@ void setup() {
 	digitalWrite(SOIL_RESISTIVITY_OUT_PIN, HIGH);
 
 	if (!SD.begin(4)) {
-		Serial.println("SD initialization failed!");
- 		goto error;
-	}
-	
-	while (!file) {
-		file = SD.open("plant.log", FILE_WRITE);
+		Serial.println("Failed to initialize SD card");
 	}
 }
 
@@ -94,6 +93,8 @@ void write_state(Stream *fd) {
 	fd->print(state.light);
 	fd->println(" lux");
 	fd->println("");
+
+	fd->flush();
 }
 
 void read_light() {
@@ -120,8 +121,8 @@ void read_air_humidity_temperature() {
 }
 
 void read_soil_temperature() {
-  soil_temperature.requestTemperatures();
-  state.soil.temperature_c = soil_temperature.getTempCByIndex(0);
+	soil_temperature.requestTemperatures();
+	state.soil.temperature_c = soil_temperature.getTempCByIndex(0);
 }
 
 void step() {
@@ -132,10 +133,14 @@ void step() {
 }
 
 void loop() {
-        Serial.println("asdasd");
+	Serial.println("Loop");
+
 	step();
+
+	while (!(file = SD.open(LOG_FILE, FILE_WRITE))) {}
 	write_state(&file);
+	file.close();
+
 	write_state(&Serial);
-	//print_state();
 	delay(1000);
 }
