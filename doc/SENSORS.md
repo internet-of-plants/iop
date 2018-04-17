@@ -1,10 +1,10 @@
 # Sensors
 
-## 1 - Air temperature
-## 2 - Air humidity
-## 3 - Soil temperature
-## 4 - Soil humidity
-## 5 - Light
+*1 - Air temperature
+2 - Air humidity
+3 - Soil temperature
+4 - Soil humidity
+5 - Light*
 
 ## 1, 2 - Air temperature and humidity
 
@@ -12,18 +12,23 @@
 - DHT21 (AM2301)
 - DHT22 (AM2302)
 
-*Be careful, different manufacturers may have different datasheets for the same sensor type*
-
 ### Ports
 
 1. VCC (3.3V or 5V power)
+
   *Sometimes 3.3V is not enough.*
+
 2. Digital data out
+
   *Needs to be connected to VCC with a 10Kohm resistor between (medium-strength pull up)*
+
 3. Unused
+
+  *Some sensors don't have this port*
+
 4. Ground
 
-*Some models don't have the third pin, or have pull-up resistor built-in*
+*Some models come with a built-in pull up resistor*
 
 ### Source Code
 
@@ -37,35 +42,31 @@
 
     float temperature_celcius = 0;
     float temperature_fahreinheit = 0;
+
     float humidity_percentage = 0;
+
     float heat_index_celcius = 0;
     float heat_index_fahreinheit = 0;
 
     void setup() {
         Serial.begin(9600);
-        while (!Serial) {} // Leonardo board needs this
 
         dht.begin();
     }
 
     void loop() {
         temperature_celcius = dht.readTemperature();
-        temperature_fahreinheit = dht.readTemperature(/*isFahreinheit*/ true);
+        temperature_fahreinheit = dht.readTemperature(/*isFahreinheit = */ true);
 
         humidity_percentage = dht.readHumidity();
 
-        if (isnan(temperature_celcius)
-           || isnan(temperature_fahreinheit)
-           || isnan(humidity_percentage)) {
+        if (isnan(temperature_celcius) || isnan(temperature_fahreinheit) || isnan(humidity_percentage)) {
             Serial.println("Failed to read from DHT sensor!");
             return;
         }
 
-        heat_index_celcius = dht.computeHeadIndex(temperature_celcius,
-                                                  humidity,
-                                                  /*isFahreinheit*/ false);
-        heat_index_fahreinheit = dht.computeHeadIndex(temperature_fahreinheit,
-                                                      humidity);
+        heat_index_celcius = dht.computeHeadIndex(temperature_celcius, humidity, /* isFahreinheit = */ false);
+        heat_index_fahreinheit = dht.computeHeadIndex(temperature_fahreinheit, humidity);
 
         Serial.print("Humidity: ");
         Serial.println(humidity);
@@ -81,7 +82,7 @@
         Serial.println(" *F");
         Serial.println("-----------------------");
 
-        // Most sensors need a 2 seconds delay, DHT11 allows 1 seconds
+        // Most sensors need a 2 seconds delay, DHT11 allows 1 second
         // DHT.h library "forces" a 2 seconds delay by caching data
         // (you can bypass it, but be careful)
         delay(2000);
