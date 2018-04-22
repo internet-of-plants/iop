@@ -4,7 +4,7 @@
 
 Repository: https://github.com/milesburton/Arduino-Temperature-Control-Library/
 Examples: https://github.com/milesburton/Arduino-Temperature-Control-Library/tree/master/examples
-More information at: 
+More information at: https://playground.arduino.cc/Learning/OneWire 
 
     void DallasTemperature(OneWire* oneWire);
 

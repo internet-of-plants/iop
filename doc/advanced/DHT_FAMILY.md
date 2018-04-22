@@ -4,6 +4,7 @@
 
 Repository: https://github.com/adafruit/DHT-sensor-library
 Examples: https://github.com/adafruit/DHT-sensor-library/tree/master/examples
+More information at: https://playground.arduino.cc/Main/DHTLib
 
     DHT(uint8_t pin, uint8_t type, uint8_t count=6);
 
