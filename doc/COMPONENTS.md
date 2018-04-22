@@ -1,4 +1,4 @@
-# Sensors
+# Components
 
 1. [Air temperature](#1-2---air-temperature-and-humidity)
 2. [Air humidity](#1-2---air-temperature-and-humidity)
@@ -9,13 +9,28 @@
 
 ## 1, 2 - Air temperature and humidity
 
-- DHT11 [*datasheet*](https://github.com/internet-of-plants/internet_of_plants/raw/master/doc/datasheets/DHT11.pdf) - humidity: 20 to 90% (4% accuracy, max 5%), temperature: 0 to 50ºC (2ºC accuracy)
-- DHT21 [*datasheet*](https://github.com/internet-of-plants/internet_of_plants/raw/master/doc/datasheets/DHT21%20(HM2301).pdf) ([*AM2301*](https://github.com/internet-of-plants/internet_of_plants/raw/master/doc/datasheets/AM2301.pdf)) - humidity: 0 to 100% (3% accuracy, max 5%), temperature: -40 to 80ºC (1ºC accuracy)
-- DHT22 [*datasheet*](https://github.com/internet-of-plants/internet_of_plants/raw/master/doc/datasheets/DHT22%20(AM2303).pdf) ([*AM2302*](https://github.com/internet-of-plants/internet_of_plants/raw/master/doc/datasheets/AM2302.pdf)) - humidity: 0 to 100% (2% accuracy, max 5%), temperature: -40 to 125ºC (0.2ºC accuracy)
+- DHT11 [*datasheet*](https://github.com/internet-of-plants/internet_of_plants/raw/master/doc/datasheets/DHT11.pdf)
 
-![Images of the DHT11, DHT21 and DHT22](https://raw.githubusercontent.com/internet-of-plants/internet_of_plants/master/doc/images/DHT11_DHT21_DHT22.png)
+   Humidity: 20% to 90%, accuracy +-4% (max +-5%)
 
-Resources:
+   Temperature: 0ºC to 50ºC, accuracy +-2ºC
+
+- DHT21 [*datasheet*](https://github.com/internet-of-plants/internet_of_plants/raw/master/doc/datasheets/DHT21%20(HM2301).pdf) ([*AM2301*](https://github.com/internet-of-plants/internet_of_plants/raw/master/doc/datasheets/AM2301.pdf))
+
+   Humidity: 0% to 100%, accuracy +-3% (max +-5%)
+
+   Temperature: -40ºC to 80ºC, accuracy +-1ºC
+
+- DHT22 [*datasheet*](https://github.com/internet-of-plants/internet_of_plants/raw/master/doc/datasheets/DHT22%20(AM2303).pdf) ([*AM2302*](https://github.com/internet-of-plants/internet_of_plants/raw/master/doc/datasheets/AM2302.pdf))
+
+   Humidity: 0% to 100%, accuracy +-2% (max +-5%)
+
+   Temperature: -40ºC to 125ºC, accuracy +-0.2ºC
+
+![Images of the DHT11, DHT21 and DHT22](https://raw.githubusercontent.com/internet-of-plants/internet_of_plants/master/doc/images/models/DHT11_DHT21_DHT22.png)
+
+Other resources:
+
 - https://playground.arduino.cc/Main/DHTLib
 
 ### Ports
@@ -26,7 +41,7 @@ Resources:
 
 2. Digital data (DAT)
 
-    *Needs to be connected to VCC with a 4.7KOhm resistor between (medium-strength pull up)*
+    Needs to be connected to VCC with a 4.7KOhm resistor between (medium-strength pull up)
 
     *Some models come with a built-in pull up resistor, so you don't need to put another, but it can't hurt*
 
@@ -36,27 +51,29 @@ Resources:
 
 4. Ground (GND)
 
-**2 seconds is the minimum interval between measurements (for DHT11 it's 1 second)**
-
-**Measurements may be unstable for up to 1 second after powering-up (a 100nF capacitor between VCC and GND solves that)**
-
-**If the connection cable is longer than 20 meters (1 meter in parasite mode) the pull-up resistor will have to be adjusted accordingly**
-
-**Some models don't follow this pin order, they are rare, but if it doesn't work like this it may be it**
-
-**We have one, but the correct wiring is written in the sensor, so are most of the exceptions ([photo](https://raw.githubusercontent.com/internet-of-plants/internet\_of\_plants/master/doc/wiring/DHT%20with%20different%20wiring.png))**
+**Some models don't follow this pin order, check the datasheet, we have one, but it has the order printed in it ([photo](https://raw.githubusercontent.com/internet-of-plants/internet\_of\_plants/master/doc/images/wiring/DHT%20alternative.png))**
 
 ### Wiring
 
 *Arduino*
 
-![DHT wiring](https://raw.githubusercontent.com/internet-of-plants/internet_of_plants/master/doc/wiring/DHT.png)
+![DHT wiring](https://raw.githubusercontent.com/internet-of-plants/internet_of_plants/master/doc/images/wiring/DHT.png)
+
+### Information
+
+- 2 seconds is the minimum interval between measurements (for DHT11 it's 1 second)
+
+- Measurements may be unstable for up to 1 second after powering-up (a 100nF capacitor between VCC and GND solves that)
+
+- Cables longer than 20 meters need a lower pull-up resistor, 2KOhm have been reported to work
+
+   *More information at:* ***https://www.maximintegrated.com/en/app-notes/index.mvp/id/148***
 
 ### Source Code
 
-   Download the [DHT](https://github.com/adafruit/DHT-sensor-library) library and [add it to your Arduino IDE](https://www.arduino.cc/en/Hacking/Libraries) (or place DHT.cpp and DHT.h in the source's folder)
+Download the [DHT](https://github.com/adafruit/DHT-sensor-library) library and [add it to your Arduino IDE](https://www.arduino.cc/en/Hacking/Libraries)
 
-   More examples at: https://github.com/adafruit/DHT-sensor-library/tree/master/examples/DHTtester
+More examples at: https://github.com/adafruit/DHT-sensor-library/tree/master/examples/DHTtester
 
     #include "DHT.h"
 
@@ -114,29 +131,43 @@ Resources:
     }
 
    Other methods that may help:
-    // Read temperature and humidity from sensor
-    // Returns cached value if last measurement was made less than 2 seconds ago
-    boolean read(bool force=false);
+
+    // If force is true the 2 seconds cache is bypassed
+    // DHT11 supports a 1 second interval
+    // But in general be careful when forcing the read
+    float readTemperature(bool force);
 
     float convertCtoF(float celsius);
     float convertFtoC(float fahreinheinheit);
 
 ## 3 - Soil temperature
 
-- DS18B20 [*datasheet*](https://github.com/internet-of-plants/internet_of_plants/raw/master/doc/datasheets/DS18B20.pdf) - -55 to 125ºC (0.5ºC accuracy)
-- DS18S20 [*datasheet*](https://github.com/internet-of-plants/internet_of_plants/raw/master/doc/datasheets/DS18S20.pdf) - -55 to 125ºC (0.5ºC accuracy)
-- DS1820 [*datasheet*](https://github.com/internet-of-plants/internet_of_plants/raw/master/doc/datasheets/DS1820.pdf) - -55 to 125ºC (0.5ºC accuracy)
-- DS1822 [*datasheet*](https://github.com/internet-of-plants/internet_of_plants/raw/master/doc/datasheets/DS1822.pdf) - -55 to 125ºC (2ºC accuracy)
-- DS1825 [*datasheet*](https://github.com/internet-of-plants/internet_of_plants/raw/master/doc/datasheets/DS1825.pdf) - -55 to 125ºC (0.5ºC accuracy)
-- DS28EA00 [*datasheet*](https://github.com/internet-of-plants/internet_of_plants/raw/master/doc/datasheets/DS28EA00.pdf) - -40 to 85ºC
-- MAX31820 [*datasheet*](https://github.com/internet-of-plants/internet_of_plants/raw/master/doc/datasheets/MAX31820.pdf) - -55 to 125ºC (2ºC accuracy)
+TODO: [error values](https://github.com/openenergymonitor/learn/blob/master/view/electricity-monitoring/temperature/DS18B20-temperature-sensing.md#software), [network design](https://github.com/openenergymonitor/learn/blob/master/view/electricity-monitoring/temperature/DS18B20-temperature-sensing.md#notes-and-further-reading)
 
-![Images of the 3 types](https://raw.githubusercontent.com/internet-of-plants/internet_of_plants/master/doc/images/DS18.png)
+- DS18B20 [*datasheet*](https://github.com/internet-of-plants/internet_of_plants/raw/master/doc/datasheets/DS18B20.pdf)
+- DS18S20 [*datasheet*](https://github.com/internet-of-plants/internet_of_plants/raw/master/doc/datasheets/DS18S20.pdf)
+- DS1820 [*datasheet*](https://github.com/internet-of-plants/internet_of_plants/raw/master/doc/datasheets/DS1820.pdf)
+- DS1825 [*datasheet*](https://github.com/internet-of-plants/internet_of_plants/raw/master/doc/datasheets/DS1825.pdf)
+   Temperature of the above: -55ºC to 125ºC, accuracy +-0.5ºC
+
+- DS28EA00 [*datasheet*](https://github.com/internet-of-plants/internet_of_plants/raw/master/doc/datasheets/DS28EA00.pdf)
+
+   Temperature: -40ºC to 85ºC
+
+- DS1822 [*datasheet*](https://github.com/internet-of-plants/internet_of_plants/raw/master/doc/datasheets/DS1822.pdf)
+- MAX31820 [*datasheet*](https://github.com/internet-of-plants/internet_of_plants/raw/master/doc/datasheets/MAX31820.pdf)
+
+   Temperature of the above: -55ºC to 125ºC, accuracy +-2ºC
+
+![Images of the 3 types](https://raw.githubusercontent.com/internet-of-plants/internet_of_plants/master/doc/images/models/DS18.png)
 
 *Models may vary between these three types (waterproof case may also vary)*
 
-Resources:
+Other resources:
+
 - https://playground.arduino.cc/Learning/OneWire
+- https://github.com/openenergymonitor/learn/blob/master/view/electricity-monitoring/temperature/DS18B20-temperature-sensing.md
+- https://github.com/openenergymonitor/learn/blob/master/view/electricity-monitoring/temperature/DS18B20-temperature-sensing-2.md
 
 ### Ports
 
@@ -154,13 +185,37 @@ Resources:
 
 *Arduino*
 
-![DS18B20 wiring](https://raw.githubusercontent.com/internet-of-plants/internet_of_plants/master/doc/wiring/DS18%20wiring.png)
+![DS18B20 wiring in normal and parasite mode](https://raw.githubusercontent.com/internet-of-plants/internet_of_plants/master/doc/images/wiring/DS18.png)
 
-*Example uses normal mode, parasite mode doesn't use the VCC pin, but needs the pull up in the OneWire bus anyway*
+### Information
+
+**More information in Advanced section**
+
+- Each sensor has a unique 64 bits address (ROM)
+
+- Sensor can be operated in parasite mode (no VCC)
+
+- Multiple sensors can be plugged into the same digital pin
+
+- Can measure the temperature in many sensors at the same time
+
+- Can asynchronously measure the temperature
+
+- Has custom conversion bit resolution (9, 10, 11 or 12 bits)
+
+   DS18S20 and DS1820 have fixed 9 bits resolution
+
+- Has internal alarms (too high, too low)
+
+   DS18S20 and DS1820 don't have alarms
+
+- If alarm is disabled there are 16 bits of free storage in each sensor
+
+   DS18S20 and DS1820 don't have alarms
 
 ### Source Code
 
-   Download the [OneWire](https://github.com/PaulStoffregen/OneWire) library and [DallasTemperature](https://github.com/milesburton/Arduino-Temperature-Control-Library) add [it to your Arduino IDE](https://www.arduino.cc/en/Hacking/Libraries)
+ Download the [OneWire](https://github.com/PaulStoffregen/OneWire) library and [DallasTemperature](https://github.com/milesburton/Arduino-Temperature-Control-Library) add [it to your Arduino IDE](https://www.arduino.cc/en/Hacking/Libraries)
 
     #include "OneWire.h"
     #include "DallasTemperature.h"
@@ -211,11 +266,13 @@ Resources:
 
 ### Reading temperature by sensor's index is slow and not recommended, read by address
 
-  Indexes are non-unique and depend on the context
+Indexes are non-unique and depend on the context
 
-  To access each index (slow) the library searches the bus (index + 1) times to find the specified sensor
+To access each index (slow) the library searches the bus (index + 1) times to find the specified sensor
 
-  Get the device's unique, non-changeable, address and use it to identify it in the code
+Get the device's unique, non-changeable, address and use it to identify it in the code
+
+Accessing sensors by address example:
 
     // Address of a sensor (uint8_t array of 8 elements)
     DeviceAddress device_address;
@@ -251,7 +308,7 @@ Resources:
         Serial.print(" ");
     }
 
-   Other useful methods to access a sensor by address:
+Other useful methods to access a sensor by address:
 
     // Assures sensor is from a known family (DS18B20, DS18S20, DS1822, DS1825 or DS28EA00)
     bool validFamily(const uint8_t* deviceAddress);
@@ -307,11 +364,13 @@ Resources:
 
 ### Parasite mode
 
-  Doesn't use VCC pin
+Doesn't use VCC pin
 
-  Can't be polled in async mode since data-bus is powering the sensor
+Can't be polled in async mode since data-bus is powering the sensor
 
-   *Needs assurance that the necessary time has passed before reading (block until needed time has passed right before reading - if necessary*
+- Needs assurance that the necessary time has passed before reading (block until needed time has passed right before reading - if necessary
+
+Parasite example:
 
     // Disables busy wait during conversion
     // (all requests will be async, turn on before a request that must be sync)
@@ -331,28 +390,25 @@ Resources:
     Serial.print("Temperature in celsius: ");
     Serial.println(sensors.getTempC(device_address));
 
-   **If needed you may avoid blocking at all by constantly checking if the necessary time has passed while doing other things (hardware async sometimes is ugly)**
+**If needed you may avoid blocking at all by constantly checking if the necessary time has passed while doing other things (hardware async sometimes is ugly)**
 
-   *Don't set checkForConversion as false in this mode, otherwise the function 'blockTillConversionComplete(uint8_t bitResolution)' will try to poll the sensor, which is impossible in parasite mode*
+**Don't set checkForConversion as false in this mode, otherwise the function 'blockTillConversionComplete(uint8_t bitResolution)' will try to poll the sensor, which is impossible in parasite mode**
 
-  *Above 100ºC communication may fail in parasite mode, an external supply is recommended*
-
-  Wiring:
-  ![Parasite wiring](https://raw.githubusercontent.com/internet-of-plants/internet_of_plants/master/doc/wiring/DS18%20parasite.png)
+**Above 100ºC communication may fail in parasite mode, an external supply is recommended**
 
 ### Use one digital pin to manage up to 127 sensors
 
-  The OneWire protocol enables controlling up to 127 sensors using the same data bus
+The OneWire protocol enables controlling up to 127 sensors using the same data bus
 
-  It allows to talk to each sensor individually and to broadcast commands to every sensor using the bus
+It allows to talk to each sensor individually and to broadcast commands to every sensor using the bus
 
-   - *More information about individual sensor access in section:* ***[Read by address](#reading-temperature-by-sensors-index-is-slow-and-not-recommended-read-by-address)***
+- More information about individual sensor access in section **[Read by address](#reading-temperature-by-sensors-index-is-slow-and-not-recommended-read-by-address)**
 
-  Each sensor has a unique, non-changeable, 64-bits address
+Each sensor has a unique, non-changeable, 64-bits address
 
-   - *More information in section* ***[Read by address](#reading-temperature-by-sensors-index-is-slow-and-not-recommended-read-by-address)***
+- More information in section **[Read by address](#reading-temperature-by-sensors-index-is-slow-and-not-recommended-read-by-address)**
 
-  Counting devices using OneWire bus
+Counting devices using OneWire bus
 
     Serial.print("Numbers of devices using wire: ");
     Serial.println(sensors.getDeviceCount(), DEC);
@@ -361,7 +417,7 @@ Resources:
     Serial.print("Numbers of devices of a 'validFamily' using wire: ");
     Serial.println(sensors.getDS18Count(), DEC);
 
-   Finding out if bus needs parasite power (if at least one sensor needs it)
+Finding out if bus needs parasite power (if at least one sensor needs it)
 
     Serial.print("Needs parasite power in OneWire bus: ");
     Serial.println(sensors.readPowerSupply());
@@ -369,29 +425,31 @@ Resources:
     Serial.print("Cached data returned by sensors.readPowerSupply(): ");
     Serial.println(sensors.isParasitePowerMode());
 
-  Manage the resolution of every device in the bus
+Manage the resolution of every device in the bus
 
-   The higher the resolution the longer it takes to convert (most sensors default to 12)
+- The higher the resolution the longer it takes to convert (most sensors default to 12)
 
-   D18S20 and DS1820 have fixed resolutions (9 bits)
+- D18S20 and DS1820 have fixed resolutions (9 bits)
 
-### - Setting:
+1. Setting:
 
     // Very slow, since it talks individually to each sensor
     sensors.setResolution(9); // 9, 10, 11 or 12 (bits)
 
-### - Getting
+2. Getting
 
     Serial.print("Cached global resolution: ");
     Serial.println(sensors.getResolution());
 
 ### Set sensor's internal alarms (too high and too low) to be polled
 
-  D18S20 and DS1820 don't have alarms
+D18S20 and DS1820 don't have alarms
 
-  If alarms are not used there will be 16 extra free bits in each sensor
+If alarms are not used there will be 16 extra free bits in each sensor
 
-   - *More information in section:* ***[Store 16 more bits in the sensor](#store-16-more-bits-of-data-in-the-sensor-cant-be-used-if-sensors-alarm-is-enabled)***
+- More information in section: **[Store 16 bits in the sensor](#store-16-more-bits-of-data-in-the-sensor-cant-be-used-if-sensors-alarm-is-enabled)**
+
+Alarm management example:
 
     void alarm_handler(const uint8_t* deviceAddress) {
         Serial.print("ALARM: ");
@@ -430,7 +488,7 @@ Resources:
         sensors.processAlarms();
     }
 
-   Internal, but exposed, methods related to alarms
+Internal, but exposed, methods related to alarms
 
     // Search the wire for devices with active alarms
     bool alarmSearch(uint8_t*);
@@ -440,11 +498,11 @@ Resources:
 
 ### Configure temperature conversion bit resolution
 
-   The higher the resolution the longer it takes to convert (most sensors default to 12)
+The higher the resolution the longer it takes to convert (most sensors default to 12)
 
-   D18S20 and DS1820 have fixed resolutions (9 bits)
+D18S20 and DS1820 have fixed resolutions (9 bits)
 
-### - Setting:
+1. Setting:
 
     // Set specific sensor's resolution
     sensors.setResolution(device_address, 9);
@@ -453,7 +511,7 @@ Resources:
     // Talks with each sensor individually
     sensors.setResolution(9); // 9, 10, 11 or 12 (bits)
 
-### - Getting
+2. Getting
 
     Serial.print("Sensor's resolution: ");
     Serial.println(sensors.getResolution(device_address));
@@ -463,15 +521,17 @@ Resources:
 
 ### Asyncronously measure the temperature
 
-  Start the temperature measurement asynchronously in every sensor (broadcast)
+Start the temperature measurement asynchronously in every sensor (broadcast)
 
-  Poll the value to read it/them later, instead of blocking when needed until it's ready
+Poll the value to read it/them later, instead of blocking when needed until it's ready
 
-   *Can be constantly polled during the code or just block when needed (after some other work has been complete)*
+- Can be constantly polled during the code or just block when needed to read (after some other work has been complete)
 
-  Sensors in parasite mode can't be polled, wait the minimum necessary ammount of time before reading the value
+Sensors in parasite mode can't be polled, wait the minimum necessary ammount of time before reading the value
 
-   - *More information in section:* ***[Parasite mode](#parasite-mode)***
+- More information in section: **[Parasite mode](#parasite-mode)**
+
+Async example:
 
     #include<OneWire.h>
     #include "DallasTemperature.h"
@@ -507,9 +567,9 @@ Resources:
 
 ### Store 16 bits of data in the sensor (can't be used if sensor's alarm is enabled)
 
-  Use sensor's alarm configuration storage
+Use sensor's alarm configuration storage
 
-  DS18S20 and DS1820 don't have this registers
+DS18S20 and DS1820 don't have this registers
 
     // Stores uint16_t in specified device
     // Doesn't assure it's written (if something happens it may not write)
@@ -523,7 +583,7 @@ Resources:
 
 ### Extra: Dynamically search every digital pin for a OneWire bus
 
-   **Not really recommended, but possible**
+**Not really recommended, but possible**
 
     #include<OneWire.h>
     #include "DallasTemperature.h"
@@ -589,9 +649,14 @@ Resources:
 
 - DS1302 [*datasheet*](https://github.com/internet-of-plants/internet_of_plants/raw/master/doc/datasheets/DS1302.pdf)
 
-![Images of the DS1302](https://raw.githubusercontent.com/internet-of-plants/internet_of_plants/master/doc/images/DS1302.png)
+![Images of the DS1302](https://raw.githubusercontent.com/internet-of-plants/internet_of_plants/master/doc/images/models/DS1302.png)
 
-Resources:
+**Sometimes this model comes with problems in the internal crystal and the voltage**
+
+- DS3231 is more reliable
+
+Other resources:
+
 - https://playground.arduino.cc/Main/DS1302
 
 ### Ports
@@ -606,10 +671,24 @@ Resources:
 
 5. Reset (RST)
 
+### Information
+
+- Has 12 and 24 hours mode
+
+- Year: 2 digits, 0 is 2000, max (99) is 2099
+
+- Takes months with less than 31 days into compensation
+
+- Leap-Year compensation (for the valid years)
+
+- Does not use Daylight Saving Time
+
+- Has 31 bytes of general purpose volatile RAM (it will be lost when the battery ends)
+
 ### Wiring
 
 *Arduino*
 
-![DS1302 wiring](https://raw.githubusercontent.com/internet-of-plants/internet_of_plants/master/doc/wiring/DS1302.png)
+![DS1302 wiring](https://raw.githubusercontent.com/internet-of-plants/internet_of_plants/master/doc/images/wiring/DS1302.png)
 
 ### Source Code
