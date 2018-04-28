@@ -148,6 +148,7 @@ TODO: [error values](https://github.com/openenergymonitor/learn/blob/master/view
 - DS18S20 [*datasheet*](https://github.com/internet-of-plants/internet_of_plants/raw/master/doc/datasheets/DS18S20.pdf)
 - DS1820 [*datasheet*](https://github.com/internet-of-plants/internet_of_plants/raw/master/doc/datasheets/DS1820.pdf)
 - DS1825 [*datasheet*](https://github.com/internet-of-plants/internet_of_plants/raw/master/doc/datasheets/DS1825.pdf)
+
    Temperature of the above: -55ºC to 125ºC, accuracy +-0.5ºC
 
 - DS28EA00 [*datasheet*](https://github.com/internet-of-plants/internet_of_plants/raw/master/doc/datasheets/DS28EA00.pdf)
