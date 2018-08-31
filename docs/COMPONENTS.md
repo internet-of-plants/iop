@@ -9,28 +9,29 @@
 
 ## 1, 2 - Air temperature and humidity
 
-- DHT11 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/doc/datasheets/DHT11.pdf)
+- DHT11 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/docs/datasheets/DHT11.pdf)
 
    Humidity: 20% to 90%, accuracy +-4% (max +-5%)
 
    Temperature: 0ºC to 50ºC, accuracy +-2ºC
 
-- DHT21 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/doc/datasheets/DHT21%20(HM2301).pdf) ([*AM2301*](https://github.com/internet-of-plants/embedded/raw/master/doc/datasheets/AM2301.pdf))
+- DHT21 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/docs/datasheets/DHT21%20(HM2301).pdf) ([*AM2301*](https://github.com/internet-of-plants/embedded/raw/master/docs/datasheets/AM2301.pdf))
 
    Humidity: 0% to 100%, accuracy +-3% (max +-5%)
 
    Temperature: -40ºC to 80ºC, accuracy +-1ºC
 
-- DHT22 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/doc/datasheets/DHT22%20(AM2303).pdf) ([*AM2302*](https://github.com/internet-of-plants/embedded/raw/master/doc/datasheets/AM2302.pdf))
+- DHT22 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/docs/datasheets/DHT22%20(AM2303).pdf) ([*AM2302*](https://github.com/internet-of-plants/embedded/raw/master/docs/datasheets/AM2302.pdf))
 
    Humidity: 0% to 100%, accuracy +-2% (max +-5%)
 
    Temperature: -40ºC to 125ºC, accuracy +-0.2ºC
 
-![Images of the DHT11, DHT21 and DHT22](https://raw.githubusercontent.com/internet-of-plants/embedded/master/doc/images/models/DHT11_DHT21_DHT22.png)
+![Images of the DHT11, DHT21 and DHT22](https://raw.githubusercontent.com/internet-of-plants/embedded/master/docs/images/models/DHT11_DHT21_DHT22.png)
 
 Other resources:
 
+- [DHT.h lib docs](https://github.com/internet-of-plants/embedded/blob/master/docs/libs/DHT_FAMILY.md)
 - https://playground.arduino.cc/Main/DHTLib
 
 ### Ports
@@ -51,13 +52,13 @@ Other resources:
 
 4. Ground (GND)
 
-**Some models don't follow this pin order, check the datasheet, we have one, but it has the order printed in it ([photo](https://raw.githubusercontent.com/internet-of-plants/internet\_of\_plants/master/doc/images/wiring/DHT%20alternative.png))**
+**Some models don't follow this pin order, check the datasheet, we have one, but it has the order printed in it ([photo](https://raw.githubusercontent.com/internet-of-plants/internet\_of\_plants/master/docs/images/wiring/DHT%20alternative.png))**
 
 ### Wiring
 
 *Arduino*
 
-![DHT wiring](https://raw.githubusercontent.com/internet-of-plants/embedded/master/doc/images/wiring/DHT.png)
+![DHT wiring](https://raw.githubusercontent.com/internet-of-plants/embedded/master/docs/images/wiring/DHT.png)
 
 ### Information
 
@@ -76,98 +77,100 @@ Download the [DHT](https://github.com/adafruit/DHT-sensor-library) library and [
 More examples at: https://github.com/adafruit/DHT-sensor-library/tree/master/examples/DHTtester
 
 ```
-    #include "DHT.h"
+#include "DHT.h"
 
-    #define DHT_PIN 2      // Digital pin connected to data
-    #define DHT_TYPE DHT11 // allow DHT11, DHT21, DHT22 (use DHT22 for AM2302) and AM2301
+#define DHT_PIN 2      // Digital pin connected to data
+#define DHT_TYPE DHT11 // allow DHT11, DHT21, DHT22 (use DHT22 for AM2302) and AM2301
 
-    DHT dht(DHT_PIN, DHT_TYPE);
+DHT dht(DHT_PIN, DHT_TYPE);
 
-    float temperature_celsius = 0;
-    float temperature_fahreinheit = 0;
+float temperature_celsius = 0;
+float temperature_fahreinheit = 0;
 
-    float humidity_percentage = 0;
+float humidity_percentage = 0;
 
-    float heat_index_celsius = 0;
-    float heat_index_fahreinheit = 0;
+float heat_index_celsius = 0;
+float heat_index_fahreinheit = 0;
 
-    void setup() {
-        Serial.begin(9600);
+void setup() {
+    Serial.begin(9600);
 
-        dht.begin();
+    dht.begin();
+}
+
+void loop() {
+    temperature_celsius = dht.readTemperature();
+    temperature_fahreinheit = dht.readTemperature(/*isFahreinheit*/ true);
+
+    humidity_percentage = dht.readHumidity();
+
+    if (isnan(temperature_celsius) || isnan(temperature_fahreinheit) || isnan(humidity_percentage)) {
+        Serial.println("Failed to read from DHT sensor!");
+        return;
     }
 
-    void loop() {
-        temperature_celsius = dht.readTemperature();
-        temperature_fahreinheit = dht.readTemperature(/*isFahreinheit*/ true);
+    heat_index_celsius = dht.computeHeatIndex(temperature_celsius, humidity, /*isFahreinheit*/ false);
+    heat_index_fahreinheit = dht.computeHeatIndex(temperature_fahreinheit, humidity);
 
-        humidity_percentage = dht.readHumidity();
+    Serial.print("Humidity: ");
+    Serial.println(humidity);
+    Serial.print("Temperature: ");
+    Serial.print(temperature_celsius);
+    Serial.print(" *C, ");
+    Serial.print(temperature_fahreinheit);
+    Serial.println(" *F");
+    Serial.print("Heat index: ");
+    Serial.print(heat_index_celsius);
+    Serial.print(" *C, ");
+    Serial.print(heat_index_fahreinheit);
+    Serial.println(" *F");
+    Serial.println("-----------------------");
 
-        if (isnan(temperature_celsius) || isnan(temperature_fahreinheit) || isnan(humidity_percentage)) {
-            Serial.println("Failed to read from DHT sensor!");
-            return;
-        }
+    // Most sensors need a 2 seconds delay, DHT11 allows 1 second
+    // DHT.h library "forces" a 2 seconds delay by caching data
+    // (you can bypass it, but be careful)
+    delay(2000);
+}
 
-        heat_index_celsius = dht.computeHeatIndex(temperature_celsius, humidity, /*isFahreinheit*/ false);
-        heat_index_fahreinheit = dht.computeHeatIndex(temperature_fahreinheit, humidity);
+Other methods that may help:
 
-        Serial.print("Humidity: ");
-        Serial.println(humidity);
-        Serial.print("Temperature: ");
-        Serial.print(temperature_celsius);
-        Serial.print(" *C, ");
-        Serial.print(temperature_fahreinheit);
-        Serial.println(" *F");
-        Serial.print("Heat index: ");
-        Serial.print(heat_index_celsius);
-        Serial.print(" *C, ");
-        Serial.print(heat_index_fahreinheit);
-        Serial.println(" *F");
-        Serial.println("-----------------------");
+// If force is true the 2 seconds cache is bypassed
+// DHT11 supports a 1 second interval
+// But in general be careful when forcing the read
+float readTemperature(bool force);
 
-        // Most sensors need a 2 seconds delay, DHT11 allows 1 second
-        // DHT.h library "forces" a 2 seconds delay by caching data
-        // (you can bypass it, but be careful)
-        delay(2000);
-    }
-
-   Other methods that may help:
-
-    // If force is true the 2 seconds cache is bypassed
-    // DHT11 supports a 1 second interval
-    // But in general be careful when forcing the read
-    float readTemperature(bool force);
-
-    float convertCtoF(float celsius);
-    float convertFtoC(float fahreinheinheit);
+float convertCtoF(float celsius);
+float convertFtoC(float fahreinheinheit);
 ```
 
 ## 3 - Soil temperature
 
 TODO: [error values](https://github.com/openenergymonitor/learn/blob/master/view/electricity-monitoring/temperature/DS18B20-temperature-sensing.md#software), [network design](https://github.com/openenergymonitor/learn/blob/master/view/electricity-monitoring/temperature/DS18B20-temperature-sensing.md#notes-and-further-reading)
 
-- DS18B20 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/doc/datasheets/DS18B20.pdf)
-- DS18S20 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/doc/datasheets/DS18S20.pdf)
-- DS1820 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/doc/datasheets/DS1820.pdf)
-- DS1825 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/doc/datasheets/DS1825.pdf)
+- DS18B20 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/docs/datasheets/DS18B20.pdf)
+- DS18S20 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/docs/datasheets/DS18S20.pdf)
+- DS1820 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/docs/datasheets/DS1820.pdf)
+- DS1825 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/docs/datasheets/DS1825.pdf)
 
    Temperature of the above: -55ºC to 125ºC, accuracy +-0.5ºC
 
-- DS28EA00 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/doc/datasheets/DS28EA00.pdf)
+- DS28EA00 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/docs/datasheets/DS28EA00.pdf)
 
    Temperature: -40ºC to 85ºC
 
-- DS1822 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/doc/datasheets/DS1822.pdf)
-- MAX31820 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/doc/datasheets/MAX31820.pdf)
+- DS1822 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/docs/datasheets/DS1822.pdf)
+- MAX31820 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/docs/datasheets/MAX31820.pdf)
 
    Temperature of the above: -55ºC to 125ºC, accuracy +-2ºC
 
-![Images of the 3 types](https://raw.githubusercontent.com/internet-of-plants/embedded/master/doc/images/models/DS18.png)
+![Images of the 3 types](https://raw.githubusercontent.com/internet-of-plants/embedded/master/docs/images/models/DS18.png)
 
 *Models may vary between these three types (waterproof case may also vary)*
 
 Other resources:
 
+- [DallasTemperature.h lib docs](https://github.com/internet-of-plants/embedded/blob/master/docs/libs/DS18_FAMILY.md)
+- [OneWire.h lib docs](https://github.com/internet-of-plants/embedded/blob/master/docs/libs/DS18_FAMILY.md)
 - https://playground.arduino.cc/Learning/OneWire
 - https://github.com/openenergymonitor/learn/blob/master/view/electricity-monitoring/temperature/DS18B20-temperature-sensing.md
 - https://github.com/openenergymonitor/learn/blob/master/view/electricity-monitoring/temperature/DS18B20-temperature-sensing-2.md
@@ -188,7 +191,7 @@ Other resources:
 
 *Arduino*
 
-![DS18B20 wiring in normal and parasite mode](https://raw.githubusercontent.com/internet-of-plants/embedded/master/doc/images/wiring/DS18.png)
+![DS18B20 wiring in normal and parasite mode](https://raw.githubusercontent.com/internet-of-plants/embedded/master/docs/images/wiring/DS18.png)
 
 ### Information
 
@@ -221,41 +224,41 @@ Other resources:
  Download the [OneWire](https://github.com/PaulStoffregen/OneWire) library and [DallasTemperature](https://github.com/milesburton/Arduino-Temperature-Control-Library) add [it to your Arduino IDE](https://www.arduino.cc/en/Hacking/Libraries)
 
 ```
-    #include "OneWire.h"
-    #include "DallasTemperature.h"
+#include "OneWire.h"
+#include "DallasTemperature.h"
 
-    #define ONE_WIRE_BUS 3 // OneWire pin (digital data pin)
+#define ONE_WIRE_BUS 3 // OneWire pin (digital data pin)
 
-    OneWire one_wire(ONE_WIRE_BUS);
+OneWire one_wire(ONE_WIRE_BUS);
 
-    // More than one sensor can be connected to the same pin
-    DallasTemperature sensors(&one_wire);
+// More than one sensor can be connected to the same pin
+DallasTemperature sensors(&one_wire);
 
-    float temperature_celsius = 0;
-    float temperature_fahreinheit = 0;
+float temperature_celsius = 0;
+float temperature_fahreinheit = 0;
 
-    void setup() {
-        Serial.begin(9600);
+void setup() {
+    Serial.begin(9600);
 
-        sensors.begin();
-    }
+    sensors.begin();
+}
 
-    void loop() {
-        // Start temperature measurement in every sensor conenected to the OneWire bus
-        // By default it blocks until temperature is ready to be read
-        sensors.requestTemperatures();
+void loop() {
+    // Start temperature measurement in every sensor conenected to the OneWire bus
+    // By default it blocks until temperature is ready to be read
+    sensors.requestTemperatures();
 
-        // Since there could be more than one sensor using the bus we need to access them by index (or address - recommended)
-        temperature_celsius = sensors.getTempCByIndex(0);
-        temperature_fahreinheit = sensors.getTempFByIndex(0);
+    // Since there could be more than one sensor using the bus we need to access them by index (or address - recommended)
+    temperature_celsius = sensors.getTempCByIndex(0);
+    temperature_fahreinheit = sensors.getTempFByIndex(0);
 
-        Serial.print("Temperature: ");
-        Serial.print(temperature_celsius);
-        Serial.print(" *C, ");
-        Serial.print(temperature_fahreinheit);
-        Serial.println(" *F");
-        Serial.println("-----------------------");
-    }
+    Serial.print("Temperature: ");
+    Serial.print(temperature_celsius);
+    Serial.print(" *C, ");
+    Serial.print(temperature_fahreinheit);
+    Serial.println(" *F");
+    Serial.println("-----------------------");
+}
 ```
 
 ### Advanced Features
@@ -280,95 +283,95 @@ Get the device's unique, non-changeable, address and use it to identify it in th
 Accessing sensors by address example:
 
 ```
-    // Address of a sensor (uint8_t array of 8 elements)
-    DeviceAddress device_address;
+// Address of a sensor (uint8_t array of 8 elements)
+DeviceAddress device_address;
 
-    // Select sensor's address by index
-    sensors.getAddress(device_address, index);
+// Select sensor's address by index
+sensors.getAddress(device_address, index);
 
-    // Sometimes data gets corrupted, assure it's the correct address
-    if (!sensors.validAddress(device_address)) {
-        Serial.println("Address fetched was invalid, maybe try again?");
-        return
-    }
+// Sometimes data gets corrupted, assure it's the correct address
+if (!sensors.validAddress(device_address)) {
+    Serial.println("Address fetched was invalid, maybe try again?");
+    return
+}
 
-    // Attemps to assure device is connected
-    if (!sensors.isConnected(device_address)) {
-        Serial.println("Failed to connected with device");
-        return
-    }
+// Attemps to assure device is connected
+if (!sensors.isConnected(device_address)) {
+    Serial.println("Failed to connected with device");
+    return
+}
 
-    float temperature_celsius = sensors.getTempC(device_address);
-    float temperature_fahreinheit = sensors.getTempF(device_address);
+float temperature_celsius = sensors.getTempC(device_address);
+float temperature_fahreinheit = sensors.getTempF(device_address);
 
-    // Save the displayed address and use in the code
-    // Example output: Device's address: 0x28 0x1D 0x39 0x31 0x2 0x0 0x0 0xF0
-    // Accessing in real code:
-    //     DeviceAddress device_address = { 0x28, 0x1D, 0x39, 0x31, 0x2, 0x0, 0x0, 0xF0 };
-    //     float temperature_celsius = sensors.getTempC(device_address);
-    //     float temperature_fahreinheit = sensors.getTempF(device_address);
+// Save the displayed address and use in the code
+// Example output: Device's address: 0x28 0x1D 0x39 0x31 0x2 0x0 0x0 0xF0
+// Accessing in real code:
+//     DeviceAddress device_address = { 0x28, 0x1D, 0x39, 0x31, 0x2, 0x0, 0x0, 0xF0 };
+//     float temperature_celsius = sensors.getTempC(device_address);
+//     float temperature_fahreinheit = sensors.getTempF(device_address);
 
-    Serial.println("Device's address: ");
-    for (uint8_t i = 0; i < 8; ++i) {
-        Serial.print(device_address[i], HEX);
-        Serial.print(" ");
-    }
+Serial.println("Device's address: ");
+for (uint8_t i = 0; i < 8; ++i) {
+    Serial.print(device_address[i], HEX);
+    Serial.print(" ");
+}
 ```
 
 Other useful methods to access a sensor by address:
 
 ```
-    // Assures sensor is from a known family (DS18B20, DS18S20, DS1822, DS1825 or DS28EA00)
-    bool validFamily(const uint8_t* deviceAddress);
+// Assures sensor is from a known family (DS18B20, DS18S20, DS1822, DS1825 or DS28EA00)
+bool validFamily(const uint8_t* deviceAddress);
 
-    // Attempt to discover if sensor is connected
-    bool isConnected(const uint8_t* deviceAddress);
+// Attempt to discover if sensor is connected
+bool isConnected(const uint8_t* deviceAddress);
 
-    // Attempt to discover if sensor is connected (fills ScratchPad)
-    bool isConnected(const uint8_t* deviceAddress, uint8_t* scratchPad);
+// Attempt to discover if sensor is connected (fills ScratchPad)
+bool isConnected(const uint8_t* deviceAddress, uint8_t* scratchPad);
 
-    // Fills scratchPad
-    bool readScratchPad(const uint8_t* deviceAddress, uint8_t* scratchPad);
+// Fills scratchPad
+bool readScratchPad(const uint8_t* deviceAddress, uint8_t* scratchPad);
 
-    // Write scratchPad to sensor
-    void writeScratchPad(const uint8_t* deviceAddress, const uint8_t* scratchPad);
+// Write scratchPad to sensor
+void writeScratchPad(const uint8_t* deviceAddress, const uint8_t* scratchPad);
 
-    // Return true if device uses parasite power
-    bool readPowerSupply(const uint8_t* deviceAddress);
+// Return true if device uses parasite power
+bool readPowerSupply(const uint8_t* deviceAddress);
 
-    // Get conversion resolution to device (in D18S20 and DS1820 resolution is fixed at 9 bits)
-    uint8_t getResolution(const uint8_t* deviceAddress);
+// Get conversion resolution to device (in D18S20 and DS1820 resolution is fixed at 9 bits)
+uint8_t getResolution(const uint8_t* deviceAddress);
 
-    // Save conversion resolution to device (in DS18S20 and DS1820 resolution is fixed at 9 bits)
-    bool setResolution(const uint8_t* deviceAddress, uint8_t resolution, bool skipGlobalBitResolutionCalculation = false);
+// Save conversion resolution to device (in DS18S20 and DS1820 resolution is fixed at 9 bits)
+bool setResolution(const uint8_t* deviceAddress, uint8_t resolution, bool skipGlobalBitResolutionCalculation = false);
 
-    // Start temperature measurement in sensor
-    bool requestTemperaturesByAddress(const uint8_t* deviceAddress);
+// Start temperature measurement in sensor
+bool requestTemperaturesByAddress(const uint8_t* deviceAddress);
 
-    // Return raw temperature (12 bit integer of 1/128 degrees C)
-    int16_t getTemp(const uint8_t* deviceAddress);
+// Return raw temperature (12 bit integer of 1/128 degrees C)
+int16_t getTemp(const uint8_t* deviceAddress);
 
-    // Sets the high alarm temperature for a device (-55*C to 125*C)
-    void setHighAlarmTemp(const uint8_t* deviceAddress, int8_t temperature);
+// Sets the high alarm temperature for a device (-55*C to 125*C)
+void setHighAlarmTemp(const uint8_t* deviceAddress, int8_t temperature);
 
-    // Sets the low alarm temperature for a device (-55*C to 125*C)
-    void setLowAlarmTemp(const uint8_t* deviceAddress, int8_t temperature);
+// Sets the low alarm temperature for a device (-55*C to 125*C)
+void setLowAlarmTemp(const uint8_t* deviceAddress, int8_t temperature);
 
-    // Returns the high alarm temperature for a device (-55*C to 125*C)
-    int8_t getHighAlarmTemp(const uint8_t* deviceAddress);
+// Returns the high alarm temperature for a device (-55*C to 125*C)
+int8_t getHighAlarmTemp(const uint8_t* deviceAddress);
 
-    // Returns the low alarm temperature for a device (-55*C to 125*C)
-    int8_t getLowAlarmTemp(const uint8_t* deviceAddress);
+// Returns the low alarm temperature for a device (-55*C to 125*C)
+int8_t getLowAlarmTemp(const uint8_t* deviceAddress);
 
-    // Search the bus for devices with active alarms (internal)
-    bool alarmSearch(uint8_t* deviceAddress);
+// Search the bus for devices with active alarms (internal)
+bool alarmSearch(uint8_t* deviceAddress);
 
-    // Returns true if a specific device has an alarm
-    bool hasAlarm(const uint8_t* deviceAddress);
+// Returns true if a specific device has an alarm
+bool hasAlarm(const uint8_t* deviceAddress);
 
-    // If no alarm is set there will be 16 bits available of memory in each sensor
-    void setUserData(const uint8_t* deviceAddress, int16_t data);
-    int16_t getUserData(const uint8_t* deviceAddress);
+// If no alarm is set there will be 16 bits available of memory in each sensor
+void setUserData(const uint8_t* deviceAddress, int16_t data);
+int16_t getUserData(const uint8_t* deviceAddress);
 ```
 
 ### Parasite mode
@@ -382,23 +385,23 @@ Can't be polled in async mode since data-bus is powering the sensor
 Parasite example:
 
 ```
-    // Disables busy wait during conversion
-    // (all requests will be async, turn on before a request that must be sync)
-    sensors.setWaitForConversion(false);
+// Disables busy wait during conversion
+// (all requests will be async, turn on before a request that must be sync)
+sensors.setWaitForConversion(false);
 
-    // Async start measurement, but data isn't ready yet
-    sensors.requestTemperatures();
+// Async start measurement, but data isn't ready yet
+sensors.requestTemperatures();
 
-    // Each conversion resolution takes a different ammount of time to complete
-    uint16_t until = millis() + millisToWaitForConversion(sensors.getResolution());
+// Each conversion resolution takes a different ammount of time to complete
+uint16_t until = millis() + millisToWaitForConversion(sensors.getResolution());
 
-    /* Some expensive work to do before the reading */
+/* Some expensive work to do before the reading */
 
-    // Busy block for the missing time (instead of busy blocking for the entire time)
-    while (millis() <= until);
+// Busy block for the missing time (instead of busy blocking for the entire time)
+while (millis() <= until);
 
-    Serial.print("Temperature in celsius: ");
-    Serial.println(sensors.getTempC(device_address));
+Serial.print("Temperature in celsius: ");
+Serial.println(sensors.getTempC(device_address));
 ```
 
 **If needed you may avoid blocking at all by constantly checking if the necessary time has passed while doing other things (hardware async sometimes is ugly)**
@@ -422,22 +425,22 @@ Each sensor has a unique, non-changeable, 64-bits address
 Counting devices using OneWire bus
 
 ```
-    Serial.print("Numbers of devices using wire: ");
-    Serial.println(sensors.getDeviceCount(), DEC);
+Serial.print("Numbers of devices using wire: ");
+Serial.println(sensors.getDeviceCount(), DEC);
 
-    // Sensors DS18B20, DS18S20, DS1820, DS1822, DS1825, DS20EA00, MAX31820 accepted
-    Serial.print("Numbers of devices of a 'validFamily' using wire: ");
-    Serial.println(sensors.getDS18Count(), DEC);
+// Sensors DS18B20, DS18S20, DS1820, DS1822, DS1825, DS20EA00, MAX31820 accepted
+Serial.print("Numbers of devices of a 'validFamily' using wire: ");
+Serial.println(sensors.getDS18Count(), DEC);
 ```
 
 Finding out if bus needs parasite power (if at least one sensor needs it)
 
 ```
-    Serial.print("Needs parasite power in OneWire bus: ");
-    Serial.println(sensors.readPowerSupply());
+Serial.print("Needs parasite power in OneWire bus: ");
+Serial.println(sensors.readPowerSupply());
 
-    Serial.print("Cached data returned by sensors.readPowerSupply(): ");
-    Serial.println(sensors.isParasitePowerMode());
+Serial.print("Cached data returned by sensors.readPowerSupply(): ");
+Serial.println(sensors.isParasitePowerMode());
 ```
 
 Manage the resolution of every device in the bus
@@ -449,15 +452,15 @@ Manage the resolution of every device in the bus
 1. Setting:
 
 ```
-    // Very slow, since it talks individually to each sensor
-    sensors.setResolution(9); // 9, 10, 11 or 12 (bits)
+// Very slow, since it talks individually to each sensor
+sensors.setResolution(9); // 9, 10, 11 or 12 (bits)
 ```
 
 2. Getting
 
 ```
-    Serial.print("Cached global resolution: ");
-    Serial.println(sensors.getResolution());
+Serial.print("Cached global resolution: ");
+Serial.println(sensors.getResolution());
 ```
 
 ### Set sensor's internal alarms (too high and too low) to be polled
@@ -471,52 +474,52 @@ If alarms are not used there will be 16 extra free bits in each sensor
 Alarm management example:
 
 ```
-    void alarm_handler(const uint8_t* deviceAddress) {
+void alarm_handler(const uint8_t* deviceAddress) {
+    Serial.print("ALARM: ");
+    Serial.print(serial.getTempC(deviceAddress));
+    Serial.println("*C (alarm_handler)");
+}
+
+void setup() {
+    // In celsius (-55 to 125*C)
+    sensors.setLowAlarmTemp(device_address, 15);
+    sensors.setHighAlarmTemp(device_address, 50);
+
+    sensors.setAlarmHandler(&alarm_handler);
+    // assert(sensors.hasAlarmHandler() == true);
+
+    // get*AlarmTemp will return DEVICE_DISCONECTED if sensor is not found
+    // Alarm temp: low = 15, high = 50
+    Serial.print("Alarm temp: low = ");
+    Serial.print(sensors.getLowAlarmTemp(device_address));
+
+    Serial.print(", high = ");
+    Serial.println(sensors.getHighAlarmTemp(device_address));
+}
+
+void loop() {
+    sensors.requestTemperatures();
+
+    // Uses data from last 'requestTemperatures' to check if there is an alarm
+    if (sensors.hasAlarm(device_address)) {
         Serial.print("ALARM: ");
         Serial.print(serial.getTempC(deviceAddress));
-        Serial.println("*C (alarm_handler)");
+        Serial.println("*C (hasAlarm));
     }
 
-    void setup() {
-        // In celsius (-55 to 125*C)
-        sensors.setLowAlarmTemp(device_address, 15);
-        sensors.setHighAlarmTemp(device_address, 50);
-
-        sensors.setAlarmHandler(&alarm_handler);
-        // assert(sensors.hasAlarmHandler() == true);
-
-        // get*AlarmTemp will return DEVICE_DISCONECTED if sensor is not found
-        // Alarm temp: low = 15, high = 50
-        Serial.print("Alarm temp: low = ");
-        Serial.print(sensors.getLowAlarmTemp(device_address));
-
-        Serial.print(", high = ");
-        Serial.println(sensors.getHighAlarmTemp(device_address));
-    }
-
-    void loop() {
-        sensors.requestTemperatures();
-
-        // Uses data from last 'requestTemperatures' to check if there is an alarm
-        if (sensors.hasAlarm(device_address)) {
-            Serial.print("ALARM: ");
-            Serial.print(serial.getTempC(deviceAddress));
-            Serial.println("*C (hasAlarm));
-        }
-
-        // Will call alarm_handler if there is an alarm (ask each sensor if alarm was triggered)
-        sensors.processAlarms();
-    }
+    // Will call alarm_handler if there is an alarm (ask each sensor if alarm was triggered)
+    sensors.processAlarms();
+}
 ```
 
 Internal, but exposed, methods related to alarms
 
 ```
-    // Search the wire for devices with active alarms
-    bool alarmSearch(uint8_t*);
+// Search the wire for devices with active alarms
+bool alarmSearch(uint8_t*);
 
-    // Resets internal variables used for the alarm search
-    void resetAlarmSearch(void);
+// Resets internal variables used for the alarm search
+void resetAlarmSearch(void);
 ```
 
 ### Configure temperature conversion bit resolution
@@ -528,22 +531,22 @@ D18S20 and DS1820 have fixed resolutions (9 bits)
 1. Setting:
 
 ```
-    // Set specific sensor's resolution
-    sensors.setResolution(device_address, 9);
+// Set specific sensor's resolution
+sensors.setResolution(device_address, 9);
 
-    // Set every sensor's resolution, but it's slow
-    // Talks with each sensor individually
-    sensors.setResolution(9); // 9, 10, 11 or 12 (bits)
+// Set every sensor's resolution, but it's slow
+// Talks with each sensor individually
+sensors.setResolution(9); // 9, 10, 11 or 12 (bits)
 ```
 
 2. Getting
 
 ```
-    Serial.print("Sensor's resolution: ");
-    Serial.println(sensors.getResolution(device_address));
+Serial.print("Sensor's resolution: ");
+Serial.println(sensors.getResolution(device_address));
 
-    Serial.print("Cached global resolution: ");
-    Serial.println(sensors.getResolution());
+Serial.print("Cached global resolution: ");
+Serial.println(sensors.getResolution());
 ```
 
 ### Asyncronously measure the temperature
@@ -561,37 +564,37 @@ Sensors in parasite mode can't be polled, wait the minimum necessary ammount of 
 Async example:
 
 ```
-    #include<OneWire.h>
-    #include "DallasTemperature.h"
+#include<OneWire.h>
+#include "DallasTemperature.h"
 
-    #define ONE_WIRE_BUS 3 // OneWire pin (digital data pin)
-    OneWire oneWire(ONE_WIRE_BUS);
-    DallasTemperature sensors(&oneWire);
+#define ONE_WIRE_BUS 3 // OneWire pin (digital data pin)
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature sensors(&oneWire);
 
-    void setup() {
-        Serial.begin(9600);
+void setup() {
+    Serial.begin(9600);
 
-        sensors.begin();
+    sensors.begin();
 
-        // Makes every requestTemperatures async (should be re-enabled for a sync requestTemperatures)
-        sensors.setWaitForConversion(false);
-    }
+    // Makes every requestTemperatures async (should be re-enabled for a sync requestTemperatures)
+    sensors.setWaitForConversion(false);
+}
 
-    void loop() {
-        sensors.requestTemperatures();
+void loop() {
+    sensors.requestTemperatures();
 
-        // Each conversion resolution takes a different ammount of time to complete
-        uint16_t until = millis() + millisToWaitForConversion(sensors.getResolution());
+    // Each conversion resolution takes a different ammount of time to complete
+    uint16_t until = millis() + millisToWaitForConversion(sensors.getResolution());
 
-        /* Some expensive work to do before the reading */
+    /* Some expensive work to do before the reading */
 
-        // Poll first sensor in bus to check if conversion is complete
-        // Other sensors may not be ready (is that a problem with many sensors?)
-        while (!sensors.isConversionComplete() && millis() <= until);
+    // Poll first sensor in bus to check if conversion is complete
+    // Other sensors may not be ready (is that a problem with many sensors?)
+    while (!sensors.isConversionComplete() && millis() <= until);
 
-        Serial.print("Temperature in celsius: ");
-        Serial.println(sensors.getTempCByIndex(0);
-    }
+    Serial.print("Temperature in celsius: ");
+    Serial.println(sensors.getTempCByIndex(0);
+}
 ```
 
 ### Store 16 bits of data in the sensor (can't be used if sensor's alarm is enabled)
@@ -601,15 +604,15 @@ Use sensor's alarm configuration storage
 DS18S20 and DS1820 don't have this registers
 
 ```
-    // Stores uint16_t in specified device
-    // Doesn't assure it's written (if something happens it may not write)
-    // sensors.setUserDataByIndex(0, 200);
-    sensors.setUserData(device_address, 200);
+// Stores uint16_t in specified device
+// Doesn't assure it's written (if something happens it may not write)
+// sensors.setUserDataByIndex(0, 200);
+sensors.setUserData(device_address, 200);
 
-    // User data: 200
-    Serial.print("User data: ");
-    Serial.println(sensors.getUserData(device_address));
-    // Serial.println(sensors.getUserDataByIndex(0));
+// User data: 200
+Serial.print("User data: ");
+Serial.println(sensors.getUserData(device_address));
+// Serial.println(sensors.getUserDataByIndex(0));
 ```
 
 ### Extra: Dynamically search every digital pin for a OneWire bus
@@ -617,72 +620,72 @@ DS18S20 and DS1820 don't have this registers
 **Not really recommended, but possible**
 
 ```
-    #include<OneWire.h>
-    #include "DallasTemperature.h"
+#include<OneWire.h>
+#include "DallasTemperature.h"
 
-    #define MAX_PORTS 20
+#define MAX_PORTS 20
 
-    uint8_t buses = 0;
-    uint8_t pins[MAX_PORTS] = {};
-    DallasTemperature sensors_buses[MAX_PORTS] = {};
-    uint8_t devices_count[MAX_PORTS] = {};
+uint8_t buses = 0;
+uint8_t pins[MAX_PORTS] = {};
+DallasTemperature sensors_buses[MAX_PORTS] = {};
+uint8_t devices_count[MAX_PORTS] = {};
 
-    void setup() {
-        Serial.begin(9600);
+void setup() {
+    Serial.begin(9600);
 
-        for (uint8_t pin = 0; pin < MAX_DEVICES; ++pin) {
-            OneWire ow(pin);
-            uint8_t address[8];
+    for (uint8_t pin = 0; pin < MAX_DEVICES; ++pin) {
+        OneWire ow(pin);
+        uint8_t address[8];
 
-            // If a OneWire device is found its 'address' is filled with its address
-            // If no device is found returns false
-            if (ow.search(address)) {
-                pins[buses] = pin;
-                sensors_buses[buses] = DallasTemperature(ow);
-                devices_count[buses] = sensors_buses[buses].getDeviceCount();
-                ++buses;
-            }
+        // If a OneWire device is found its 'address' is filled with its address
+        // If no device is found returns false
+        if (ow.search(address)) {
+            pins[buses] = pin;
+            sensors_buses[buses] = DallasTemperature(ow);
+            devices_count[buses] = sensors_buses[buses].getDeviceCount();
+            ++buses;
         }
     }
+}
 
-    void loop() {
-        // In async mode you may request the temperatures for each bus before, in another loop
-        // And wait the necessary time before reading, instead of blocking completely for each bus
+void loop() {
+    // In async mode you may request the temperatures for each bus before, in another loop
+    // And wait the necessary time before reading, instead of blocking completely for each bus
 
-        for (uint8_t bus = 0; bus < buses; ++index) {
-            // Start the temperature measurement in every sensor conenected to this OneWire bus
-            // By default it blocks until this bus temperatures are ready to be read
-            sensors_buses[bus].requestTemperatures();
+    for (uint8_t bus = 0; bus < buses; ++index) {
+        // Start the temperature measurement in every sensor conenected to this OneWire bus
+        // By default it blocks until this bus temperatures are ready to be read
+        sensors_buses[bus].requestTemperatures();
 
-            Serial.print("Sensors for pin ");
-            Serial.print(pins[bus]);
+        Serial.print("Sensors for pin ");
+        Serial.print(pins[bus]);
+        Serial.println(":");
+
+        for (uint8_t device = 0; device < devices_count[bus]; ++device) {
+            Serial.print("  Sensor ");
+            Serial.println(device);
             Serial.println(":");
 
-            for (uint8_t device = 0; device < devices_count[bus]; ++device) {
-                Serial.print("  Sensor ");
-                Serial.println(device);
-                Serial.println(":");
+            // Very slow, should get temp by address
+            temperature_celsius = sensors.getTempCByIndex(device);
+            temperature_fahreinheit = sensors.getTempFByIndex(device);
 
-                // Very slow, should get temp by address
-                temperature_celsius = sensors.getTempCByIndex(device);
-                temperature_fahreinheit = sensors.getTempFByIndex(device);
-
-                Serial.print("    Temperature: ");
-                Serial.print(temperature_celsius);
-                Serial.print(" *C, ");
-                Serial.print(temperature_fahreinheit);
-                Serial.println(" *F");
-                Serial.println("-----------------------");
-            }
+            Serial.print("    Temperature: ");
+            Serial.print(temperature_celsius);
+            Serial.print(" *C, ");
+            Serial.print(temperature_fahreinheit);
+            Serial.println(" *F");
+            Serial.println("-----------------------");
         }
     }
+}
 ```
 
 ## 4 - Soil resistivity
 
-- FC28 *Analog Sensor* + LM393 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/doc/datasheets/LM393.pdf)
+- FC28 *Analog Sensor* + LM393 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/docs/datasheets/LM393.pdf)
 
-![Image of FC28 with LM393](https://raw.githubusercontent.com/internet-of-plants/embedded/master/doc/images/models/FC28+LM393.png)
+![Image of FC28 with LM393](https://raw.githubusercontent.com/internet-of-plants/embedded/master/docs/images/models/FC28+LM393.png)
 
 ### Ports
 
@@ -709,50 +712,50 @@ DS18S20 and DS1820 don't have this registers
 
 *Arduino*
 
--**Analogic (A0 to arduino's analogic port)** ![LM383 analog wiring](https://raw.githubusercontent.com/internet-of-plants/embedded/master/doc/images/wiring/FC28+LM383-analog.png)
+-**Analogic (A0 to arduino's analogic port)** ![LM383 analog wiring](https://raw.githubusercontent.com/internet-of-plants/embedded/master/docs/images/wiring/FC28+LM383-analog.png)
 
--**Digital (D0 to arduino's digital port)** ![LM383 digital wiring](https://raw.githubusercontent.com/internet-of-plants/embedded/master/doc/images/wiring/FC28+LM383-digital.png)
+-**Digital (D0 to arduino's digital port)** ![LM383 digital wiring](https://raw.githubusercontent.com/internet-of-plants/embedded/master/docs/images/wiring/FC28+LM383-digital.png)
 
 ### Source Code
 
  Download the [OneWire](https://github.com/PaulStoffregen/OneWire) library and [DallasTemperature](https://github.com/milesburton/Arduino-Temperature-Control-Library) add [it to your Arduino IDE](https://www.arduino.cc/en/Hacking/Libraries)
 
 ```
-    #include "OneWire.h"
-    #include "DallasTemperature.h"
+#include "OneWire.h"
+#include "DallasTemperature.h"
 
-    #define ONE_WIRE_BUS 3 // OneWire pin (digital data pin)
+#define ONE_WIRE_BUS 3 // OneWire pin (digital data pin)
 
-    OneWire one_wire(ONE_WIRE_BUS);
+OneWire one_wire(ONE_WIRE_BUS);
 
-    // More than one sensor can be connected to the same pin
-    DallasTemperature sensors(&one_wire);
+// More than one sensor can be connected to the same pin
+DallasTemperature sensors(&one_wire);
 
-    float temperature_celsius = 0;
-    float temperature_fahreinheit = 0;
+float temperature_celsius = 0;
+float temperature_fahreinheit = 0;
 
-    void setup() {
-        Serial.begin(9600);
+void setup() {
+    Serial.begin(9600);
 
-        sensors.begin();
-    }
+    sensors.begin();
+}
 
-    void loop() {
-        // Start temperature measurement in every sensor conenected to the OneWire bus
-        // By default it blocks until temperature is ready to be read
-        sensors.requestTemperatures();
+void loop() {
+    // Start temperature measurement in every sensor conenected to the OneWire bus
+    // By default it blocks until temperature is ready to be read
+    sensors.requestTemperatures();
 
-        // Since there could be more than one sensor using the bus we need to access them by index (or address - recommended)
-        temperature_celsius = sensors.getTempCByIndex(0);
-        temperature_fahreinheit = sensors.getTempFByIndex(0);
+    // Since there could be more than one sensor using the bus we need to access them by index (or address - recommended)
+    temperature_celsius = sensors.getTempCByIndex(0);
+    temperature_fahreinheit = sensors.getTempFByIndex(0);
 
-        Serial.print("Temperature: ");
-        Serial.print(temperature_celsius);
-        Serial.print(" *C, ");
-        Serial.print(temperature_fahreinheit);
-        Serial.println(" *F");
-        Serial.println("-----------------------");
-    }
+    Serial.print("Temperature: ");
+    Serial.print(temperature_celsius);
+    Serial.print(" *C, ");
+    Serial.print(temperature_fahreinheit);
+    Serial.println(" *F");
+    Serial.println("-----------------------");
+}
 ```
 
 ### Advanced Features
@@ -772,9 +775,9 @@ Indexes are non-unique and depend on the context
 
 ## 6 - Clock
 
-- DS1302 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/doc/datasheets/DS1302.pdf)
+- DS1302 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/docs/datasheets/DS1302.pdf)
 
-![Images of the DS1302](https://raw.githubusercontent.com/internet-of-plants/embedded/master/doc/images/models/DS1302.png)
+![Images of the DS1302](https://raw.githubusercontent.com/internet-of-plants/embedded/master/docs/images/models/DS1302.png)
 
 **Sometimes this model comes with problems in the internal crystal and the voltage**
 
@@ -814,6 +817,6 @@ Other resources:
 
 *Arduino*
 
-![DS1302 wiring](https://raw.githubusercontent.com/internet-of-plants/embedded/master/doc/images/wiring/DS1302.png)
+![DS1302 wiring](https://raw.githubusercontent.com/internet-of-plants/embedded/master/docs/images/wiring/DS1302.png)
 
 ### Source Code
