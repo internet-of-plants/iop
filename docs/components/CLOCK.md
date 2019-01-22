@@ -1,8 +1,8 @@
 # Clock
 
-- DS1302 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/docs/datasheets/DS1302.pdf)
+- DS1302 [*datasheet*](/docs/datasheets/DS1302.pdf)
 
-![Images of the DS1302](https://raw.githubusercontent.com/internet-of-plants/embedded/master/docs/images/models/DS1302.png)
+![Images of the DS1302](/docs/images/models/DS1302.png)
 
 **Sometimes this model comes with problems in the internal crystal and voltage**
 
@@ -48,7 +48,7 @@ Other resources:
 
 *Arduino*
 
-![DS1302 wiring](https://raw.githubusercontent.com/internet-of-plants/embedded/master/docs/images/wiring/DS1302.png)
+![DS1302 wiring](/docs/images/wiring/DS1302.png)
 
 ## Source Code
 

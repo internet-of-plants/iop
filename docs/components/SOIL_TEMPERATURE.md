@@ -1,34 +1,34 @@
 # 3 - Soil temperature
 
-TODO: [error values](https://github.com/openenergymonitor/learn/blob/master/view/electricity-monitoring/temperature/DS18B20-temperature-sensing.md#software), [network design](https://github.com/openenergymonitor/learn/blob/master/view/electricity-monitoring/temperature/DS18B20-temperature-sensing.md#notes-and-further-reading)
+TODO: [error values](https://github.com/openenergymonitor/learn/master/view/electricity-monitoring/temperature/DS18B20-temperature-sensing.md#software), [network design](https://github.com/openenergymonitor/learn/master/view/electricity-monitoring/temperature/DS18B20-temperature-sensing.md#notes-and-further-reading)
 
-- DS18B20 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/docs/datasheets/DS18B20.pdf)
-- DS18S20 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/docs/datasheets/DS18S20.pdf)
-- DS1820 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/docs/datasheets/DS1820.pdf)
-- DS1825 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/docs/datasheets/DS1825.pdf)
+- DS18B20 [*datasheet*](/docs/datasheets/DS18B20.pdf)
+- DS18S20 [*datasheet*](/docs/datasheets/DS18S20.pdf)
+- DS1820 [*datasheet*](/docs/datasheets/DS1820.pdf)
+- DS1825 [*datasheet*](/docs/datasheets/DS1825.pdf)
 
    Temperature of the above: -55ºC to 125ºC, accuracy +-0.5ºC
 
-- DS28EA00 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/docs/datasheets/DS28EA00.pdf)
+- DS28EA00 [*datasheet*](/docs/datasheets/DS28EA00.pdf)
 
    Temperature: -40ºC to 85ºC
 
-- DS1822 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/docs/datasheets/DS1822.pdf)
-- MAX31820 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/docs/datasheets/MAX31820.pdf)
+- DS1822 [*datasheet*](/docs/datasheets/DS1822.pdf)
+- MAX31820 [*datasheet*](/docs/datasheets/MAX31820.pdf)
 
    Temperature of the above: -55ºC to 125ºC, accuracy +-2ºC
 
-![Images of the 3 types](https://raw.githubusercontent.com/internet-of-plants/embedded/master/docs/images/models/DS18.png)
+![Images of the 3 types](/docs/images/models/DS18.png)
 
 *Models may vary between these three types (waterproof case may also vary)*
 
 Other resources:
 
-- [DallasTemperature.h lib docs](https://github.com/internet-of-plants/embedded/blob/master/docs/libs/DS18_FAMILY.md)
-- [OneWire.h lib docs](https://github.com/internet-of-plants/embedded/blob/master/docs/libs/DS18_FAMILY.md)
+- [DallasTemperature.h lib docs](/docs/libs/DS18_FAMILY.md)
+- [OneWire.h lib docs](/docs/libs/DS18_FAMILY.md)
 - https://playground.arduino.cc/Learning/OneWire
-- https://github.com/openenergymonitor/learn/blob/master/view/electricity-monitoring/temperature/DS18B20-temperature-sensing.md
-- https://github.com/openenergymonitor/learn/blob/master/view/electricity-monitoring/temperature/DS18B20-temperature-sensing-2.md
+- https://github.com/openenergymonitor/learn/master/view/electricity-monitoring/temperature/DS18B20-temperature-sensing.md
+- https://github.com/openenergymonitor/learn/master/view/electricity-monitoring/temperature/DS18B20-temperature-sensing-2.md
 
 ## Ports
 
@@ -46,7 +46,7 @@ Other resources:
 
 *Arduino*
 
-![DS18B20 wiring in normal and parasite mode](https://raw.githubusercontent.com/internet-of-plants/embedded/master/docs/images/wiring/DS18.png)
+![DS18B20 wiring in normal and parasite mode](/docs/images/wiring/DS18.png)
 
 ## Information
 

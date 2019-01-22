@@ -1,8 +1,8 @@
 # Soil resistivity
 
-- FC28 *Analog Sensor* + LM393 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/docs/datasheets/LM393.pdf)
+- FC28 *Analog Sensor* + LM393 [*datasheet*](/docs/datasheets/LM393.pdf)
 
-![Image of FC28 with LM393](https://raw.githubusercontent.com/internet-of-plants/embedded/master/docs/images/models/FC28+LM393.png)
+![Image of FC28 with LM393](/docs/images/models/FC28+LM393.png)
 
 ## Ports
 
@@ -29,9 +29,9 @@
 
 *Arduino*
 
--**Analogic (A0 to arduino's analogic port)** ![LM393 analog wiring](https://raw.githubusercontent.com/internet-of-plants/embedded/master/docs/images/wiring/FC28+LM393-analog.png)
+-**Analogic (A0 to arduino's analogic port)** ![LM393 analog wiring](/docs/images/wiring/FC28+LM393-analog.png)
 
--**Digital (D0 to arduino's digital port)** ![LM393 digital wiring](https://raw.githubusercontent.com/internet-of-plants/embedded/master/docs/images/wiring/FC28+LM393-digital.png)
+-**Digital (D0 to arduino's digital port)** ![LM393 digital wiring](/docs/images/wiring/FC28+LM393-digital.png)
 
 ## Source Code
 

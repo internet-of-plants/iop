@@ -2,12 +2,12 @@
 
 ## Components
 
-1. [Air temperature](https://github.com/internet-of-plants/embedded/tree/master/docs/components/AIR_TEMPERATURE_AND_HUMIDITY.md)
-2. [Air humidity](https://github.com/internet-of-plants/embedded/tree/master/docs/components/AIR_TEMPERATURE_AND_HUMIDITY.md)
-3. [Soil temperature](https://github.com/internet-of-plants/embedded/tree/master/docs/components/SOIL_TEMPERATURE.md)
-4. [Soil resistivity](https://github.com/internet-of-plants/embedded/tree/master/docs/components/SOIL_RESISTIVITY.md)
+1. [Air temperature](/docs/components/AIR_TEMPERATURE_AND_HUMIDITY.md)
+2. [Air humidity](/docs/components/AIR_TEMPERATURE_AND_HUMIDITY.md)
+3. [Soil temperature](/docs/components/SOIL_TEMPERATURE.md)
+4. [Soil resistivity](/docs/components/SOIL_RESISTIVITY.md)
 5. Detect Light
-6. [Clock](https://github.com/internet-of-plants/embedded/tree/master/docs/components/CLOCK.md)
+6. [Clock](/docs/components/CLOCK.md)
 
 ## Libraries
 - [OneWire](https://github.com/PaulStoffregen/OneWire)
@@ -18,5 +18,5 @@
 
 ## Other Docs
 
-- [Datasheets](https://github.com/internet-of-plants/embedded/tree/master/docs/datasheets)
-- [Libraries API](https://github.com/internet-of-plants/embedded/tree/master/docs/advanced)
+- [Datasheets](/docs/datasheets)
+- [Libraries API](/docs/libs)
