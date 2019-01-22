@@ -1,149 +1,4 @@
-# Components
-
-1. [Air temperature](#1-2---air-temperature-and-humidity)
-2. [Air humidity](#1-2---air-temperature-and-humidity)
-3. [Soil temperature](#3---soil-temperature)
-4. [Soil resistivity](#4---soil-resistivity)
-5. [Light](#5---light)
-6. [Clock](#6---clock)
-
-## 1, 2 - Air temperature and humidity
-
-- DHT11 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/docs/datasheets/DHT11.pdf)
-
-   Humidity: 20% to 90%, accuracy +-4% (max +-5%)
-
-   Temperature: 0ºC to 50ºC, accuracy +-2ºC
-
-- DHT21 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/docs/datasheets/DHT21%20(HM2301).pdf) ([*AM2301*](https://github.com/internet-of-plants/embedded/raw/master/docs/datasheets/AM2301.pdf))
-
-   Humidity: 0% to 100%, accuracy +-3% (max +-5%)
-
-   Temperature: -40ºC to 80ºC, accuracy +-1ºC
-
-- DHT22 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/docs/datasheets/DHT22%20(AM2303).pdf) ([*AM2302*](https://github.com/internet-of-plants/embedded/raw/master/docs/datasheets/AM2302.pdf))
-
-   Humidity: 0% to 100%, accuracy +-2% (max +-5%)
-
-   Temperature: -40ºC to 125ºC, accuracy +-0.2ºC
-
-![Images of the DHT11, DHT21 and DHT22](https://raw.githubusercontent.com/internet-of-plants/embedded/master/docs/images/models/DHT11_DHT21_DHT22.png)
-
-Other resources:
-
-- [DHT.h lib docs](https://github.com/internet-of-plants/embedded/blob/master/docs/libs/DHT_FAMILY.md)
-- https://playground.arduino.cc/Main/DHTLib
-
-### Ports
-
-1. VCC (3.3V to 5.5V power)
-
-    *Sometimes 3.3V is not enough*
-
-2. Digital data (DAT)
-
-    Needs to be connected to VCC with a 4.7KOhm resistor between (medium-strength pull up)
-
-    *Some models come with a built-in pull up resistor, so you don't need to put another, but it can't hurt*
-
-3. Unused
-
-    *Some models don't have this port exposed*
-
-4. Ground (GND)
-
-**Some models don't follow this pin order, check the datasheet, we have one, but it has the order printed in it ([photo](https://raw.githubusercontent.com/internet-of-plants/internet\_of\_plants/master/docs/images/wiring/DHT%20alternative.png))**
-
-### Wiring
-
-*Arduino*
-
-![DHT wiring](https://raw.githubusercontent.com/internet-of-plants/embedded/master/docs/images/wiring/DHT.png)
-
-### Information
-
-- 2 seconds is the minimum interval between measurements (for DHT11 it's 1 second)
-
-- Measurements may be unstable for up to 1 second after powering-up (a 100nF capacitor between VCC and GND solves that)
-
-- Cables longer than 20 meters need a lower pull-up resistor, 2KOhm have been reported to work
-
-   *More information at:* ***https://www.maximintegrated.com/en/app-notes/index.mvp/id/148***
-
-### Source Code
-
-Download the [DHT](https://github.com/adafruit/DHT-sensor-library) library and [add it to your Arduino IDE](https://www.arduino.cc/en/Hacking/Libraries)
-
-More examples at: https://github.com/adafruit/DHT-sensor-library/tree/master/examples/DHTtester
-
-```
-#include "DHT.h"
-
-#define DHT_PIN 2      // Digital pin connected to data
-#define DHT_TYPE DHT11 // allow DHT11, DHT21, DHT22 (use DHT22 for AM2302) and AM2301
-
-DHT dht(DHT_PIN, DHT_TYPE);
-
-float temperature_celsius = 0;
-float temperature_fahreinheit = 0;
-
-float humidity_percentage = 0;
-
-float heat_index_celsius = 0;
-float heat_index_fahreinheit = 0;
-
-void setup() {
-    Serial.begin(9600);
-
-    dht.begin();
-}
-
-void loop() {
-    temperature_celsius = dht.readTemperature();
-    temperature_fahreinheit = dht.readTemperature(/*isFahreinheit*/ true);
-
-    humidity_percentage = dht.readHumidity();
-
-    if (isnan(temperature_celsius) || isnan(temperature_fahreinheit) || isnan(humidity_percentage)) {
-        Serial.println("Failed to read from DHT sensor!");
-        return;
-    }
-
-    heat_index_celsius = dht.computeHeatIndex(temperature_celsius, humidity, /*isFahreinheit*/ false);
-    heat_index_fahreinheit = dht.computeHeatIndex(temperature_fahreinheit, humidity);
-
-    Serial.print("Humidity: ");
-    Serial.println(humidity);
-    Serial.print("Temperature: ");
-    Serial.print(temperature_celsius);
-    Serial.print(" *C, ");
-    Serial.print(temperature_fahreinheit);
-    Serial.println(" *F");
-    Serial.print("Heat index: ");
-    Serial.print(heat_index_celsius);
-    Serial.print(" *C, ");
-    Serial.print(heat_index_fahreinheit);
-    Serial.println(" *F");
-    Serial.println("-----------------------");
-
-    // Most sensors need a 2 seconds delay, DHT11 allows 1 second
-    // DHT.h library "forces" a 2 seconds delay by caching data
-    // (you can bypass it, but be careful)
-    delay(2000);
-}
-
-Other methods that may help:
-
-// If force is true the 2 seconds cache is bypassed
-// DHT11 supports a 1 second interval
-// But in general be careful when forcing the read
-float readTemperature(bool force);
-
-float convertCtoF(float celsius);
-float convertFtoC(float fahreinheinheit);
-```
-
-## 3 - Soil temperature
+# 3 - Soil temperature
 
 TODO: [error values](https://github.com/openenergymonitor/learn/blob/master/view/electricity-monitoring/temperature/DS18B20-temperature-sensing.md#software), [network design](https://github.com/openenergymonitor/learn/blob/master/view/electricity-monitoring/temperature/DS18B20-temperature-sensing.md#notes-and-further-reading)
 
@@ -175,7 +30,7 @@ Other resources:
 - https://github.com/openenergymonitor/learn/blob/master/view/electricity-monitoring/temperature/DS18B20-temperature-sensing.md
 - https://github.com/openenergymonitor/learn/blob/master/view/electricity-monitoring/temperature/DS18B20-temperature-sensing-2.md
 
-### Ports
+## Ports
 
 1. VCC/VDD (3.3V to 5.5V power) - **Optional**
 
@@ -187,13 +42,13 @@ Other resources:
 
 3. Ground (GND)
 
-### Wiring
+## Wiring
 
 *Arduino*
 
 ![DS18B20 wiring in normal and parasite mode](https://raw.githubusercontent.com/internet-of-plants/embedded/master/docs/images/wiring/DS18.png)
 
-### Information
+## Information
 
 **More information in Advanced section**
 
@@ -219,7 +74,7 @@ Other resources:
 
    DS18S20 and DS1820 don't have alarms
 
-### Source Code
+## Source Code
 
  Download the [OneWire](https://github.com/PaulStoffregen/OneWire) library and [DallasTemperature](https://github.com/milesburton/Arduino-Temperature-Control-Library) add [it to your Arduino IDE](https://www.arduino.cc/en/Hacking/Libraries)
 
@@ -680,143 +535,3 @@ void loop() {
     }
 }
 ```
-
-## 4 - Soil resistivity
-
-- FC28 *Analog Sensor* + LM393 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/docs/datasheets/LM393.pdf)
-
-![Image of FC28 with LM393](https://raw.githubusercontent.com/internet-of-plants/embedded/master/docs/images/models/FC28+LM393.png)
-
-### Ports
-
-*The port ordering is usually written in LM393*
-
-1. A0 - Analogic data
-
-2. D0 - Digital data
-
-3. Ground (GND)
-
-4. VCC (3.3V to 5V power)
-
-### Information
-
-- Sensor is made of 2 electrodes that generate analogic soil resistivity data
-
-- Analogic data is the raw sensor's measurement
-
-- Digital data is HIGH if value is above threshold specified in LM383's potentiometer
-
-
-### Wiring
-
-*Arduino*
-
--**Analogic (A0 to arduino's analogic port)** ![LM383 analog wiring](https://raw.githubusercontent.com/internet-of-plants/embedded/master/docs/images/wiring/FC28+LM383-analog.png)
-
--**Digital (D0 to arduino's digital port)** ![LM383 digital wiring](https://raw.githubusercontent.com/internet-of-plants/embedded/master/docs/images/wiring/FC28+LM383-digital.png)
-
-### Source Code
-
- Download the [OneWire](https://github.com/PaulStoffregen/OneWire) library and [DallasTemperature](https://github.com/milesburton/Arduino-Temperature-Control-Library) add [it to your Arduino IDE](https://www.arduino.cc/en/Hacking/Libraries)
-
-```
-#include "OneWire.h"
-#include "DallasTemperature.h"
-
-#define ONE_WIRE_BUS 3 // OneWire pin (digital data pin)
-
-OneWire one_wire(ONE_WIRE_BUS);
-
-// More than one sensor can be connected to the same pin
-DallasTemperature sensors(&one_wire);
-
-float temperature_celsius = 0;
-float temperature_fahreinheit = 0;
-
-void setup() {
-    Serial.begin(9600);
-
-    sensors.begin();
-}
-
-void loop() {
-    // Start temperature measurement in every sensor conenected to the OneWire bus
-    // By default it blocks until temperature is ready to be read
-    sensors.requestTemperatures();
-
-    // Since there could be more than one sensor using the bus we need to access them by index (or address - recommended)
-    temperature_celsius = sensors.getTempCByIndex(0);
-    temperature_fahreinheit = sensors.getTempFByIndex(0);
-
-    Serial.print("Temperature: ");
-    Serial.print(temperature_celsius);
-    Serial.print(" *C, ");
-    Serial.print(temperature_fahreinheit);
-    Serial.println(" *F");
-    Serial.println("-----------------------");
-}
-```
-
-### Advanced Features
-
-1. [Reading temperature by sensor's index is slow and not recommended, read by address](#reading-temperature-by-sensors-index-is-slow-and-not-recommended-read-by-address)
-2. [Parasite mode - Arduino can provide the sensor with energy instead of using a VCC wire](#parasite-mode)
-3. [Plug many sensors in the same digital pin because of the OneWire bus protocol](#use-one-digital-pin-to-manage-up-to-127-sensors)
-4. [Set sensor's internal alarms (too high and too low) to be polled](#set-sensors-internal-alarms-too-high-and-too-low-to-be-polled)
-5. [Change the sensor's temperature bit resolution (9, 10, 11 or 12 bits)](#configure-temperature-conversion-bit-resolution)
-6. [Asynchronously measure the temperature, to read later](#asyncronously-measure-the-temperature)
-7. [Store 16 bits of data in the sensor (can't be used if sensor's alarm is enabled)](#store-16-bits-of-data-in-the-sensor-cant-be-used-if-sensors-alarm-is-enabled)
-8. [Extra: Dynamically search every digital pin for a OneWire bus](#extra-dynamically-search-every-digital-pin-for-a-onewire-bus)
-
-### Reading temperature by sensor's index is slow and not recommended, read by address
-
-Indexes are non-unique and depend on the context
-
-## 6 - Clock
-
-- DS1302 [*datasheet*](https://github.com/internet-of-plants/embedded/raw/master/docs/datasheets/DS1302.pdf)
-
-![Images of the DS1302](https://raw.githubusercontent.com/internet-of-plants/embedded/master/docs/images/models/DS1302.png)
-
-**Sometimes this model comes with problems in the internal crystal and the voltage**
-
-- DS3231 is more reliable
-
-Other resources:
-
-- https://playground.arduino.cc/Main/DS1302
-
-### Ports
-
-1. VCC (2V to 5.5V power)
-
-2. Ground (GND)
-
-3. Digital Clock (CLK)
-
-4. Digital data (DTA)
-
-5. Reset (RST)
-
-### Information
-
-- Has 12 and 24 hours mode
-
-- Year: 2 digits, 0 is 2000, max (99) is 2099
-
-- Takes months with less than 31 days into compensation
-
-- Leap-Year compensation (for the valid years)
-
-- Does not use Daylight Saving Time
-
-- Has 31 bytes of general purpose volatile RAM (it will be lost when the battery ends)
-
-### Wiring
-
-*Arduino*
-
-![DS1302 wiring](https://raw.githubusercontent.com/internet-of-plants/embedded/master/docs/images/wiring/DS1302.png)
-
-### Source Code

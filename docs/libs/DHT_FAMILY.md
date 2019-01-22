@@ -20,6 +20,8 @@ More information at: https://playground.arduino.cc/Main/DHTLib
 
 class DHT {
 public:
+	// The count param is currently ignored since the algorithm adapts itself dynamically
+	// Type is defined according to the DHT11/DHT21/DHT22/AM2301 macros
     DHT(uint8_t pin, uint8_t type, uint8_t count=6);
 
     // Initialize sensor
@@ -30,6 +32,8 @@ public:
     //
     // The hardware needs a interval of a minimum of 2 seconds between measurements (for DHT11 it's 1 second)
     // The cache enforces the 2 seconds limit, to override it and force the read set 'force = true'
+	//
+	// Returns NaN if the sensor's type is not valid (DHT11/DHT21/DHT22/AM2301)
     float readTemperature(bool S=false, bool force=false);
 
     // Perform convertion between Celsius and Fahrenheit data
@@ -46,8 +50,7 @@ public:
 
     // Reads humidity in percentage
     //
-    // The hardware needs a interval of a minimum of 2 seconds between measurements (for DHT11 it's 1 second)
-    // The cache enforces the 2 seconds limit, to override it and force the read set 'force = true'
+	// The force param is currently ignored (always obey cache)
     float readHumidity(bool force=false);
 
     // Read temperature and humidity from sensor
@@ -74,6 +77,8 @@ Unifies DHT with Adafruit_Sensor.h library (returning its data-structures)
 
 Repository: https://github.com/adafruit/DHT-sensor-library
 
+Repository: https://github.com/adafruit/Adafruit_Sensor
+
 Examples: https://github.com/adafruit/DHT-sensor-library/tree/master/examples
 
 More information at: https://playground.arduino.cc/Main/DHTLib
@@ -83,6 +88,9 @@ More information at: https://playground.arduino.cc/Main/DHTLib
 
 class DHT_Unified {
 public:
+	// The count param is currently ignored since the algorithm adapts itself dynamically
+	//
+	// tempSensorId and humiditySensorId are passed to sensor_t's sensor_id retrieved when calling temperature() and humidity()
     DHT_Unified(uint8_t pin, uint8_t count = 6, int32_t tempSensorId = -1, int32 humiditySensorId = -1);
 
     void begin(void);
@@ -93,6 +101,7 @@ public:
 
 class Temperature {
 public:
+	// Id is passed to sensor_t's sensor_id
     Temperature(DHT_Unified *parent, int32_t id);
 
     // Clears previous event and fill with data read from sensor
@@ -106,6 +115,7 @@ public:
 
 class Humidity {
 public:
+	// Id is passed to sensor_t's sensor_id
     Humidity(DHT_Unified *parent, int32_t id);
 
     // Clears previous event and fill with data read from sensor

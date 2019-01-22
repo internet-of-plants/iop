@@ -19,10 +19,13 @@
 
 #define LIGHT_PIN A3
 
+#define SD_PIN 4
+
 #define VOLTAGE 5.
 #define ANALOG_READ_MAX 1024
 #define ANALOG_WRITE_MAX 255
 #define LOG_FILE "plant.log"
+#define ERROR_FILE "error.log"
 
 #define CLOCK_SCLK_PIN 6
 #define CLOCK_IO_PIN 7
@@ -62,12 +65,10 @@ void setup() {
     dht.begin();
 
     pinMode(SOIL_RESISTIVITY_OUT_PIN, OUTPUT);
-    // TODO: move this to right before the reading (and actually read)
-    digitalWrite(SOIL_RESISTIVITY_OUT_PIN, HIGH);
 
-    SD.begin(4);
+    SD.begin(SD_PIN);
 
-    clock.setDS1302Time(10, 15, 0, 5, 28, 4, 2018);
+    //clock.setDS1302Time(10, 15, 0, 5, 28, 4, 2018);
 
     file = SD.open(LOG_FILE, FILE_WRITE);
 }
@@ -97,6 +98,7 @@ void read_light() {
 }
 
 void read_soil_resistivity() {
+    digitalWrite(SOIL_RESISTIVITY_OUT_PIN, HIGH);
     state.soil_resistivity = analogRead(SOIL_RESISTIVITY_IN_PIN);
 }
 
@@ -147,5 +149,5 @@ void loop() {
     write_state_csv(&file);
     write_state_csv(&Serial);
 
-    delay(1000);
+    delay(2000);
 }

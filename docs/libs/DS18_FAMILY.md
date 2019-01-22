@@ -9,7 +9,10 @@ Examples: https://github.com/milesburton/Arduino-Temperature-Control-Library/tre
 More information at: https://playground.arduino.cc/Learning/OneWire
 
 ```
-// OneWire commands
+#define DALLASTEMPLIBVERSION "3.7.9"
+
+// Addresses always have 64 bits (and are unique)
+typedef uint8_t DeviceAddress[8];
 
 // false disables all accesses to ALARM
 // Makes 16 more bits available per device
@@ -33,12 +36,16 @@ More information at: https://playground.arduino.cc/Learning/OneWire
 
 class DallasTemperature {
 public:
+	// Sets OneWire and alarm (if enabled)
     void DallasTemperature(OneWire* oneWire);
 
+	// Sets alarm (if enabled)
     void DallasTemperature(void);
+
+	// Sets OneWire internally
     void setOneWire(OneWire* oneWire);
 
-    // Initialize bus
+    // Initialize bus (searches bus for number of devices - differentiate between DS18 family and not)
     void begin(void);
 
     // Return number of devices using same bus
@@ -47,72 +54,131 @@ public:
     // Return number of devices of the family DS18xxx using same bus
     uint8_t getDS18Count(void);
 
-    // Returns true if address is valid
+    // Checks address integrity
     bool validAddress(const uint8_t* deviceAddress);
 
-    // Returns true if address is of the family of sensors the lib supports.
+    // Returns true if device is from valid family (DS18S20MODEL, DS18B20MODEL, DS1822MODEL, DS1825MODEL, DS28EA00MODEL)
     bool validFamily(const uint8_t* deviceAddress);
 
-    // Returns the address of a device by index
+    // Loads address of device selected by index to deviceAddress, returns true if device with index is found
     bool getAddress(uint8_t* deviceAddress, uint8_t index);
 
-    // Try to determine if device selected by address is connected to the bus
+    // Try to determine if device with specified address is connected to the bus
     bool isConnected(const uint8_t* deviceAddress);
 
-    // Try to determine if device selected by address is connected to the bus and is enabling stratchpad update
+    // Try to determine if device with specified address is connected to the bus
+    // And read device's scratchpad (measured temperature, alarm configuration, resolution configuration and CRC - corruption protection)
+	// Checks scratchpad integrity
     bool isConnected(const uint8_t* deviceAddress, uint8_t* scratchPad);
 
     // Read device's scratchpad (measured temperature, alarm configuration, resolution configuration and CRC - corruption protection)
+	//
+	// byte 0: temperature LSB
+	// byte 1: temperature MSB
+	// byte 2: high alarm temp
+	// byte 3: low alarm temp
+	// byte 4: DS18S20: store for crc
+	//         DS18B20 & DS1822: configuration register
+	// byte 5: internal use & crc
+	// byte 6: DS18S20: COUNT_REMAIN
+	//         DS18B20 & DS1822: store for crc
+	// byte 7: DS18S20: COUNT_PER_C
+	//         DS18B20 & DS1822: store for crc
+	// byte 8: SCRATCHPAD_CRC
     bool readScratchPad(const uint8_t* deviceAddress, uint8_t* scratchPad);
 
     // Write to device's scratchpad (measured temperature, alarm configuration, resolution configuration and CRC - corruption protection)
+	//
+	// byte 0: temperature LSB
+	// byte 1: temperature MSB
+	// byte 2: high alarm temp
+	// byte 3: low alarm temp
+	// byte 4: DS18S20: store for crc
+	//         DS18B20 & DS1822: configuration register
+	// byte 5: internal use & crc
+	// byte 6: DS18S20: COUNT_REMAIN
+	//         DS18B20 & DS1822: store for crc
+	// byte 7: DS18S20: COUNT_PER_C
+	//         DS18B20 & DS1822: store for crc
+	// byte 8: SCRATCHPAD_CRC
     void writeScratchPad(const uint8_t* deviceAddress, const uint8_t* scratchPad);
 
-    // Read device's power requirements (returns true if a sensor is in parasite mode)
+    // Read device's power requirements (returns true if sensor is in parasite mode)
     bool readPowerSupply(const uint8_t* deviceAddress);
 
-    // Get global conversion resolution (9, 10, 11 or 12 bits) taking every sensor in the bus into account (some sensors only support 12-bit resolution)
+    // Get global conversion resolution (9, 10, 11 or 12 bits)
+	// Returns cached value (since it's the biggest resolution)
     uint8_t getResolution(void);
 
-    // Set global conversion resolution to 9, 10, 11 or 12 bits
+    // Set resolution of all devices to 9, 10, 11 or 12 bits
+	// Other values are truncated to fit in range
+	//
+	// Very slow since it iterates over all devices in bus (by index)
     void setResolution(uint8_t resolution);
 
     // Returns device's conversion resolution (9, 10, 11 or 12 bits)
     uint8_t getResolution(const uint8_t* deviceAddress);
 
     // Set device's conversion resolution to 9, 10, 11 or 12 bits
+	// Other values are truncated to fit in range
+	//
+	// Global resolution is always the biggest resolution there is
+	// If its calculation is not skipped and the value is smaller than previous global resolution
+	// It iterates over all devices in bus (by index) and updates to cap smaller value at the 'resolution' specified in params
     bool setResolution(const uint8_t* deviceAddress, uint8_t resolution, bool skipGlobalBitResolutionCalculation = false);
 
-    // If wait is set it will busy block while measuring, else uses async conversion)
+    // If wait is set it will busy block while measuring, else uses async conversion) and return immediately
+	// You must ensure the needed delay has passed before reading it
+	// waitForConversion is true by default
     void setWaitForConversion(bool waitForConversion);
     bool getWaitForConversion(void);
 
-    // If check is set it will poll non-parasite sensors to check if conversion was completed, else it will busy block for the maximum ammount of time conversion may take (not exactly ideal)
+    // If check is set it will keep polling non-parasite sensors to check if conversion was completed
+	// Otherwise it will block for the maximum ammount of time a conversion may take - according to global resolution (not exactly ideal)
+	// checkForConversion is true by default
+	//
+	// Parasite mode sensors can't be polled because the bus has to be high to power it
+	// So they will always block
     void setCheckForConversion(bool checkForConversion);
     bool getCheckForConversion(void);
 
-    // Start temperature conversion in every sensors (by default blocks until conversion ends)
+    // Start temperature conversion in all sensors
+	//
+	// waitForConversion defines if it blocks (according to checkForConversion) until the end or returns immediately
+	// (and the programmer is responsible by the appropriate delay)
     void requestTemperatures(void);
 
-    // Start temperature conversion by address (by default blocks until conversion ends)
+    // Start temperature conversion by address
+	//
+	// waitForConversion defines if it blocks (according to checkForConversion) until the end or returns immediately
+	// (and the programmer is responsible by the appropriate delay)
     bool requestTemperaturesByAddress(const uint8_t* deviceAddress);
 
-    // Start temperature conversion by sensor index - slows and not recommended - (by default blocks until conversion ends)
+    // Start temperature conversion by sensor's index
+	// Has to search bus for device with index (slow)
+	//
+	// waitForConversion defines if it blocks (according to checkForConversion) until the end or returns immediately
+	// (and the programmer is responsible by the appropriate delay)
     bool requestTemperaturesByIndex(uint8_t index);
 
     // Returns temperature raw value (12 bit integer of 1/128 degrees C)
+	// On error returns DEVICE_DISCONNECTED_RAW (failed to read scratchpad)
     int16_t getTemp(const uint8_t* deviceAddress);
 
     // Returns temperature in degrees C
+	// On error returns DEVICE_DISCONNECTED_C (failed to read scratchpad)
     float getTempC(const uint8_t* deviceAddress);
 
     // Returns temperature in degrees F
+	// On error returns DEVICE_DISCONNECTED_F (failed to read scratchpad)
     float getTempF(const uint8_t* deviceAddress);
 
-    // Get temperature for device index (slow and not recommended)
+    // Get temperature in degrees C for device index (slow and not recommended)
+	// On error returns DEVICE_DISCONNECTED_C (failed to read scratchpad)
     float getTempCByIndex(uint8_t index);
 
-    // Get temperature for device index (slow and not recommended)
+    // Get temperature in degrees F for device index (slow and not recommended)
+	// On error returns DEVICE_DISCONNECTED_F (failed to read scratchpad)
     float getTempFByIndex(uint8_t index);
 
     // Returns true if at least one sensor in the bus requires parasite power
@@ -122,8 +188,13 @@ public:
     bool isConversionComplete(void);
 
     // Each conversion resolution bits (9, 10, 11 and 12 bits) has a maximum time of conversion
-    // You can call delay(millisToWaitForConversion(bitResolution)) for busy blocking (parasites can't be polled, so you have to wait)
+    // You can call delay(millisToWaitForConversion(bitResolution)) for busy blocking
+	// (parasites can't be polled, so you have to wait)
     int16_t millisToWaitForConversion(uint8_t resolution);
+
+#if REQUIRESALARM
+	// Alarm has to be polled, it's overwritten at each read
+	// They will be ignored if not polled
 
     // Sets the high alarm temperature for a device (-55*C to 125*C)
     void setHighAlarmTemp(const uint8_t* deviceAddress, int8_t temperature);
@@ -157,7 +228,8 @@ public:
 
     // Returns true if an AlarmHandler has been set
     bool hasAlarmHandler(void);
-
+#endif
+	
     // If no alarm is set there will be 16 bits available of memory in each sensor
     void setUserData(const uint8_t* deviceAddress, int16_t data);
     void setUserDataByIndex(uint8_t index, int16_t data);
@@ -176,11 +248,13 @@ public:
     // Convert from raw to Fahrenheit
     static float rawToFahrenheit(int16_t raw);
 
+#if REQUIRESNEW
     // Initialize memory area
     void* operator new (unsigned int size);
 
     // Delete memory reference
     void operator delete(void* object);
+#endif
 }
 ```
 
@@ -213,7 +287,7 @@ public:
     // OneWire reset cycle, 1 if there is a device
     // 0 if there are no devices/bus is shorted/held low for more than 250ms/something horrible happened
     uint8_t reset(void);
-    
+
     // Select a ROM in bus, you must call reset() first
     void select(const uint8_t rom[8]);
 
@@ -242,7 +316,7 @@ public:
     // Write bit to bus (leaves bus powered after)
     void write_bit(uint8_t v);
 
-    // Read a bit. Port and bit is used to cut lookup time and provide more certain timing.    
+    // Read a bit. Port and bit is used to cut lookup time and provide more certain timing.
     uint8_t read_bit(void);
 
     // Stops powering the bus
@@ -287,7 +361,7 @@ public:
     //   - The CRC is transmitted bitwise inverted
     //   - The binary representation may vary depending on the endianness of the processor
     // A starting CRC value may be provided (crc parameter)
-    uint16_t crc16(const uint8_t* input, uint16_t len, uint16_t crc = 0);        
+
 #endif
 }
 
