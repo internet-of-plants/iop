@@ -1,14 +1,23 @@
 # Internet of Plants - Embedded Software
 
+Datasheet: https://www.electrodragon.com/w/ESP-12F_ESP8266_Wifi_Board
+
 # Dependencies
 
 PlatformIO (nodemcu + arduino framework)
 
+```
+curl -fsSL https://raw.githubusercontent.com/platformio/platformio-core/master/scripts/99-platformio-udev.rules | sudo tee /etc/udev/rules.d/99-platformio-udev.rules
+sudo service udev restart
+sudo usermod -a -G dialout $USER
+sudo usermod -a -G plugdev $USER
+```
+
 # Build
 
-After cloning you must set the credentials (for now). To do that run this command:
+After cloning you must set the configurations. To do that run this command:
 
-`cp include/redentials.h.example include/credentials.h`
+`cp include/configuration.h.example include/configuration.h`
 
 And fill all the constants with the appropriate value
 

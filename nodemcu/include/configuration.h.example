@@ -3,6 +3,8 @@
 
 #include <Arduino.h>
 
+const String host = "";
+
 const String wifiNetworkName = "";
 const String wifiPassword = "";
 

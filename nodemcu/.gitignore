@@ -5,4 +5,4 @@
 .vscode/ipch
 .*.swo
 .*.swp
-include/credentials.h
+include/configuration.h
