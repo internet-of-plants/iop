@@ -4,6 +4,9 @@
 #include <Arduino.h>
 #include <cstdint>
 
+typedef std::array<uint8_t, 64> AuthToken;
+typedef std::array<uint8_t, 19> PlantId;
+
 typedef struct event {
   float airTemperatureCelsius;
   float airHumidityPercentage;

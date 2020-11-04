@@ -1,15 +1,29 @@
-#ifndef CREDENTIALS_H_
-#define CREDENTIALS_H_
+#ifndef IOP_CONFIGURATION_H_
+#define IOP_CONFIGURATION_H_
 
-#include <Arduino.h>
+#include <utils.hpp>
 
-const String host = "";
+const Option<String> host = Option<String>();
 
-const String wifiNetworkName = "";
-const String wifiPassword = "";
+// You don't need to configure the wifi credentials if you are going to use the WPS button
+const Option<String> wifiNetworkName = Option<String>();
+const Option<String> wifiPassword = Option<String>();
 
-const String iopEmail = "";
-const String iopPassword = "";
-const String iopPlantId = "";
+// TODO: You don't need to configure the server credentials if you plant to
+// use the local web interface
+const Option<String> iopEmail = Option<String>();
+const Option<String> iopPassword = Option<String>();
+const Option<String> iopPlantId = Option<String>();
+
+const unsigned long interval = 60 * 1000;
+
+const uint8_t oneWireBus = D6;
+const uint8_t dhtPin = D7;
+const uint8_t soilResistivityPin = D5;
+const uint8_t wpsButton = D9;
+
+const uint8_t dhtVersion = 22; // DHT22
+
+const enum LogLevel LOG_LEVEL = DEBUG;
 
 #endif

@@ -8,5 +8,6 @@ float measureSoilTemperatureCelsius(DallasTemperature &sensor);
 float measureAirTemperatureCelsius(DHT &dht);
 float measureAirHumidityPercentage(DHT &dht);
 float measureAirHeatIndexCelsius(DHT &dht);
+uint16_t measureSoilResistivityRaw(const uint8_t powerPin);
 
 #endif
