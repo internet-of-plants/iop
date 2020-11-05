@@ -54,8 +54,6 @@ class Option {
   T value;
  public:
   Option(): filled(false), value{0} {}
-  Option(const Option<T>& obj) = delete;
-  Option& operator=(const Option<T>& obj) = delete;
 
   Option(const T v): filled(true), value(v) {}
   bool isSome() const { return filled; }

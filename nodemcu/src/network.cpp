@@ -11,6 +11,10 @@ void onConnection(const WiFiEventStationModeConnected event) {
   struct station_config config = {0};
   wifi_station_get_config(&config);
 
+  // This assumes we only are an access point if we can't connect to any
+  // This will break suff, if one day we need to keep the access point open while connected
+  WiFi.mode(WIFI_STA);
+
   const Option<struct station_config> maybeCurrConfig = flash.readWifiConfig();
   if (maybeCurrConfig.isSome()) {
     const struct station_config currConfig = maybeCurrConfig.expect("Current network config missing when it shouldn't");

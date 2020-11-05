@@ -5,6 +5,21 @@
 
 #include <WiFiServer.h>
 
+class WifiCredentialsServer {
+  unsigned long nextTryHardcodedCredentials = 0;
+
+  private:
+    Option<WiFiServer> server;
+  public:
+    WifiCredentialsServer(): server(Option<WiFiServer>()) {}
+    WifiCredentialsServer(const WiFiServer server): server(server) {}
+
+    station_status_t authenticate(const String ssid, const String password);
+    void serve();
+    void close();
+    void start();
+};
+
 class MonitorCredentialsServer {
   unsigned long lastTryHardcodedCredentials = 0;
 

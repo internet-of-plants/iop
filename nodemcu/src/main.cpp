@@ -16,8 +16,10 @@
 #include <sensors.hpp>
 #include <log.hpp>
 
+// God hates global state
 Sensors sensors = Sensors();
 MonitorCredentialsServer monitorCredentialsServer = MonitorCredentialsServer();
+WifiCredentialsServer wifiCredentialsServer = WifiCredentialsServer();
 
 // Honestly global state is garbage, but this is basically loop's state
 unsigned long lastTime = 0;
@@ -31,6 +33,7 @@ void setup() {
   flash.setup();
   network.setup();
   api.setup();
+  wps::setup();
 }
 
 void loop() {
@@ -41,7 +44,7 @@ void loop() {
   const Option<PlantId> plantId = flash.readPlantId();
 
   if (!network.isConnected() && !network.connect()) {
-    // TODO: open a access point and provide a form for the ssid + password
+    wifiCredentialsServer.serve();
   } else if (authToken.isNone()) {
     monitorCredentialsServer.serve();
   } else if (authToken.isSome() && plantId.isNone()) {
