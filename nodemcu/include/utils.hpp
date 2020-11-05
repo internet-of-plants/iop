@@ -18,24 +18,15 @@
 // (Un)Comment this line to toggle sensors dependency
 #define IOP_SENSORS
 
-enum LogLevel {
-  TRACE = 0,
-  DEBUG,
-  INFO,
-  WARN,
-  ERROR,
-  CRIT
-};
-
 enum InterruptEvent {
   NONE,
   WPS
 };
 
+void handlePlantId(const AuthToken token, const String macAddress);
 void handleInterrupt();
 AuthToken stringToAuthToken(const String &val);
 PlantId stringToPlantId(const String &val);
-void measureAndSend(DHT &airTempAndHumidity, DallasTemperature &soilTemperature, const uint8_t soilResistivityPowerPin);
 
 class MockSerial {
   public:
@@ -62,7 +53,9 @@ class Option {
   bool filled;
   T value;
  public:
-  Option(): filled(false), value({0}) {}
+  Option(): filled(false), value{0} {}
+  Option(const Option<T>& obj) = delete;
+  Option& operator=(const Option<T>& obj) = delete;
 
   Option(const T v): filled(true), value(v) {}
   bool isSome() const { return filled; }
@@ -94,17 +87,6 @@ class Option {
     }
     return Option<U>();
   }
-};
-
-class Log {
- public:
-  void trace(const String msg);
-  void debug(const String msg);
-  void info(const String msg);
-  void warn(const String msg);
-  void error(const String msg);
-  void crit(const String msg);
-  void log(const LogLevel level, const String msg);
 };
 
 static volatile enum InterruptEvent interruptEvent = NONE;

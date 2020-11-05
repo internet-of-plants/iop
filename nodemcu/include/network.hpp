@@ -16,14 +16,20 @@ enum HttpMethod {
   PUT
 };
 
-void networkSetup();
-bool isConnected();
-bool waitForConnection();
-Option<Response> httpPut(const String token, const String path, const String data);
-Option<Response> httpPost(const String token, const String path, const String data);
-Option<Response> httpPost(const String path, const String data);
-Option<Response> httpRequest(const HttpMethod method, const Option<String> token, const String path, const Option<String> data);
-bool connect();
-String wifiCodeToString(const wl_status_t val);
+class Network {
+  public:
+    Network() {}
+    void setup() const;
+    bool isConnected() const;
+    bool waitForConnection() const;
+    Option<Response> httpPut(const String token, const String path, const String data) const;
+    Option<Response> httpPost(const String token, const String path, const String data) const;
+    Option<Response> httpPost(const String path, const String data) const;
+    Option<Response> httpRequest(const HttpMethod method, const Option<String> token, const String path, const Option<String> data) const;
+    bool connect() const;
+    String wifiCodeToString(const wl_status_t val) const;
+};
+
+const static Network network = Network();
 
 #endif

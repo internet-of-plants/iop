@@ -3,7 +3,10 @@
 
 #include <utils.hpp>
 
-void wpsButtonDown();
-void wpsButtonUp();
+namespace wps {
+  void setup();
+  void buttonDown();
+  void buttonUp();
+}
 
 #endif

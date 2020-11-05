@@ -2,7 +2,7 @@
 
 #include <EEPROM.h>
 
-// This flags exist to check if the information is saved to EEPROM
+// These flags exist to check if the information is saved to EEPROM
 // Conflicts basically will only happen at first boot
 // And are not a problem, it will just try to login with invalid credentials and clear them
 const uint8_t usedWifiConfigEEPROMFlag = 123; // chosen by fair dice roll, garanteed to be random
@@ -13,7 +13,11 @@ const uint8_t wifiConfigIndex = 0;
 const uint8_t authTokenIndex = wifiConfigIndex + 1 + 32 + 64 + 1 + 6;
 const uint8_t plantIdIndex = authTokenIndex + 1 + AuthToken().max_size();
 
-Option<PlantId> readPlantIdFromEEPROM() {
+void Flash::setup() const {
+  EEPROM.begin(512);
+}
+
+Option<PlantId> Flash::readPlantId() const {
   #ifndef IOP_MONITOR
     return Option<AuthToken>({0});
   #endif
@@ -31,12 +35,12 @@ Option<PlantId> readPlantIdFromEEPROM() {
   #endif
 }
 
-void removePlantIdFromEEPROM() {
+void Flash::removePlantId() const {
   EEPROM.write(plantIdIndex, 0);
   EEPROM.commit();
 }
 
-void writePlantIdToEEPROM(const PlantId id) {
+void Flash::writePlantId(const PlantId id) const {
   EEPROM.write(plantIdIndex, usedPlantIdEEPROMFlag);
   for (uint8_t index = 0; index < PlantId().max_size(); ++index) {
     EEPROM.write(plantIdIndex + 1 + index, id[index]);
@@ -44,7 +48,7 @@ void writePlantIdToEEPROM(const PlantId id) {
   EEPROM.commit();
 }
 
-Option<AuthToken> readAuthTokenFromEEPROM() {
+Option<AuthToken> Flash::readAuthToken() const {
   #ifndef IOP_MONITOR
     return Option<AuthToken>({0});
   #endif
@@ -62,12 +66,12 @@ Option<AuthToken> readAuthTokenFromEEPROM() {
   #endif
 }
 
-void removeAuthTokenFromEEPROM() {
+void Flash::removeAuthToken() const {
   EEPROM.write(authTokenIndex, 0);
   EEPROM.commit();
 }
 
-void writeAuthTokenToEEPROM(const AuthToken token) {
+void Flash::writeAuthToken(const AuthToken token) const {
   EEPROM.write(authTokenIndex, usedAuthTokenEEPROMFlag);
   for (uint8_t index = 0; index < AuthToken().max_size(); ++index) {
     EEPROM.write(authTokenIndex + 1 + index, token[index]);
@@ -75,7 +79,7 @@ void writeAuthTokenToEEPROM(const AuthToken token) {
   EEPROM.commit();
 }
 
-Option<struct station_config> readWifiConfigFromEEPROM() {
+Option<struct station_config> Flash::readWifiConfig() const {
   if (EEPROM.read(wifiConfigIndex) != usedWifiConfigEEPROMFlag) {
     return Option<struct station_config>();
   }
@@ -96,15 +100,15 @@ Option<struct station_config> readWifiConfigFromEEPROM() {
   return Option<struct station_config>(config);
 }
 
-void removeWifiConfigFromEEPROM() {
-  // Maybe we should cleanup the credentials too from flash
+void Flash::removeWifiConfig() const {
+  // Maybe we should actually cleanup the credentials from flash
   // But the intention is to connect again as soon as possible, so they should be overriden
-  // and those credentials should be invalid, so we don't (it would also be a waste of writes)
+  // and the stale credentials should be invalid, so we don't (it would also be a waste of writes)
   EEPROM.write(usedWifiConfigEEPROMFlag, 0);
   EEPROM.commit();
 }
 
-void writeWifiConfigToEEPROM(const struct station_config config) {
+void Flash::writeWifiConfig(const struct station_config config) const {
   EEPROM.write(wifiConfigIndex, usedWifiConfigEEPROMFlag);
   for (uint8_t index = 0; index < 32; ++index) {
     EEPROM.write(wifiConfigIndex + 1 + index, config.ssid[index]);

@@ -2,12 +2,12 @@
 #include <configuration.h>
 #include <network.hpp>
 #include <flash.hpp>
+#include <log.hpp>
 
 #include <ArduinoJson.h>
 
-void apiSetup() {
+void Api::setup() const {
   #ifndef IOP_ONLINE
-    WiFi.mode(WIFI_OFF);
     authToken = Option<String>("4"); // chosen by fair dice roll, garanteed to be random
   #endif
   #ifndef IOP_MONITOR
@@ -15,8 +15,9 @@ void apiSetup() {
   #endif
 }
 
-int sendEvent(const String token, const Event event) {
-  Log().debug("Send event " + token);
+bool Api::registerEvent(const AuthToken authToken, const Event event) const {
+  const String token = (char*) authToken.data();
+  logger.debug("Send event " + token);
 
   StaticJsonDocument<1048> doc;
   doc["air_temperature_celsius"] = event.airTemperatureCelsius;
@@ -29,24 +30,24 @@ int sendEvent(const String token, const Event event) {
   char buffer[1048];
   serializeJson(doc, buffer);
 
-  const Option<Response> maybeResp = httpPost(token, "/event", String(buffer));
+  const Option<Response> maybeResp = network.httpPost(token, "/event", String(buffer));
 
   if (maybeResp.isNone()) {
     #ifdef IOP_ONLINE
     #ifdef IOP_MONITOR
-    Log().error("Unable to make POST request to /event");
+    logger.error("Unable to make POST request to /event");
     #endif
     #endif
     return false;
-  } else if (maybeResp.unwrap().code == 403) {
-    Log().warn("Auth token was refused, deleting it");
-    removeAuthTokenFromEEPROM();
-  } else if (maybeResp.unwrap().code == 404) {
-    Log().warn("Plant Id was not found, deleting it");
-    removePlantIdFromEEPROM();
+  } else if (maybeResp.expect("Maybe resp is None 1").code == 403) {
+    logger.warn("Auth token was refused, deleting it");
+    flash.removeAuthToken();
+  } else if (maybeResp.expect("Maybe resp is None 2").code == 404) {
+    logger.warn("Plant Id was not found, deleting it");
+    flash.removePlantId();
   }
 
-  const Response resp = maybeResp.unwrap();
+  const Response resp = maybeResp.expect("Maybe resp is None 3");
   return resp.code == 200;
 }
 
@@ -54,8 +55,8 @@ Option<String> responseToMaybeString(const Response &resp) {
   return resp.payload;
 }
 
-bool doWeOwnsThisPlant(const String token, const String plantId) {
-  Log().info("Check if we own plant. Token = " + token + ", Plant Id = " + plantId);
+Option<bool> Api::doWeOwnsThisPlant(const String token, const String plantId) const {
+  logger.info("Check if we own plant. Token = " + token + ", Plant Id = " + plantId);
 
   StaticJsonDocument<30> doc;
   doc["id"] = plantId;
@@ -63,28 +64,28 @@ bool doWeOwnsThisPlant(const String token, const String plantId) {
   char buffer[30];
   serializeJson(doc, buffer);
 
-  const Option<Response> maybeResp = httpPost("/plant/owns", String(buffer));
+  const Option<Response> maybeResp = network.httpPost("/plant/owns", String(buffer));
 
   if (maybeResp.isNone()) {
     #ifdef IOP_ONLINE
     #ifdef IOP_MONITOR
-    Log().error("Unable to make POST request to /plant/owns");
+    logger.error("Unable to make POST request to /plant/owns");
     #endif
     #endif
-    return true; // We don't know, so let's not delete a possibly correct id just yet
-  } else if (maybeResp.unwrap().code == 404) {
-    return false;
-  } else if (maybeResp.unwrap().code == 403) {
-    Log().warn("Auth token was refused, deleting it");
-    removeAuthTokenFromEEPROM();
-    return true; // We actually don't know yet, but we can't know without fixing this auth problem
+    return Option<bool>();
+  } else if (maybeResp.expect("Maybe resp is None 4").code == 404) {
+    return Option<bool>(false);
+  } else if (maybeResp.expect("Maybe resp is None 5").code == 403) {
+    logger.warn("Auth token was refused, deleting it");
+    flash.removeAuthToken();
+    return Option<bool>();
   } else {
-    return true;
+    return Option<bool>(true);
   }
 }
 
-Option<AuthToken> generateToken(const String username, const String password) {
-  Log().info("Generating token");
+Option<AuthToken> Api::authenticate(const String username, const String password) const {
+  logger.info("Generating token");
 
   StaticJsonDocument<300> doc;
   doc["email"] = iopEmail.expect("No iop email available");
@@ -93,12 +94,12 @@ Option<AuthToken> generateToken(const String username, const String password) {
   char buffer[300];
   serializeJson(doc, buffer);
 
-  const Option<Response> maybeResp = httpPost("/user/login", String(buffer));
+  const Option<Response> maybeResp = network.httpPost("/user/login", String(buffer));
 
   if (maybeResp.isNone()) {
     #ifdef IOP_ONLINE
     #ifdef IOP_MONITOR
-    Log().error("Unable to make POST request to /user/login");
+    logger.error("Unable to make POST request to /user/login");
     #endif
     #endif
     return Option<AuthToken>();
@@ -108,8 +109,8 @@ Option<AuthToken> generateToken(const String username, const String password) {
             .map<AuthToken>(stringToAuthToken);
 }
 
-Option<PlantId> getPlantId(const String token, const String macAddress) {
-  Log().info("Get Plant Id. Token: " + token + ", MAC: " + macAddress);
+Option<PlantId> Api::registerPlant(const String token, const String macAddress) const {
+  logger.info("Get Plant Id. Token: " + token + ", MAC: " + macAddress);
 
   StaticJsonDocument<30> doc;
   doc["mac"] = macAddress;
@@ -117,18 +118,18 @@ Option<PlantId> getPlantId(const String token, const String macAddress) {
   char buffer[30];
   serializeJson(doc, buffer);
 
-  const Option<Response> maybeResp = httpPut(token, "/plant", String(buffer));
+  const Option<Response> maybeResp = network.httpPut(token, "/plant", String(buffer));
 
   if (maybeResp.isNone()) {
     #ifdef IOP_ONLINE
     #ifdef IOP_MONITOR
-    Log().error("Unable to make PUT request to /plant");
+    logger.error("Unable to make PUT request to /plant");
     #endif
     #endif
     return Option<PlantId>();
-  } else if (maybeResp.unwrap().code == 403) {
-    Log().warn("Auth token was refused, deleting it");
-    removeAuthTokenFromEEPROM();
+  } else if (maybeResp.expect("Maybe resp is None").code == 403) {
+    logger.warn("Auth token was refused, deleting it");
+    flash.removeAuthToken();
     return Option<PlantId>();
   } else {
     return maybeResp.andThen<String>(responseToMaybeString)

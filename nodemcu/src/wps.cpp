@@ -8,18 +8,24 @@
 
 volatile unsigned long wpsStateTime = 0; 
 
-void wpsButtonDown() {
-  Log().info("Pressed WPS button. Keep it pressed for at least 4 seconds to enable WPS mode");
-  detachInterrupt(digitalPinToInterrupt(wpsButton));
-  attachInterrupt(digitalPinToInterrupt(wpsButton), wpsButtonDown, FALLING);
-  wpsStateTime = millis();
-}
+namespace wps {
+  void setup() {
+    attachInterrupt(digitalPinToInterrupt(wpsButton), wps::buttonDown, RISING);
+  }
 
-void wpsButtonUp() {
-  detachInterrupt(digitalPinToInterrupt(wpsButton));
-  attachInterrupt(digitalPinToInterrupt(wpsButton), wpsButtonUp, RISING);
-  if (wpsStateTime + 4000 < millis()) {
-    Log().debug("Setting WPS flag, enabling it in the next loop run");
-    interruptEvent = WPS;
+  void buttonDown() {
+    detachInterrupt(digitalPinToInterrupt(wpsButton));
+    attachInterrupt(digitalPinToInterrupt(wpsButton), wps::buttonUp, FALLING);
+    wpsStateTime = millis();
+    logger.info("Pressed WPS button. Keep it pressed for at least 4 seconds to enable WPS mode");
+  }
+
+  void buttonUp() {
+    detachInterrupt(digitalPinToInterrupt(wpsButton));
+    attachInterrupt(digitalPinToInterrupt(wpsButton), wps::buttonDown, RISING);
+    if (wpsStateTime + 4000 < millis()) {
+      interruptEvent = WPS;
+      logger.info("Setted WPS flag, enabling it in the next loop run");
+    }
   }
 }
