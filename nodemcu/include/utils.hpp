@@ -16,7 +16,7 @@
 #define IOP_SERIAL
 
 // (Un)Comment this line to toggle sensors dependency
-#define IOP_SENSORS
+//#define IOP_SENSORS
 
 enum InterruptEvent {
   NONE,
@@ -44,8 +44,8 @@ static MockSerial mockSerial;
 #endif
 
 #undef panic
-#define panic(msg) panic__(msg, __FILE__, __LINE__, __func__)
-void panic__(const String msg, const String file, const int line, const String func) __attribute__((noreturn));
+#define panic(msg) panic__(String(msg), String(__FILE__), (uint32_t) __LINE__, String(__PRETTY_FUNCTION__))
+void panic__(const String msg, const String file, const uint32_t line, const String func) __attribute__((noreturn));
 
 template<typename T>
 class Option {
@@ -54,8 +54,8 @@ class Option {
   T value;
  public:
   Option(): filled(false), value{0} {}
-
   Option(const T v): filled(true), value(v) {}
+
   bool isSome() const { return filled; }
   bool isNone() const { return !filled; }
   T unwrap() const { return expect("Tried to unwrap an empty Option"); }
@@ -64,9 +64,7 @@ class Option {
     return value;
   }
   T unwrap_or(const T or_) const {
-    if (isSome()) {
-      return value;
-    }
+    if (isSome()) { return value; }
     return or_;
   }
     

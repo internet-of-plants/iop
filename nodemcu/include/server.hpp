@@ -3,16 +3,16 @@
 
 #include <utils.hpp>
 
-#include <WiFiServer.h>
+#include <ESP8266WebServer.h>
 
 class WifiCredentialsServer {
-  unsigned long nextTryHardcodedCredentials = 0;
-
   private:
-    Option<WiFiServer> server;
+    unsigned long nextTryHardcodedCredentials = 0;
+    Option<std::shared_ptr<ESP8266WebServer>> server;
+
   public:
-    WifiCredentialsServer(): server(Option<WiFiServer>()) {}
-    WifiCredentialsServer(const WiFiServer server): server(server) {}
+    WifiCredentialsServer(): server(Option<std::shared_ptr<ESP8266WebServer>>()) {}
+    WifiCredentialsServer(const std::shared_ptr<ESP8266WebServer> server): server(server) {}
 
     station_status_t authenticate(const String ssid, const String password);
     void serve();
@@ -21,13 +21,13 @@ class WifiCredentialsServer {
 };
 
 class MonitorCredentialsServer {
-  unsigned long lastTryHardcodedCredentials = 0;
-
   private:
-    Option<WiFiServer> server;
+    Option<std::shared_ptr<ESP8266WebServer>> server;
+    unsigned long lastTryHardcodedCredentials = 0;
+
   public:
-    MonitorCredentialsServer(): server(Option<WiFiServer>()) {}
-    MonitorCredentialsServer(const WiFiServer server): server(server) {}
+    MonitorCredentialsServer(): server(Option<std::shared_ptr<ESP8266WebServer>>()) {}
+    MonitorCredentialsServer(const std::shared_ptr<ESP8266WebServer> server): server(server) {}
 
     bool authenticate(const String username, const String password);
     void serve();

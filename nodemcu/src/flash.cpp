@@ -19,7 +19,7 @@ void Flash::setup() const {
 
 Option<PlantId> Flash::readPlantId() const {
   #ifndef IOP_MONITOR
-    return Option<AuthToken>({0});
+    return Option<PlantId>({0});
   #endif
 
   #ifdef IOP_MONITOR

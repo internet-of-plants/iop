@@ -6,15 +6,6 @@
 
 #include <ArduinoJson.h>
 
-void Api::setup() const {
-  #ifndef IOP_ONLINE
-    authToken = Option<String>("4"); // chosen by fair dice roll, garanteed to be random
-  #endif
-  #ifndef IOP_MONITOR
-    authToken = Option<String>("4"); // chosen by fair dice roll, garanteed to be random
-  #endif
-}
-
 bool Api::registerEvent(const AuthToken authToken, const Event event) const {
   const String token = (char*) authToken.data();
   logger.debug("Send event " + token);
@@ -29,16 +20,19 @@ bool Api::registerEvent(const AuthToken authToken, const Event event) const {
 
   char buffer[1048];
   serializeJson(doc, buffer);
-
-  const Option<Response> maybeResp = network.httpPost(token, "/event", String(buffer));
+  const auto maybeResp = network.httpPost(token, "/event", String(buffer));
 
   if (maybeResp.isNone()) {
     #ifdef IOP_ONLINE
     #ifdef IOP_MONITOR
     logger.error("Unable to make POST request to /event");
-    #endif
-    #endif
     return false;
+    #else
+    return true;
+    #endif
+    #else
+    return true;
+    #endif
   } else if (maybeResp.expect("Maybe resp is None 1").code == 403) {
     logger.warn("Auth token was refused, deleting it");
     flash.removeAuthToken();
@@ -47,7 +41,7 @@ bool Api::registerEvent(const AuthToken authToken, const Event event) const {
     flash.removePlantId();
   }
 
-  const Response resp = maybeResp.expect("Maybe resp is None 3");
+  const auto resp = maybeResp.expect("Maybe resp is None 3");
   return resp.code == 200;
 }
 
@@ -64,15 +58,19 @@ Option<bool> Api::doWeOwnsThisPlant(const String token, const String plantId) co
   char buffer[30];
   serializeJson(doc, buffer);
 
-  const Option<Response> maybeResp = network.httpPost("/plant/owns", String(buffer));
+  const auto maybeResp = network.httpPost("/plant/owns", String(buffer));
 
   if (maybeResp.isNone()) {
     #ifdef IOP_ONLINE
     #ifdef IOP_MONITOR
     logger.error("Unable to make POST request to /plant/owns");
-    #endif
-    #endif
     return Option<bool>();
+    #else
+    return Option<bool>(true);
+    #endif
+    #else
+    return Option<bool>(true);
+    #endif
   } else if (maybeResp.expect("Maybe resp is None 4").code == 404) {
     return Option<bool>(false);
   } else if (maybeResp.expect("Maybe resp is None 5").code == 403) {
@@ -85,24 +83,32 @@ Option<bool> Api::doWeOwnsThisPlant(const String token, const String plantId) co
 }
 
 Option<AuthToken> Api::authenticate(const String username, const String password) const {
+  if (username.isEmpty() || password.isEmpty()) {
+    return Option<AuthToken>();
+  }
+
   logger.info("Generating token");
 
   StaticJsonDocument<300> doc;
-  doc["email"] = iopEmail.expect("No iop email available");
-  doc["password"] = iopPassword.expect("No iop password available");
+  doc["email"] = username;
+  doc["password"] = password;
 
   char buffer[300];
   serializeJson(doc, buffer);
 
-  const Option<Response> maybeResp = network.httpPost("/user/login", String(buffer));
+  const auto maybeResp = network.httpPost("/user/login", String(buffer));
 
   if (maybeResp.isNone()) {
     #ifdef IOP_ONLINE
     #ifdef IOP_MONITOR
     logger.error("Unable to make POST request to /user/login");
-    #endif
-    #endif
     return Option<AuthToken>();
+    #else
+    return Option<AuthToken>({0});
+    #endif
+    #else
+    return Option<AuthToken>({0})
+    #endif
   }
 
   return maybeResp.andThen<String>(responseToMaybeString)
@@ -118,15 +124,19 @@ Option<PlantId> Api::registerPlant(const String token, const String macAddress) 
   char buffer[30];
   serializeJson(doc, buffer);
 
-  const Option<Response> maybeResp = network.httpPut(token, "/plant", String(buffer));
+  const auto maybeResp = network.httpPut(token, "/plant", String(buffer));
 
   if (maybeResp.isNone()) {
     #ifdef IOP_ONLINE
     #ifdef IOP_MONITOR
     logger.error("Unable to make PUT request to /plant");
-    #endif
-    #endif
     return Option<PlantId>();
+    #else
+    return Option<PlantId>({0});
+    #endif
+    #else
+    return Option<PlantId>({0});
+    #endif
   } else if (maybeResp.expect("Maybe resp is None").code == 403) {
     logger.warn("Auth token was refused, deleting it");
     flash.removeAuthToken();

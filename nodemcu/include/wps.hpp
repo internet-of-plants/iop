@@ -5,8 +5,6 @@
 
 namespace wps {
   void setup();
-  void buttonDown();
-  void buttonUp();
 }
 
 #endif

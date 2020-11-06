@@ -56,6 +56,7 @@ void Log::log(const enum LogLevel level, const String msg) const {
     case CRIT:
       levelName = "CRIT";
   }
+  Serial.flush();
   Serial.println("[" + levelName + "]: " + msg);
   Serial.flush();
   #endif

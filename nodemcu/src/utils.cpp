@@ -7,12 +7,15 @@
 #include <configuration.h>
 #include <log.hpp>
 
+#include <EEPROM.h>
 #include <WiFiClient.h>
 #include <array>
 
+// TODO: we could also make a signinin possible via broadcast to the wifi network
+// Although it would provide safety challenges, that maybe could be solved in a way similar to WPS
 void handlePlantId(const AuthToken authToken, const String macAddress) {
   const String token = (char*) authToken.data();
-  Option<PlantId> plantId = iopPlantId.map<PlantId>(stringToPlantId);
+  auto plantId = iopPlantId.map<PlantId>(stringToPlantId);
 
   if (plantId.isSome()) {
     const PlantId id = plantId.expect("Calling doWeOwnThisPlant, id is None but shouldn't be");
@@ -78,17 +81,26 @@ void handleInterrupt() {
         const WiFiMode_t mode = WiFi.getMode();
         WiFi.mode(WIFI_STA);
         if (WiFi.beginWPSConfig()) {
-          network.waitForConnection();
+          WiFi.waitForConnectResult();
         } else {
           logger.error("WiFi.beginWPSConfig() returned false");
         }
-        WiFi.mode(mode);
+        // WiFi Callbacks may race us
+        if (WiFi.getMode() == WIFI_STA) {
+          WiFi.mode(mode);
+        }
         break;
       #endif
   }
 }
 
-void panic__(const String msg, const String file, const int line, const String func) {
-    logger.crit(msg);
-    __panic_func(file.c_str(), line, func.c_str());
+void panic__(const String msg, const String file, const uint32_t line, const String func) {
+  delay(1000);
+  logger.crit("Panic at line " + String(line) + " of file " + file + ", inside " + func + ": " + msg);
+  WiFi.mode(WIFI_OFF);
+  // There should be a better way to black box this infinite loop
+  while (EEPROM.read(0) != 3 && EEPROM.read(255) != 3) {
+    yield();
+  }
+  __panic_func(file.c_str(), line, func.c_str());
 }

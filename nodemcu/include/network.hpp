@@ -1,8 +1,8 @@
 #ifndef IOP_NETWORK_H_
 #define IOP_NETWORK_H_
 
-#include <utils.hpp>
 #include <ESP8266WiFi.h>
+#include <utils.hpp>
 
 typedef struct response {
   int code;
@@ -21,7 +21,6 @@ class Network {
     Network() {}
     void setup() const;
     bool isConnected() const;
-    bool waitForConnection() const;
     Option<Response> httpPut(const String token, const String path, const String data) const;
     Option<Response> httpPost(const String token, const String path, const String data) const;
     Option<Response> httpPost(const String path, const String data) const;

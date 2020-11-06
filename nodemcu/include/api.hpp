@@ -9,7 +9,6 @@ class Api {
     String host_;
   public:
     Api(const String host): host_(host) {}
-    void setup() const;
     bool registerEvent(const AuthToken token, const Event event) const;
     Option<bool> doWeOwnsThisPlant(const String token, const String plantId) const;
     Option<PlantId> registerPlant(const String token, const String macAddress) const;

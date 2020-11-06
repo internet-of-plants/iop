@@ -5,7 +5,6 @@
 #include <WiFiClient.h>
 
 #include <cstdint>
-#include <utils.hpp>
 #include <flash.hpp>
 #include <network.hpp>
 #include <configuration.h>
@@ -15,11 +14,12 @@
 #include <server.hpp>
 #include <sensors.hpp>
 #include <log.hpp>
+#include <utils.hpp>
 
 // God hates global state
-Sensors sensors = Sensors();
-MonitorCredentialsServer monitorCredentialsServer = MonitorCredentialsServer();
-WifiCredentialsServer wifiCredentialsServer = WifiCredentialsServer();
+auto sensors = Sensors();
+auto monitorCredentialsServer = MonitorCredentialsServer();
+auto wifiCredentialsServer = WifiCredentialsServer();
 
 // Honestly global state is garbage, but this is basically loop's state
 unsigned long lastTime = 0;
@@ -32,7 +32,6 @@ void setup() {
   sensors.setup();
   flash.setup();
   network.setup();
-  api.setup();
   wps::setup();
 }
 
@@ -40,15 +39,19 @@ void loop() {
   handleInterrupt();
 
   const unsigned long currTime = millis();
-  const Option<AuthToken> authToken = flash.readAuthToken();
-  const Option<PlantId> plantId = flash.readPlantId();
+  const auto authToken = flash.readAuthToken();
+  const auto plantId = flash.readPlantId();
 
   if (!network.isConnected() && !network.connect()) {
     wifiCredentialsServer.serve();
+    return yield();
   } else if (authToken.isNone()) {
+    wifiCredentialsServer.close();
+
     monitorCredentialsServer.serve();
+    return yield();
   } else if (authToken.isSome() && plantId.isNone()) {
-    const AuthToken token = authToken.expect("Calling handlePlantId, authToken is None");
+    const auto token = authToken.expect("Calling handlePlantId, authToken is None");
     handlePlantId(token, WiFi.macAddress());
   } else if (lastTime == 0 || lastTime + interval < currTime) {
     digitalWrite(LED_BUILTIN, HIGH);
@@ -56,8 +59,8 @@ void loop() {
     lastTime = currTime;
     logger.info("Timer triggered");
     
-    const AuthToken token = authToken.expect("Calling sendEvent, authToken is None");
-    const PlantId id = plantId.expect("Calling Sensors::measure, plantId is None");
+    const auto token = authToken.expect("Calling sendEvent, authToken is None");
+    const auto id = plantId.expect("Calling Sensors::measure, plantId is None");
     api.registerEvent(token, sensors.measure(id));
 
     digitalWrite(LED_BUILTIN, LOW);
@@ -65,6 +68,8 @@ void loop() {
     lastYieldLog = currTime;
     logger.debug("Waiting");
   }
+  wifiCredentialsServer.close();
+  monitorCredentialsServer.close();
 
   yield();
 }

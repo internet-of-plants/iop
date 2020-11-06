@@ -7,17 +7,24 @@
 #include <ESP8266HTTPClient.h>
 #include <configuration.h>
 
-void onConnection(const WiFiEventStationModeConnected event) {
+// TODO: remove this global state, it's needed so we don't constantly retry to connect with stale network credentials
+// That we can't know it's stale because the router may be offline
+// This will only happen if the network changes its name, a very rare event
+// But not worth flooding the network
+unsigned long lastTryStoredCredentials = 0;
+const unsigned long intervalTryStoredCredentialsMillis = 60000; // 1 minute
+
+void onConnection(const WiFiEventStationModeGotIP event) {
+  logger.info("WiFi connected (" + event.ip.toString() + "): " + String(wifi_station_get_connect_status()));
   struct station_config config = {0};
   wifi_station_get_config(&config);
 
-  // This assumes we only are an access point if we can't connect to any
-  // This will break suff, if one day we need to keep the access point open while connected
   WiFi.mode(WIFI_STA);
 
-  const Option<struct station_config> maybeCurrConfig = flash.readWifiConfig();
+  const auto maybeCurrConfig = flash.readWifiConfig();
   if (maybeCurrConfig.isSome()) {
-    const struct station_config currConfig = maybeCurrConfig.expect("Current network config missing when it shouldn't");
+    lastTryStoredCredentials = 0;
+    const auto currConfig = maybeCurrConfig.expect("Current network config missing when it shouldn't");
     const bool sameSsid = memcmp(currConfig.ssid, config.ssid, 32);
     const bool samePsk = memcmp(currConfig.password, config.password, 64);
     if (sameSsid && samePsk) {
@@ -28,96 +35,73 @@ void onConnection(const WiFiEventStationModeConnected event) {
   flash.writeWifiConfig(config);
   String msg = (char*) config.ssid;
   msg += ", " + String((char*) config.password);
-  msg += ", " + String(config.bssid_set);
-  msg += ", " + String((char*) config.bssid);
+  if (config.bssid_set) {
+    msg += ", " + String((char*) config.bssid);
+  }
   logger.info("Connected to: " + msg);
 }
 
 void Network::setup() const {
-  wps::setup();
-
   #ifdef IOP_ONLINE
+    static const auto handler = WiFi.onStationModeGotIP(onConnection);
+    WiFi.persistent(true);
+    WiFi.setAutoReconnect(true);
+    WiFi.setAutoConnect(true);
     WiFi.mode(WIFI_STA);
-    WiFi.onStationModeConnected(onConnection);
   #else
     WiFi.mode(WIFI_OFF);
   #endif
 
-  this->connect();
+  auto status = wifi_station_get_connect_status();
+  if (status != STATION_CONNECTING && status != STATION_GOT_IP) {
+    this->connect();
+  }
 }
 
 bool Network::isConnected() const {
   return WiFi.status() == WL_CONNECTED;
 }
 
-bool Network::waitForConnection() const {
-  unsigned long startTime = millis();
-  unsigned long lastPrint = 0;
-  unsigned long lastLedToggle = 0;
-  unsigned long now = startTime;
-  bool ledOn = false;
 
-  while (!this->isConnected() && startTime + 30000 < (now = millis())) {
-    if (lastPrint + 5000 < now) {
-      logger.debug("Connecting...");
-      lastPrint = now;
-    }
-    if (lastLedToggle + 500 < now) {
-      ledOn = !ledOn;
-      if (ledOn) {
-        digitalWrite(LED_BUILTIN, HIGH);
-      } else {
-        digitalWrite(LED_BUILTIN, LOW);
-      }
-      lastLedToggle = now;
-    }
-    yield();
-  }
-  if (ledOn) {
-    digitalWrite(LED_BUILTIN, LOW);
-  }
-  return this->isConnected();
-}
-
-// TODO: remove this global state, it's needed so we don't constantly retry to connect with stale network credentials
-// That we can't know it's stale because the router may be offline
-// This will only happen if the network changes its name, a very rare event
-// But not worth flooding the network
-unsigned long lastTryStoredCredentials = 0;
-const unsigned long intervalTryStoredCredentialsMillis = 60000; // 1 minute
+unsigned long lastLog = 0;
+const unsigned long intervalLogMillis = 30000; // 10 seconds
 
 bool Network::connect() const {
-  logger.info("Connect");
-  
+  const unsigned long now = millis();
+  const bool log = lastLog == 0 || lastLog + intervalLogMillis < now;
+  if (lastLog == 0 || lastLog + intervalLogMillis < now) {
+    logger.info("Connect");
+    lastLog = now;
+  }
+
   #ifndef IOP_ONLINE
   return false;
   #endif
 
   #ifdef IOP_ONLINE
-  const unsigned long now = millis();
-  if (lastTryStoredCredentials == 0 
+  if (lastTryStoredCredentials == 0
       || lastTryStoredCredentials + intervalTryStoredCredentialsMillis < now) {
 
     lastTryStoredCredentials = now;
 
-    const Option<struct station_config> maybeConfig = flash.readWifiConfig();
+    const auto maybeConfig = flash.readWifiConfig();
     if (maybeConfig.isSome()) {
       logger.info("Recovering last connection information");
-      const station_config config = maybeConfig.expect("Missing network config when it shouldn't");
+      const auto config = maybeConfig.expect("Missing network config when it shouldn't");
       if (config.bssid_set) {
         WiFi.begin((char*) config.ssid, (char*) config.password, 0, config.bssid);
       } else {
         WiFi.begin((char*) config.ssid, (char*) config.password);
       }
 
-      const bool success = waitForConnection();
-      const String status = wifiCodeToString(WiFi.status());
+      const auto success = WiFi.waitForConnectResult() != -1 && network.isConnected();
+      const auto status = wifiCodeToString(WiFi.status());
       logger.debug("Wifi Status: " + status);
       if (success) {
         return true;
       } else {
         logger.error("Failed to connect to wifi. Status: " + status);
-        const station_status_t status = wifi_station_get_connect_status();
+        const auto status = wifi_station_get_connect_status();
         // We don't flush the credentials if the network name is wrong
         // because a offline router will trigger that
         if (status == STATION_WRONG_PASSWORD) {
@@ -128,18 +112,17 @@ bool Network::connect() const {
   }
 
   if (wifiNetworkName.isNone() || wifiPassword.isNone()) {
-    logger.debug("No wifi network name or password");
+    if (log) logger.trace("No wifi network name or password");
     return false;
   }
 
-  const String networkName = wifiNetworkName.expect("Missing network name when it shouldn't");
-  const String networkPassword = wifiPassword.expect("Missing network password when it shouldn't");
+  const auto networkName = wifiNetworkName.expect("Missing network name when it shouldn't");
+  const auto networkPassword = wifiPassword.expect("Missing network password when it shouldn't");
   WiFi.begin(networkName, networkPassword);
 
-  const bool success = waitForConnection();
-  const String status = wifiCodeToString(WiFi.status());
-  logger.debug("Wifi Status: " + status);
+  const bool success = WiFi.waitForConnectResult();
   if (!success) {
+    const auto status = wifiCodeToString(WiFi.status());
     logger.error("Failed to connect to wifi. Status: " + status);
   }
   return success;
@@ -209,7 +192,7 @@ Option<Response> Network::httpRequest(const enum HttpMethod method, const Option
   #ifdef IOP_MONITOR
   for (uint8_t index = 0; index < 3; ++index) {
     if (isConnected()) {
-      const String uri = api.host() + path;
+      const auto uri = api.host() + path;
 
       WiFiClientSecure client;
       client.setInsecure(); // TODO: please fix it this is horrible
@@ -218,16 +201,17 @@ Option<Response> Network::httpRequest(const enum HttpMethod method, const Option
       HTTPClient http;
       http.begin(client, uri);
       http.addHeader("Content-Type", "application/json");
+      http.addHeader("Connection", "close");
       if (token.isSome()) {
         http.addHeader("Authorization", "Basic " + token.expect("Missing auth token when it shouldn't"));
       }
 
-      const String payload = data.unwrap_or("");
+      const auto payload = data.unwrap_or("");
       const int httpCode = http.sendRequest(methodToString(method).c_str(), (const uint8_t *) payload.c_str(), payload.length());
 
       logger.info("Response code: " + String(httpCode));
       if (httpCode == 200) {
-        const String payload = http.getString();
+        const auto payload = http.getString();
         http.end();
 
         return Option<Response>((Response) {
