@@ -1,15 +1,17 @@
 #ifndef IOP_FLASH_H_
 #define IOP_FLASH_H_
 
+#include <option.hpp>
 #include <utils.hpp>
 #include <ESP8266WiFi.h>
 
 class Flash {
   public:
     Flash() {}
-    Flash(const Flash& obj) = delete;
-    Flash& operator=(const Flash& obj) = delete;
-
+    Flash(Flash& other) = delete;
+    void operator=(Flash& other) = delete;
+    void operator=(Flash&& other) {}
+    Flash(Flash&& other) {}
     void setup() const;
 
     Option<AuthToken> readAuthToken() const;
@@ -24,7 +26,5 @@ class Flash {
     void removeWifiConfig() const;
     void writeWifiConfig(const struct station_config id) const;
 };
-
-const static Flash flash;
 
 #endif

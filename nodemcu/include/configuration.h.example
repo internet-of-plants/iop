@@ -1,32 +1,32 @@
 #ifndef IOP_CONFIGURATION_H_
 #define IOP_CONFIGURATION_H_
 
-#include <api.hpp>
+#include <Arduino.h>
 #include <log.hpp>
-#include <utils.hpp>
+#include <option.hpp>
 
-const Option<String> host = Option<String>("https://iop-monitor-server.tk:4001");
-
-// You don't need to configure the wifi credentials if you are going to use the WPS button
-const Option<String> wifiNetworkName = Option<String>();
-const Option<String> wifiPassword = Option<String>();
-
-const Option<String> iopEmail = Option<String>();
-const Option<String> iopPassword = Option<String>();
-const Option<String> iopPlantId = Option<String>();
-
-const unsigned long interval = 60 * 1000;
+/// Minimum log level to print a message (if serial is enabled)
+const enum LogLevel logLevel = INFO;
 
 const uint8_t soilTemperaturePin = D6;
 const uint8_t airTempAndHumidityPin = D7;
 const uint8_t soilResistivityPowerPin = D5;
-const uint8_t wpsButton = D9;
+const uint8_t factoryResetButton = D9;
 
+/// Version of DHT (Digital Humidity and Temperature) sensor. (ex: DHT11 or DHT21 or DHT22...)
 const uint8_t dhtVersion = 22; // DHT22
 
-const enum LogLevel logLevel = DEBUG;
+/// Time between measurements
+const unsigned long interval = 60 * 1000;
 
-const static Api api = Api(host.expect("Missing host, when it's needed"));
-const static Log logger = Log(logLevel);
+const Option<String> host("https://iop-monitor-server.tk:4001");
+
+/// You don't need to fill the fields below, they may actually be counter-productive
+
+const Option<String> wifiNetworkName;
+const Option<String> wifiPassword;
+
+const Option<String> iopEmail;
+const Option<String> iopPassword;
 
 #endif

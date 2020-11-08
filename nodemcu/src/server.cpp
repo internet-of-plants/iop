@@ -1,132 +1,52 @@
 #include <server.hpp>
-#include <flash.hpp>
-#include <api.hpp>
-#include <log.hpp>
 #include <configuration.h>
-#include <network.hpp>
 
 #include <WiFiClient.h>
 #include <DNSServer.h>
 
+const unsigned long intervalTryFlashWifiCredentialsMillis = 600000; // 10 minutes
 const unsigned long intervalTryHardcodedWifiCredentialsMillis = 600000; // 10 minutes
-const unsigned long intervalTryHardcodedMonitorCredentialsMillis = 3600000; // 1 hour
+const unsigned long intervalTryHardcodedIopCredentialsMillis = 3600000; // 1 hour
 
-// TODO: form submitions should be encrypted, can we host using https?
 // TODO: add csrf protection
 
-const String iopHTML =
+const String pageHTML =
     "<!DOCTYPE HTML>\r\n"
     "<html><body>\r\n"
     "  <h1><center>Hello, I'm your plantomator</center></h1>\r\n"
-    "  <h3><center>Please provide your Internet of Plants credentials, so we can get a authentication token to use</center></h3>\r\n"
-    "  <form style='margin: 0 auto; width: 500px;' action='/submit' method='POST'>\r\n"
-    "    <div><div><strong>Email:</strong></div><input name='iopEmail' type='text' style='width:100%' /></div>\r\n"
-    "    <div><div><strong>Password:</strong></div><input name='iopPassword' type='password' style='width:100%' /></div>\r\n"
-    "    <br>\r\n"
-    "    <input type='submit' value='Submit' />\r\n"
-    "  </form>\r\n"
-    "</body></html>";
-
-void MonitorCredentialsServer::start() {
-  if (server.isNone()) {
-    logger.info("Setting our own iop credentials retriever server");
-
-    auto s = std::make_shared<ESP8266WebServer>(80);
-    s->on("/submit", [s, this]() {
-      s->sendHeader("Connection", "close");
-      if (s->hasArg("iopEmail") && s->hasArg("iopPassword")) {
-        if (this->authenticate(s->arg("iopEmail"), s->arg("iopPassword"))) {
-          s->send(200, "text/plain", "IoP credentials authenticated!");
-        }
-      }
-    });
-    s->onNotFound([s]() {
-      s->sendHeader("Connection", "close");
-      s->send(200, "text/html", iopHTML.c_str());
-    });
-    s->begin();
-    server = Option<std::shared_ptr<ESP8266WebServer>>(std::move(s));
-  }
-}
-
-void MonitorCredentialsServer::close() {
-  if (server.isSome()) {
-    server.expect("Inside MonitorCredentialsServer::close, server is None but shouldn't be")->close();
-    server = Option<std::shared_ptr<ESP8266WebServer>>();
-  }
-}
-
-bool MonitorCredentialsServer::authenticate(const String username, const String password) {
-  const auto authToken = api.authenticate(username, password);
-  if (authToken.isSome()) {
-    this->close();
-    flash.writeAuthToken(authToken.expect("Calling writeAuthToken, token is None but shouldn't be"));
-    return true;
-  }
-
-  logger.warn("Invalid credentials: " + username + ", " + password);
-  return false;
-}
-
-/// Abstracts away token acquisition.
-/// If there are hardcoded credentials this will use them
-/// (and avoid a floods if they are invalid)
-///
-/// If there aren't it will serve a HTTP server at port 80 that provides a HTML form
-/// Submitting this form with the appropriate Internet of Plants credentials
-void MonitorCredentialsServer::serve() {
-  this->start();
-
-  const unsigned long now = millis();
-  if (this->lastTryHardcodedCredentials == 0
-      || (this->lastTryHardcodedCredentials + intervalTryHardcodedMonitorCredentialsMillis < now)) {
-
-    this->lastTryHardcodedCredentials = now;
-    if (iopEmail.isSome() && iopPassword.isSome()) {
-      if (this->authenticate(iopEmail.expect("Iop email is None"), iopPassword.expect("Iop password is None"))) {
-        this->lastTryHardcodedCredentials = 0;
-        return;
-      }
-    }
-  }
-
-  // TODO set lastTryHardcodedCredentials to 0 when server obtains credentials
-  if (server.isSome()) {
-    server.expect("Inside MonitorCredentialsServer::serve, server is None but shouldn't be")->handleClient();
-  }
-}
+    "  <h4>To reset your configurations in the future, please press the reset button for at least 10 seconds</h4>"
+    "<form style='margin: 0 auto; width: 500px;' action='/submit' method='POST'>\r\n"
+    "%s"
+    "<br>\r\n"
+    "<input type='submit' value='Submit' />\r\n"
+    "</form></body></html>";
 
 const String wifiHTML =
-    "<!DOCTYPE HTML>\r\n"
-    "<html><body>\r\n"
-    "  <h1><center>Hello, I'm your plantomator</center></h1>\r\n"
-    "  <h3><center>Please provide your Wifi credentials, so we can get a authentication token to use</center></h3>\r\n"
-    "  <form style='margin: 0 auto; width: 500px;' action='/submit' method='POST'>\r\n"
-    "    <div><div><strong>Network name:</strong></div><input name='ssid' type='text' style='width:100%' /></div>\r\n"
-    "    <div><div><strong>Password:</strong></div><input name='password' type='password' style='width:100%' /></div>\r\n"
-    "    <h3>You may also provide your Internet of Plants monitor credentials and skip a configuration step</h3>\r\n"
-    "    <div><div><strong>Email:</strong></div><input name='iopEmail' type='text' style='width:100%' /></div>\r\n"
-    "    <div><div><strong>Password:</strong></div><input name='iopPassword' type='password' style='width:100%' /></div>\r\n"
-    "    <br>\r\n"
-    "    <input type='submit' value='Submit' />\r\n"
-    "  </form>\r\n"
-    "</body></html>";
+    "<h3><center>Please provide your Wifi credentials, so we can connect to it</center></h3>\r\n"
+    "<div><div><strong>Network name:</strong></div><input name='ssid' type='text' style='width:100%' /></div>\r\n"
+    "<div><div><strong>Password:</strong></div><input name='password' type='password' style='width:100%' /></div>\r\n";
 
-void WifiCredentialsServer::start() {
+const String iopHTML =
+    "<h3><center>Please provide your Iop credentials, so we can get a authentication token to use</center></h3>\r\n"
+    "<div><div><strong>Email:</strong></div><input name='iopEmail' type='text' style='width:100%' /></div>\r\n"
+    "<div><div><strong>Password:</strong></div><input name='iopPassword' type='password' style='width:100%' /></div>\r\n";
+
+#include <unordered_map>
+
+void CredentialsServer::start() {
   if (server.isNone()) {
-    logger.info("Setting our own wifi access point");
+    this->logger.info("Setting our own wifi access point");
 
-    // TODO: make u64 hash of the mac address and use it in the ssid
     // TODO: the password should be random, but also accessible externally (like a sticker in the hardware). The question is how???
     WiFi.softAPConfig(IPAddress(192,168,1,1), IPAddress(192,168,1,1), IPAddress(255,255,255,0));
-    WiFi.softAP("iop-" + String(4), "le$memester#passwordz");
+    WiFi.softAP("iop-" + hashString(WiFi.macAddress()), "le$memester#passwordz");
     delay(500);
 
     auto s = std::make_shared<ESP8266WebServer>(80);
     s->on("/submit", [s, this]() {
       s->sendHeader("Connection", "close");
       if (s->hasArg("ssid") && s->hasArg("password")) {
-        const station_status_t status = this->authenticate(s->arg("ssid"), s->arg("password"));
+        const station_status_t status = this->authenticateWifi(s->arg("ssid"), s->arg("password"));
         if (status == STATION_GOT_IP) {
           s->send(200, "text/plain", "Authentication succeeded :)");
         } else if (status == STATION_WRONG_PASSWORD) {
@@ -137,72 +57,110 @@ void WifiCredentialsServer::start() {
       }
 
       if (s->hasArg("iopEmail") && s->hasArg("iopPassword")) {
-        const Option<AuthToken> authToken = api.authenticate(s->arg("iopEmail"), s->arg("iopPassword"));
-        if (authToken.isSome()) {
-          s->send(200, "text/plain", "IoP credentials authenticated!");
-          flash.writeAuthToken(authToken.expect("Inside calling writeAuthToken, token is None but shouldn't be"));
-        }
+        this->authenticateIop(s->arg("iopEmail"), s->arg("iopPassword"));
       }
     });
-    s->onNotFound([s]() {
+    s->onNotFound([s, this]() {
       s->sendHeader("Connection", "close");
-      s->send(200, "text/html", wifiHTML.c_str());
+      String content = pageHTML;
+      if (!this->api.isConnected()) {
+        content += wifiHTML;
+      }
+      if (this->flash.readAuthToken().isNone()) {
+        content += iopHTML;
+      }
+      s->send(200, "text/html", pageHTML.c_str());
     });
     s->begin();
-    server = Option<std::shared_ptr<ESP8266WebServer>>(std::move(s));
+    server = s;
   }
 }
 
-void WifiCredentialsServer::close() {
+void CredentialsServer::close() {
   if (server.isSome()) {
     server.expect("Inside WifiCredentialsServer::close, server is None but shouldn't be")->close();
-    WiFi.softAPdisconnect();
-    server = Option<std::shared_ptr<ESP8266WebServer>>();
   }
 }
 
-station_status_t WifiCredentialsServer::authenticate(const String ssid, const String password) {
-  if (ssid.isEmpty() || password.isEmpty()) {
-    // We pass wrong password for invalid ssid so it's treated as wrong instead of missing
-    // Since we can't differentiate a network ssid that doesn't exist
-    // from one that is just offline right now
-    return STATION_WRONG_PASSWORD;
+Option<AuthToken> CredentialsServer::authenticateIop(const String username, const String password) {
+  auto authToken = this->api.authenticate(username, password);
+  if (authToken.isSome()) {
+    const AuthToken token = authToken.expect("Inside authenticateIop: Auth Token is none but shouldn't.");
+    return Option<AuthToken>(token);
   }
 
+  this->logger.warn("Invalid wifi credentials: " + username + ", " + password);
+  return Option<AuthToken>();
+}
+
+station_status_t CredentialsServer::authenticateWifi(const String ssid, const String password) {
   WiFi.begin(ssid, password);
-  WiFi.waitForConnectResult();
-  if (network.isConnected()) {
-    this->close();
-    return wifi_station_get_connect_status();
+  if (WiFi.waitForConnectResult() == -1) {
+    this->logger.warn("Wifi authentication timed out");
+    return STATION_CONNECT_FAIL;
   }
-  logger.warn("Invalid credentials: " + ssid + ", " + password);
-  return wifi_station_get_connect_status();
-}
 
-/// Abstracts away wifi credentials acquisition.
-/// If there are hardcoded credentials this will use them
-/// (and avoid a floods if they are invalid)
+  const auto status = wifi_station_get_connect_status();
+  if (!this->api.isConnected()) {
+    this->logger.warn("Invalid credentials (" + String(status) + "): " + ssid + ", " + password);
+  }
+  return status;
+}
+/// Abstracts away wifi and iop credentials acquisition.
+/// If there are hardcoded credentials this will use them (and avoid a floods if they are invalid)
+/// If there are credentials stored in flash memory it will use them, clearing them when proved invalid
 ///
-/// If there aren't it will serve a HTTP server at port 80 that provides a HTML form
-/// Submitting this form with the appropriate wifi credentials
-void WifiCredentialsServer::serve() {
+/// If nothing else works it will serve a HTTP server at port 80 that provides a HTML form
+/// Submitting this form with the appropriate wifi and iop credentials will authenticate you
+/// So the server should be closed;
+Result<Option<AuthToken>, ServeError> CredentialsServer::serve(Option<struct station_config> storedWifi, Option<AuthToken> authToken) {
   this->start();
 
-  const unsigned long now = millis();
-  if (this->nextTryHardcodedCredentials <= now) {
-    this->nextTryHardcodedCredentials = now + intervalTryHardcodedWifiCredentialsMillis;
-    if (wifiNetworkName.isSome() && wifiPassword.isSome()) {
-      const station_status_t status = this->authenticate(wifiNetworkName.expect("Wifi name is None"), wifiPassword.expect("Wifi password is None"));
-      if (status == STATION_GOT_IP) {
-        return;
-      } else if (status == STATION_WRONG_PASSWORD) {
-        this->nextTryHardcodedCredentials = now + 24 * 3600 * 1000;
+  const auto now = millis();
+  if (!this->api.isConnected() && storedWifi.isSome() && this->nextTryFlashWifiCredentials <= now) {
+    this->nextTryFlashWifiCredentials = now + intervalTryFlashWifiCredentialsMillis;
+
+    const auto stored = storedWifi.expect("storedWifi is None");
+    const auto status = this->authenticateWifi((char*) stored.ssid, (char*) stored.password);
+    if (status == STATION_GOT_IP) {
+      this->nextTryFlashWifiCredentials = 0;
+    } else if (status == STATION_WRONG_PASSWORD) {
+      return Result<Option<AuthToken>, ServeError>(ServeError::REMOVE_WIFI_CONFIG);
+    }
+  }
+  
+  if (!this->api.isConnected() && wifiNetworkName.isSome() && wifiPassword.isSome() && this->nextTryHardcodedWifiCredentials <= now) {
+    this->nextTryHardcodedWifiCredentials = now + intervalTryHardcodedWifiCredentialsMillis;
+    
+    const auto ssid = wifiNetworkName.map<String>(clone).expect("Wifi name is None");
+    const auto password = wifiPassword.map<String>(clone).expect("Wifi password is None");
+    const auto status = this->authenticateWifi(ssid, password);
+    if (status == STATION_GOT_IP) {
+      this->nextTryHardcodedWifiCredentials = 0;
+    } else if (status == STATION_WRONG_PASSWORD) {
+      this->nextTryHardcodedWifiCredentials = now + 24 * 3600 * 1000;
+    }
+  }
+
+  if (this->api.isConnected() && authToken.isNone() && this->nextTryHardcodedIopCredentials <= now) {
+    this->nextTryHardcodedIopCredentials = now + intervalTryHardcodedIopCredentialsMillis;
+    if (iopEmail.isSome() && iopPassword.isSome()) {
+      const auto email = iopEmail.map<String>(clone).expect("Iop email is None");
+      const auto password = iopPassword.map<String>(clone).expect("Iop password is None");
+      auto token = this->authenticateIop(email, password);
+      if (token.isSome()) {
+        this->nextTryHardcodedIopCredentials = 0;
+        return Result<Option<AuthToken>, ServeError>(std::move(token));
       }
     }
   }
 
-  // TODO: we should redirect all router traffic to this page
-  if (server.isSome()) {
-    server.expect("Inside WiFiCredentialsServer::serve, server is None")->handleClient();
+  if (server.isNone()) {
+    panic("Server is none but shouldn't be");
   }
+  server.map<uint8_t>([](const std::shared_ptr<ESP8266WebServer> & server) { 
+    server->handleClient();
+    return 0;
+  });
+  return Result<Option<AuthToken>, ServeError>(Option<AuthToken>());
 }

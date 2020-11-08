@@ -1,14 +1,18 @@
 #include <api.hpp>
-#include <configuration.h>
-#include <network.hpp>
-#include <flash.hpp>
-#include <log.hpp>
 
 #include <ArduinoJson.h>
 
-bool Api::registerEvent(const AuthToken authToken, const Event event) const {
-  const String token = (char*) authToken.data();
-  logger.debug("Send event " + token);
+void Api::setup(std::function<void (const WiFiEventStationModeGotIP &)> onConnection) const {
+  this->network.setup(onConnection);
+}
+
+Option<uint16_t> Api::registerEvent(const AuthToken authToken, const Event event) const { 
+  char tokenChar[authToken.size() + 1] = {0};
+  memcpy(&tokenChar, (char*) authToken.data(), authToken.size());
+  this->logger.debug("Send event " + String(tokenChar));
+
+  char idChar[event.plantId.size() + 1] = {0};
+  memcpy(&idChar, (char*) event.plantId.data(), event.plantId.size());
 
   StaticJsonDocument<1048> doc;
   doc["air_temperature_celsius"] = event.airTemperatureCelsius;
@@ -16,70 +20,20 @@ bool Api::registerEvent(const AuthToken authToken, const Event event) const {
   doc["air_heat_index_celsius"] = event.airHeatIndexCelsius;
   doc["soil_temperature_celsius"] = event.soilTemperatureCelsius;
   doc["soil_resistivity_raw"] = event.soilResistivityRaw;
-  doc["plant_id"] = event.plantId;
+  doc["plant_id"] = idChar;
 
   char buffer[1048];
   serializeJson(doc, buffer);
-  const auto maybeResp = network.httpPost(token, "/event", String(buffer));
+  auto maybeResp = this->network.httpPost(tokenChar, "/event", String(buffer));
 
   if (maybeResp.isNone()) {
     #ifdef IOP_ONLINE
     #ifdef IOP_MONITOR
-    logger.error("Unable to make POST request to /event");
-    return false;
-    #else
-    return true;
+    this->logger.error("Unable to make POST request to /event");
     #endif
-    #else
-    return true;
     #endif
-  } else if (maybeResp.expect("Maybe resp is None 1").code == 403) {
-    logger.warn("Auth token was refused, deleting it");
-    flash.removeAuthToken();
-  } else if (maybeResp.expect("Maybe resp is None 2").code == 404) {
-    logger.warn("Plant Id was not found, deleting it");
-    flash.removePlantId();
   }
-
-  const auto resp = maybeResp.expect("Maybe resp is None 3");
-  return resp.code == 200;
-}
-
-Option<String> responseToMaybeString(const Response &resp) {
-  return resp.payload;
-}
-
-Option<bool> Api::doWeOwnsThisPlant(const String token, const String plantId) const {
-  logger.info("Check if we own plant. Token = " + token + ", Plant Id = " + plantId);
-
-  StaticJsonDocument<30> doc;
-  doc["id"] = plantId;
-
-  char buffer[30];
-  serializeJson(doc, buffer);
-
-  const auto maybeResp = network.httpPost("/plant/owns", String(buffer));
-
-  if (maybeResp.isNone()) {
-    #ifdef IOP_ONLINE
-    #ifdef IOP_MONITOR
-    logger.error("Unable to make POST request to /plant/owns");
-    return Option<bool>();
-    #else
-    return Option<bool>(true);
-    #endif
-    #else
-    return Option<bool>(true);
-    #endif
-  } else if (maybeResp.expect("Maybe resp is None 4").code == 404) {
-    return Option<bool>(false);
-  } else if (maybeResp.expect("Maybe resp is None 5").code == 403) {
-    logger.warn("Auth token was refused, deleting it");
-    flash.removeAuthToken();
-    return Option<bool>();
-  } else {
-    return Option<bool>(true);
-  }
+  return maybeResp.map<uint16_t>([](const Response & resp) { return resp.code; });
 }
 
 Option<AuthToken> Api::authenticate(const String username, const String password) const {
@@ -87,7 +41,7 @@ Option<AuthToken> Api::authenticate(const String username, const String password
     return Option<AuthToken>();
   }
 
-  logger.info("Generating token");
+  this->logger.info("Generating token");
 
   StaticJsonDocument<300> doc;
   doc["email"] = username;
@@ -96,53 +50,68 @@ Option<AuthToken> Api::authenticate(const String username, const String password
   char buffer[300];
   serializeJson(doc, buffer);
 
-  const auto maybeResp = network.httpPost("/user/login", String(buffer));
+  auto maybeResp = this->network.httpPost("/user/login", String(buffer));
 
   if (maybeResp.isNone()) {
     #ifdef IOP_ONLINE
     #ifdef IOP_MONITOR
-    logger.error("Unable to make POST request to /user/login");
+    this->logger.error("Unable to make POST request to /user/login");
     return Option<AuthToken>();
     #else
     return Option<AuthToken>({0});
     #endif
     #else
-    return Option<AuthToken>({0})
+    return Option<AuthToken>({0});
     #endif
   }
 
-  return maybeResp.andThen<String>(responseToMaybeString)
-            .map<AuthToken>(stringToAuthToken);
+  return maybeResp.andThen<String>([](const Response &resp) { return resp.payload; })
+    .andThen<AuthToken>([this](const String & val) {
+      unsigned int length = val.length();
+      if (length > AuthToken().max_size()) {
+        this->logger.error("Auth token is too big: size = " + String(length));
+        return Option<AuthToken>();
+      }
+
+      AuthToken token = {0};
+      memcpy(token.data(), (uint8_t *) val.c_str(), token.size());
+      return Option<AuthToken>(token);
+    });
 }
 
-Option<PlantId> Api::registerPlant(const String token, const String macAddress) const {
-  logger.info("Get Plant Id. Token: " + token + ", MAC: " + macAddress);
+Result<PlantId, Option<uint16_t>> Api::registerPlant(const String token) const {
+  this->logger.info("Get Plant Id. Token: " + token + ", MAC: " + this->macAddress());
 
   StaticJsonDocument<30> doc;
-  doc["mac"] = macAddress;
+  doc["mac"] = this->macAddress();
 
   char buffer[30];
   serializeJson(doc, buffer);
 
-  const auto maybeResp = network.httpPut(token, "/plant", String(buffer));
+  auto maybeResp = this->network.httpPut(token, "/plant", String(buffer));
 
   if (maybeResp.isNone()) {
     #ifdef IOP_ONLINE
     #ifdef IOP_MONITOR
-    logger.error("Unable to make PUT request to /plant");
-    return Option<PlantId>();
-    #else
-    return Option<PlantId>({0});
+    this->logger.error("Unable to make PUT request to /plant");
     #endif
-    #else
-    return Option<PlantId>({0});
     #endif
-  } else if (maybeResp.expect("Maybe resp is None").code == 403) {
-    logger.warn("Auth token was refused, deleting it");
-    flash.removeAuthToken();
-    return Option<PlantId>();
+    return Result<PlantId, Option<uint16_t>>(Option<uint16_t>());
+  }
+  
+  const auto resp = maybeResp.expect("Maybe resp is None");
+  if (resp.code == 200) {
+    unsigned int length = resp.payload.length();
+    if (length > PlantId().max_size()) {
+      logger.error("Plant id is too big: size = " + String(length));
+      return Result<PlantId, Option<uint16_t>>(500);
+    } else {
+      const uint8_t *payload = (uint8_t *) resp.payload.c_str();
+      PlantId plantId = {0};
+      memcpy(plantId.data(), payload, plantId.size());
+      return Result<PlantId, Option<uint16_t>>(plantId);
+    }
   } else {
-    return maybeResp.andThen<String>(responseToMaybeString)
-      .map<PlantId>(stringToPlantId);
+    return Result<PlantId, Option<uint16_t>>(resp.code);
   }
 }

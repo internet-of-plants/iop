@@ -2,6 +2,7 @@
 #define IOP_LOG_H_
 
 #include <Arduino.h>
+#include <option.hpp>
 
 enum LogLevel {
   TRACE = 0,
@@ -14,10 +15,19 @@ enum LogLevel {
 
 class Log {
   private:
-    LogLevel level;
+    LogLevel logLevel;
+    String targetLogger; 
 
   public:
-    Log(const LogLevel level): level(level) {}
+    Log(const LogLevel level, const String target): logLevel{level}, targetLogger(target) {}
+    Log(Log& other) = delete;
+    void operator=(Log& other) = delete;
+    void operator=(Log&& other) noexcept {
+      this->logLevel = other.logLevel;
+      this->targetLogger = other.targetLogger;
+    }
+    LogLevel level() const { return this->logLevel; }
+    String target() const { return this->targetLogger; }
     void setup() const;
     void trace(const String msg) const;
     void debug(const String msg) const;

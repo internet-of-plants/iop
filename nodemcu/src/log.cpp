@@ -1,9 +1,10 @@
 #include <log.hpp>
 #include <configuration.h>
+#include <utils.hpp>
 
 void Log::setup() const {
   Serial.begin(9600);
-  logger.info("Setup");
+  this->info("Setup");
 }
 
 void Log::trace(const String msg) const {
@@ -35,7 +36,7 @@ void Log::log(const enum LogLevel level, const String msg) const {
     return;
   #endif
   #ifdef IOP_SERIAL
-  if (this->level > level) return;
+  if (this->logLevel > level) return;
 
   String levelName;
   switch (level) {
@@ -57,7 +58,7 @@ void Log::log(const enum LogLevel level, const String msg) const {
       levelName = "CRIT";
   }
   Serial.flush();
-  Serial.println("[" + levelName + "]: " + msg);
+  Serial.println("(" + this->targetLogger + ") [" + levelName + "]: " + msg);
   Serial.flush();
   #endif
 }

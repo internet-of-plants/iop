@@ -1,132 +1,28 @@
-#include <network.hpp>
-#include <flash.hpp>
-#include <wps.hpp>
-#include <log.hpp>
-
-#include <EEPROM.h>
 #include <ESP8266HTTPClient.h>
-#include <configuration.h>
 
-// TODO: remove this global state, it's needed so we don't constantly retry to connect with stale network credentials
-// That we can't know it's stale because the router may be offline
-// This will only happen if the network changes its name, a very rare event
-// But not worth flooding the network
-unsigned long lastTryStoredCredentials = 0;
-const unsigned long intervalTryStoredCredentialsMillis = 60000; // 1 minute
+#include <network.hpp>
 
-void onConnection(const WiFiEventStationModeGotIP event) {
-  logger.info("WiFi connected (" + event.ip.toString() + "): " + String(wifi_station_get_connect_status()));
-  struct station_config config = {0};
-  wifi_station_get_config(&config);
-
-  WiFi.mode(WIFI_STA);
-
-  const auto maybeCurrConfig = flash.readWifiConfig();
-  if (maybeCurrConfig.isSome()) {
-    lastTryStoredCredentials = 0;
-    const auto currConfig = maybeCurrConfig.expect("Current network config missing when it shouldn't");
-    const bool sameSsid = memcmp(currConfig.ssid, config.ssid, 32);
-    const bool samePsk = memcmp(currConfig.password, config.password, 64);
-    if (sameSsid && samePsk) {
-      return;
-    }
-  }
-
-  flash.writeWifiConfig(config);
-  String msg = (char*) config.ssid;
-  msg += ", " + String((char*) config.password);
-  if (config.bssid_set) {
-    msg += ", " + String((char*) config.bssid);
-  }
-  logger.info("Connected to: " + msg);
-}
-
-void Network::setup() const {
+void Network::setup(std::function<void (const WiFiEventStationModeGotIP &)> onConnection) const {
   #ifdef IOP_ONLINE
+    // Makes sure the event handler is never dropped and only set once
     static const auto handler = WiFi.onStationModeGotIP(onConnection);
     WiFi.persistent(true);
     WiFi.setAutoReconnect(true);
     WiFi.setAutoConnect(true);
     WiFi.mode(WIFI_STA);
+    station_config status = {0};
+    wifi_station_get_config_default(&status);
+    if (status.ssid != NULL && !this->isConnected()) {
+      WiFi.waitForConnectResult();
+    }
   #else
+    (void) onConnection;
     WiFi.mode(WIFI_OFF);
   #endif
-
-  auto status = wifi_station_get_connect_status();
-  if (status != STATION_CONNECTING && status != STATION_GOT_IP) {
-    this->connect();
-  }
 }
 
 bool Network::isConnected() const {
   return WiFi.status() == WL_CONNECTED;
-}
-
-
-unsigned long lastLog = 0;
-const unsigned long intervalLogMillis = 30000; // 10 seconds
-
-bool Network::connect() const {
-  const unsigned long now = millis();
-  const bool log = lastLog == 0 || lastLog + intervalLogMillis < now;
-  if (lastLog == 0 || lastLog + intervalLogMillis < now) {
-    logger.info("Connect");
-    lastLog = now;
-  }
-
-  #ifndef IOP_ONLINE
-  return false;
-  #endif
-
-  #ifdef IOP_ONLINE
-  if (lastTryStoredCredentials == 0
-      || lastTryStoredCredentials + intervalTryStoredCredentialsMillis < now) {
-
-    lastTryStoredCredentials = now;
-
-    const auto maybeConfig = flash.readWifiConfig();
-    if (maybeConfig.isSome()) {
-      logger.info("Recovering last connection information");
-      const auto config = maybeConfig.expect("Missing network config when it shouldn't");
-      if (config.bssid_set) {
-        WiFi.begin((char*) config.ssid, (char*) config.password, 0, config.bssid);
-      } else {
-        WiFi.begin((char*) config.ssid, (char*) config.password);
-      }
-
-      const auto success = WiFi.waitForConnectResult() != -1 && network.isConnected();
-      const auto status = wifiCodeToString(WiFi.status());
-      logger.debug("Wifi Status: " + status);
-      if (success) {
-        return true;
-      } else {
-        logger.error("Failed to connect to wifi. Status: " + status);
-        const auto status = wifi_station_get_connect_status();
-        // We don't flush the credentials if the network name is wrong
-        // because a offline router will trigger that
-        if (status == STATION_WRONG_PASSWORD) {
-          flash.removeWifiConfig();
-        }
-      }
-    }
-  }
-
-  if (wifiNetworkName.isNone() || wifiPassword.isNone()) {
-    if (log) logger.trace("No wifi network name or password");
-    return false;
-  }
-
-  const auto networkName = wifiNetworkName.expect("Missing network name when it shouldn't");
-  const auto networkPassword = wifiPassword.expect("Missing network password when it shouldn't");
-  WiFi.begin(networkName, networkPassword);
-
-  const bool success = WiFi.waitForConnectResult();
-  if (!success) {
-    const auto status = wifiCodeToString(WiFi.status());
-    logger.error("Failed to connect to wifi. Status: " + status);
-  }
-  return success;
-  #endif
 }
 
 String Network::wifiCodeToString(const wl_status_t val) const {
@@ -178,21 +74,14 @@ Option<Response> Network::httpPost(const String path, const String data) const {
   return this->httpRequest(POST, Option<String>(), path, Option<String>(data));
 }
 
-Option<Response> Network::httpRequest(const enum HttpMethod method, const Option<String> token, const String path, const Option<String> data) const {
-  logger.info("[" + methodToString(method) + "] " + path + ": " + data.unwrap_or("No Data"));
-
-  if (host.isNone()) {
-    #ifdef IOP_MONITOR
-    panic("No host available");
-    #endif
-    return Option<Response>();
-  }
+Option<Response> Network::httpRequest(const enum HttpMethod method, Option<String> token, const String path, Option<String> data) const {
+  this->logger.info("[" + methodToString(method) + "] " + path + ": " + data.map<String>(clone).unwrap_or("<no data>"));
 
   #ifdef IOP_ONLINE
   #ifdef IOP_MONITOR
   for (uint8_t index = 0; index < 3; ++index) {
-    if (isConnected()) {
-      const auto uri = api.host() + path;
+    if (this->isConnected()) {
+      const auto uri = this->host_ + path;
 
       WiFiClientSecure client;
       client.setInsecure(); // TODO: please fix it this is horrible
@@ -200,35 +89,39 @@ Option<Response> Network::httpRequest(const enum HttpMethod method, const Option
 
       HTTPClient http;
       http.begin(client, uri);
-      http.addHeader("Content-Type", "application/json");
+      if (data.isSome()) {
+        http.addHeader("Content-Type", "application/json");
+      }
       http.addHeader("Connection", "close");
       if (token.isSome()) {
         http.addHeader("Authorization", "Basic " + token.expect("Missing auth token when it shouldn't"));
       }
 
-      const auto payload = data.unwrap_or("");
-      const int httpCode = http.sendRequest(methodToString(method).c_str(), (const uint8_t *) payload.c_str(), payload.length());
+      const auto data_ = data.unwrap_or("");
+      const int httpCode = http.sendRequest(methodToString(method).c_str(), (uint8_t *) data_.c_str(), data_.length());
 
-      logger.info("Response code: " + String(httpCode));
-      if (httpCode == 200) {
-        const auto payload = http.getString();
+      this->logger.info("Response code: " + String(httpCode));
+      if (httpCode < 0 || httpCode >= UINT16_MAX) {
         http.end();
-
-        return Option<Response>((Response) {
-          .code = httpCode,
-          .payload = Option<String>(payload),
-        });
-      } else {
-        http.end();
-
-        return Option<Response>((Response) {
-          .code = httpCode,
-          .payload = Option<String>(),
-        });
+        continue;
       }
+
+      if (http.getSize() > 2048) {
+        this->logger.error("Payload from server was too big: " + String(http.getSize()));
+        continue;
+      }
+
+      const auto payload = http.getString();
+      http.end();
+
+      return Option<Response>((Response) {
+        .code = (uint16_t) httpCode,
+        .payload = payload,
+      });
     } else {
-      connect();
+      break;
     }
+    yield();
   }
   #endif
   #endif
