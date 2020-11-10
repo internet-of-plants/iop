@@ -2,8 +2,8 @@
 #define IOP_NETWORK_H_
 
 #include <ESP8266WiFi.h>
-#include <utils.hpp>
 #include <log.hpp>
+#include <option.hpp>
 
 typedef struct response {
   uint16_t code;
@@ -34,15 +34,20 @@ class Network {
     Network(Network&& other):
       host_(other.host_),
       logger(other.logger.level(), other.logger.target()) {}
-    void setup(std::function<void (const WiFiEventStationModeGotIP &)> onConnection) const;
+    void setup() const;
     bool isConnected() const;
     Option<Response> httpPut(const String token, const String path, const String data) const;
     Option<Response> httpPost(const String token, const String path, const String data) const;
     Option<Response> httpPost(const String path, const String data) const;
     Option<Response> httpRequest(const HttpMethod method, const Option<String> token, const String path, const Option<String> data) const;
     String wifiCodeToString(const wl_status_t val) const;
-    String macAddress() const { return WiFi.macAddress(); }
-    void disconnect() const { WiFi.disconnect(); }
+    String macAddress() const;
+    void disconnect() const;
 };
+
+#include <utils.hpp>
+#ifndef IOP_ONLINE
+  #define IOP_NETWORK_DISABLED
+#endif
 
 #endif

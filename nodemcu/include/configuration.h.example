@@ -19,14 +19,14 @@ const uint8_t dhtVersion = 22; // DHT22
 /// Time between measurements
 const unsigned long interval = 60 * 1000;
 
-const Option<String> host("https://iop-monitor-server.tk:4001");
+static const Option<String> host("https://iop-monitor-server.tk:4001");
 
 /// You don't need to fill the fields below, they may actually be counter-productive
 
-const Option<String> wifiNetworkName;
-const Option<String> wifiPassword;
+static const Option<String> wifiNetworkName;
+static const Option<String> wifiPassword;
 
-const Option<String> iopEmail;
-const Option<String> iopPassword;
+static const Option<String> iopEmail;
+static const Option<String> iopPassword;
 
 #endif

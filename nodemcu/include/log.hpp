@@ -1,7 +1,7 @@
 #ifndef IOP_LOG_H_
 #define IOP_LOG_H_
 
-#include <Arduino.h>
+#include <WString.h>
 #include <option.hpp>
 
 enum LogLevel {
@@ -37,5 +37,15 @@ class Log {
     void crit(const String msg) const;
     void log(const LogLevel level, const String msg) const;
 };
+
+#include <utils.hpp>
+#ifndef IOP_SERIAL
+  #define IOP_LOG_DISABLED
+#endif
+
+// This isn't really necessary, but it's a nice plus to prevent dependencies from using it
+#ifndef IOP_SERIAL
+  #define Serial MockSerial
+#endif
 
 #endif

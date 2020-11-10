@@ -90,7 +90,7 @@ class Result {
   }
   
   T expectOk(const String msg) noexcept {
-    if (this->isErr()) { panic(msg); }
+    if (this->isErr()) { panic_(msg); }
     this->kind = EMPTY;
     T value = std::move(this->ok);
     this->dummy = 0;
@@ -103,7 +103,7 @@ class Result {
   }
 
   E expectErr(const String msg) noexcept {
-    if (this->isOk()) { panic(msg); }
+    if (this->isOk()) { panic_(msg); }
     this->kind = EMPTY;
     E value = std::move(this->error);
     this->dummy = 0;

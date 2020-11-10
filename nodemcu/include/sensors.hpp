@@ -38,4 +38,9 @@ class Sensors {
     Event measure(const PlantId plantId);
 };
 
+#include <utils.hpp>
+#ifndef IOP_SENSORS
+  #define IOP_SENSORS_DISABLED
+#endif
+
 #endif

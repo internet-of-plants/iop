@@ -49,6 +49,14 @@ class Option {
     }
   }
 
+  Option<std::reference_wrapper<const T>> asRef() const {
+    if (this->isSome()) {
+      const T& ref = this->value;
+      const std::reference_wrapper<const T> refWrapper(ref);
+      return Option<std::reference_wrapper<const T>>(refWrapper);
+    }
+    return Option<std::reference_wrapper<const T>>();
+  }
 
   ~Option() noexcept { this->reset(); }
 
@@ -67,7 +75,7 @@ class Option {
   }
 
   T expect(const String msg) noexcept {
-    if (this->isNone()) { panic(msg); }
+    if (this->isNone()) { panic_(msg); }
     this->filled = false;
     const T value = std::move(this->value);
     this->dummy = 0;

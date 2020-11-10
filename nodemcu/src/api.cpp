@@ -1,15 +1,21 @@
 #include <api.hpp>
 
+#ifndef IOP_API_DISABLED
 #include <ArduinoJson.h>
 
-void Api::setup(std::function<void (const WiFiEventStationModeGotIP &)> onConnection) const {
-  this->network.setup(onConnection);
+void Api::setup() const {
+  this->network.setup();
 }
+
+bool Api::isConnected() const { return this->network.isConnected(); }
+String Api::macAddress() const { return this->network.macAddress(); }
+void Api::disconnect() const { this->network.disconnect(); }
+LogLevel Api::loggerLevel() const { return this->logger.level(); }
 
 Option<uint16_t> Api::registerEvent(const AuthToken authToken, const Event event) const { 
   char tokenChar[authToken.size() + 1] = {0};
   memcpy(&tokenChar, (char*) authToken.data(), authToken.size());
-  this->logger.debug("Send event " + String(tokenChar));
+  this->logger.info("Send event " + String(tokenChar));
 
   char idChar[event.plantId.size() + 1] = {0};
   memcpy(&idChar, (char*) event.plantId.data(), event.plantId.size());
@@ -24,14 +30,10 @@ Option<uint16_t> Api::registerEvent(const AuthToken authToken, const Event event
 
   char buffer[1048];
   serializeJson(doc, buffer);
-  auto maybeResp = this->network.httpPost(tokenChar, "/event", String(buffer));
+  const auto maybeResp = this->network.httpPost(tokenChar, "/event", String(buffer));
 
   if (maybeResp.isNone()) {
-    #ifdef IOP_ONLINE
-    #ifdef IOP_MONITOR
-    this->logger.error("Unable to make POST request to /event");
-    #endif
-    #endif
+    //this->logger.error("Unable to make POST request to /event");
   }
   return maybeResp.map<uint16_t>([](const Response & resp) { return resp.code; });
 }
@@ -50,31 +52,21 @@ Option<AuthToken> Api::authenticate(const String username, const String password
   char buffer[300];
   serializeJson(doc, buffer);
 
-  auto maybeResp = this->network.httpPost("/user/login", String(buffer));
+  const auto maybeResp = this->network.httpPost("/user/login", String(buffer));
 
   if (maybeResp.isNone()) {
-    #ifdef IOP_ONLINE
-    #ifdef IOP_MONITOR
     this->logger.error("Unable to make POST request to /user/login");
-    return Option<AuthToken>();
-    #else
-    return Option<AuthToken>({0});
-    #endif
-    #else
-    return Option<AuthToken>({0});
-    #endif
   }
 
   return maybeResp.andThen<String>([](const Response &resp) { return resp.payload; })
     .andThen<AuthToken>([this](const String & val) {
-      unsigned int length = val.length();
-      if (length > AuthToken().max_size()) {
-        this->logger.error("Auth token is too big: size = " + String(length));
+      if (val.length() > AuthToken().max_size()) {
+        this->logger.error("Auth token is too big: size = " + String(val.length()));
         return Option<AuthToken>();
       }
 
       AuthToken token = {0};
-      memcpy(token.data(), (uint8_t *) val.c_str(), token.size());
+      memcpy(token.data(), (uint8_t *) val.c_str(), val.length());
       return Option<AuthToken>(token);
     });
 }
@@ -88,30 +80,50 @@ Result<PlantId, Option<uint16_t>> Api::registerPlant(const String token) const {
   char buffer[30];
   serializeJson(doc, buffer);
 
-  auto maybeResp = this->network.httpPut(token, "/plant", String(buffer));
+  const auto maybeResp = this->network.httpPut(token, "/plant", String(buffer));
 
   if (maybeResp.isNone()) {
-    #ifdef IOP_ONLINE
-    #ifdef IOP_MONITOR
-    this->logger.error("Unable to make PUT request to /plant");
-    #endif
-    #endif
-    return Result<PlantId, Option<uint16_t>>(Option<uint16_t>());
+    this->logger.error("Unable to make POST request to /plant");
   }
   
-  const auto resp = maybeResp.expect("Maybe resp is None");
+  const Response & resp = maybeResp.asRef().expect("Maybe resp is None");
   if (resp.code == 200) {
-    unsigned int length = resp.payload.length();
+    const unsigned int length = resp.payload.length();
     if (length > PlantId().max_size()) {
-      logger.error("Plant id is too big: size = " + String(length));
+      this->logger.error("Plant id is too big: size = " + String(length));
       return Result<PlantId, Option<uint16_t>>(500);
     } else {
       const uint8_t *payload = (uint8_t *) resp.payload.c_str();
       PlantId plantId = {0};
-      memcpy(plantId.data(), payload, plantId.size());
+      memcpy(plantId.data(), payload, length);
       return Result<PlantId, Option<uint16_t>>(plantId);
     }
   } else {
     return Result<PlantId, Option<uint16_t>>(resp.code);
   }
 }
+#endif
+
+
+#ifdef IOP_API_DISABLED
+void Api::setup() const {
+  this->network.setup();
+}
+
+bool Api::isConnected() const { return true; }
+String Api::macAddress() const { return "MAC::MAC::ERS::ON"; }
+void Api::disconnect() const { }
+LogLevel Api::loggerLevel() const { return TRACE; }
+
+Option<uint16_t> Api::registerEvent(const AuthToken authToken, const Event event) const { 
+  return Option<uint16_t>(200);
+}
+
+Option<AuthToken> Api::authenticate(const String username, const String password) const {
+  return Option<AuthToken>({0});
+}
+
+Result<PlantId, Option<uint16_t>> Api::registerPlant(const String token) const {
+  return Result<PlantId, Option<uint16_t>>((PlantId) {0});
+}
+#endif

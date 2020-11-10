@@ -1,17 +1,27 @@
 #include <flash.hpp>
-
 #include <EEPROM.h>
 
-// These flags exist to check if the information is saved to EEPROM
-// Conflicts basically will only happen at first boot
-// And are not a problem, it will just try to login with invalid credentials and clear them
+// TODO: use EEPROM.put and EEPROM.get, also try only commit once
+// (all information generally can be retrieved together)
+// https://github.com/maakbaas/esp8266-iot-framework/blob/master/src/configManager.cpp
+
+#ifndef IOP_FLASH_DISABLED
+#include <EEPROM.h>
+
+// Flags to check if information is written to flash
 const uint8_t usedWifiConfigEEPROMFlag = 123; // chosen by fair dice roll, garanteed to be random
 const uint8_t usedAuthTokenEEPROMFlag = 124;
 const uint8_t usedPlantIdEEPROMFlag = 125;
 
+
+// Indexes so each function know where they can write to. It's kinda bad, but for now it works
 const uint8_t wifiConfigIndex = 0;
-const uint8_t authTokenIndex = wifiConfigIndex + 1 + 32 + 64 + 1 + 6;
-const uint8_t plantIdIndex = authTokenIndex + 1 + AuthToken().max_size();
+const uint8_t wifiConfigSize = 1 + 32 + 64 + 1 + 6; // Used flag(1) + ssid(32) + psk(64) + bssid flag(1) + bssid(6)
+
+const uint8_t authTokenIndex = wifiConfigIndex + wifiConfigSize;
+const uint8_t authTokenSize = 1 + AuthToken().max_size(); // Used flag (1) + token
+
+const uint8_t plantIdIndex = authTokenIndex + authTokenSize;
 
 void Flash::setup() const {
   EEPROM.begin(512);
@@ -31,16 +41,19 @@ Option<PlantId> Flash::readPlantId() const {
   for (uint8_t index = 0; index < PlantId().max_size(); ++index) {
     id[index] = EEPROM.read(plantIdIndex + 1 + index);
   }
+  this->logger.info("Plant id found: " + String((char*) id.data()));
   return Option<PlantId>(id);
   #endif
 }
 
 void Flash::removePlantId() const {
+  this->logger.info("Deleting stored plant id");
   EEPROM.write(plantIdIndex, 0);
   EEPROM.commit();
 }
 
 void Flash::writePlantId(const PlantId id) const {
+  this->logger.info("Writing plant id to storage: " + String((char*) id.data()));
   EEPROM.write(plantIdIndex, usedPlantIdEEPROMFlag);
   for (uint8_t index = 0; index < PlantId().max_size(); ++index) {
     EEPROM.write(plantIdIndex + 1 + index, id[index]);
@@ -67,11 +80,13 @@ Option<AuthToken> Flash::readAuthToken() const {
 }
 
 void Flash::removeAuthToken() const {
+  this->logger.info("Deleting stored auth token");
   EEPROM.write(authTokenIndex, 0);
   EEPROM.commit();
 }
 
 void Flash::writeAuthToken(const AuthToken token) const {
+  this->logger.info("Writing auth token to storage: " + String((char*) token.data()));
   EEPROM.write(authTokenIndex, usedAuthTokenEEPROMFlag);
   for (uint8_t index = 0; index < AuthToken().max_size(); ++index) {
     EEPROM.write(authTokenIndex + 1 + index, token[index]);
@@ -101,14 +116,13 @@ Option<struct station_config> Flash::readWifiConfig() const {
 }
 
 void Flash::removeWifiConfig() const {
-  // Maybe we should actually cleanup the credentials from flash
-  // But the intention is to connect again as soon as possible, so they should be overriden
-  // and the stale credentials should be invalid, so we don't (it would also be a waste of writes)
+  this->logger.info("Deleting stored wifi config");
   EEPROM.write(usedWifiConfigEEPROMFlag, 0);
   EEPROM.commit();
 }
 
 void Flash::writeWifiConfig(const struct station_config config) const {
+  this->logger.info("Writing wifi config to storage: " + String((char*)config.ssid));
   EEPROM.write(wifiConfigIndex, usedWifiConfigEEPROMFlag);
   for (uint8_t index = 0; index < 32; ++index) {
     EEPROM.write(wifiConfigIndex + 1 + index, config.ssid[index]);
@@ -124,3 +138,17 @@ void Flash::writeWifiConfig(const struct station_config config) const {
   }
   EEPROM.commit();
 }
+#endif
+
+#ifdef IOP_FLASH_DISABLED
+void Flash::setup() const {}
+Option<AuthToken> Flash::readAuthToken() const { return Option<AuthToken>({0}); }
+void Flash::removeAuthToken() const {}
+void Flash::writeAuthToken(const AuthToken token) const { (void) token; }
+Option<PlantId> Flash::readPlantId() const { return Option<PlantId>({0}); }
+void Flash::removePlantId() const {};
+void Flash::writePlantId(const PlantId id) const { (void) id; }
+Option<struct station_config> Flash::readWifiConfig() const { return (station_config) {0}; }
+void Flash::removeWifiConfig() const {}
+void Flash::writeWifiConfig(const struct station_config id) const { (void) id; }
+#endif

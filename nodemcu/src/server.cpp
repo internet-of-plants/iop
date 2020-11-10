@@ -1,8 +1,11 @@
 #include <server.hpp>
-#include <configuration.h>
 
+#ifndef IOP_SERVER_DISABLED
+#include <configuration.h>
+#include <utils.hpp>
+
+#include <IPAddress.h>
 #include <WiFiClient.h>
-#include <DNSServer.h>
 
 const unsigned long intervalTryFlashWifiCredentialsMillis = 600000; // 10 minutes
 const unsigned long intervalTryHardcodedWifiCredentialsMillis = 600000; // 10 minutes
@@ -10,7 +13,7 @@ const unsigned long intervalTryHardcodedIopCredentialsMillis = 3600000; // 1 hou
 
 // TODO: add csrf protection
 
-const String pageHTML =
+const char pageHTML[] PROGMEM =
     "<!DOCTYPE HTML>\r\n"
     "<html><body>\r\n"
     "  <h1><center>Hello, I'm your plantomator</center></h1>\r\n"
@@ -21,12 +24,12 @@ const String pageHTML =
     "<input type='submit' value='Submit' />\r\n"
     "</form></body></html>";
 
-const String wifiHTML =
+const char wifiHTML[] PROGMEM =
     "<h3><center>Please provide your Wifi credentials, so we can connect to it</center></h3>\r\n"
     "<div><div><strong>Network name:</strong></div><input name='ssid' type='text' style='width:100%' /></div>\r\n"
     "<div><div><strong>Password:</strong></div><input name='password' type='password' style='width:100%' /></div>\r\n";
 
-const String iopHTML =
+const char iopHTML[] PROGMEM =
     "<h3><center>Please provide your Iop credentials, so we can get a authentication token to use</center></h3>\r\n"
     "<div><div><strong>Email:</strong></div><input name='iopEmail' type='text' style='width:100%' /></div>\r\n"
     "<div><div><strong>Password:</strong></div><input name='iopPassword' type='password' style='width:100%' /></div>\r\n";
@@ -37,10 +40,15 @@ void CredentialsServer::start() {
   if (server.isNone()) {
     this->logger.info("Setting our own wifi access point");
 
-    // TODO: the password should be random, but also accessible externally (like a sticker in the hardware). The question is how???
+    // TODO: the password should be random (passed at compile time)
+    // But also accessible externally (like a sticker in the hardware).
     WiFi.softAPConfig(IPAddress(192,168,1,1), IPAddress(192,168,1,1), IPAddress(255,255,255,0));
     WiFi.softAP("iop-" + hashString(WiFi.macAddress()), "le$memester#passwordz");
-    delay(500);
+
+    // Makes it a captive portal (redirects all wifi trafic to us)
+    auto dns = std::make_unique<DNSServer>();
+    dns->setErrorReplyCode(DNSReplyCode::NoError);
+    dns->start(53, "*", WiFi.softAPIP());
 
     auto s = std::make_shared<ESP8266WebServer>(80);
     s->on("/submit", [s, this]() {
@@ -72,13 +80,19 @@ void CredentialsServer::start() {
       s->send(200, "text/html", pageHTML.c_str());
     });
     s->begin();
-    server = s;
+    this->logger.info("Opened captive portal");
+    this->logger.info(WiFi.softAPIp());
+    server = std::move(s);
+    dnsServer = std::move(dns);
   }
 }
 
 void CredentialsServer::close() {
-  if (server.isSome()) {
-    server.expect("Inside WifiCredentialsServer::close, server is None but shouldn't be")->close();
+  if (this->server.isSome()) {
+    this->server.take().expect("Inside CredentialsServer::close, server is None but shouldn't be")->close();
+  }
+  if (this->dns.isSome()) {
+    this->dnsServer.take().expect("Inside CredentialsServer::close, dnsServer is None but shouldn't be")->close();
   }
 }
 
@@ -94,6 +108,13 @@ Option<AuthToken> CredentialsServer::authenticateIop(const String username, cons
 }
 
 station_status_t CredentialsServer::authenticateWifi(const String ssid, const String password) {
+  const auto status = wifi_station_get_connect_status();
+  if (status == STATION_CONNECTING) {
+    ETS_UART_INTR_DISABLE();
+    wifi_station_disconnect();
+    ETS_UART_INTR_ENABLE();
+  }
+
   WiFi.begin(ssid, password);
   if (WiFi.waitForConnectResult() == -1) {
     this->logger.warn("Wifi authentication timed out");
@@ -132,8 +153,8 @@ Result<Option<AuthToken>, ServeError> CredentialsServer::serve(Option<struct sta
   if (!this->api.isConnected() && wifiNetworkName.isSome() && wifiPassword.isSome() && this->nextTryHardcodedWifiCredentials <= now) {
     this->nextTryHardcodedWifiCredentials = now + intervalTryHardcodedWifiCredentialsMillis;
     
-    const auto ssid = wifiNetworkName.map<String>(clone).expect("Wifi name is None");
-    const auto password = wifiPassword.map<String>(clone).expect("Wifi password is None");
+    const auto ssid = wifiNetworkName.asRef().expect("Wifi name is None");
+    const auto password = wifiPassword.asRef().expect("Wifi password is None");
     const auto status = this->authenticateWifi(ssid, password);
     if (status == STATION_GOT_IP) {
       this->nextTryHardcodedWifiCredentials = 0;
@@ -145,8 +166,8 @@ Result<Option<AuthToken>, ServeError> CredentialsServer::serve(Option<struct sta
   if (this->api.isConnected() && authToken.isNone() && this->nextTryHardcodedIopCredentials <= now) {
     this->nextTryHardcodedIopCredentials = now + intervalTryHardcodedIopCredentialsMillis;
     if (iopEmail.isSome() && iopPassword.isSome()) {
-      const auto email = iopEmail.map<String>(clone).expect("Iop email is None");
-      const auto password = iopPassword.map<String>(clone).expect("Iop password is None");
+      const auto email = iopEmail.asRef().expect("Iop email is None");
+      const auto password = iopPassword.asRef().expect("Iop password is None");
       auto token = this->authenticateIop(email, password);
       if (token.isSome()) {
         this->nextTryHardcodedIopCredentials = 0;
@@ -155,12 +176,30 @@ Result<Option<AuthToken>, ServeError> CredentialsServer::serve(Option<struct sta
     }
   }
 
-  if (server.isNone()) {
-    panic("Server is none but shouldn't be");
+  if (this->server.isNone()) {
+    panic_("Server is none but shouldn't be");
   }
-  server.map<uint8_t>([](const std::shared_ptr<ESP8266WebServer> & server) { 
-    server->handleClient();
-    return 0;
-  });
+  this->server.asRef().handleClient(); 
+  this->dnsServer.asRef().processNextRequest();
   return Result<Option<AuthToken>, ServeError>(Option<AuthToken>());
 }
+#endif
+
+#ifdef IOP_SERVER_DISABLED
+  Option<AuthToken> CredentialsServer::authenticateIop(const String username, const String password) {
+    (void) username;
+    (void) password;
+    return Option<AuthToken>({0});
+  }
+  station_status_t CredentialsServer::authenticateWifi(const String ssid, const String password) {
+    (void) ssid;
+    (void) password;
+    return STATION_GOT_IP;
+  }
+  Result<Option<AuthToken>, ServeError> CredentialsServer::serve(Option<struct station_config> storedWifi, Option<AuthToken> authToken) {
+    (void) storedWifi;
+    return Result<Option<AuthToken>, ServeError>(std::move(authToken));
+  }
+  void CredentialsServer::close() {}
+  void CredentialsServer::start() {}
+#endif

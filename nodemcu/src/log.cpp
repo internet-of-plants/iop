@@ -1,11 +1,4 @@
 #include <log.hpp>
-#include <configuration.h>
-#include <utils.hpp>
-
-void Log::setup() const {
-  Serial.begin(9600);
-  this->info("Setup");
-}
 
 void Log::trace(const String msg) const {
   log(TRACE, msg);
@@ -31,11 +24,15 @@ void Log::crit(const String msg) const {
   log(CRIT, msg);
 }
 
+#ifndef IOP_LOG_DISABLED
+#include <Arduino.h>
+
+void Log::setup() const {
+  Serial.begin(9600);
+  this->info("Setup");
+}
+
 void Log::log(const enum LogLevel level, const String msg) const {
-  #ifndef IOP_SERIAL
-    return;
-  #endif
-  #ifdef IOP_SERIAL
   if (this->logLevel > level) return;
 
   String levelName;
@@ -54,11 +51,21 @@ void Log::log(const enum LogLevel level, const String msg) const {
       break;
     case ERROR:
       levelName = "ERROR";
+      break;
     case CRIT:
       levelName = "CRIT";
+      break;
   }
   Serial.flush();
-  Serial.println("(" + this->targetLogger + ") [" + levelName + "]: " + msg);
+  Serial.println("[" + levelName + "] " + this->targetLogger + ": " + msg);
   Serial.flush();
-  #endif
 }
+#endif
+
+#ifdef IOP_LOG_DISABLED
+void Log::setup() const {}
+void Log::log(const enum LogLevel level, const String msg) const {
+  (void) level;
+  (void) msg;
+}
+#endif

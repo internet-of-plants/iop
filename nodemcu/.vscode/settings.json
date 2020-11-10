@@ -36,6 +36,9 @@
         "cinttypes": "cpp",
         "typeinfo": "cpp",
         "random": "cpp",
-        "iostream": "cpp"
+        "iostream": "cpp",
+        "bitset": "cpp",
+        "ctime": "cpp",
+        "regex": "cpp"
     }
 }

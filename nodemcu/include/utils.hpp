@@ -1,14 +1,14 @@
 #ifndef IOP_UTILS_H_
 #define IOP_UTILS_H_
 
-#include <Arduino.h>
-#include <DHT.h>
-#include <DallasTemperature.h>
+#include <WString.h>
 #include <models.hpp>
-#include <option.hpp>
 
 // (Un)Comment this line to toggle wifi dependency
 #define IOP_ONLINE
+
+// (Un)Comment this line to toggle credentials server dependency
+//#define IOP_SERVER
 
 // (Un)Comment this line to toggle monitor server dependency
 #define IOP_MONITOR
@@ -19,14 +19,19 @@
 // (Un)Comment this line to toggle sensors dependency
 //#define IOP_SENSORS
 
+// (Un)Comment this line to toggle flash memory dependency
+//#define IOP_FLASH
+
+// (Un)Comment this line to toggle factory reset dependency
+//#define IOP_FACTORY_RESET
+
 enum InterruptEvent {
   NONE,
-  FACTORY_RESET
+  FACTORY_RESET,
+  ON_CONNECTION
 };
 
-String clone(const String& value);
 uint64_t hashString(const String string);
-bool handlePlantId(const AuthToken token, const String macAddress);
 
 class MockSerial {
   public:
@@ -38,10 +43,6 @@ class MockSerial {
 };
 
 static MockSerial mockSerial;
-
-#ifndef IOP_SERIAL
-  #define Serial MockSerial
-#endif
 
 static volatile enum InterruptEvent interruptEvent = NONE;
 

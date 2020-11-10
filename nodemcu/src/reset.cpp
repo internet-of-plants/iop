@@ -1,9 +1,12 @@
 #include <reset.hpp>
+
+#ifndef IOP_FACTORY_RESET_DISABLED
+#include <Arduino.h>
 #include <configuration.h>
 #include <log.hpp>
 #include <utils.hpp>
 
-const Log logger(logLevel, "RESET");
+const Log logger(logLevel, "INTERRUPT");
 
 volatile unsigned long resetStateTime = 0; 
 void buttonClosed();
@@ -30,3 +33,8 @@ namespace reset {
     attachInterrupt(digitalPinToInterrupt(factoryResetButton), buttonClosed, RISING);
   }
 }
+#endif
+
+#ifdef IOP_FACTORY_RESET_DISABLED
+namespace reset { void setup() {} }
+#endif

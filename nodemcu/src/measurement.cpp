@@ -1,7 +1,7 @@
+#include <Arduino.h>
 #include <measurement.hpp>
-#include <utils.hpp>
 
-#ifdef IOP_SENSORS
+#ifndef IOP_MEASUREMENT_DISABLED
 float measureSoilTemperatureCelsius(DallasTemperature &sensor) {
   // Blocks until reading is done
   sensor.requestTemperatures();
@@ -36,7 +36,7 @@ uint16_t measureSoilResistivityRaw(const uint8_t powerPin) {
 }
 #endif
 
-#ifndef IOP_SENSORS
+#ifdef IOP_MEASUREMENT_DISABLED
 float measureSoilTemperatureCelsius(DallasTemperature &sensor) { return 0.; }
 float measureAirTemperatureCelsius(DHT &dht) { return 0.; }
 float measureAirHumidityPercentage(DHT &dht) { return 0.; }

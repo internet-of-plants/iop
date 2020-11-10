@@ -31,15 +31,20 @@ public:
     network(std::move(other.network)) {}
 
 
-  void setup(std::function<void (const WiFiEventStationModeGotIP &)> onConnection) const;
+  void setup() const;
   Option<uint16_t> registerEvent(const AuthToken token, const Event event) const;
   Result<PlantId, Option<uint16_t>> registerPlant(const String token) const;
   Option<AuthToken> authenticate(const String username, const String password) const;
   String host() const { return this->host_; }
-  bool isConnected() const { return this->network.isConnected(); }
-  String macAddress() const { return this->network.macAddress(); }
-  void disconnect() const { this->network.disconnect(); }
-  LogLevel loggerLevel() const { return this->logger.level(); }
+  bool isConnected() const;
+  String macAddress() const;
+  void disconnect() const;
+  LogLevel loggerLevel() const;
 };
+
+#include <utils.hpp>
+#ifndef IOP_MONITOR
+  #define IOP_API_DISABLED
+#endif
 
 #endif

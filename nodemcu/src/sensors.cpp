@@ -1,15 +1,12 @@
 #include <sensors.hpp>
+
+#ifndef IOP_SENSORS_DISABLED
 #include <measurement.hpp>
 
-#include <Arduino.h>
-#include <memory>
-
 void Sensors::setup() {
-  #ifdef IOP_SENSORS
-    pinMode(this->soilResistivityPowerPin, OUTPUT);
-    this->airTempAndHumiditySensor.begin();
-    this->soilTemperatureSensor.begin();
-  #endif
+  pinMode(this->soilResistivityPowerPin, OUTPUT);
+  this->airTempAndHumiditySensor.begin();
+  this->soilTemperatureSensor.begin();
 }
 
 Event Sensors::measure(const PlantId plantId) {
@@ -22,3 +19,13 @@ Event Sensors::measure(const PlantId plantId) {
     .plantId = plantId,
   };
 }
+#endif
+
+#ifdef IOP_SENSORS_DISABLED
+void Sensors::setup() {}
+Event Sensors::measure(const PlantId plantId) {
+  Event ev = {0};
+  ev.plantId = plantId;
+  return ev;
+}
+#endif

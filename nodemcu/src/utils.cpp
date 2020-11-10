@@ -1,10 +1,5 @@
+#include <WString.h>
 #include <utils.hpp>
-#include <configuration.h>
-#include <log.hpp>
-
-String clone(const String& value) {
-  return String((const String&)value);
-}
 
 // FNV hash
 uint64_t hashString(const String string) {
