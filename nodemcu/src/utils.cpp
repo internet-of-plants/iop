@@ -2,7 +2,7 @@
 
 // FNV hash
 uint64_t hashString(const StringView string) {
-  const uint8_t * bytes = (uint8_t*) string.get();
+  const auto bytes = reinterpret_cast<const uint8_t*>(string.get());
   const uint64_t p = 16777619;
   uint64_t hash = 2166136261;
 

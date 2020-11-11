@@ -127,7 +127,7 @@ Option<Response> Network::httpRequest(const enum HttpMethod method, const Option
       http->addHeader(F("Authorization"), String("Basic ") + String(tok.get()));
     }
 
-    const int httpCode = http->sendRequest(methodToString(method).get(), (uint8_t *) data_.get(), strlen(data_.get()));
+    const int httpCode = http->sendRequest(methodToString(method).get(), reinterpret_cast<const uint8_t *>(data_.get()), strlen(data_.get()));
 
     this->logger.info(F("Response code:"), START, F(" "));
     this->logger.info(String(httpCode), CONTINUITY);

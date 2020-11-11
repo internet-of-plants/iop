@@ -114,8 +114,8 @@ private:
           auto maybeCurrConfig = this->flash.readWifiConfig();
           if (maybeCurrConfig.isSome()) {
             auto currConfig = maybeCurrConfig.expect(F("Current network config missing when it shouldn't"));
-            const bool sameSsid = memcmp(currConfig.ssid.constPtr(), (uint8_t*) config.ssid, NetworkName::dataSize);
-            const bool samePsk = memcmp(currConfig.password.constPtr(), (uint8_t*) config.password, NetworkPassword::dataSize);
+            const bool sameSsid = memcmp(currConfig.ssid.constPtr(), reinterpret_cast<uint8_t*>(config.ssid), NetworkName::dataSize);
+            const bool samePsk = memcmp(currConfig.password.constPtr(), reinterpret_cast<uint8_t*>(config.password), NetworkPassword::dataSize);
             if (sameSsid && samePsk) {
               break;
             }

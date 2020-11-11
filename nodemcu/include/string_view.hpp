@@ -15,7 +15,7 @@ public:
   constexpr StringView(const StringView& other): str(other.str) {}
   void operator=(const StringView& other) { this->str = other.str; }
   void operator=(const StringView&& other) { this->str = other.str; }
-  constexpr const char * const get() const { return this->str; }
+  constexpr const char * const get() const { return reinterpret_cast<const char*>(this->str); }
   constexpr const char * const operator->() const { return this->get(); }
   constexpr const char * const operator*() const { return this->get(); }
   size_t length() const { return strlen(this->str); }
