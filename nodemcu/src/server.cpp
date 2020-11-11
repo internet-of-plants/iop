@@ -38,41 +38,8 @@ const char pageHTMLEnd[] PROGMEM =
 
 #include <unordered_map>
 
-static station_status_t authenticateWifi(const Log & logger, const Api & api, const String & ssid, const String & password) {
-  if (wifi_station_get_connect_status() == STATION_CONNECTING) {
-    ETS_UART_INTR_DISABLE();
-    wifi_station_disconnect();
-    ETS_UART_INTR_ENABLE();
-  }
-
-  WiFi.begin(ssid, password);
-  if (WiFi.waitForConnectResult() == -1) {
-    logger.warn(STATIC_STRING("Wifi authentication timed out"), START, STATIC_STRING("\n"), false);
-    return STATION_CONNECT_FAIL;
-  }
-
-  const auto status = wifi_station_get_connect_status();
-  if (!api.isConnected()) {
-    logger.warn(STATIC_STRING("Invalid credentials ("), START, STATIC_STRING(" "), false);
-    logger.warn(String(status), CONTINUITY, STATIC_STRING("): "), false);
-    logger.warn(ssid, CONTINUITY, STATIC_STRING(", "), false);
-    logger.warn(password, CONTINUITY, STATIC_STRING("\n"), false);
-  }
-  return status;
-}
-
-Option<AuthToken> authenticateIop(const Log & logger, const Api &api, const String username, const String password) {
-  auto authToken = api.authenticate(username, password);
-  if (authToken.isSome()) {
-    const AuthToken token = authToken.expect(STATIC_STRING("Inside authenticateIop: Auth Token is none but shouldn't."));
-    return Option<AuthToken>(token);
-  }
-
-  logger.warn(STATIC_STRING("Invalid wifi credentials:"), START, STATIC_STRING(" "), false);
-  logger.warn(username, CONTINUITY, STATIC_STRING(", "), false);
-  logger.warn(password, CONTINUITY, STATIC_STRING("\n"), false);
-  return Option<AuthToken>();
-}
+Option<std::pair<String, String>> credentialsWifi;
+Option<std::pair<String, String>> credentialsIop;
 
 void CredentialsServer::start() {
   if (server.isNone()) {
@@ -95,28 +62,22 @@ void CredentialsServer::start() {
     const auto flash = this->flash;
 
     auto s = std::make_shared<ESP8266WebServer>(80);
-    s->on(F("/submit"), [s, loggerLevel, api]() {
-      const Log logger(loggerLevel, STATIC_STRING("SERVER_CALLBACK"));
+    s->on(F("/submit"), [s, loggerLevel]() {
+      const Log logger(loggerLevel, STATIC_STRING("SERVER_CALLBACK"), false);
       logger.info(STATIC_STRING("Received form with credentials"));
       s->sendHeader(F("Connection"), F("close"));
+      
       if (s->hasArg(F("ssid")) && s->hasArg(F("password"))) {
-      const station_status_t status = authenticateWifi(logger, *api, s->arg(F("ssid")), s->arg(F("password")));
-        if (status == STATION_GOT_IP) {
-          s->send(200, F("text/plain"), F("Authentication succeeded :)"));
-        } else if (status == STATION_WRONG_PASSWORD) {
-          s->send(403, F("text/plain"), F("Wrong password"));
-        } else {
-          s->send(404, F("text/plain"), String(F("Authentication failed :(. Status: ")) + String(status));
-        }
+        credentialsWifi = std::pair<String, String>(s->arg(F("ssid")), s->arg(F("password")));
       }
 
       if (s->hasArg(F("iopEmail")) && s->hasArg(F("iopPassword"))) {
-        authenticateIop(logger, *api, s->arg(F("iopEmail")), s->arg(F("iopPassword")));
+        credentialsIop = std::pair<String, String>(s->arg(F("iopEmail")), s->arg(F("iopPassword")));
       }
     });
     s->onNotFound([s, api, loggerLevel, flash]() {
-      const Log logger(loggerLevel, STATIC_STRING("SERVER_CALLBACK"));
-      logger.info(STATIC_STRING("Serving captive portal HTML"), START, STATIC_STRING("\n"), false);
+      const Log logger(loggerLevel, STATIC_STRING("SERVER_CALLBACK"), false);
+      logger.info(STATIC_STRING("Serving captive portal HTML"));
 
       const auto wifi = !api->isConnected();
       const auto iop = flash->readAuthToken().isNone();
@@ -150,6 +111,44 @@ void CredentialsServer::close() {
   }
 }
 
+station_status_t CredentialsServer::connect(const char * const ssid, const char * const password) const {
+  if (wifi_station_get_connect_status() == STATION_CONNECTING) {
+    ETS_UART_INTR_DISABLE();
+    wifi_station_disconnect();
+    ETS_UART_INTR_ENABLE();
+  }
+
+  WiFi.begin(ssid, password);
+  if (WiFi.waitForConnectResult() == -1) {
+    this->logger.warn(STATIC_STRING("Wifi authentication timed out"));
+    return wifi_station_get_connect_status();
+  } else {
+    const auto status = wifi_station_get_connect_status();
+    if (!this->api->isConnected()) {
+      this->logger.warn(STATIC_STRING("Invalid wifi credentials ("), START, STATIC_STRING(" "));
+      this->logger.warn(String(status), CONTINUITY, STATIC_STRING("): "));
+      this->logger.warn(StaticString(ssid), CONTINUITY, STATIC_STRING(", "));
+      this->logger.warn(StaticString(password), CONTINUITY, STATIC_STRING("["));
+    }
+
+    if (status == STATION_WRONG_PASSWORD) {
+      this->logger.warn(STATIC_STRING("Wifi password was incorrect"));
+    }
+    return status;
+  }
+}
+
+Result<AuthToken, Option<HttpCode>> CredentialsServer::authenticate(const char * const ssid, const char * const password) const {
+    auto authToken = this->api->authenticate(ssid, password);
+    if (authToken.isErr()) {
+      this->logger.warn(STATIC_STRING("Invalid wifi credentials:"), START, STATIC_STRING(" "));
+      this->logger.warn(StaticString(ssid), CONTINUITY, STATIC_STRING(", "));
+      this->logger.warn(StaticString(password), CONTINUITY);
+    }
+    
+    return std::move(authToken);
+}
+
 /// Abstracts away wifi and iop credentials acquisition.
 /// If there are hardcoded credentials this will use them (and avoid a floods if they are invalid)
 /// If there are credentials stored in flash memory it will use them, clearing them when proved invalid
@@ -157,28 +156,47 @@ void CredentialsServer::close() {
 /// If nothing else works it will serve a HTTP server at port 80 that provides a HTML form
 /// Submitting this form with the appropriate wifi and iop credentials will authenticate you
 /// So the server should be closed;
-Result<Option<AuthToken>, ServeError> CredentialsServer::serve(Option<struct station_config> storedWifi, Option<AuthToken> authToken) {
+Result<Option<AuthToken>, ServeError> CredentialsServer::serve(const Option<struct WifiCredentials> & storedWifi, const Option<AuthToken> & authToken) {
   this->start();
+
+  if (credentialsWifi.isSome()) {
+    const auto cred = credentialsWifi.expect(STATIC_STRING("credentialsWifi are none, inside CredentialsServer::serve"));
+    this->connect(cred.first.c_str(), cred.second.c_str());
+  }
+
+  if (credentialsIop.isSome()) {
+    const auto cred = credentialsIop.expect(STATIC_STRING("credentialsWifi are none, inside CredentialsServer::serve"));
+    auto result = this->authenticate(cred.first.c_str(), cred.second.c_str());
+    if (result.isOk()) {
+      const auto token = result.expectOk(STATIC_STRING("result is Err but shouldn't"));
+      return Result<Option<AuthToken>, ServeError>(token);
+    }
+  }
 
   const auto now = millis();
   if (!this->api->isConnected() && storedWifi.isSome() && this->nextTryFlashWifiCredentials <= now) {
     this->nextTryFlashWifiCredentials = now + intervalTryFlashWifiCredentialsMillis;
 
-    const auto stored = storedWifi.expect(STATIC_STRING("storedWifi is None"));
-    const auto status = authenticateWifi(this->logger, *this->api, (char*) stored.ssid, (char*) stored.password);
-    if (status == STATION_GOT_IP) {
-      this->nextTryFlashWifiCredentials = 0;
-    } else if (status == STATION_WRONG_PASSWORD) {
+    const struct WifiCredentials& stored = storedWifi.asRef().expect(STATIC_STRING("storedWifi is None"));
+    constexpr const uint8_t ssidSize = NetworkName().size() + 1;
+    std::array<char, ssidSize> ssid = {0};
+    memcpy(&ssid, stored.ssid.data(), stored.ssid.size());
+    constexpr const uint8_t passwordSize = NetworkPassword().size() + 1;
+    std::array<char, passwordSize> password = {0};
+    memcpy(&password, stored.password.data(), stored.password.size());
+
+    const auto status = this->connect(ssid.data(), ssid.data());
+    if (status == STATION_WRONG_PASSWORD) {
+      this->nextTryHardcodedWifiCredentials = 0;
       return Result<Option<AuthToken>, ServeError>(ServeError::REMOVE_WIFI_CONFIG);
     }
   }
 
   if (!this->api->isConnected() && wifiNetworkName.isSome() && wifiPassword.isSome() && this->nextTryHardcodedWifiCredentials <= now) {
     this->nextTryHardcodedWifiCredentials = now + intervalTryHardcodedWifiCredentialsMillis;
-    const auto toString = [](const StaticString & str) { return String(str.get()); };
-    const auto ssid = wifiNetworkName.map<String>(toString).expect(STATIC_STRING("Wifi name is None"));
-    const auto password = wifiPassword.map<String>(toString).expect(STATIC_STRING("Wifi password is None"));
-    const auto status = authenticateWifi(this->logger, *this->api, ssid, password);
+    const StaticString& ssid = wifiNetworkName.asRef().expect(STATIC_STRING("Wifi name is None"));
+    const StaticString& password = wifiPassword.asRef().expect(STATIC_STRING("Wifi password is None"));
+    const auto status = this->connect(ssid.get(), password.get());
     if (status == STATION_GOT_IP) {
       this->nextTryHardcodedWifiCredentials = 0;
     } else if (status == STATION_WRONG_PASSWORD) {
@@ -189,13 +207,22 @@ Result<Option<AuthToken>, ServeError> CredentialsServer::serve(Option<struct sta
   if (this->api->isConnected() && authToken.isNone() && this->nextTryHardcodedIopCredentials <= now) {
     this->nextTryHardcodedIopCredentials = now + intervalTryHardcodedIopCredentialsMillis;
     if (iopEmail.isSome() && iopPassword.isSome()) {
-      const auto toString = [](const StaticString & str) { return String(str.get()); };
-      const auto email = iopEmail.map<String>(toString).expect(STATIC_STRING("Iop email is None"));
-      const auto password = iopPassword.map<String>(toString).expect(STATIC_STRING("Iop password is None"));
-      auto token = authenticateIop(this->logger, *this->api, email, password);
-      if (token.isSome()) {
+      const StaticString& email = iopEmail.asRef().expect(STATIC_STRING("Iop email is None"));
+      const StaticString& password = iopPassword.asRef().expect(STATIC_STRING("Iop password is None"));
+      auto token = this->authenticate(email.get(), password.get());
+      if (token.isOk()) {
         this->nextTryHardcodedIopCredentials = 0;
-        return Result<Option<AuthToken>, ServeError>(std::move(token));
+        return Result<Option<AuthToken>, ServeError>(token.expectOk(STATIC_STRING("token is Err")));
+      } else if (token.isErr()) {
+        auto maybeCode = token.expectErr(STATIC_STRING("token is Ok when it shouldn't"));
+        if (maybeCode.isSome()) {
+          const auto code = maybeCode.expect(STATIC_STRING("maybeCode is none"));
+          if (code == 403) {
+            this->nextTryHardcodedIopCredentials = now + 24 + 3600 + 1000;
+          }
+        }
+      } else {
+        panic_(STATIC_STRING("Result was empty"));
       }
     }
   }
@@ -211,9 +238,9 @@ Result<Option<AuthToken>, ServeError> CredentialsServer::serve(Option<struct sta
 #endif
 
 #ifdef IOP_SERVER_DISABLED
-  Result<Option<AuthToken>, ServeError> CredentialsServer::serve(Option<struct station_config> storedWifi, Option<AuthToken> authToken) {
+  Result<Option<AuthToken>, ServeError> CredentialsServer::serve(const Option<struct WifiCredentials> & storedWifi, const Option<AuthToken> & authToken) {
     (void) storedWifi;
-    return Result<Option<AuthToken>, ServeError>(std::move(authToken));
+    return Result<Option<AuthToken>, ServeError>(authToken);
   }
   void CredentialsServer::close() {}
   void CredentialsServer::start() {}

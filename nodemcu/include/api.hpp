@@ -29,9 +29,9 @@ public:
 
 
   void setup() const;
-  Option<uint16_t> registerEvent(const AuthToken & token, const Event & event) const;
-  Result<PlantId, Option<uint16_t>> registerPlant(const AuthToken & token) const;
-  Option<AuthToken> authenticate(const String & username, const String & password) const;
+  Option<HttpCode> registerEvent(const AuthToken & token, const Event & event) const;
+  Result<PlantId, Option<HttpCode>> registerPlant(const AuthToken & token) const;
+  Result<AuthToken, Option<HttpCode>> authenticate(const String & username, const String & password) const;
   StaticString host() const { return this->network.host(); }
   bool isConnected() const;
   String macAddress() const;

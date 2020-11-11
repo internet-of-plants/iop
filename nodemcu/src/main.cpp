@@ -109,17 +109,21 @@ private:
 
           WiFi.mode(WIFI_STA);
 
-          const auto maybeCurrConfig = this->flash.readWifiConfig();
+          auto maybeCurrConfig = this->flash.readWifiConfig();
           if (maybeCurrConfig.isSome()) {
-            const struct station_config & currConfig = maybeCurrConfig.asRef().expect(STATIC_STRING("Current network config missing when it shouldn't"));
-            const bool sameSsid = memcmp(currConfig.ssid, config.ssid, 32);
-            const bool samePsk = memcmp(currConfig.password, config.password, 64);
+            auto currConfig = maybeCurrConfig.expect(STATIC_STRING("Current network config missing when it shouldn't"));
+            const bool sameSsid = memcmp(currConfig.ssid.data(), config.ssid, currConfig.ssid.size());
+            const bool samePsk = memcmp(currConfig.password.data(), config.password, currConfig.password.size());
             if (sameSsid && samePsk) {
               break;
             }
-          }
 
-          this->flash.writeWifiConfig(config);
+            NetworkName ssid = {0};
+            memcpy(&ssid, config.ssid, ssid.size());
+            NetworkPassword psk = {0};
+            memcpy(&psk, config.password, psk.size());
+            this->flash.writeWifiConfig((struct WifiCredentials) { .ssid = ssid, .password = psk });
+          }
           this->logger.info(STATIC_STRING("Connected to:"), START, STATIC_STRING(" "));
           this->logger.info(StaticString((char*)config.ssid), CONTINUITY, STATIC_STRING(" "));
           this->logger.info(StaticString((char*)config.password), CONTINUITY);
@@ -130,7 +134,7 @@ private:
   }
 
   void handleCredentials(Option<AuthToken> maybeToken) {
-    auto result = this->credentialsServer.serve(this->flash.readWifiConfig(), std::move(maybeToken));
+    auto result = this->credentialsServer.serve(this->flash.readWifiConfig(), maybeToken);
     if (result.isOk()) {
       auto opt = result.expectOk(STATIC_STRING("Result is err but shouldn't: at loop()"));
       if (opt.isSome()) {

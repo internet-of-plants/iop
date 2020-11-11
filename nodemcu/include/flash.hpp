@@ -26,9 +26,9 @@ class Flash {
     void removePlantId() const;
     void writePlantId(const PlantId id) const;
 
-    Option<struct station_config> readWifiConfig() const;
+    Option<struct WifiCredentials> readWifiConfig() const;
     void removeWifiConfig() const;
-    void writeWifiConfig(const struct station_config id) const;
+    void writeWifiConfig(const struct WifiCredentials id) const;
 };
 
 #include <utils.hpp>

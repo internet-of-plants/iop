@@ -10,7 +10,7 @@
 #define IOP_SERVER
 
 // (Un)Comment this line to toggle monitor server dependency
-//#define IOP_MONITOR
+#define IOP_MONITOR
 
 // (Un)Comment this line to toggle serial dependency
 #define IOP_SERIAL

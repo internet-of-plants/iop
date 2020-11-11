@@ -92,7 +92,11 @@ void Log::log(const enum LogLevel level, const StaticString msg, const enum LogT
   if (this->logLevel > level) return;
   if (this->flush) Serial.flush();
   this->printLogType(logType, level);
-  Serial.print(FPSTR(msg.get()));
+  Serial.print(msg.get());
+  // TODO: We can't do that right now because we depend on StaticString to emulate a StringView for now
+  // We should use a technique like of F and FPTR, using this helper class to only allow construction
+  // of StaticString from PROCMEM
+  //Serial.print(FPSTR(msg.get()));
   Serial.print(FPSTR(lineTermination));
   if (this->flush) Serial.flush();
 }
