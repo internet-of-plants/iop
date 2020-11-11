@@ -2,16 +2,15 @@
 #define IOP_UTILS_H_
 
 #include <WString.h>
-#include <models.hpp>
 
 // (Un)Comment this line to toggle wifi dependency
 #define IOP_ONLINE
 
 // (Un)Comment this line to toggle credentials server dependency
-//#define IOP_SERVER
+#define IOP_SERVER
 
 // (Un)Comment this line to toggle monitor server dependency
-#define IOP_MONITOR
+//#define IOP_MONITOR
 
 // (Un)Comment this line to toggle serial dependency
 #define IOP_SERIAL
@@ -20,10 +19,17 @@
 //#define IOP_SENSORS
 
 // (Un)Comment this line to toggle flash memory dependency
-//#define IOP_FLASH
+#define IOP_FLASH
 
 // (Un)Comment this line to toggle factory reset dependency
-//#define IOP_FACTORY_RESET
+#define IOP_FACTORY_RESET
+
+
+// If IOP_MONITOR is not defined the Api methods will be short-circuited
+// If IOP_MOCK_MONITOR is defined, then the methods will run normally
+// and pretend the request didn't fail
+// If IOP_MONITOR is defined, then it doesn't matter whether IOP_MOCK_MONITOR is defined
+#define IOP_MOCK_MONITOR
 
 enum InterruptEvent {
   NONE,
@@ -32,17 +38,6 @@ enum InterruptEvent {
 };
 
 uint64_t hashString(const String string);
-
-class MockSerial {
-  public:
-    MockSerial() {}
-    void begin(unsigned long baud) {}
-    void flush() {}
-    size_t println(const char * msg) { return 0; }
-    size_t println(const String &s) { return 0; }
-};
-
-static MockSerial mockSerial;
 
 static volatile enum InterruptEvent interruptEvent = NONE;
 

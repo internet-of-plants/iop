@@ -1,4 +1,3 @@
-#include <WString.h>
 #include <utils.hpp>
 
 // FNV hash

@@ -6,36 +6,33 @@
 #include <result.hpp>
 #include <network.hpp>
 #include <log.hpp>
+#include <static_string.hpp>
 
 class Api {
 private:
-  String host_;
   Log logger;
   Network network;
 
 public:
-  Api(const String host, const LogLevel logLevel):
-    host_(host),
-    logger(logLevel, "API"),
+  Api(const StaticString host, const LogLevel logLevel):
+    logger(logLevel, STATIC_STRING("API")),
     network(host, logLevel) {}
   Api(Api& other) = delete;
   void operator=(Api& other) = delete;
   void operator=(Api&& other) {
-    this->host_ = std::move(other.host_);
     this->logger = std::move(other.logger);
     this->network = std::move(other.network);
   }
   Api(Api&& other):
-    host_(std::move(other.host_)),
     logger(other.logger.level(), other.logger.target()),
     network(std::move(other.network)) {}
 
 
   void setup() const;
-  Option<uint16_t> registerEvent(const AuthToken token, const Event event) const;
-  Result<PlantId, Option<uint16_t>> registerPlant(const String token) const;
-  Option<AuthToken> authenticate(const String username, const String password) const;
-  String host() const { return this->host_; }
+  Option<uint16_t> registerEvent(const AuthToken & token, const Event & event) const;
+  Result<PlantId, Option<uint16_t>> registerPlant(const AuthToken & token) const;
+  Option<AuthToken> authenticate(const String & username, const String & password) const;
+  StaticString host() const { return this->network.host(); }
   bool isConnected() const;
   String macAddress() const;
   void disconnect() const;
@@ -43,8 +40,13 @@ public:
 };
 
 #include <utils.hpp>
+#ifdef IOP_MONITOR
+  #undef IOP_MOCK_MONITOR
+#endif
+#ifndef IOP_MOCK_MONITOR
 #ifndef IOP_MONITOR
   #define IOP_API_DISABLED
+#endif
 #endif
 
 #endif

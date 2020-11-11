@@ -3,6 +3,7 @@
 
 #include <WString.h>
 #include <option.hpp>
+#include <static_string.hpp>
 
 enum LogLevel {
   TRACE = 0,
@@ -13,39 +14,59 @@ enum LogLevel {
   CRIT
 };
 
+enum LogType {
+  CONTINUITY,
+  START
+};
+
+static const StaticString PROGMEM defaultLineTermination = "\n";
+
 class Log {
   private:
     LogLevel logLevel;
-    String targetLogger; 
+    StaticString targetLogger;
+    bool flush = true;
 
+    void printLogType(const enum LogType logType, const LogLevel level) const;
+
+  void log(const LogLevel level, const StaticString msg, const enum LogType logType, const char * const lineTermination) const;
+  void log(const LogLevel level, const char * const msg, const enum LogType logType, const char * const lineTermination) const;
   public:
-    Log(const LogLevel level, const String target): logLevel{level}, targetLogger(target) {}
+    Log(const LogLevel level, const StaticString target):
+      logLevel{level},
+      targetLogger(target) {}
+    Log(const LogLevel level, const StaticString target, const bool flush):
+      logLevel{level},
+      targetLogger(target),
+      flush{flush} {}
     Log(Log& other) = delete;
     void operator=(Log& other) = delete;
     void operator=(Log&& other) noexcept {
-      this->logLevel = other.logLevel;
-      this->targetLogger = other.targetLogger;
+      this->logLevel = std::move(other.logLevel);
+      this->targetLogger = std::move(other.targetLogger);
     }
     LogLevel level() const { return this->logLevel; }
-    String target() const { return this->targetLogger; }
+    StaticString target() const { return this->targetLogger; }
     void setup() const;
-    void trace(const String msg) const;
-    void debug(const String msg) const;
-    void info(const String msg) const;
-    void warn(const String msg) const;
-    void error(const String msg) const;
-    void crit(const String msg) const;
-    void log(const LogLevel level, const String msg) const;
+
+    void trace(const StaticString & msg, const enum LogType logType = START, const StaticString lineTermination = defaultLineTermination) const;
+    void debug(const StaticString & msg, const enum LogType logType = START, const StaticString lineTermination = defaultLineTermination) const;
+    void info(const StaticString & msg, const enum LogType logType = START, const StaticString lineTermination = defaultLineTermination) const;
+    void warn(const StaticString & msg, const enum LogType logType = START, const StaticString lineTermination = defaultLineTermination) const;
+    void error(const StaticString & msg, const enum LogType logType = START, const StaticString lineTermination = defaultLineTermination) const;
+    void crit(const StaticString & msg, const enum LogType logType = START, const StaticString lineTermination = defaultLineTermination) const;
+
+    void trace(const String & msg, const enum LogType logType = START, const StaticString lineTermination = defaultLineTermination) const;
+    void debug(const String & msg, const enum LogType logType = START, const StaticString lineTermination = defaultLineTermination) const;
+    void info(const String & msg, const enum LogType logType = START, const StaticString lineTermination = defaultLineTermination) const;
+    void warn(const String & msg, const enum LogType logType = START, const StaticString lineTermination = defaultLineTermination) const;
+    void error(const String & msg, const enum LogType logType = START, const StaticString lineTermination = defaultLineTermination) const;
+    void crit(const String & msg, const enum LogType logType = START, const StaticString lineTermination = defaultLineTermination) const;
 };
 
 #include <utils.hpp>
 #ifndef IOP_SERIAL
   #define IOP_LOG_DISABLED
-#endif
-
-// This isn't really necessary, but it's a nice plus to prevent dependencies from using it
-#ifndef IOP_SERIAL
-  #define Serial MockSerial
 #endif
 
 #endif

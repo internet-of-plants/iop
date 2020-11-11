@@ -4,6 +4,7 @@
 #include <ESP8266WiFi.h>
 #include <log.hpp>
 #include <option.hpp>
+#include <static_string.hpp>
 
 typedef struct response {
   uint16_t code;
@@ -18,13 +19,13 @@ enum HttpMethod {
 };
 
 class Network {
-  String host_;
+  StaticString host_;
   Log logger;
 
   public:
-    Network(const String host, const LogLevel logLevel):
+    Network(const StaticString host, const LogLevel logLevel):
       host_(host),
-      logger(logLevel, "NETWORK") {}
+      logger(logLevel, STATIC_STRING("NETWORK")) {}
     Network(Network& other) = delete;
     void operator=(Network& other) = delete;
     void operator=(Network&& other) {
@@ -40,8 +41,9 @@ class Network {
     Option<Response> httpPost(const String token, const String path, const String data) const;
     Option<Response> httpPost(const String path, const String data) const;
     Option<Response> httpRequest(const HttpMethod method, const Option<String> token, const String path, const Option<String> data) const;
-    String wifiCodeToString(const wl_status_t val) const;
+    StaticString wifiCodeToString(const wl_status_t val) const;
     String macAddress() const;
+    StaticString host() const { return this->host_; };
     void disconnect() const;
 };
 

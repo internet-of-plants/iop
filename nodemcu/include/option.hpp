@@ -24,7 +24,7 @@ class Option {
   }
  public:
   constexpr Option() noexcept: filled(false), dummy(0) {}
-  Option(const T v) noexcept: filled(true), value(std::move(v)) {}
+  Option(T v) noexcept: filled(true), value(std::move(v)) {}
   Option(Option<T>& other) = delete;
   void operator=(Option<T>& other) = delete;
   void operator=(Option<T>&& other) noexcept {
@@ -49,6 +49,15 @@ class Option {
     }
   }
 
+  Option<std::reference_wrapper<T>> asMut() {
+    if (this->isSome()) {
+      T& ref = this->value;
+      const std::reference_wrapper<T> refWrapper(ref);
+      return Option<std::reference_wrapper<T>>(refWrapper);
+    }
+    return Option<std::reference_wrapper<T>>();
+  }
+
   Option<std::reference_wrapper<const T>> asRef() const {
     if (this->isSome()) {
       const T& ref = this->value;
@@ -69,21 +78,22 @@ class Option {
       other.value = std::move(this->value);
       this->reset();
     } else {
-      other.dummy = 0; 
+      other.dummy = 0;
     }
     return other;
   }
 
-  T expect(const String msg) noexcept {
+  T expect(const String msg) { this->expect(StaticString(msg.c_str())); }
+  T expect(const StaticString msg) {
     if (this->isNone()) { panic_(msg); }
     this->filled = false;
-    const T value = std::move(this->value);
+    T value = std::move(this->value);
     this->dummy = 0;
     return std::move(value);
   }
-  T unwrap() noexcept { return expect("Tried to unwrap an empty Option"); }
-  T unwrap_or(const T or_) noexcept {
-    if (this->isSome()) { return std::move(this->expect("unwrap_or is broken")); }
+  T unwrap() noexcept { return this->expect(STATIC_STRING("Tried to unwrap an empty Option")); }
+  T unwrapOr(const T or_) noexcept {
+    if (this->isSome()) { return std::move(this->expect(STATIC_STRING("unwrap_or is broken"))); }
     return std::move(or_);
   }
 

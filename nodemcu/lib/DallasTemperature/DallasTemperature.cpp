@@ -472,27 +472,27 @@ int16_t DallasTemperature::millisToWaitForConversion(uint8_t bitResolution) {
 // Sends command to one device to save values from scratchpad to EEPROM by index
 // Returns true if no errors were encountered, false indicates failure
 bool DallasTemperature::saveScratchPadByIndex(uint8_t deviceIndex) {
-  
+
   DeviceAddress deviceAddress;
   if (!getAddress(deviceAddress, deviceIndex)) return false;
-  
+
   return saveScratchPad(deviceAddress);
-  
+
 }
 
 // Sends command to one or more devices to save values from scratchpad to EEPROM
 // If optional argument deviceAddress is omitted the command is send to all devices
 // Returns true if no errors were encountered, false indicates failure
 bool DallasTemperature::saveScratchPad(const uint8_t* deviceAddress) {
-  
+
   if (_wire->reset() == 0)
     return false;
-  
+
   if (deviceAddress == nullptr)
     _wire->skip();
   else
     _wire->select(deviceAddress);
-  
+
   _wire->write(COPYSCRATCH,parasite);
 
   // Specification: NV Write Cycle Time is typically 2ms, max 10ms
@@ -504,9 +504,9 @@ bool DallasTemperature::saveScratchPad(const uint8_t* deviceAddress) {
     delay(20);
     deactivateExternalPullup();
   }
-  
+
   return _wire->reset() == 1;
-  
+
 }
 
 // Sends command to one device to recall values from EEPROM to scratchpad by index
@@ -515,7 +515,7 @@ bool DallasTemperature::recallScratchPadByIndex(uint8_t deviceIndex) {
 
   DeviceAddress deviceAddress;
   if (!getAddress(deviceAddress, deviceIndex)) return false;
-  
+
   return recallScratchPad(deviceAddress);
 
 }
@@ -524,15 +524,15 @@ bool DallasTemperature::recallScratchPadByIndex(uint8_t deviceIndex) {
 // If optional argument deviceAddress is omitted the command is send to all devices
 // Returns true if no errors were encountered, false indicates failure
 bool DallasTemperature::recallScratchPad(const uint8_t* deviceAddress) {
-  
+
   if (_wire->reset() == 0)
     return false;
-  
+
   if (deviceAddress == nullptr)
     _wire->skip();
   else
     _wire->select(deviceAddress);
-  
+
   _wire->write(RECALLSCRATCH,parasite);
 
   // Specification: Strong pullup only needed when writing to EEPROM (and temp conversion)
@@ -542,9 +542,9 @@ bool DallasTemperature::recallScratchPad(const uint8_t* deviceAddress) {
     if (millis() - start > 20) return false;
     yield();
   }
-  
+
   return _wire->reset() == 1;
-  
+
 }
 
 // Sets the autoSaveScratchPad flag

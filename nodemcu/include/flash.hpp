@@ -11,7 +11,7 @@ class Flash {
   Log logger;
 
   public:
-    Flash(const LogLevel logLevel): logger(logLevel, "FLASH") {}
+    Flash(const LogLevel logLevel): logger(logLevel, STATIC_STRING("FLASH")) {}
     Flash(Flash& other) = delete;
     void operator=(Flash& other) = delete;
     void operator=(Flash&& other) { this->logger = std::move(other.logger); }

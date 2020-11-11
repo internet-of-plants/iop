@@ -28,11 +28,6 @@ void Flash::setup() const {
 }
 
 Option<PlantId> Flash::readPlantId() const {
-  #ifndef IOP_MONITOR
-    return Option<PlantId>({0});
-  #endif
-
-  #ifdef IOP_MONITOR
   if (EEPROM.read(plantIdIndex) != usedPlantIdEEPROMFlag) {
     return Option<PlantId>();
   }
@@ -41,19 +36,20 @@ Option<PlantId> Flash::readPlantId() const {
   for (uint8_t index = 0; index < PlantId().max_size(); ++index) {
     id[index] = EEPROM.read(plantIdIndex + 1 + index);
   }
-  this->logger.info("Plant id found: " + String((char*) id.data()));
+  this->logger.info(STATIC_STRING("Plant id found:"), START, STATIC_STRING(" "));
+  this->logger.info(StaticString((char*) id.data()), CONTINUITY);
   return Option<PlantId>(id);
-  #endif
 }
 
 void Flash::removePlantId() const {
-  this->logger.info("Deleting stored plant id");
+  this->logger.info(STATIC_STRING("Deleting stored plant id"));
   EEPROM.write(plantIdIndex, 0);
   EEPROM.commit();
 }
 
 void Flash::writePlantId(const PlantId id) const {
-  this->logger.info("Writing plant id to storage: " + String((char*) id.data()));
+  this->logger.info(STATIC_STRING("Writing plant id to storage:"), START, STATIC_STRING(" "));
+  this->logger.info(StaticString((char*) id.data()), CONTINUITY);
   EEPROM.write(plantIdIndex, usedPlantIdEEPROMFlag);
   for (uint8_t index = 0; index < PlantId().max_size(); ++index) {
     EEPROM.write(plantIdIndex + 1 + index, id[index]);
@@ -62,11 +58,6 @@ void Flash::writePlantId(const PlantId id) const {
 }
 
 Option<AuthToken> Flash::readAuthToken() const {
-  #ifndef IOP_MONITOR
-    return Option<AuthToken>({0});
-  #endif
-
-  #ifdef IOP_MONITOR
   if (EEPROM.read(authTokenIndex) != usedAuthTokenEEPROMFlag) {
     return Option<AuthToken>();
   }
@@ -76,17 +67,17 @@ Option<AuthToken> Flash::readAuthToken() const {
     token[index] = EEPROM.read(authTokenIndex + 1 + index);
   }
   return Option<AuthToken>(token);
-  #endif
 }
 
 void Flash::removeAuthToken() const {
-  this->logger.info("Deleting stored auth token");
+  this->logger.info(STATIC_STRING("Deleting stored auth token"));
   EEPROM.write(authTokenIndex, 0);
   EEPROM.commit();
 }
 
 void Flash::writeAuthToken(const AuthToken token) const {
-  this->logger.info("Writing auth token to storage: " + String((char*) token.data()));
+  this->logger.info(STATIC_STRING("Writing auth token to storage:"), START, STATIC_STRING(" "));
+  this->logger.info(StaticString((char*) token.data()), CONTINUITY);
   EEPROM.write(authTokenIndex, usedAuthTokenEEPROMFlag);
   for (uint8_t index = 0; index < AuthToken().max_size(); ++index) {
     EEPROM.write(authTokenIndex + 1 + index, token[index]);
@@ -110,19 +101,20 @@ Option<struct station_config> Flash::readWifiConfig() const {
   if (config.bssid_set) {
     for (uint8_t index = 0; index < 6; ++index) {
       config.bssid[index] = EEPROM.read(wifiConfigIndex + 1 + 32 + 64 + index);
-    } 
+    }
   }
   return Option<struct station_config>(config);
 }
 
 void Flash::removeWifiConfig() const {
-  this->logger.info("Deleting stored wifi config");
+  this->logger.info(STATIC_STRING("Deleting stored wifi config"));
   EEPROM.write(usedWifiConfigEEPROMFlag, 0);
   EEPROM.commit();
 }
 
 void Flash::writeWifiConfig(const struct station_config config) const {
-  this->logger.info("Writing wifi config to storage: " + String((char*)config.ssid));
+  this->logger.info(STATIC_STRING("Writing wifi config to storage:"), START, STATIC_STRING(" "));
+  this->logger.info(StaticString((char*)config.ssid), CONTINUITY);
   EEPROM.write(wifiConfigIndex, usedWifiConfigEEPROMFlag);
   for (uint8_t index = 0; index < 32; ++index) {
     EEPROM.write(wifiConfigIndex + 1 + index, config.ssid[index]);
