@@ -9,23 +9,20 @@ void Sensors::setup() {
   this->soilTemperatureSensor.begin();
 }
 
-Event Sensors::measure(const PlantId plantId) {
-  return (Event) {
+Event Sensors::measure(PlantId plantId) {
+  return Event((EventStorage) {
     .airTemperatureCelsius = measureAirTemperatureCelsius(this->airTempAndHumiditySensor),
     .airHumidityPercentage = measureAirHumidityPercentage(this->airTempAndHumiditySensor),
     .airHeatIndexCelsius = measureAirHeatIndexCelsius(this->airTempAndHumiditySensor),
     .soilResistivityRaw = measureSoilResistivityRaw(this->soilResistivityPowerPin),
     .soilTemperatureCelsius = measureSoilTemperatureCelsius(this->soilTemperatureSensor),
-    .plantId = plantId,
-  };
+  }, std::move(plantId));
 }
 #endif
 
 #ifdef IOP_SENSORS_DISABLED
 void Sensors::setup() {}
-Event Sensors::measure(const PlantId plantId) {
-  Event ev = {0};
-  ev.plantId = plantId;
-  return ev;
+Event Sensors::measure(PlantId plantId) {
+  return Event((EventStorage) {0}, std::move(plantId));
 }
 #endif

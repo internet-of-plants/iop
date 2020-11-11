@@ -11,7 +11,7 @@ class Flash {
   Log logger;
 
   public:
-    Flash(const LogLevel logLevel): logger(logLevel, STATIC_STRING("FLASH")) {}
+    Flash(const LogLevel logLevel): logger(logLevel, F("FLASH")) {}
     Flash(Flash& other) = delete;
     void operator=(Flash& other) = delete;
     void operator=(Flash&& other) { this->logger = std::move(other.logger); }
@@ -20,15 +20,15 @@ class Flash {
 
     Option<AuthToken> readAuthToken() const;
     void removeAuthToken() const;
-    void writeAuthToken(const AuthToken token) const;
+    void writeAuthToken(const AuthToken & token) const;
 
     Option<PlantId> readPlantId() const;
     void removePlantId() const;
-    void writePlantId(const PlantId id) const;
+    void writePlantId(const PlantId & id) const;
 
     Option<struct WifiCredentials> readWifiConfig() const;
     void removeWifiConfig() const;
-    void writeWifiConfig(const struct WifiCredentials id) const;
+    void writeWifiConfig(const struct WifiCredentials & id) const;
 };
 
 #include <utils.hpp>

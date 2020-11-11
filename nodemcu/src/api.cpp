@@ -13,22 +13,19 @@ void Api::disconnect() const { this->network.disconnect(); }
 LogLevel Api::loggerLevel() const { return this->logger.level(); }
 
 Option<HttpCode> Api::registerEvent(const AuthToken & authToken, const Event & event) const {
-  this->logger.info(STATIC_STRING("Send event"), START, STATIC_STRING(" "));
+  this->logger.info(F("Send event"), START);
 
   static const auto makeJson = [](const Log &logger, const Event &event) {
-    constexpr const uint8_t idSize = PlantId().size() + 1;
-    auto idChar = std::unique_ptr<std::array<char, idSize>>(new std::array<char, idSize>);
-    idChar->fill(0);
-    memcpy(idChar->data(), (char*) event.plantId.data(), event.plantId.size());
-    logger.info(StaticString(idChar->data()), CONTINUITY, STATIC_STRING(" "));
+    const auto id = event.plantId.asString();
+    logger.info(id, CONTINUITY, F(" "));
 
     auto doc = std::unique_ptr<StaticJsonDocument<256>>(new StaticJsonDocument<256>());
-    (*doc)["air_temperature_celsius"] = event.airTemperatureCelsius;
-    (*doc)["air_humidity_percentage"] = event.airHumidityPercentage;
-    (*doc)["air_heat_index_celsius"] = event.airHeatIndexCelsius;
-    (*doc)["soil_temperature_celsius"] = event.soilTemperatureCelsius;
-    (*doc)["soil_resistivity_raw"] = event.soilResistivityRaw;
-    (*doc)["plant_id"] = idChar->data();
+    (*doc)["air_temperature_celsius"] = event.storage.airTemperatureCelsius;
+    (*doc)["air_humidity_percentage"] = event.storage.airHumidityPercentage;
+    (*doc)["air_heat_index_celsius"] = event.storage.airHeatIndexCelsius;
+    (*doc)["soil_temperature_celsius"] = event.storage.soilTemperatureCelsius;
+    (*doc)["soil_resistivity_raw"] = event.storage.soilResistivityRaw;
+    (*doc)["plant_id"] = id.get();
 
     auto buffer = std::unique_ptr<std::array<char, 256>>(new std::array<char, 256>());
     buffer->fill(0);
@@ -37,23 +34,13 @@ Option<HttpCode> Api::registerEvent(const AuthToken & authToken, const Event & e
     return json;
   };
 
-  static const auto makeToken = [](const Log & logger, const AuthToken & authToken) {
-    constexpr const uint8_t tokenSize = AuthToken().size() + 1;
-    auto tokenChar = std::unique_ptr<std::array<char, tokenSize>>(new std::array<char, tokenSize>);
-    tokenChar->fill(0);
-    memcpy(tokenChar->data(), (char*) authToken.data(), authToken.size());
-    const String token = String(tokenChar->data());
-    logger.info(token, CONTINUITY);
-    return token;
-  };
-
   auto json = makeJson(this->logger, event);
-  const auto token = makeToken(this->logger, authToken);
+  const auto token = authToken.asString();
   const auto maybeResp = this->network.httpPost(token, "/event", json);
 
   #ifndef IOP_MOCK_MONITOR
   if (maybeResp.isNone()) {
-    this->logger.error(STATIC_STRING("Unable to make POST request to /event"));
+    this->logger.error(F("Unable to make POST request to /event"));
   }
   return maybeResp.map<HttpCode>([](const Response & resp) { return resp.code; });
   #else
@@ -61,17 +48,17 @@ Option<HttpCode> Api::registerEvent(const AuthToken & authToken, const Event & e
   #endif
 }
 
-Result<AuthToken, Option<HttpCode>> Api::authenticate(const String & username, const String & password) const {
+Result<AuthToken, Option<HttpCode>> Api::authenticate(const StringView username, const StringView password) const {
   if (username.isEmpty() || password.isEmpty()) {
-    return Result<AuthToken, Option<HttpCode>>(Option<HttpCode>());
+    return Result<AuthToken, Option<HttpCode>>(Option<HttpCode>(400));
   }
 
-  this->logger.info(STATIC_STRING("Generating token"));
+  this->logger.info(F("Generating token"));
 
-  const auto makeJson = [](const Log & logger, const String & username, const String & password) {
+  const auto makeJson = [](const Log & logger, const StringView username, const StringView password) {
     auto doc = std::unique_ptr<StaticJsonDocument<256>>(new StaticJsonDocument<256>());
-    (*doc)["email"] = username;
-    (*doc)["password"] = password;
+    (*doc)["email"] = username.get();
+    (*doc)["password"] = password.get();
 
     auto buffer = std::unique_ptr<std::array<char, 256>>(new std::array<char, 256>());
     buffer->fill(0);
@@ -80,39 +67,32 @@ Result<AuthToken, Option<HttpCode>> Api::authenticate(const String & username, c
     return json;
   };
   const auto json = makeJson(this->logger, username, password);
-  auto maybeResp = this->network.httpPost("/user/login", json);
+  auto maybeResp = this->network.httpPost(STATIC_STRING("/user/login"), json);
 
   #ifndef IOP_MOCK_MONITOR
   if (maybeResp.isNone()) {
-    this->logger.error(STATIC_STRING("Unable to make POST request to /user/login"));
+    this->logger.error(F("Unable to make POST request to /user/login"));
     return Result<AuthToken, Option<HttpCode>>(Option<HttpCode>());
   } else {
-    const auto resp = maybeResp.expect(STATIC_STRING("maybeResp is none, inside Api::authenticate"));
-    if (resp.payload.length() > AuthToken().size()) {
-      this->logger.error(STATIC_STRING("Auth token is too big: size ="), START, STATIC_STRING(" "));
-      this->logger.error(String(resp.payload.length()));
-      return Result<AuthToken, Option<HttpCode>>(Option<HttpCode>());
+    const auto resp = maybeResp.expect(F("maybeResp is none, inside Api::authenticate"));
+    auto result = AuthToken::fromString(resp.payload);
+    if (result.isErr()) {
+      switch (result.expectErr(F("result isn't Err but should be"))) {
+        case TOO_BIG:
+          this->logger.error(F("Auth token is too big: size ="), START, F(" "));
+          this->logger.error(String(resp.payload.length()));
+          return Result<AuthToken, Option<HttpCode>>(Option<HttpCode>(500));
+          break;
+      }
     }
-    AuthToken token = {0};
-    memcpy(token.data(), (uint8_t *) resp.payload.c_str(), resp.payload.length());
-    return Result<AuthToken, Option<HttpCode>>(token);
+    return Result<AuthToken, Option<HttpCode>>(result.expectOk(F("result isn't Ok but should be")));
   }
   #else
-  return Result<AuthToken, Option<HttpCode>>({0});
+  return Result<AuthToken, Option<HttpCode>>(AuthToken((AuthToken::Storage) {0}));
   #endif
 }
 
 Result<PlantId, Option<HttpCode>> Api::registerPlant(const AuthToken & authToken) const {
-  static const auto makeToken = [](const Log & logger, const AuthToken & authToken) {
-    constexpr const uint8_t tokenSize = AuthToken().size() + 1;
-    auto tokenChar = std::unique_ptr<std::array<char, tokenSize>>(new std::array<char, tokenSize>);
-    tokenChar->fill(0);
-    memcpy(tokenChar->data(), (char*) authToken.data(), authToken.size());
-    const String token = String(tokenChar->data());
-    logger.info(token);
-    return token;
-  };
-
   const auto makeJson = [](const Api & api) {
     auto doc = std::unique_ptr<StaticJsonDocument<30>>(new StaticJsonDocument<30>());
     (*doc)["mac"] = api.macAddress();
@@ -123,33 +103,35 @@ Result<PlantId, Option<HttpCode>> Api::registerPlant(const AuthToken & authToken
     auto json = String(buffer->data());
     return json;
   };
-  const auto token = makeToken(this->logger, authToken);
+  const auto token = authToken.asString();
   const auto json = makeJson(*this);
 
-  this->logger.info(STATIC_STRING("Get Plant Id. Token:"), START, STATIC_STRING(" "));
-  this->logger.info(token, CONTINUITY, STATIC_STRING(", "));
-  this->logger.info(STATIC_STRING("MAC:"), CONTINUITY, STATIC_STRING(" "));
+  this->logger.info(F("Get Plant Id. Token:"), START, F(" "));
+  this->logger.info(token, CONTINUITY, F(", "));
+  this->logger.info(F("MAC:"), CONTINUITY, F(" "));
   this->logger.info(this->macAddress(), CONTINUITY);
   const auto maybeResp = this->network.httpPut(token, "/plant", json);
 
   #ifndef IOP_MOCK_MONITOR
   if (maybeResp.isNone()) {
-    this->logger.error(STATIC_STRING("Unable to make POST request to /plant"));
+    this->logger.error(F("Unable to make POST request to /plant"));
+    return Result<PlantId, Option<HttpCode>>(Option<HttpCode>());
   }
 
-  const Response & resp = maybeResp.asRef().expect(STATIC_STRING("Maybe resp is None"));
+  const Response & resp = maybeResp.asRef().expect(F("Maybe resp is None"));
   if (resp.code == 200) {
-    const unsigned int length = resp.payload.length();
-    if (length > PlantId().max_size()) {
-      this->logger.error(STATIC_STRING("Plant id is too big: size ="), START, STATIC_STRING(" "));
-      this->logger.error(String(length), CONTINUITY);
-      return Result<PlantId, Option<HttpCode>>(500);
-    } else {
-      const uint8_t *payload = (uint8_t *) resp.payload.c_str();
-      PlantId plantId = {0};
-      memcpy(plantId.data(), payload, length);
-      return Result<PlantId, Option<HttpCode>>(plantId);
+    auto result = PlantId::fromString(resp.payload);
+    if (result.isErr()) {
+      switch (result.expectErr(F("result isn't Err but should be"))) {
+        case TOO_BIG:
+          this->logger.error(F("Auth token is too big: size ="), START, F(" "));
+          this->logger.error(String(resp.payload.length()));
+          return Result<PlantId, Option<HttpCode>>(Option<HttpCode>(500));
+          break;
+      }
     }
+    return Result<PlantId, Option<HttpCode>>(result.expectOk(F("result isn't Ok but should be")));
+
   } else {
     return Result<PlantId, Option<HttpCode>>(resp.code);
   }
@@ -166,19 +148,19 @@ void Api::setup() const {
 }
 
 bool Api::isConnected() const { return true; }
-String Api::macAddress() const { return "MAC::MAC::ERS::ON"; }
-void Api::disconnect() const { }
-LogLevel Api::loggerLevel() const { return TRACE; }
+String Api::macAddress() const { return this->network->macAddress(); }
+void Api::disconnect() const {}
+LogLevel Api::loggerLevel() const { return this->logger.level(); }
 
 Option<HttpCode> Api::registerEvent(const AuthToken & authToken, const Event & event) const {
   return Option<HttpCode>(200);
 }
 
-Option<AuthToken> Api::authenticate(const String & username, const String & password) const {
-  return Option<AuthToken>({0});
+Result<AuthToken, Option<HttpCode>> Api::authenticate(const StringView username, const StringView password) const {
+  return Result<AuthToken, Option<HttpCode>>(AuthToken((AuthToken::Storage) {0}));
 }
 
-Result<PlantId, Option<HttpCode>> Api::registerPlant(const AuthToken & token) const {
-  return Result<PlantId, Option<HttpCode>>((PlantId) {0});
+Result<PlantId, Option<HttpCode>> Api::registerPlant(const AuthToken & authToken) const {
+  return Result<PlantId, Option<HttpCode>>(PlantId((PlantId::Storage) {0}));
 }
 #endif

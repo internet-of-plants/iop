@@ -24,28 +24,28 @@ void Log::crit(const StaticString & msg, const enum LogType logType, const Stati
   log(CRIT, msg, logType, lineTermination.get());
 }
 
-void Log::trace(const String & msg, const enum LogType logType, const StaticString lineTermination) const {
-  log(TRACE, msg.c_str(), logType, lineTermination.get());
+void Log::trace(const StringView & msg, const enum LogType logType, const StaticString lineTermination) const {
+  log(TRACE, msg.get(), logType, lineTermination.get());
 }
 
-void Log::debug(const String & msg, const enum LogType logType, const StaticString lineTermination) const {
-  log(DEBUG, msg.c_str(), logType, lineTermination.get());
+void Log::debug(const StringView & msg, const enum LogType logType, const StaticString lineTermination) const {
+  log(DEBUG, msg.get(), logType, lineTermination.get());
 }
 
-void Log::info(const String & msg, const enum LogType logType, const StaticString lineTermination) const {
-  log(INFO, msg.c_str(), logType, lineTermination.get());
+void Log::info(const StringView & msg, const enum LogType logType, const StaticString lineTermination) const {
+  log(INFO, msg.get(), logType, lineTermination.get());
 }
 
-void Log::warn(const String & msg, const enum LogType logType, const StaticString lineTermination) const {
-  log(WARN, msg.c_str(), logType, lineTermination.get());
+void Log::warn(const StringView & msg, const enum LogType logType, const StaticString lineTermination) const {
+  log(WARN, msg.get(), logType, lineTermination.get());
 }
 
-void Log::error(const String & msg, const enum LogType logType, const StaticString lineTermination) const {
-  log(ERROR, msg.c_str(), logType, lineTermination.get());
+void Log::error(const StringView & msg, const enum LogType logType, const StaticString lineTermination) const {
+  log(ERROR, msg.get(), logType, lineTermination.get());
 }
 
-void Log::crit(const String & msg, const enum LogType logType, const StaticString lineTermination) const {
-  log(CRIT, msg.c_str(), logType, lineTermination.get());
+void Log::crit(const StringView & msg, const enum LogType logType, const StaticString lineTermination) const {
+  log(CRIT, msg.get(), logType, lineTermination.get());
 }
 
 #ifndef IOP_LOG_DISABLED
@@ -53,7 +53,7 @@ void Log::crit(const String & msg, const enum LogType logType, const StaticStrin
 
 void Log::setup() const {
   Serial.begin(9600);
-  this->info(STATIC_STRING("Setup"));
+  this->info(F("Setup"));
 }
 
 void Log::printLogType(const enum LogType logType, const LogLevel level) const {
@@ -92,11 +92,7 @@ void Log::log(const enum LogLevel level, const StaticString msg, const enum LogT
   if (this->logLevel > level) return;
   if (this->flush) Serial.flush();
   this->printLogType(logType, level);
-  Serial.print(msg.get());
-  // TODO: We can't do that right now because we depend on StaticString to emulate a StringView for now
-  // We should use a technique like of F and FPTR, using this helper class to only allow construction
-  // of StaticString from PROCMEM
-  //Serial.print(FPSTR(msg.get()));
+  Serial.print(FPSTR(msg.get()));
   Serial.print(FPSTR(lineTermination));
   if (this->flush) Serial.flush();
 }

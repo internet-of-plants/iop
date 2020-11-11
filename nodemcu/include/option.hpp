@@ -83,7 +83,13 @@ class Option {
     return other;
   }
 
-  T expect(const String msg) { this->expect(StaticString(msg.c_str())); }
+  T expect(const StringView msg) {
+    if (this->isNone()) { panic_(msg); }
+    this->filled = false;
+    T value = std::move(this->value);
+    this->dummy = 0;
+    return std::move(value);
+  }
   T expect(const StaticString msg) {
     if (this->isNone()) { panic_(msg); }
     this->filled = false;
@@ -91,9 +97,9 @@ class Option {
     this->dummy = 0;
     return std::move(value);
   }
-  T unwrap() noexcept { return this->expect(STATIC_STRING("Tried to unwrap an empty Option")); }
+  T unwrap() noexcept { return this->expect(F("Tried to unwrap an empty Option")); }
   T unwrapOr(const T or_) noexcept {
-    if (this->isSome()) { return std::move(this->expect(STATIC_STRING("unwrap_or is broken"))); }
+    if (this->isSome()) { return std::move(this->expect(F("unwrap_or is broken"))); }
     return std::move(or_);
   }
 

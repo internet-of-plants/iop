@@ -11,11 +11,6 @@
 // TODO: https://github.com/maakbaas/esp8266-iot-framework/blob/master/src/timeSync.cpp
 // TODO: Over the Air updates (OTA)
 
-// TODO: Sometimes we wrap a String.c_str() in a StaticString. We only do that if 
-// we know that the StaticString's lifetime is smaller than the one from the actual String
-// but this is a dengerous game since generally a StaticString is assumed to be
-// a string that lives forever: we should make a StringView for that
-
 class EventLoop {
 private:
   Sensors sensors;
@@ -39,8 +34,10 @@ public:
   }
 
   void loop() noexcept {
-    // this->logger.info(STATIC_STRING("Memory:"), START, STATIC_STRING(" "));
-    // this->logger.info(String(ESP.getFreeHeap()) + " " + String(ESP.getFreeContStack()) + " " + ESP.getFreeSketchSpace(), CONTINUITY);
+    #ifdef LOG_MEMORY
+    this->logger.info(F("Memory:"), START, F(" "));
+    this->logger.info(String(ESP.getFreeHeap()) + " " + String(ESP.getFreeContStack()) + " " + ESP.getFreeSketchSpace(), CONTINUITY);
+    #endif
 
     this->handleInterrupt();
 
@@ -55,14 +52,14 @@ public:
     if (!this->api.isConnected() || authToken.isNone()) {
       this->handleCredentials(std::move(authToken));
     } else if (plantId.isNone()) {
-      this->handlePlant(authToken.expect(STATIC_STRING("authToken none at loop()")));
+      this->handlePlant(authToken.expect(F("authToken none at loop()")));
     } else if (this->nextTime <= now) {
-      const auto token = authToken.expect(STATIC_STRING("Calling sendEvent, authToken is None"));
-      const auto id = plantId.expect(STATIC_STRING("Calling Sensors::measure, plantId is None"));
+      const auto token = authToken.expect(F("Calling sendEvent, authToken is None"));
+      const auto id = plantId.expect(F("Calling Sensors::measure, plantId is None"));
       this->handleMeasurements(token, id);
     } else if (this->nextYieldLog <= now) {
       this->nextYieldLog = now + 1000;
-      this->logger.debug(STATIC_STRING("Waiting"));
+      this->logger.debug(F("Waiting"));
     }
   }
 
@@ -74,11 +71,11 @@ public:
     this->credentialsServer = std::move(other.credentialsServer);
     this->flash = std::move(other.flash);
   }
-  EventLoop(const StaticString host):
+  EventLoop(const StringView host):
     sensors(soilResistivityPowerPin, soilTemperaturePin, airTempAndHumidityPin, dhtVersion),
     api(host, logLevel),
     credentialsServer(host, logLevel),
-    logger(logLevel, STATIC_STRING("LOOP")),
+    logger(logLevel, F("LOOP")),
     flash(logLevel) {}
 
 private:
@@ -91,7 +88,7 @@ private:
         break;
       case FACTORY_RESET:
         #ifdef IOP_FACTORY_RESET
-          this->logger.info(STATIC_STRING("Resetting all user information saved in flash storage"));
+          this->logger.info(F("Resetting all user information saved in flash storage"));
           this->flash.removeWifiConfig();
           this->flash.removeAuthToken();
           this->flash.removePlantId();
@@ -100,35 +97,34 @@ private:
         break;
       case ON_CONNECTION:
         #ifdef IOP_ONLINE
-          this->logger.info(STATIC_STRING("WiFi connected ("), START, STATIC_STRING(" "));
-          this->logger.info(WiFi.localIP().toString(), CONTINUITY, STATIC_STRING(" "));
-          this->logger.info(STATIC_STRING("):"), CONTINUITY, STATIC_STRING(" "));
+          this->logger.info(F("WiFi connected ("), START, F(" "));
+          this->logger.info(WiFi.localIP().toString(), CONTINUITY, F(" "));
+          this->logger.info(F("):"), CONTINUITY, F(" "));
           this->logger.info(String(wifi_station_get_connect_status()), CONTINUITY);
           struct station_config config = {0};
           wifi_station_get_config(&config);
 
           WiFi.mode(WIFI_STA);
 
+          NetworkName ssid((NetworkName::Storage) {0});
+          memcpy(ssid.mutPtr(), config.ssid, NetworkName::dataSize);
+          NetworkPassword psk((NetworkPassword::Storage) {0});
+          memcpy(psk.mutPtr(), config.password, NetworkPassword::dataSize);
+
           auto maybeCurrConfig = this->flash.readWifiConfig();
           if (maybeCurrConfig.isSome()) {
-            auto currConfig = maybeCurrConfig.expect(STATIC_STRING("Current network config missing when it shouldn't"));
-            const bool sameSsid = memcmp(currConfig.ssid.data(), config.ssid, currConfig.ssid.size());
-            const bool samePsk = memcmp(currConfig.password.data(), config.password, currConfig.password.size());
+            auto currConfig = maybeCurrConfig.expect(F("Current network config missing when it shouldn't"));
+            const bool sameSsid = memcmp(currConfig.ssid.constPtr(), (uint8_t*) config.ssid, NetworkName::dataSize);
+            const bool samePsk = memcmp(currConfig.password.constPtr(), (uint8_t*) config.password, NetworkPassword::dataSize);
             if (sameSsid && samePsk) {
               break;
             }
 
-            NetworkName ssid = {0};
-            memcpy(&ssid, config.ssid, ssid.size());
-            NetworkPassword psk = {0};
-            memcpy(&psk, config.password, psk.size());
             this->flash.writeWifiConfig((struct WifiCredentials) { .ssid = ssid, .password = psk });
           }
-          this->logger.info(STATIC_STRING("Connected to:"), START, STATIC_STRING(" "));
-          this->logger.info(StaticString((char*)config.ssid), CONTINUITY, STATIC_STRING(" "));
-          this->logger.info(StaticString((char*)config.password), CONTINUITY);
+          this->logger.info(F("Connected to:"), START, F(" "));
+          this->logger.info(ssid.asString(), CONTINUITY);
         #endif
-                  break;
       break;
     };
   }
@@ -136,40 +132,40 @@ private:
   void handleCredentials(Option<AuthToken> maybeToken) {
     auto result = this->credentialsServer.serve(this->flash.readWifiConfig(), maybeToken);
     if (result.isOk()) {
-      auto opt = result.expectOk(STATIC_STRING("Result is err but shouldn't: at loop()"));
+      auto opt = result.expectOk(F("Result is err but shouldn't: at loop()"));
       if (opt.isSome()) {
-        this->flash.writeAuthToken(opt.expect(STATIC_STRING("AuthToken is None but shouldn't: at loop()")));
+        this->flash.writeAuthToken(opt.expect(F("AuthToken is None but shouldn't: at loop()")));
       }
     } else if (result.isErr()) {
-      switch (result.expectErr(STATIC_STRING("Result is ok but shouldn't: at loop()"))) {
+      switch (result.expectErr(F("Result is ok but shouldn't: at loop()"))) {
         case ServeError::REMOVE_WIFI_CONFIG:
           this->flash.removeWifiConfig();
           break;
       }
     } else {
-      panic_(STATIC_STRING("Invalid result state"));
+      panic_(F("Invalid result state"));
     }
   }
 
   void handlePlant(const AuthToken & token) const {
     auto maybePlantId = this->api.registerPlant(token);
     if (maybePlantId.isErr()) {
-      this->logger.error(STATIC_STRING("Unable to get plant id"));
-      auto maybeStatusCode = maybePlantId.expectErr(STATIC_STRING("maybePlantId is Ok but shouldn't"));
-      if (maybeStatusCode.isSome() && maybeStatusCode.expect(STATIC_STRING("maybeStatusCode is None")) == 403) {
+      this->logger.error(F("Unable to get plant id"));
+      auto maybeStatusCode = maybePlantId.expectErr(F("maybePlantId is Ok but shouldn't"));
+      if (maybeStatusCode.isSome() && maybeStatusCode.expect(F("maybeStatusCode is None")) == 403) {
         this->flash.removeAuthToken();
       }
     } else if (maybePlantId.isOk()) {
-      const auto plantId = maybePlantId.expectOk(STATIC_STRING("maybePlantId is Err but shouldn't"));
+      const auto plantId = maybePlantId.expectOk(F("maybePlantId is Err but shouldn't"));
       this->flash.writePlantId(plantId);
     } else {
-      panic_(STATIC_STRING("maybePlantId was empty when it shouldn't"));
+      panic_(F("maybePlantId was empty when it shouldn't"));
     }
   }
 
   void handleMeasurements(const AuthToken & token, const PlantId & id) {
     this->nextTime = millis() + interval;
-    this->logger.info(STATIC_STRING("Timer triggered"));
+    this->logger.info(F("Timer triggered"));
 
     digitalWrite(LED_BUILTIN, HIGH);
     auto maybeStatus = this->api.registerEvent(token, sensors.measure(id));
@@ -179,12 +175,12 @@ private:
       return;
     }
 
-    const auto status = maybeStatus.expect(STATIC_STRING("Status is none"));
+    const auto status = maybeStatus.expect(F("Status is none"));
     if (status == 403) {
-      this->logger.warn(STATIC_STRING("Auth token was refused, deleting it"));
+      this->logger.warn(F("Auth token was refused, deleting it"));
       this->flash.removeAuthToken();
     } else if (status == 404) {
-      this->logger.warn(STATIC_STRING("Plant Id was not found, deleting it"));
+      this->logger.warn(F("Plant Id was not found, deleting it"));
       this->flash.removePlantId();
     }
     digitalWrite(LED_BUILTIN, LOW);
@@ -193,8 +189,8 @@ private:
 
 static const char * const PROGMEM expected = "No host available";
 std::unique_ptr<EventLoop> eventLoop = std::unique_ptr<EventLoop>(new EventLoop(host
-  .map<StaticString>([](const StaticString & str) { return str; })
-  .expect(StaticString(expected))));
+  .map<StringView>([](const StringView & str) { return str; })
+  .expect(StringView(expected))));
 
 void setup() {
   eventLoop->setup();

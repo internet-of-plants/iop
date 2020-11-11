@@ -6,21 +6,21 @@
 StaticString Network::wifiCodeToString(const wl_status_t val) const {
   switch (val) {
     case WL_NO_SHIELD:
-      return STATIC_STRING("WL_NO_SHIELD");
+      return F("WL_NO_SHIELD");
     case WL_IDLE_STATUS:
-      return STATIC_STRING("WL_IDLE_STATUS");
+      return F("WL_IDLE_STATUS");
     case WL_NO_SSID_AVAIL:
-      return STATIC_STRING("WL_NO_SSID_AVAIL");
+      return F("WL_NO_SSID_AVAIL");
     case WL_SCAN_COMPLETED:
-      return STATIC_STRING("WL_SCAN_COMPLETED");
+      return F("WL_SCAN_COMPLETED");
     case WL_CONNECTED:
-      return STATIC_STRING("WL_CONNECTED");
+      return F("WL_CONNECTED");
     case WL_CONNECT_FAILED:
-      return STATIC_STRING("WL_CONNECT_FAILED");
+      return F("WL_CONNECT_FAILED");
     case WL_CONNECTION_LOST:
-      return STATIC_STRING("WL_CONNECTION_LOST");
+      return F("WL_CONNECTION_LOST");
     case WL_DISCONNECTED:
-      return STATIC_STRING("WL_DISCONNECTED");
+      return F("WL_DISCONNECTED");
     default:
       panic_("Unrecognized wifi status code: " + String(val));
   }
@@ -58,39 +58,39 @@ bool Network::isConnected() const {
   return WiFi.status() == WL_CONNECTED;
 }
 
-Option<Response> Network::httpPut(const String token, const String path, const String data) const {
-  return this->httpRequest(PUT, Option<String>(token), path, Option<String>(data));
+Option<Response> Network::httpPut(const StringView token, const StringView path, const StringView data) const {
+  return this->httpRequest(PUT, token, path, data);
 }
 
-Option<Response> Network::httpPost(const String token, const String path, const String data) const {
-  return this->httpRequest(POST, Option<String>(token), path, Option<String>(data));
+Option<Response> Network::httpPost(const StringView token, const StringView path, const StringView data) const {
+  return this->httpRequest(POST, token, path, data);
 }
 
-Option<Response> Network::httpPost(const String path, const String data) const {
-  return this->httpRequest(POST, Option<String>(), path, Option<String>(data));
+Option<Response> Network::httpPost(const StringView path, const StringView data) const {
+  return this->httpRequest(POST, Option<StringView>(), path, data);
 }
 
 StaticString methodToString(const enum HttpMethod method) {
   switch (method) {
     case GET:
-      return STATIC_STRING("GET");
+      return F("GET");
     case DELETE:
-      return STATIC_STRING("DELETE");
+      return F("DELETE");
     case POST:
-      return STATIC_STRING("POST");
+      return F("POST");
     case PUT:
-      return STATIC_STRING("PUT");
+      return F("PUT");
   }
-  panic_(STATIC_STRING("Invalid Method"));
+  panic_(F("Invalid Method"));
 }
 
 auto certStore = std::unique_ptr<BearSSL::CertStore>(new BearSSL::CertStore());
 auto client = std::unique_ptr<WiFiClientSecure>(new WiFiClientSecure());
 auto http = std::unique_ptr<HTTPClient>(new HTTPClient());
-Option<Response> Network::httpRequest(const enum HttpMethod method, Option<String> token, const String path, Option<String> data) const {
-  const String uri = String(this->host_.get()) + path;
-  const auto data_ = data.unwrapOr("");
-  this->logger.info(methodToString(method), START, STATIC_STRING(" "));
+Option<Response> Network::httpRequest(const enum HttpMethod method, const Option<StringView> token, const StringView path, Option<StringView> data) const {
+  const String uri = String(this->host_.get()) + String(path.get());
+  const auto data_ = data.unwrapOr(STATIC_STRING(""));
+  this->logger.info(methodToString(method), START, F(" "));
   this->logger.info(uri, CONTINUITY);
   this->logger.info(data_);
 
@@ -103,14 +103,16 @@ Option<Response> Network::httpRequest(const enum HttpMethod method, Option<Strin
     client->setSync(true);
     client->setCertStore(certStore.get());
     if (client->connect(uri, 4001) <= 0) {
-      this->logger.warn("Failed to connect to " + uri);
+      this->logger.warn(F("Failed to connect to"), START, F(" "));
+      this->logger.warn(uri, CONTINUITY);
       delay(200);
       return Option<Response>();
     }
     client->disableKeepAlive();
 
     if (!http->begin(*client, uri)) {
-      this->logger.warn("Failed to begin http connection to " + uri);
+      this->logger.warn(F("Failed to begin http connection to"), START, F(" "));
+      this->logger.warn(uri, CONTINUITY);
       delay(200);
       return Option<Response>();
     }
@@ -121,21 +123,22 @@ Option<Response> Network::httpRequest(const enum HttpMethod method, Option<Strin
       http->addHeader(F("Content-Type"), F("application/json"));
     }
     if (token.isSome()) {
-      http->addHeader(F("Authorization"), "Basic " + token.expect(STATIC_STRING("Missing auth token when it shouldn't")));
+      const StringView& tok = token.asRef().expect(F("Missing auth token when it shouldn't"));
+      http->addHeader(F("Authorization"), String("Basic ") + String(tok.get()));
     }
 
-    const int httpCode = http->sendRequest(methodToString(method).get(), (uint8_t *) data_.c_str(), data_.length());
+    const int httpCode = http->sendRequest(methodToString(method).get(), (uint8_t *) data_.get(), strlen(data_.get()));
 
-    this->logger.info(STATIC_STRING("Response code:"), START, STATIC_STRING(" "));
+    this->logger.info(F("Response code:"), START, F(" "));
     this->logger.info(String(httpCode), CONTINUITY);
     if (httpCode < 0 || httpCode >= UINT16_MAX) {
-      this->logger.error(STATIC_STRING("Connection failed"));
+      this->logger.error(F("Connection failed"));
       delay(200);
       return Option<Response>();
     }
 
     if (http->getSize() > 2048) {
-      this->logger.error(STATIC_STRING("Payload from server was too big:"), START, STATIC_STRING(" "));
+      this->logger.error(F("Payload from server was too big:"), START, F(" "));
       this->logger.error(String(http->getSize()), CONTINUITY);
       return Option<Response>();
     }
@@ -154,16 +157,16 @@ Option<Response> Network::httpRequest(const enum HttpMethod method, Option<Strin
 #ifdef IOP_NETWORK_DISABLED
   void Network::setup() const {}
   bool Network::isConnected() const { return true; }
-  Option<Response> Network::httpPut(const String token, const String path, const String data) const {
-    return this->httpRequest(PUT, token, path, Option<String>(data));
+  Option<Response> Network::httpPut(const StringView token, const StringView path, const StringView data) const {
+    return this->httpRequest(PUT, token, path, data);
   }
-  Option<Response> Network::httpPost(const String token, const String path, const String data) const {
-    return this->httpRequest(POST, token, path, Option<String>(data));
+  Option<Response> Network::httpPost(const StringView token, const StringView path, const StringView data) const {
+    return this->httpRequest(POST, token, path, data);
   }
-  Option<Response> Network::httpPost(const String path, const String data) const {
-    return this->httpRequest(POST, Option<String>(), path, data);
+  Option<Response> Network::httpPost(const StringView path, const StringView data) const {
+    return this->httpRequest(POST, Option<StringView>(), path, data);
   }
-  Option<Response> Network::httpRequest(const HttpMethod method, const Option<String> token, const String path, const Option<String> data) const {
+  Option<Response> Network::httpRequest(const HttpMethod method, const Option<StringView> token, const StringView path, const Option<StringView> data) const {
     (void) method;
     (void) token;
     (void) path;

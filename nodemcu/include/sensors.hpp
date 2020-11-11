@@ -35,7 +35,7 @@ class Sensors {
       airTempAndHumiditySensor(std::move(other.airTempAndHumiditySensor)) {}
 
     void setup();
-    Event measure(const PlantId plantId);
+    Event measure(PlantId plantId);
 };
 
 #include <utils.hpp>

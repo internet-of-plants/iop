@@ -14,8 +14,8 @@ private:
   Network network;
 
 public:
-  Api(const StaticString host, const LogLevel logLevel):
-    logger(logLevel, STATIC_STRING("API")),
+  Api(const StringView host, const LogLevel logLevel):
+    logger(logLevel, F("API")),
     network(host, logLevel) {}
   Api(Api& other) = delete;
   void operator=(Api& other) = delete;
@@ -31,8 +31,8 @@ public:
   void setup() const;
   Option<HttpCode> registerEvent(const AuthToken & token, const Event & event) const;
   Result<PlantId, Option<HttpCode>> registerPlant(const AuthToken & token) const;
-  Result<AuthToken, Option<HttpCode>> authenticate(const String & username, const String & password) const;
-  StaticString host() const { return this->network.host(); }
+  Result<AuthToken, Option<HttpCode>> authenticate(const StringView username, const StringView password) const;
+  StringView host() const { return this->network.host(); }
   bool isConnected() const;
   String macAddress() const;
   void disconnect() const;

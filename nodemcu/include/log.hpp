@@ -4,6 +4,7 @@
 #include <WString.h>
 #include <option.hpp>
 #include <static_string.hpp>
+#include <string_view.hpp>
 
 enum LogLevel {
   TRACE = 0,
@@ -19,8 +20,8 @@ enum LogType {
   START
 };
 
-static const StaticString PROGMEM defaultLineTermination = "\n";
-
+static const char * const PROGMEM defaultLineTerminationChar = "\n";
+static const StaticString defaultLineTermination(FPSTR(defaultLineTerminationChar));
 class Log {
   private:
     LogLevel logLevel;
@@ -56,12 +57,12 @@ class Log {
     void error(const StaticString & msg, const enum LogType logType = START, const StaticString lineTermination = defaultLineTermination) const;
     void crit(const StaticString & msg, const enum LogType logType = START, const StaticString lineTermination = defaultLineTermination) const;
 
-    void trace(const String & msg, const enum LogType logType = START, const StaticString lineTermination = defaultLineTermination) const;
-    void debug(const String & msg, const enum LogType logType = START, const StaticString lineTermination = defaultLineTermination) const;
-    void info(const String & msg, const enum LogType logType = START, const StaticString lineTermination = defaultLineTermination) const;
-    void warn(const String & msg, const enum LogType logType = START, const StaticString lineTermination = defaultLineTermination) const;
-    void error(const String & msg, const enum LogType logType = START, const StaticString lineTermination = defaultLineTermination) const;
-    void crit(const String & msg, const enum LogType logType = START, const StaticString lineTermination = defaultLineTermination) const;
+    void trace(const StringView & msg, const enum LogType logType = START, const StaticString lineTermination = defaultLineTermination) const;
+    void debug(const StringView & msg, const enum LogType logType = START, const StaticString lineTermination = defaultLineTermination) const;
+    void info(const StringView & msg, const enum LogType logType = START, const StaticString lineTermination = defaultLineTermination) const;
+    void warn(const StringView & msg, const enum LogType logType = START, const StaticString lineTermination = defaultLineTermination) const;
+    void error(const StringView & msg, const enum LogType logType = START, const StaticString lineTermination = defaultLineTermination) const;
+    void crit(const StringView & msg, const enum LogType logType = START, const StaticString lineTermination = defaultLineTermination) const;
 };
 
 #include <utils.hpp>
