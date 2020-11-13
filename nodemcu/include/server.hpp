@@ -19,6 +19,7 @@ enum ServeError {
 
 class CredentialsServer {
 private:
+  uint64_t secretKey;
   Log logger;
   std::shared_ptr<Api> api;
   std::shared_ptr<Flash> flash;
@@ -31,7 +32,8 @@ public:
   station_status_t connect(const StringView ssid, const StringView password) const;
   Result<AuthToken, Option<HttpCode>> authenticate(const StringView username, const StringView password) const;
 
-  CredentialsServer(const StringView host, const LogLevel logLevel):
+  CredentialsServer(const StaticString host, const LogLevel logLevel):
+    secretKey(utils::random()),
     logger(logLevel, F("SERVER")),
     api(new Api(host, logLevel)),
     flash(new Flash(logLevel)) {}
@@ -39,6 +41,7 @@ public:
   void operator=(CredentialsServer& other) = delete;
 
   CredentialsServer(CredentialsServer&& other):
+    secretKey(utils::random()),
     logger(other.logger.level(), other.logger.target()),
     api(new Api(other.api->host(), other.api->loggerLevel())),
     flash(new Flash(other.logger.level())),
@@ -49,6 +52,7 @@ public:
     nextTryHardcodedIopCredentials(0) {}
 
   void operator=(CredentialsServer&& other) {
+    this->secretKey = utils::random();
     this->api = std::move(other.api);
     this->logger = std::move(other.logger);
     this->flash = std::move(other.flash);

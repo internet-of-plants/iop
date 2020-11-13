@@ -18,16 +18,21 @@ const uint8_t factoryResetButton = D1;
 const uint8_t dhtVersion = 22; // DHT22
 
 /// Time between measurements
-const unsigned long interval = 60 * 1000;
+const unsigned long interval = 5 * 1000;
 
-static const Option<StaticString> host("https://iop-monitor-server.tk:4001");
+/// Expands to:
+/// static const char * const host_storage_progmem_char = "https://iop-monitor-server.tk:4001";
+/// static const StaticString host_storage(host_storage_progmem_char);
+/// static const Option<StaticString> host(host_storage)
+MAYBE_PROGMEM_STRING(host, "https://iop-monitor-server.tk:4001");
 
 /// You don't need to fill the fields below, they may actually be counter-productive
+/// Replace the MAYBE_PROGMEM_STRING_EMPTY(name) with MAYBE_PROGMEM_STRING(name, value)
 
-static const Option<StaticString> wifiNetworkName;
-static const Option<StaticString> wifiPassword;
+MAYBE_PROGMEM_STRING_EMPTY(wifiNetworkName);
+MAYBE_PROGMEM_STRING_EMPTY(wifiPassword);
 
-static const Option<StaticString> iopEmail;
-static const Option<StaticString> iopPassword;
+MAYBE_PROGMEM_STRING_EMPTY(iopEmail);
+MAYBE_PROGMEM_STRING_EMPTY(iopPassword);
 
 #endif

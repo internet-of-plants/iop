@@ -19,11 +19,11 @@ enum HttpMethod {
 };
 
 class Network {
-  StringView host_;
+  StaticString host_;
   Log logger;
 
   public:
-    Network(const StringView host, const LogLevel logLevel):
+    Network(const StaticString host, const LogLevel logLevel):
       host_(host),
       logger(logLevel, F("NETWORK")) {}
     Network(Network& other) = delete;
@@ -37,13 +37,13 @@ class Network {
       logger(other.logger.level(), other.logger.target()) {}
     void setup() const;
     bool isConnected() const;
-    Option<Response> httpPut(const StringView token, const StringView path, const StringView data) const;
-    Option<Response> httpPost(const StringView token, const StringView path, const StringView data) const;
-    Option<Response> httpPost(const StringView path, const StringView data) const;
-    Option<Response> httpRequest(const HttpMethod method, const Option<StringView> token, const StringView path, const Option<StringView> data) const;
+    Option<Response> httpPut(const StringView token, const StaticString path, const StringView data) const;
+    Option<Response> httpPost(const StringView token, const StaticString path, const StringView data) const;
+    Option<Response> httpPost(const StaticString path, const StringView data) const;
+    Option<Response> httpRequest(const HttpMethod method, const Option<StringView> token, const StaticString path, const Option<StringView> data) const;
     StaticString wifiCodeToString(const wl_status_t val) const;
     String macAddress() const;
-    StringView host() const { return this->host_; };
+    StaticString host() const { return this->host_; };
     void disconnect() const;
 };
 

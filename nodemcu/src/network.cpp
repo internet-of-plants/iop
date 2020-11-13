@@ -58,15 +58,15 @@ bool Network::isConnected() const {
   return WiFi.status() == WL_CONNECTED;
 }
 
-Option<Response> Network::httpPut(const StringView token, const StringView path, const StringView data) const {
+Option<Response> Network::httpPut(const StringView token, const StaticString path, const StringView data) const {
   return this->httpRequest(PUT, token, path, data);
 }
 
-Option<Response> Network::httpPost(const StringView token, const StringView path, const StringView data) const {
+Option<Response> Network::httpPost(const StringView token, const StaticString path, const StringView data) const {
   return this->httpRequest(POST, token, path, data);
 }
 
-Option<Response> Network::httpPost(const StringView path, const StringView data) const {
+Option<Response> Network::httpPost(const StaticString path, const StringView data) const {
   return this->httpRequest(POST, Option<StringView>(), path, data);
 }
 
@@ -87,9 +87,9 @@ StaticString methodToString(const enum HttpMethod method) {
 auto certStore = std::unique_ptr<BearSSL::CertStore>(new BearSSL::CertStore());
 auto client = std::unique_ptr<WiFiClientSecure>(new WiFiClientSecure());
 auto http = std::unique_ptr<HTTPClient>(new HTTPClient());
-Option<Response> Network::httpRequest(const enum HttpMethod method, const Option<StringView> token, const StringView path, Option<StringView> data) const {
-  const String uri = String(this->host_.get()) + String(path.get());
-  const auto data_ = data.unwrapOr(STATIC_STRING(""));
+Option<Response> Network::httpRequest(const enum HttpMethod method, const Option<StringView> token, const StaticString path, Option<StringView> data) const {
+  const String uri = String(this->host_.get()) + String(FPSTR(path.get()));
+  const auto data_ = data.unwrapOr(StaticString(F("")));
   this->logger.info(methodToString(method), START, F(" "));
   this->logger.info(uri, CONTINUITY);
   this->logger.info(data_);
@@ -127,7 +127,7 @@ Option<Response> Network::httpRequest(const enum HttpMethod method, const Option
       http->addHeader(F("Authorization"), String("Basic ") + String(tok.get()));
     }
 
-    const int httpCode = http->sendRequest(methodToString(method).get(), reinterpret_cast<const uint8_t *>(data_.get()), strlen(data_.get()));
+    const int httpCode = http->sendRequest(methodToString(method).asCharPtr(), reinterpret_cast<const uint8_t *>(data_.get()), strlen(data_.get()));
 
     this->logger.info(F("Response code:"), START, F(" "));
     this->logger.info(String(httpCode), CONTINUITY);
@@ -155,27 +155,27 @@ Option<Response> Network::httpRequest(const enum HttpMethod method, const Option
 #endif
 
 #ifdef IOP_NETWORK_DISABLED
-  void Network::setup() const {}
-  bool Network::isConnected() const { return true; }
-  Option<Response> Network::httpPut(const StringView token, const StringView path, const StringView data) const {
-    return this->httpRequest(PUT, token, path, data);
-  }
-  Option<Response> Network::httpPost(const StringView token, const StringView path, const StringView data) const {
-    return this->httpRequest(POST, token, path, data);
-  }
-  Option<Response> Network::httpPost(const StringView path, const StringView data) const {
-    return this->httpRequest(POST, Option<StringView>(), path, data);
-  }
-  Option<Response> Network::httpRequest(const HttpMethod method, const Option<StringView> token, const StringView path, const Option<StringView> data) const {
-    (void) method;
-    (void) token;
-    (void) path;
-    (void) data;
-    return Option<Response>((Response) {
-      .code = 200,
-      .payload = "",
-    });
-  }
-  String Network::macAddress() const { return "MAC::MAC::ERS::ON"; }
-  void Network::disconnect() const {}
+void Network::setup() const {}
+bool Network::isConnected() const { return true; }
+Option<Response> Network::httpPut(const StringView token, const StaticString path, const StringView data) const {
+  return this->httpRequest(PUT, token, path, data);
+}
+Option<Response> Network::httpPost(const StringView token, const StaticString path, const StringView data) const {
+  return this->httpRequest(POST, token, path, data);
+}
+Option<Response> Network::httpPost(const StaticString path, const StringView data) const {
+  return this->httpRequest(POST, Option<StringView>(), path, data);
+}
+Option<Response> Network::httpRequest(const enum HttpMethod method, const Option<StringView> token, const StaticString path, Option<StringView> data) const {
+  (void) method;
+  (void) token;
+  (void) path;
+  (void) data;
+  return Option<Response>((Response) {
+    .code = 200,
+    .payload = "",
+  });
+}
+String Network::macAddress() const { return "MAC::MAC::ERS::ON"; }
+void Network::disconnect() const {}
 #endif

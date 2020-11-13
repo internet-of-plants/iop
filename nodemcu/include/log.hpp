@@ -30,8 +30,8 @@ class Log {
 
     void printLogType(const enum LogType logType, const LogLevel level) const;
 
-  void log(const LogLevel level, const StaticString msg, const enum LogType logType, const char * const lineTermination) const;
-  void log(const LogLevel level, const char * const msg, const enum LogType logType, const char * const lineTermination) const;
+  void log(const LogLevel level, const StaticString msg, const enum LogType logType, const StaticString lineTermination) const;
+  void log(const LogLevel level, const char * const msg, const enum LogType logType, const StaticString lineTermination) const;
   public:
     Log(const LogLevel level, const StaticString target):
       logLevel{level},

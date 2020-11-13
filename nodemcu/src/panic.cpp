@@ -4,7 +4,10 @@
 #include <EEPROM.h>
 #include <WString.h>
 
-void panic__(const StringView msg, const StaticString file, const uint32_t line, const char * const func) {
+// TODO: report errors to monitor if there is internet access
+// (in the future we could also broadcast to other devices in the same network)
+
+void panic__(const StringView msg, const StaticString file, const uint32_t line, const StringView func) {
   delay(1000);
   const Log logger(CRIT, F("PANIC"));
   logger.crit(F("Line"), START, F(" "));
@@ -20,10 +23,10 @@ void panic__(const StringView msg, const StaticString file, const uint32_t line,
   while (EEPROM.read(0) != 3 && EEPROM.read(255) != 3) {
     yield();
   }
-  __panic_func(file.get(), line, func);
+  __panic_func(file.asCharPtr(), line, func.get());
 }
 
-void panic__(const StaticString msg, const StaticString file, const uint32_t line, const char * const func) {
+void panic__(const StaticString msg, const StaticString file, const uint32_t line, const StringView func) {
   delay(1000);
   const Log logger(CRIT, F("PANIC"));
   logger.crit(F("Line"), START, F(" "));
@@ -39,5 +42,5 @@ void panic__(const StaticString msg, const StaticString file, const uint32_t lin
   while (EEPROM.read(0) != 3 && EEPROM.read(255) != 3) {
     yield();
   }
-  __panic_func(file.get(), line, func);
+  __panic_func(file.asCharPtr(), line, func.get());
 }

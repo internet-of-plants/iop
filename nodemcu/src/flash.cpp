@@ -5,19 +5,19 @@
 #include <EEPROM.h>
 
 // Flags to check if information is written to flash
-const uint8_t usedWifiConfigEEPROMFlag = 126; // chosen by fair dice roll, garanteed to be random
-const uint8_t usedAuthTokenEEPROMFlag = 127;
-const uint8_t usedPlantIdEEPROMFlag = 128;
+constexpr const uint8_t usedWifiConfigEEPROMFlag = 126; // chosen by fair dice roll, garanteed to be random
+constexpr const uint8_t usedAuthTokenEEPROMFlag = 127;
+constexpr const uint8_t usedPlantIdEEPROMFlag = 128;
 
 
 // Indexes so each function know where they can write to. It's kinda bad, but for now it works
-const uint8_t wifiConfigIndex = 0;
-const uint8_t wifiConfigSize = 1 + (uint8_t) NetworkName::dataSize + (uint8_t) NetworkPassword::dataSize; // Used flag + ssid + psk
+constexpr const uint8_t wifiConfigIndex = 0;
+constexpr const uint8_t wifiConfigSize = 1 + NetworkName::size + NetworkPassword::size; // Used flag + ssid + psk
 
-const uint8_t authTokenIndex = wifiConfigIndex + wifiConfigSize;
-const uint8_t authTokenSize = 1 + (uint8_t) AuthToken::dataSize; // Used flag (1) + token
+constexpr const uint8_t authTokenIndex = wifiConfigIndex + wifiConfigSize;
+constexpr const uint8_t authTokenSize = 1 + AuthToken::size; // Used flag (1) + token
 
-const uint8_t plantIdIndex = authTokenIndex + authTokenSize;
+constexpr const uint8_t plantIdIndex = authTokenIndex + authTokenSize;
 
 void Flash::setup() const {
   EEPROM.begin(512);
@@ -25,12 +25,11 @@ void Flash::setup() const {
 
 Option<PlantId> Flash::readPlantId() const {
   if (EEPROM.read(plantIdIndex) != usedPlantIdEEPROMFlag) {
-    this->logger.debug(F("No plant id stoder"));
     return Option<PlantId>();
   }
 
-  PlantId id((PlantId::Storage) {0});
-  memcpy(id.mutPtr(), EEPROM.getConstDataPtr() + plantIdIndex + 1, PlantId::dataSize);
+  const auto ptr = (char *) EEPROM.getConstDataPtr() + plantIdIndex + 1;
+  const auto id = PlantId::fromStringTruncating(UnsafeRawString(ptr));
   this->logger.info(F("Plant id found:"), START, F(" "));
   this->logger.info(id.asString(), CONTINUITY);
   return Option<PlantId>(id);
@@ -48,7 +47,7 @@ void Flash::writePlantId(const PlantId & id) const {
   this->logger.info(F("Writing plant id to storage:"), START, F(" "));
   this->logger.info(id.asString(), CONTINUITY);
   EEPROM.write(plantIdIndex, usedPlantIdEEPROMFlag);
-  memcpy(EEPROM.getDataPtr() + plantIdIndex + 1, id.constPtr(), PlantId::dataSize);
+  EEPROM.put(plantIdIndex + 1, *PlantId(id).intoInner().intoInner().get());
   EEPROM.commit();
 }
 
@@ -57,8 +56,10 @@ Option<AuthToken> Flash::readAuthToken() const {
     return Option<AuthToken>();
   }
 
-  AuthToken token((AuthToken::Storage) {0});
-  memcpy(token.mutPtr(), EEPROM.getConstDataPtr() + authTokenIndex + 1, AuthToken::dataSize);
+  const auto ptr = (char *) EEPROM.getConstDataPtr() + authTokenSize + 1;
+  const auto token = AuthToken::fromStringTruncating(UnsafeRawString(ptr));
+  this->logger.info(F("Auth token found:"), START, F(" "));
+  this->logger.info(token.asString(), CONTINUITY);
   return Option<AuthToken>(token);
 }
 
@@ -74,7 +75,7 @@ void Flash::writeAuthToken(const AuthToken & token) const {
   this->logger.info(F("Writing auth token to storage:"), START, F(" "));
   this->logger.info(token.asString(), CONTINUITY);
   EEPROM.write(authTokenIndex, usedAuthTokenEEPROMFlag);
-  memcpy(EEPROM.getDataPtr() + authTokenIndex + 1, token.constPtr(), AuthToken::dataSize);
+  EEPROM.put(authTokenSize + 1, *AuthToken(token).intoInner().intoInner().get());
   EEPROM.commit();
 }
 
@@ -83,10 +84,11 @@ Option<struct WifiCredentials> Flash::readWifiConfig() const {
     return Option<struct WifiCredentials>();
   }
 
-  NetworkName ssid((NetworkName::Storage) {0});
-  memcpy(ssid.mutPtr(), EEPROM.getConstDataPtr() + wifiConfigIndex + 1, NetworkName::dataSize);
-  NetworkPassword psk((NetworkPassword::Storage) {0});
-  memcpy(psk.mutPtr(), EEPROM.getConstDataPtr() + wifiConfigIndex + 1 + NetworkName::dataSize, NetworkPassword::dataSize);
+  const auto ptr = (char *) EEPROM.getConstDataPtr() + wifiConfigIndex + 1;
+  const auto ssid = NetworkName::fromStringTruncating(UnsafeRawString(ptr));
+  const auto psk = NetworkPassword::fromStringTruncating(UnsafeRawString(ptr + NetworkName::size));
+  this->logger.info(F("Found wifi credentials for network "), START, F(" "));
+  this->logger.info(ssid.asString());
   return Option<struct WifiCredentials>((struct WifiCredentials) { .ssid = ssid, .password = psk });
 }
 
@@ -103,23 +105,23 @@ void Flash::writeWifiConfig(const struct WifiCredentials & config) const {
   this->logger.info(config.ssid.asString(), CONTINUITY);
 
   EEPROM.write(wifiConfigIndex, usedWifiConfigEEPROMFlag);
-  memcpy(EEPROM.getDataPtr() + wifiConfigIndex + 1, config.ssid.constPtr(), NetworkName::dataSize);
-  memcpy(EEPROM.getDataPtr() + wifiConfigIndex + 1 + NetworkName::dataSize, config.password.constPtr(), NetworkPassword::dataSize);
+  EEPROM.put(wifiConfigIndex + 1, NetworkName(config.ssid).intoInner().intoInner().get());
+  EEPROM.put(wifiConfigIndex + 1 + NetworkName::size, NetworkPassword(config.password).intoInner().intoInner().get());
   EEPROM.commit();
 }
 #endif
 
 #ifdef IOP_FLASH_DISABLED
 void Flash::setup() const {}
-Option<AuthToken> Flash::readAuthToken() const { return Option<AuthToken>((AuthToken::Storage) {0}); }
+Option<AuthToken> Flash::readAuthToken() const { return Option<AuthToken>(AuthToken::empty()); }
 void Flash::removeAuthToken() const {}
 void Flash::writeAuthToken(const AuthToken & token) const { (void) token; }
-Option<PlantId> Flash::readPlantId() const { return Option<PlantId>((PlantId::Storage) {0}); }
+Option<PlantId> Flash::readPlantId() const { return Option<PlantId>(PlantId::empty()); }
 void Flash::removePlantId() const {};
 void Flash::writePlantId(const PlantId & id) const { (void) id; }
 Option<struct WifiCredentials> Flash::readWifiConfig() const { return (struct WifiCredentials) {
-  .ssid = NetworkName((NetworkName::Storage) {0}),
-  .password = NetworkPassword((NetworkPassword::Storage) {0}),
+  .ssid = NetworkName(NetworkName::empty()),
+  .password = NetworkPassword(NetworkPassword::empty()),
 }; }
 void Flash::removeWifiConfig() const {}
 void Flash::writeWifiConfig(const struct WifiCredentials & id) const { (void) id; }

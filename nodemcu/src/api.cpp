@@ -36,15 +36,15 @@ Option<HttpCode> Api::registerEvent(const AuthToken & authToken, const Event & e
 
   auto json = makeJson(this->logger, event);
   const auto token = authToken.asString();
-  const auto maybeResp = this->network.httpPost(token, "/event", json);
+  const auto maybeResp = this->network.httpPost(token, F("/event"), json);
 
   #ifndef IOP_MOCK_MONITOR
   if (maybeResp.isNone()) {
     this->logger.error(F("Unable to make POST request to /event"));
   }
-  return maybeResp.map<HttpCode>([](const Response & resp) { return resp.code; });
+  return maybeResp.asRef().map<HttpCode>([](const std::reference_wrapper<const Response> resp) { return resp.get().code; });
   #else
-    return Option<HttpCode>(200);
+  return Option<HttpCode>(200);
   #endif
 }
 
@@ -67,7 +67,7 @@ Result<AuthToken, Option<HttpCode>> Api::authenticate(const StringView username,
     return json;
   };
   const auto json = makeJson(this->logger, username, password);
-  auto maybeResp = this->network.httpPost(STATIC_STRING("/user/login"), json);
+  auto maybeResp = this->network.httpPost(F("/user/login"), json);
 
   #ifndef IOP_MOCK_MONITOR
   if (maybeResp.isNone()) {
@@ -88,7 +88,7 @@ Result<AuthToken, Option<HttpCode>> Api::authenticate(const StringView username,
     return Result<AuthToken, Option<HttpCode>>(result.expectOk(F("result isn't Ok but should be")));
   }
   #else
-  return Result<AuthToken, Option<HttpCode>>(AuthToken((AuthToken::Storage) {0}));
+  return Result<AuthToken, Option<HttpCode>>(AuthToken::empty());
   #endif
 }
 
@@ -110,7 +110,7 @@ Result<PlantId, Option<HttpCode>> Api::registerPlant(const AuthToken & authToken
   this->logger.info(token, CONTINUITY, F(", "));
   this->logger.info(F("MAC:"), CONTINUITY, F(" "));
   this->logger.info(this->macAddress(), CONTINUITY);
-  const auto maybeResp = this->network.httpPut(token, "/plant", json);
+  const auto maybeResp = this->network.httpPut(token, F("/plant"), json);
 
   #ifndef IOP_MOCK_MONITOR
   if (maybeResp.isNone()) {
@@ -136,7 +136,7 @@ Result<PlantId, Option<HttpCode>> Api::registerPlant(const AuthToken & authToken
     return Result<PlantId, Option<HttpCode>>(resp.code);
   }
   #else
-    return Result<PlantId, Option<HttpCode>>((PlantId) {0});
+    return Result<PlantId, Option<HttpCode>>(PlantId::empty());
   #endif
 }
 #endif
@@ -148,7 +148,7 @@ void Api::setup() const {
 }
 
 bool Api::isConnected() const { return true; }
-String Api::macAddress() const { return this->network->macAddress(); }
+String Api::macAddress() const { return this->network.macAddress(); }
 void Api::disconnect() const {}
 LogLevel Api::loggerLevel() const { return this->logger.level(); }
 
@@ -157,10 +157,10 @@ Option<HttpCode> Api::registerEvent(const AuthToken & authToken, const Event & e
 }
 
 Result<AuthToken, Option<HttpCode>> Api::authenticate(const StringView username, const StringView password) const {
-  return Result<AuthToken, Option<HttpCode>>(AuthToken((AuthToken::Storage) {0}));
+  return Result<AuthToken, Option<HttpCode>>(AuthToken::empty());
 }
 
 Result<PlantId, Option<HttpCode>> Api::registerPlant(const AuthToken & authToken) const {
-  return Result<PlantId, Option<HttpCode>>(PlantId((PlantId::Storage) {0}));
+  return Result<PlantId, Option<HttpCode>>(PlantId::empty());
 }
 #endif

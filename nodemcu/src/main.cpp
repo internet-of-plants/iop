@@ -71,7 +71,7 @@ public:
     this->credentialsServer = std::move(other.credentialsServer);
     this->flash = std::move(other.flash);
   }
-  EventLoop(const StringView host):
+  EventLoop(const StaticString host):
     sensors(soilResistivityPowerPin, soilTemperaturePin, airTempAndHumidityPin, dhtVersion),
     api(host, logLevel),
     credentialsServer(host, logLevel),
@@ -106,17 +106,13 @@ private:
 
           WiFi.mode(WIFI_STA);
 
-          NetworkName ssid((NetworkName::Storage) {0});
-          memcpy(ssid.mutPtr(), config.ssid, NetworkName::dataSize);
-          NetworkPassword psk((NetworkPassword::Storage) {0});
-          memcpy(psk.mutPtr(), config.password, NetworkPassword::dataSize);
+          const auto ssid = NetworkName::fromStringTruncating(UnsafeRawString((char *) config.ssid));
+          const auto psk = NetworkPassword::fromStringTruncating(UnsafeRawString((char *) config.password));
 
           auto maybeCurrConfig = this->flash.readWifiConfig();
           if (maybeCurrConfig.isSome()) {
-            auto currConfig = maybeCurrConfig.expect(F("Current network config missing when it shouldn't"));
-            const bool sameSsid = memcmp(currConfig.ssid.constPtr(), reinterpret_cast<uint8_t*>(config.ssid), NetworkName::dataSize);
-            const bool samePsk = memcmp(currConfig.password.constPtr(), reinterpret_cast<uint8_t*>(config.password), NetworkPassword::dataSize);
-            if (sameSsid && samePsk) {
+            const auto currConfig = maybeCurrConfig.expect(F("maybeCurrConfig is none"));
+            if (currConfig.ssid == ssid && currConfig.password == psk) {
               break;
             }
 
@@ -187,10 +183,10 @@ private:
   }
 };
 
-static const char * const PROGMEM expected = "No host available";
+PROGMEM_STRING(expected, "No host available");
 std::unique_ptr<EventLoop> eventLoop = std::unique_ptr<EventLoop>(new EventLoop(host
-  .map<StringView>([](const StringView & str) { return str; })
-  .expect(StringView(expected))));
+  .asRef()
+  .expect(expected)));
 
 void setup() {
   eventLoop->setup();

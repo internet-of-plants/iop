@@ -1,7 +1,16 @@
 #ifndef IOP_UTILS_H_
 #define IOP_UTILS_H_
 
+#include <memory>
+#include <cstdint>
+#include <array>
+#include <WString.h>
+
+#include <result.hpp>
 #include <string_view.hpp>
+#include <option.hpp>
+#include <fixed_string.hpp>
+#include <models.hpp>
 
 // (Un)Comment this line to toggle wifi dependency
 #define IOP_ONLINE
@@ -10,7 +19,7 @@
 #define IOP_SERVER
 
 // (Un)Comment this line to toggle monitor server dependency
-//#define IOP_MONITOR
+#define IOP_MONITOR
 
 // (Un)Comment this line to toggle serial dependency
 #define IOP_SERIAL
@@ -40,8 +49,24 @@ enum InterruptEvent {
   ON_CONNECTION
 };
 
-uint64_t hashString(const StringView string);
-
 static volatile enum InterruptEvent interruptEvent = NONE;
+
+namespace utils {
+  uint64_t hashString(const StringView string);
+  Option<size_t> search(const StringView haystack, const StaticString& needle);
+  Option<size_t> search(const StringView haystack, const StaticString& needle, const size_t fromIndex);
+  Option<size_t> search(const StringView haystack, const StringView needle);
+  Option<size_t> search(const StringView haystack, const StringView needle, const size_t fromIndex);
+  uint64_t u64fromString(const StringView str);
+  CsrfToken randomCsrfToken(const uint64_t secretKey);
+  Option<CsrfToken> parseCsrfTokenCookie(std::string header);
+  Option<CsrfToken> parseCsrfTokenCookie(String header);
+  uint64_t random();
+}
+
+
+#define MAYBE_PROGMEM_STRING_EMPTY(name) static const Option<StaticString> name;
+#define MAYBE_PROGMEM_STRING(name, msg) PROGMEM_STRING(name_##storage, msg);\
+  static const Option<StaticString> name(name_##storage);
 
 #endif

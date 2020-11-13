@@ -94,7 +94,7 @@ class Result {
     this->kind = EMPTY;
     T value = std::move(this->ok);
     this->dummy = 0;
-    return std::move(value);
+    return value;
   }
 
   T expectOk(const StaticString msg) noexcept {
@@ -102,32 +102,37 @@ class Result {
     this->kind = EMPTY;
     T value = std::move(this->ok);
     this->dummy = 0;
-    return std::move(value);
+    return value;
   }
   T unwrapOk() noexcept { return this->expectOk(F("Tried to unwrapOk an errored Result")); }
-  T unwrapOk_or(const T or_) noexcept {
-    if (this->isSome()) { return std::move(this->expectOk(F("unwrapOk_or is broken"))); }
-    return std::move(or_);
-  }
+  T unwrapOkOr(const T or_) noexcept { return this->expectOkOr(F("unwrapOkOr is broken"), or_); }
 
   E expectErr(const StringView msg) noexcept {
     if (this->isOk()) { panic_(msg); }
     this->kind = EMPTY;
     E value = std::move(this->error);
     this->dummy = 0;
-    return std::move(value);
+    return value;
   }
   E expectErr(const StaticString msg) noexcept {
     if (this->isOk()) { panic_(msg); }
     this->kind = EMPTY;
     E value = std::move(this->error);
     this->dummy = 0;
-    return std::move(value);
+    return value;
   }
   E unwrapErr() noexcept { return this->expectErr(F("Tried to unwrapErr a Result that succeeded")); }
-  E unwrapErr_or(const E or_) noexcept {
-    if (this->isErr()) { return std::move(this->expectErr(F("unwrapErr_or is broken"))); }
-    return std::move(or_);
+  E unwrapErrOr(const E or_) noexcept { return this->expectErrOr(F("unwrapErrOr is broken"), or_); }
+
+  template <typename U>
+  Result<U, E> mapOk(std::function<U (const T)> f) noexcept {
+    if (this->isOk()) {
+      this->kind = EMPTY;
+      return Result<U, E>(f(std::move(this->ok)));
+    } else {
+      this->kind = EMPTY;
+      return Result<U, E>(std::move(this->error));
+    }
   }
 };
 

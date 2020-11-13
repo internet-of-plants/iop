@@ -1,5 +1,7 @@
 # Internet of Plants - Arduino
 
+**Attention, this documentation is stale, we have to update it to the new version**
+
 ## Components
 
 1. [Air temperature](/docs/components/AIR_TEMPERATURE_AND_HUMIDITY.md)
