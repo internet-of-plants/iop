@@ -19,10 +19,7 @@ void panic__(const StringView msg, const StaticString file, const uint32_t line,
   logger.crit(F(": "), CONTINUITY, F(" "));
   logger.crit(msg, CONTINUITY);
   WiFi.mode(WIFI_OFF);
-  // There should be a better way to black box this infinite loop
-  while (EEPROM.read(0) != 3 && EEPROM.read(255) != 3) {
-    yield();
-  }
+  ESP.deepSleep(0);
   __panic_func(file.asCharPtr(), line, func.get());
 }
 
@@ -38,9 +35,6 @@ void panic__(const StaticString msg, const StaticString file, const uint32_t lin
   logger.crit(F(": "), CONTINUITY, F(" "));
   logger.crit(msg, CONTINUITY);
   WiFi.mode(WIFI_OFF);
-  // There should be a better way to black box this infinite loop
-  while (EEPROM.read(0) != 3 && EEPROM.read(255) != 3) {
-    yield();
-  }
+  ESP.deepSleep(0);
   __panic_func(file.asCharPtr(), line, func.get());
 }

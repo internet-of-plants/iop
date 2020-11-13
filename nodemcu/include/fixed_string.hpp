@@ -15,8 +15,9 @@ public:
   FixedString<SIZE>(FixedString<SIZE>& other): str(other.str) {}
   FixedString<SIZE>(FixedString<SIZE>&& other): str(std::move(other.str)) {}
   void operator=(FixedString<SIZE>& other) { this->str = other; }
-  void operator=(FixedString<SIZE>&& other) { this->str = std::move(other); }
+  void operator=(FixedString<SIZE>&& other) { this->str = std::move(other.str); }
   constexpr const char * const get() const { return this->str.asString().get(); }
+  char * const asMut() { return reinterpret_cast<char*>(this->str.mutPtr()); }
   Storage<SIZE>& operator->() const { return this->str; }
   Storage<SIZE>& operator*() const { return this->str; }
   static FixedString<SIZE> empty() { return Storage<SIZE>::empty(); }

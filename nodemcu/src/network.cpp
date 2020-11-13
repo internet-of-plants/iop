@@ -32,6 +32,7 @@ StaticString Network::wifiCodeToString(const wl_status_t val) const {
 String Network::macAddress() const { return WiFi.macAddress(); }
 void Network::disconnect() const { WiFi.disconnect(); }
 
+// TODO: connections aren't working with AP active
 
 void Network::setup() const {
   #ifdef IOP_ONLINE
@@ -40,13 +41,16 @@ void Network::setup() const {
       interruptEvent = ON_CONNECTION;
       (void) ev;
     });
+    if (this->isConnected()) {
+      interruptEvent = ON_CONNECTION;
+    }
     WiFi.persistent(true);
     WiFi.setAutoReconnect(true);
     WiFi.setAutoConnect(true);
     WiFi.mode(WIFI_STA);
     station_config status = {0};
     wifi_station_get_config_default(&status);
-    if (status.ssid != NULL && !this->isConnected()) {
+    if (status.ssid != NULL || !this->isConnected()) {
       WiFi.waitForConnectResult();
     }
   #else
@@ -100,8 +104,9 @@ Option<Response> Network::httpRequest(const enum HttpMethod method, const Option
     //   client->setBufferSizes(512, 512);
     // }
     client->setNoDelay(false);
-    client->setSync(true);
+    client->setSync(true);  
     client->setCertStore(certStore.get());
+    //client->setInsecure();
     if (client->connect(uri, 4001) <= 0) {
       this->logger.warn(F("Failed to connect to"), START, F(" "));
       this->logger.warn(uri, CONTINUITY);

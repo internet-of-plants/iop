@@ -41,7 +41,10 @@ class Log {
       targetLogger(target),
       flush{flush} {}
     Log(Log& other) = delete;
-    void operator=(Log& other) = delete;
+    void operator=(Log& other) noexcept {
+      this->logLevel = std::move(other.logLevel);
+      this->targetLogger = std::move(other.targetLogger);
+    }
     void operator=(Log&& other) noexcept {
       this->logLevel = std::move(other.logLevel);
       this->targetLogger = std::move(other.targetLogger);

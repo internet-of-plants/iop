@@ -30,7 +30,7 @@ class Storage {
     constexpr StringView asString() const { return UnsafeRawString((const char *) this->val->data()); }
     std::shared_ptr<InnerStorage> intoInner() { return std::move(this->val); }
     constexpr static Storage<SIZE> empty() { return Storage<SIZE>((InnerStorage) {0}); }
-    bool operator==(const Storage<SIZE>& other) const { return memcmp(this->constPtr(), other.constPtr(), SIZE); }
+    bool operator==(const Storage<SIZE>& other) const { return memcmp(this->constPtr(), other.constPtr(), SIZE) == 0; }
     bool operator!=(const Storage<SIZE>& other) const { return !this->operator==(other); }
 
     static Storage<SIZE> fromStringTruncating(const StringView str) {

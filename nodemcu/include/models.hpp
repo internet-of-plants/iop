@@ -10,7 +10,6 @@
 #include <storage.hpp>
 
 // Those are basically utils::Storage but typesafe
-TYPED_STORAGE(CsrfToken, 20);
 TYPED_STORAGE(AuthToken, 64);
 TYPED_STORAGE(PlantId, 19);
 TYPED_STORAGE(NetworkName, 32);

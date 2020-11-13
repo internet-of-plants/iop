@@ -104,8 +104,6 @@ private:
           struct station_config config = {0};
           wifi_station_get_config(&config);
 
-          WiFi.mode(WIFI_STA);
-
           const auto ssid = NetworkName::fromStringTruncating(UnsafeRawString((char *) config.ssid));
           const auto psk = NetworkPassword::fromStringTruncating(UnsafeRawString((char *) config.password));
 

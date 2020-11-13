@@ -58,9 +58,6 @@ namespace utils {
   Option<size_t> search(const StringView haystack, const StringView needle);
   Option<size_t> search(const StringView haystack, const StringView needle, const size_t fromIndex);
   uint64_t u64fromString(const StringView str);
-  CsrfToken randomCsrfToken(const uint64_t secretKey);
-  Option<CsrfToken> parseCsrfTokenCookie(std::string header);
-  Option<CsrfToken> parseCsrfTokenCookie(String header);
   uint64_t random();
 }
 
