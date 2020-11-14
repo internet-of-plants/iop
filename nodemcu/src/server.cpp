@@ -11,6 +11,8 @@
 #include <IPAddress.h>
 #include <WiFiClient.h>
 
+// TODO: make sure this captive portal can't be bypassed
+
 const unsigned long intervalTryFlashWifiCredentialsMillis = 600000; // 10 minutes
 const unsigned long intervalTryHardcodedWifiCredentialsMillis = 600000; // 10 minutes
 const unsigned long intervalTryHardcodedIopCredentialsMillis = 3600000; // 1 hour

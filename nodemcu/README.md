@@ -22,3 +22,7 @@ After cloning you must set the configurations. To do that run this command:
 And fill all the constants with the appropriate value
 
 Then you can deploy the code to the nodemcu using platform-io.
+
+# TODO
+
+Grep for "TODO"'s to find the known missing pieces
