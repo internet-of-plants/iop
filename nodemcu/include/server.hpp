@@ -17,6 +17,14 @@ enum ServeError {
   REMOVE_WIFI_CONFIG
 };
 
+/// Server to safely acquire wifi and Internet of Plants credentials
+///
+/// It provides a access point with a captive portal.
+/// The captive portal will provide a form with dynamic fields
+/// Two fields (network ssid and psk) for the wifi credentials, if you are not authenticated
+/// Two fields (email and password) for IoP credentials, if you don't have a authentication token stored
+///
+/// It opens itself at `serve`, but it should be manually closed `close` when wifi + IoP are authenticated
 class CredentialsServer {
 private:
   Log logger;

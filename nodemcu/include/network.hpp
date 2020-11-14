@@ -18,6 +18,7 @@ enum HttpMethod {
   PUT
 };
 
+/// Try to make the ESP8266 network API more pallatable for our needs
 class Network {
   StaticString host_;
   Log logger;

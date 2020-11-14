@@ -8,6 +8,7 @@
 #include <log.hpp>
 #include <static_string.hpp>
 
+/// Abstracts Internet of Plants API to avoid mistakes and properly report errors
 class Api {
 private:
   Log logger;

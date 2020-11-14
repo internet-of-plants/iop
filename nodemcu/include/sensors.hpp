@@ -8,6 +8,7 @@
 #include <DHT.h>
 #include <DallasTemperature.h>
 
+/// Abstracts away sensors access, providing a cohesive state. It's completely synchronous.
 class Sensors {
   private:
     uint8_t soilResistivityPowerPin;

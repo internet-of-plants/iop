@@ -3,6 +3,13 @@
 
 #include <WString.h>
 
+/// Helper string to hold a char pointer to a string stored in PROGMEM
+/// It's here to provide a typesafe way to handle PROGMEM data and to avoid defaulting to
+/// String(__FlashStringHelper*) constructor
+///
+/// In ESP8266 the PROGMEM can just be accessed like any other RAM (besides the correct alignment)
+/// So we technically don't need it to be thread safe. But it's a safe storage for it.
+/// And it works very well with `StringView` because of that
 class StaticString {
 private:
   const __FlashStringHelper * str;

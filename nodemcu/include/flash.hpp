@@ -7,6 +7,7 @@
 #include <option.hpp>
 #include <log.hpp>
 
+/// Wraps flash memory to provide a API that satisfies our storage needs
 class Flash {
   Log logger;
 

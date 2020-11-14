@@ -8,8 +8,17 @@ enum ParseError {
   TOO_BIG
 };
 
-/// This uses SIZE + 1 of memory (heap allocated as std::shared_ptr), it's 0 terminated by default
-/// to allow to be used as string trivially
+/// Fixed size storage. Heap allocated (std::shared_ptr) std::array that has an extra zeroed byte (perfect to also abstract strings)
+/// We heap allocate to prevent expensive copies and because our stack is so little
+/// It creates the perfect environment to copy bounded data around without dynamic storages
+/// Implements a fromString and fromStringTruncating (properly handling missing 0 terminators)
+/// And can be accessed as StringView by the asString method
+///
+/// Used by FixedString<SIZE> and our structures stored in flash (check models.hpp)
+/// providing a out of the box way to access flash while being type-safe
+///
+/// It can be used with `TYPED_STORAGE` macro to create a typed heap allocated Storage<SIZE>
+/// avoiding mixing different data that happens to have the same size
 template <uint16_t SIZE>
 class Storage {
   public:
@@ -53,6 +62,8 @@ class Storage {
     }
   };
 
+  /// Creates a typed Storage<size_>, check it's documentation and definition for a clear understanding
+  /// Prevents the mixup of different data that happens to have the same size
   #define TYPED_STORAGE(name, size_) \
   class name##_class {\
   public:\

@@ -3,7 +3,7 @@
 
 #include <storage.hpp>
 
-/// Don't let it fool you, this is heap allocated, just fixed size
+/// String of fixed size. Heap allocated, but has fixed size
 template <uint16_t SIZE>
 class FixedString {
 public:

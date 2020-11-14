@@ -22,6 +22,8 @@ enum LogType {
 
 static const char * const PROGMEM defaultLineTerminationChar = "\n";
 static const StaticString defaultLineTermination(FPSTR(defaultLineTerminationChar));
+
+/// Logger with its own log level and target
 class Log {
   private:
     LogLevel logLevel;

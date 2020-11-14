@@ -4,6 +4,10 @@
 #include <functional>
 #include <panic.hpp>
 
+/// Optional sum-type, may be filled and contain a T, or not be filled and unable to access it
+/// methods panic instead of causing undefined behavior
+///
+/// Most methods move out by default.
 template<typename T>
 class Option {
  private:

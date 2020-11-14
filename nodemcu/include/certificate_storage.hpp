@@ -11,6 +11,7 @@
 
 namespace BearSSL {
 
+/// This is a hack to overwrite CertStore defined at BearSSL so we can be called by ESP8266WebServer
 class CertStore {
   public:
     CertStore() {}

@@ -158,13 +158,6 @@ Result<AuthToken, Option<HttpCode>> CredentialsServer::authenticate(const String
     return std::move(authToken);
 }
 
-/// Abstracts away wifi and iop credentials acquisition.
-/// If there are hardcoded credentials this will use them (and avoid a floods if they are invalid)
-/// If there are credentials stored in flash memory it will use them, clearing them when proved invalid
-///
-/// If nothing else works it will serve a HTTP server at port 80 that provides a HTML form
-/// Submitting this form with the appropriate wifi and iop credentials will authenticate you
-/// So the server should be closed;
 Result<Option<AuthToken>, ServeError> CredentialsServer::serve(const Option<struct WifiCredentials> & storedWifi, const Option<AuthToken> & authToken) {
   this->start();
 
