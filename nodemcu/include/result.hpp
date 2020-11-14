@@ -117,7 +117,7 @@ class Result {
     } else if (this->isErr()) {
       return or_;
     } else {
-      panic_("Result is empty, at unwrapOkOr");
+      panic_(F("Result is empty, at unwrapOkOr"));
     }
   }
 
@@ -142,7 +142,7 @@ class Result {
     } else if (this->isOk()) {
       return or_;
     } else {
-      panic_("Result is empty, at unwrapErrOr");
+      panic_(F("Result is empty, at unwrapErrOr"));
     }  }
 
   template <typename U>

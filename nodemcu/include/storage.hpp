@@ -1,6 +1,7 @@
 #ifndef IOP_STORAGE_H_
 #define IOP_STORAGE_H_
 
+#include <panic.hpp>
 #include <cstdint>
 #include <string_view.hpp>
 
@@ -27,11 +28,23 @@ class Storage {
   private:
     std::shared_ptr<InnerStorage> val;
 
+    void panicIfMovedOut() const {
+      if (this->val.get() == nullptr) {
+        panic_(F("Tried to use a storage that has been moved out"));
+      }
+    }
   public:
     Storage<SIZE>(const InnerStorage val): val(std::make_shared<InnerStorage>(val)) { *this->val->end() = 0; }
-    Storage<SIZE>(std::shared_ptr<InnerStorage> val): val(std::move(val)) { *this->val->end() = 0; }
+    Storage<SIZE>(std::shared_ptr<InnerStorage> val): val(std::move(val)) {
+      // Just to make sure val doesn't come moved out by accident
+      this->panicIfMovedOut();
+      *this->val->end() = 0;
+    }
     constexpr Storage<SIZE>(const Storage<SIZE>& other): val(other.val) {}
-    constexpr Storage<SIZE>(Storage<SIZE> && other): val(std::move(other.val)) {}
+    // Hijacks moves so this doesn't get moved out
+    Storage<SIZE>(Storage<SIZE> && other): val(other.val) {
+      this->panicIfMovedOut();
+    }
     void operator=(const Storage<SIZE>& other) { this->val = other.val; }
     void operator=(Storage<SIZE> && other) { this->val = std::move(other.val); }
     constexpr const uint8_t * constPtr() const { return this->val->data(); }
