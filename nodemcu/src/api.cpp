@@ -92,6 +92,42 @@ Result<AuthToken, Option<HttpCode>> Api::authenticate(const StringView username,
   #endif
 }
 
+Option<HttpCode> Api::reportError(const AuthToken &authToken, const PlantId &id, const StringView error) const {
+  const auto makeJson = [](const PlantId &id, const StringView error) {
+    auto doc = std::unique_ptr<StaticJsonDocument<300>>(new StaticJsonDocument<300>());
+    (*doc)["plant_id"] = id.asString().get();
+    (*doc)["error"] = error.get();
+
+    // TODO: study FixedString as a way to remove this boilerplate
+    auto buffer = std::unique_ptr<std::array<char, 300>>(new std::array<char, 300>());
+    buffer->fill(0);
+    serializeJson(*doc, buffer->data(), buffer->size());
+    auto json = String(buffer->data());
+    return json;
+  };
+  const auto token = authToken.asString();
+  const auto json = makeJson(id, error);
+
+  this->logger.info(F("Report error:"), START, F(" "));
+  this->logger.info(json, CONTINUITY);
+  const auto maybeResp = this->network.httpPost(token, F("/error"), json);
+
+  #ifndef IOP_MOCK_MONITOR
+  if (maybeResp.isNone()) {
+    this->logger.error(F("Unable to make POST request to /error"));
+    return Option<HttpCode>();
+  }
+
+  const Response & resp = maybeResp.asRef().expect(F("Maybe resp is None"));
+  if (resp.code != 200) {
+    this->logger.error(F("Failed to report error to IoP"));
+  }
+  return Option<HttpCode>(resp.code);
+  #else
+    return Option<HttpCode>(200);
+  #endif
+}
+
 Result<PlantId, Option<HttpCode>> Api::registerPlant(const AuthToken & authToken) const {
   const auto makeJson = [](const Api & api) {
     auto doc = std::unique_ptr<StaticJsonDocument<30>>(new StaticJsonDocument<30>());

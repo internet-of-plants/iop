@@ -33,6 +33,7 @@ public:
   Option<HttpCode> registerEvent(const AuthToken & token, const Event & event) const;
   Result<PlantId, Option<HttpCode>> registerPlant(const AuthToken & token) const;
   Result<AuthToken, Option<HttpCode>> authenticate(const StringView username, const StringView password) const;
+  Option<HttpCode> reportError(const AuthToken &authToken, const PlantId &id, const StringView error) const;
   StaticString host() const { return this->network.host(); }
   bool isConnected() const;
   String macAddress() const;
