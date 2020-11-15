@@ -55,8 +55,13 @@ void CredentialsServer::start() {
     WiFi.softAPConfig(IPAddress(192,168,1,1), IPAddress(192,168,1,1), IPAddress(255,255,255,0));
     const auto hash = std::to_string(utils::hashString(this->api->macAddress()));
     const auto ssid = String("iop-") + String(hash.c_str());
+    WiFi.setAutoReconnect(false);
+    ETS_UART_INTR_DISABLE();
+    wifi_station_disconnect();
+    ETS_UART_INTR_ENABLE();
     WiFi.softAP(ssid, "le$memester#passwordz", 2);
-
+    WiFi.setAutoReconnect(true);
+    WiFi.begin();
     // Makes it a captive portal (redirects all wifi trafic to us)
     auto dns = std::unique_ptr<DNSServer>(new DNSServer());
     dns->setErrorReplyCode(DNSReplyCode::NoError);
