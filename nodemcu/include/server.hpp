@@ -44,29 +44,10 @@ public:
     api(new Api(host, logLevel)),
     flash(new Flash(logLevel)) {}
   CredentialsServer(CredentialsServer& other) = delete;
+  CredentialsServer(CredentialsServer&& other) = delete;
   void operator=(CredentialsServer& other) = delete;
-
-  CredentialsServer(CredentialsServer&& other):
-    logger(other.logger.level(), other.logger.target()),
-    api(new Api(other.api->host(), other.api->loggerLevel())),
-    flash(new Flash(other.logger.level())),
-    server(std::move(other.server)),
-    dnsServer(std::move(other.dnsServer)),
-    nextTryFlashWifiCredentials(0),
-    nextTryHardcodedWifiCredentials(0),
-    nextTryHardcodedIopCredentials(0) {}
-
-  void operator=(CredentialsServer&& other) {
-    this->api = std::move(other.api);
-    this->logger = std::move(other.logger);
-    this->flash = std::move(other.flash);
-    this->server = std::move(other.server);
-    this->dnsServer = std::move(other.dnsServer);
-    this->nextTryFlashWifiCredentials = other.nextTryFlashWifiCredentials;
-    this->nextTryHardcodedWifiCredentials = other.nextTryHardcodedWifiCredentials;
-    this->nextTryHardcodedIopCredentials = other.nextTryHardcodedIopCredentials;
-  }
-
+  void operator=(CredentialsServer&& other) = delete;
+  
   Result<Option<AuthToken>, ServeError> serve(const Option<struct WifiCredentials> & storedWifi, const Option<AuthToken> & authToken);
   void close();
   void start();

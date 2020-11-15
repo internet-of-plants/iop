@@ -80,6 +80,7 @@ class Result {
       case ERROR:
         return false;
       case EMPTY:
+      default:
         panic_(F("Result is empty, at isOk"));
     }
   }
@@ -91,6 +92,7 @@ class Result {
       case OK:
         return false;
       case EMPTY:
+      default:
         panic_(F("Result is empty, at isErr"));
     }
   }

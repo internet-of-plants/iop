@@ -1,27 +1,28 @@
 #include <Arduino.h>
 #include <measurement.hpp>
 
+namespace measurement {
 #ifndef IOP_MEASUREMENT_DISABLED
-float measureSoilTemperatureCelsius(DallasTemperature &sensor) {
+float soilTemperatureCelsius(DallasTemperature &sensor) {
   // Blocks until reading is done
   sensor.requestTemperatures();
   // Accessing by index is bad. It's slow, we should store the sensor's address and use it
   return sensor.getTempCByIndex(0);
 }
 
-float measureAirTemperatureCelsius(DHT &dht) {
+float airTemperatureCelsius(DHT &dht) {
   return dht.readTemperature();
 }
 
-float measureAirHumidityPercentage(DHT &dht) {
+float airHumidityPercentage(DHT &dht) {
   return dht.readHumidity();
 }
 
-float measureAirHeatIndexCelsius(DHT &dht) {
+float airHeatIndexCelsius(DHT &dht) {
   return dht.computeHeatIndex();
 }
 
-uint16_t measureSoilResistivityRaw(const uint8_t powerPin) {
+uint16_t soilResistivityRaw(const uint8_t powerPin) {
   digitalWrite(powerPin, HIGH);
   digitalWrite(LED_BUILTIN, HIGH);
   delay(2000);
@@ -37,9 +38,10 @@ uint16_t measureSoilResistivityRaw(const uint8_t powerPin) {
 #endif
 
 #ifdef IOP_MEASUREMENT_DISABLED
-float measureSoilTemperatureCelsius(DallasTemperature &sensor) { return 0.; }
-float measureAirTemperatureCelsius(DHT &dht) { return 0.; }
-float measureAirHumidityPercentage(DHT &dht) { return 0.; }
-float measureAirHeatIndexCelsius(DHT &dht) { return 0.; }
-uint16_t measureSoilResistivityRaw(const uint8_t powerPin) { return 0.; }
+float soilTemperatureCelsius(DallasTemperature &sensor) { return 0.; }
+float airTemperatureCelsius(DHT &dht) { return 0.; }
+float airHumidityPercentage(DHT &dht) { return 0.; }
+float airHeatIndexCelsius(DHT &dht) { return 0.; }
+uint16_t soilResistivityRaw(const uint8_t powerPin) { return 0.; }
 #endif
+}

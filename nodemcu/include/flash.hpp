@@ -14,9 +14,9 @@ class Flash {
   public:
     Flash(const LogLevel logLevel): logger(logLevel, F("FLASH")) {}
     Flash(Flash& other) = delete;
+    Flash(Flash&& other) = delete;
     void operator=(Flash& other) = delete;
-    void operator=(Flash&& other) { this->logger = std::move(other.logger); }
-    Flash(Flash&& other): logger(other.logger.level(), other.logger.target()) {}
+    void operator=(Flash&& other) = delete;
     void setup() const;
 
     Option<AuthToken> readAuthToken() const;

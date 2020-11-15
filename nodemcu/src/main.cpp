@@ -64,13 +64,7 @@ public:
   }
 
   void operator=(EventLoop & other) = delete;
-  void operator=(EventLoop && other) {
-    this->sensors = std::move(other.sensors);
-    this->api = std::move(other.api);
-    this->logger = std::move(other.logger);
-    this->credentialsServer = std::move(other.credentialsServer);
-    this->flash = std::move(other.flash);
-  }
+  void operator=(EventLoop && other) = delete;
   EventLoop(const StaticString host):
     sensors(soilResistivityPowerPin, soilTemperaturePin, airTempAndHumidityPin, dhtVersion),
     api(host, logLevel),

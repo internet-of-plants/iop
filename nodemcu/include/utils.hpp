@@ -25,7 +25,7 @@
 #define IOP_SERIAL
 
 // (Un)Comment this line to toggle sensors dependency
-//#define IOP_SENSORS
+#define IOP_SENSORS
 
 // (Un)Comment this line to toggle flash memory dependency
 #define IOP_FLASH

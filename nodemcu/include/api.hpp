@@ -19,15 +19,9 @@ public:
     logger(logLevel, F("API")),
     network(host, logLevel) {}
   Api(Api& other) = delete;
+  Api(Api&& other) = delete;
   void operator=(Api& other) = delete;
-  void operator=(Api&& other) {
-    this->logger = std::move(other.logger);
-    this->network = std::move(other.network);
-  }
-  Api(Api&& other):
-    logger(other.logger.level(), other.logger.target()),
-    network(std::move(other.network)) {}
-
+  void operator=(Api&& other) = delete;
 
   void setup() const;
   Option<HttpCode> registerEvent(const AuthToken & token, const Event & event) const;

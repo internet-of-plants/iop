@@ -28,14 +28,9 @@ class Network {
       host_(host),
       logger(logLevel, F("NETWORK")) {}
     Network(Network& other) = delete;
+    Network(Network&& other) = delete;
     void operator=(Network& other) = delete;
-    void operator=(Network&& other) {
-      this->host_ = std::move(other.host_);
-      this->logger = std::move(other.logger);
-    }
-    Network(Network&& other):
-      host_(other.host_),
-      logger(other.logger.level(), other.logger.target()) {}
+    void operator=(Network&& other) = delete;
     void setup() const;
     bool isConnected() const;
     Option<Response> httpPut(const StringView token, const StaticString path, const StringView data) const;

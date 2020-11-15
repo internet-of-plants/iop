@@ -11,11 +11,11 @@ void Sensors::setup() {
 
 Event Sensors::measure(PlantId plantId) {
   return Event((EventStorage) {
-    .airTemperatureCelsius = measureAirTemperatureCelsius(this->airTempAndHumiditySensor),
-    .airHumidityPercentage = measureAirHumidityPercentage(this->airTempAndHumiditySensor),
-    .airHeatIndexCelsius = measureAirHeatIndexCelsius(this->airTempAndHumiditySensor),
-    .soilResistivityRaw = measureSoilResistivityRaw(this->soilResistivityPowerPin),
-    .soilTemperatureCelsius = measureSoilTemperatureCelsius(this->soilTemperatureSensor),
+    .airTemperatureCelsius = measurement::airTemperatureCelsius(this->airTempAndHumiditySensor),
+    .airHumidityPercentage = measurement::airHumidityPercentage(this->airTempAndHumiditySensor),
+    .airHeatIndexCelsius = measurement::airHeatIndexCelsius(this->airTempAndHumiditySensor),
+    .soilResistivityRaw = measurement::soilResistivityRaw(this->soilResistivityPowerPin),
+    .soilTemperatureCelsius = measurement::soilTemperatureCelsius(this->soilTemperatureSensor),
   }, std::move(plantId));
 }
 #endif

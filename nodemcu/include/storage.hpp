@@ -41,7 +41,7 @@ class Storage {
       *this->val->end() = 0;
     }
     constexpr Storage<SIZE>(const Storage<SIZE>& other): val(other.val) {}
-    // Hijacks moves so this doesn't get moved out
+    // Hijacks moves so you can't invalidly use it (blame it on cpp move not being enforced by the compiler)
     Storage<SIZE>(Storage<SIZE> && other): val(other.val) {
       this->panicIfMovedOut();
     }

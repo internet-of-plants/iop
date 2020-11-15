@@ -26,6 +26,7 @@ public:
   StringView(const String& other): str(other.c_str()) {}
   constexpr StringView(const StaticString& other): str(other.asCharPtr()) {}
   constexpr StringView(const StringView& other): str(other.str) {}
+  constexpr StringView(const StringView&& other): str(other.str) {}
   void operator=(const StringView& other) { this->str = other.str; }
   void operator=(const StringView&& other) { this->str = other.str; }
   constexpr const char * const get() const { return this->str; }

@@ -22,19 +22,10 @@ class Sensors {
       soilTemperatureOneWireBus(new OneWire(soilTemperaturePin)),
       soilTemperatureSensor(soilTemperatureOneWireBus.get()),
       airTempAndHumiditySensor(dhtPin, dhtVersion) {}
+    Sensors(Sensors& other) = delete;
+    Sensors(Sensors&& other) = delete;
     void operator=(Sensors& other) = delete;
-    void operator=(Sensors&& other) {
-      this->soilResistivityPowerPin = other.soilResistivityPowerPin;
-      this->soilTemperatureOneWireBus = std::move(other.soilTemperatureOneWireBus);
-      this->soilTemperatureSensor = std::move(other.soilTemperatureSensor);
-      this->airTempAndHumiditySensor = std::move(other.airTempAndHumiditySensor);
-    }
-    Sensors(Sensors&& other):
-      soilResistivityPowerPin(other.soilResistivityPowerPin),
-      soilTemperatureOneWireBus(std::move(other.soilTemperatureOneWireBus)),
-      soilTemperatureSensor(std::move(other.soilTemperatureSensor)),
-      airTempAndHumiditySensor(std::move(other.airTempAndHumiditySensor)) {}
-
+    void operator=(Sensors&& other) = delete;
     void setup();
     Event measure(PlantId plantId);
 };
