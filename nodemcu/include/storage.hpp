@@ -56,8 +56,7 @@ class Storage {
     bool operator!=(const Storage<SIZE>& other) const { return !this->operator==(other); }
 
     static Storage<SIZE> fromStringTruncating(const StringView str) {
-      uint16_t len;
-      for (len = 0; len < SIZE && str.get()[len] != 0; ++len) {}
+      const uint16_t len = strnlen(str.get(), SIZE);
       auto val = std::make_shared<InnerStorage>();
       val->fill(0);
       memcpy(val->data(), (uint8_t*) str.get(), len);
@@ -65,7 +64,7 @@ class Storage {
     }
 
     static Result<Storage<SIZE>, enum ParseError> fromString(const StringView str) {
-      if (strlen(str.get()) > SIZE) {
+      if (strnlen(str.get(), SIZE) == SIZE && str.get()[SIZE] != 0) {
         return ParseError::TOO_BIG;
       }
       auto val = std::make_shared<InnerStorage>();

@@ -24,6 +24,7 @@ public:
   StringView asView() { return UnsafeRawPtr(this->get()); }
   size_t length() const { return strlen(this->get()); }
   bool isEmpty() const { return this->length() == 0; }
+  static Result<FixedString<SIZE>, enum ParseError> fromString(const StringView str) { return Storage<SIZE>::fromString(str); }
   static FixedString<SIZE> fromStringTruncating(const StringView str) { return Storage<SIZE>::fromStringTruncating(str); }
   Storage<SIZE> intoInner() const { return std::move(this->val); }
 };
