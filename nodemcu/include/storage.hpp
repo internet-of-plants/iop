@@ -61,17 +61,17 @@ class Storage {
       auto val = std::make_shared<InnerStorage>();
       val->fill(0);
       memcpy(val->data(), (uint8_t*) str.get(), len);
-      return val;
+      return Storage<SIZE>(val);
     }
 
     static Result<Storage<SIZE>, enum ParseError> fromString(const StringView str) {
       if (strlen(str.get()) > SIZE) {
-        return Result<Storage<SIZE>, ParseError>(ParseError::TOO_BIG);
+        return ParseError::TOO_BIG;
       }
       auto val = std::make_shared<InnerStorage>();
       val->fill(0);
       memcpy(val.get(), str.get(), SIZE);
-      return Result<Storage<SIZE>, enum ParseError>(val);
+      return Storage<SIZE>(val);
     }
   };
 

@@ -92,7 +92,10 @@ auto certStore = std::unique_ptr<BearSSL::CertStore>(new BearSSL::CertStore());
 auto client = std::unique_ptr<WiFiClientSecure>(new WiFiClientSecure());
 auto http = std::unique_ptr<HTTPClient>(new HTTPClient());
 Option<Response> Network::httpRequest(const enum HttpMethod method, const Option<StringView> token, const StaticString path, Option<StringView> data) const {
-  const String uri = String(this->host_.get()) + String(FPSTR(path.get()));
+  //const String uri = String(this->host_.get()) + String(FPSTR(path.get()));
+  //const auto port 4001;
+  const String uri = "https://google.com";
+  const auto port = 443;
   const auto data_ = data.unwrapOr(StaticString(F("")));
   this->logger.info(methodToString(method), START, F(" "));
   this->logger.info(uri, CONTINUITY);
@@ -100,14 +103,14 @@ Option<Response> Network::httpRequest(const enum HttpMethod method, const Option
 
   if (this->isConnected()) {
     // We should make sure our server supports Max Fragment Length Negotiation
-    // if (client->probeMaxFragmentLength(uri, 443, 512)) {
+    // if (client->probeMaxFragmentLength(uri, port, 512)) {
     //   client->setBufferSizes(512, 512);
     // }
     client->setNoDelay(false);
     client->setSync(true);  
     client->setCertStore(certStore.get());
     //client->setInsecure();
-    if (client->connect(uri, 4001) <= 0) {
+    if (client->connect(uri, port) <= 0) {
       this->logger.warn(F("Failed to connect to"), START, F(" "));
       this->logger.warn(uri, CONTINUITY);
       delay(200);

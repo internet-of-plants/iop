@@ -4,8 +4,8 @@
 #include <panic.hpp>
 
 /// Result sumtype, may be ok and contain a T, or not be ok and contain an E
-/// This type can be moved out, so it _will_ be empty, it will panic if tried to access after
-/// methods panic instead of causing undefined behavior
+/// This type can be moved out, so it _will_ be empty, it will panic if tried to access after move
+/// instead of causing undefined behavior
 ///
 /// Most methods move out by default.
 template<typename T, typename E>
@@ -24,13 +24,18 @@ class Result {
   };
 
   void reset() noexcept {
-    if (this->isOk()) {
-      this->ok.~T();
-    } else if (this->isErr()) {
-      this->error.~E();
+    switch (this->kind_) {
+      case EMPTY:
+        return;
+      case OK:
+        this->ok.~T();
+        break;
+      case ERROR:
+        this->error.~E();
+        break;
     }
-    this->dummy = 0;
     this->kind_ = EMPTY;
+    this->dummy = 0;
   }
  public:
   Result(T v) noexcept: kind_(OK), ok(std::move(v)) {}
@@ -62,7 +67,7 @@ class Result {
         this->ok = std::move(other.ok);
         break;
       case ERROR:
-        this->error = std::move(error);
+        this->error = std::move(other.error);
         break;
       case EMPTY:
       panic_(F("Tried to move out of an empty result, at constructor"));
@@ -152,7 +157,7 @@ class Result {
     if (this->isOk()) {
       this->kind_ = EMPTY;
       return Result<U, E>(f(std::move(this->ok)));
-    } else {
+    } else if (this->isErr()) {
       this->kind_ = EMPTY;
       return Result<U, E>(std::move(this->error));
     }

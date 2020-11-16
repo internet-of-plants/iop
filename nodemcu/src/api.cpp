@@ -84,6 +84,7 @@ Result<AuthToken, Option<HttpCode>> Api::authenticate(const StringView username,
           return Result<AuthToken, Option<HttpCode>>(Option<HttpCode>(500));
           break;
       }
+      return Result<AuthToken, Option<HttpCode>>(500);
     }
     return Result<AuthToken, Option<HttpCode>>(result.expectOk(F("result isn't Ok but should be")));
   }
@@ -165,6 +166,7 @@ Result<PlantId, Option<HttpCode>> Api::registerPlant(const AuthToken & authToken
           return Result<PlantId, Option<HttpCode>>(Option<HttpCode>(500));
           break;
       }
+      return Result<PlantId, Option<HttpCode>>(Option<HttpCode>());
     }
     return Result<PlantId, Option<HttpCode>>(result.expectOk(F("result isn't Ok but should be")));
 

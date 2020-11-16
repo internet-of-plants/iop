@@ -55,6 +55,7 @@ void CredentialsServer::start() {
     WiFi.softAPConfig(IPAddress(192,168,1,1), IPAddress(192,168,1,1), IPAddress(255,255,255,0));
     const auto hash = std::to_string(utils::hashString(this->api->macAddress()));
     const auto ssid = String("iop-") + String(hash.c_str());
+
     WiFi.setAutoReconnect(false);
     ETS_UART_INTR_DISABLE();
     wifi_station_disconnect();
@@ -159,10 +160,13 @@ Result<AuthToken, Option<HttpCode>> CredentialsServer::authenticate(const String
         this->logger.warn(String(code), CONTINUITY, F(", "));
         this->logger.warn(username, CONTINUITY, F(", "));
         this->logger.warn(password, CONTINUITY);
+        return Option<HttpCode>(code);
+      } else {
+        return Option<HttpCode>();
       }
+    } else if (authToken.isOk()) {
+      return authToken.expectOk(F("Auth token is err at CredentialsServer::authenticate"));
     }
-
-    return std::move(authToken);
 }
 
 Result<Option<AuthToken>, ServeError> CredentialsServer::serve(const Option<struct WifiCredentials> & storedWifi, const Option<AuthToken> & authToken) {

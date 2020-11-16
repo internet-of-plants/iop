@@ -119,19 +119,17 @@ private:
 
   void handleCredentials(Option<AuthToken> maybeToken) {
     auto result = this->credentialsServer.serve(this->flash.readWifiConfig(), maybeToken);
-    if (result.isOk()) {
-      auto opt = result.expectOk(F("Result is err but shouldn't: at loop()"));
-      if (opt.isSome()) {
-        this->flash.writeAuthToken(opt.expect(F("AuthToken is None but shouldn't: at loop()")));
-      }
-    } else if (result.isErr()) {
+    if (result.isErr()) {
       switch (result.expectErr(F("Result is ok but shouldn't: at loop()"))) {
         case ServeError::REMOVE_WIFI_CONFIG:
           this->flash.removeWifiConfig();
           break;
       }
-    } else {
-      panic_(F("Invalid result state"));
+    } else if (result.isOk()) {
+      auto opt = result.expectOk(F("Result is err but shouldn't: at loop()"));
+      if (opt.isSome()) {
+        this->flash.writeAuthToken(opt.expect(F("AuthToken is None but shouldn't: at loop()")));
+      }
     }
   }
 
@@ -146,8 +144,6 @@ private:
     } else if (maybePlantId.isOk()) {
       const auto plantId = maybePlantId.expectOk(F("maybePlantId is Err but shouldn't"));
       this->flash.writePlantId(plantId);
-    } else {
-      panic_(F("maybePlantId was empty when it shouldn't"));
     }
   }
 
