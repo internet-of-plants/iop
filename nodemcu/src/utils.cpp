@@ -1,13 +1,4 @@
 #include <utils.hpp>
-#include <models.hpp>
-
-#include <Arduino.h>
-#include <esp8266_peri.h>
-#include <string>
-#include <string.h>
-#include <WString.h>
-#include <bits/basic_string.h>
-#include <MD5Builder.h>
 
 namespace utils {
   // FNV hash
@@ -16,7 +7,8 @@ namespace utils {
     const uint64_t p = 16777619;
     uint64_t hash = 2166136261;
 
-    for (uint32_t i = 0; i < string.length(); ++i) {
+    const auto length = string.length();
+    for (uint32_t i = 0; i < length; ++i) {
       hash = (hash ^ bytes[i]) * p;
     }
 
