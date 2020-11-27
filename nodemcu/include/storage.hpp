@@ -41,12 +41,9 @@ class Storage {
       *this->val->end() = 0;
     }
     constexpr Storage<SIZE>(const Storage<SIZE>& other): val(other.val) {}
-    // Hijacks moves so you can't invalidly use it (blame it on cpp move not being enforced by the compiler)
-    Storage<SIZE>(Storage<SIZE> && other): val(other.val) {
-      this->panicIfMovedOut();
-    }
-    void operator=(const Storage<SIZE>& other) { this->val = other.val; }
-    void operator=(Storage<SIZE> && other) { this->val = std::move(other.val); }
+    // Hijacks moves so you can't cause UB by using it (blame it on cpp move not being enforced by the compiler)
+    Storage<SIZE>(Storage<SIZE> && other): val(other.val) {}
+    void operator=(Storage<SIZE> && other) { this->val = other.val; }
     constexpr const uint8_t * constPtr() const { return this->val->data(); }
     constexpr uint8_t * mutPtr() { return this->val->data(); }
     constexpr StringView asString() const { return UnsafeRawString((const char *) this->val->data()); }
