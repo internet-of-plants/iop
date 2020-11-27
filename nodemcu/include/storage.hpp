@@ -61,8 +61,10 @@ class Storage {
     }
 
     static Result<Storage<SIZE>, enum ParseError> fromString(const StringView str) {
+      // A string of size SIZE uses SIZE + 1 bytes, if there is no zero terminator
+      // before or at SIZE + 1 len will be SIZE + 1 and we should bail out
       const uint16_t len = strnlen(str.get(), SIZE + 1);
-      if (len == SIZE + 1 && str.get()[SIZE + 1] != 0) {
+      if (len == SIZE + 1) {
         return ParseError::TOO_BIG;
       }
       auto val = std::make_shared<InnerStorage>();
