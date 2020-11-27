@@ -41,7 +41,7 @@ class Storage {
       *this->val->end() = 0;
     }
     constexpr Storage<SIZE>(const Storage<SIZE>& other): val(other.val) {}
-    // Hijacks moves so you can't cause UB by using it (blame it on cpp move not being enforced by the compiler)
+    void operator=(Storage<SIZE> & other) { this->val = other.val; }    // Hijacks moves so you can't cause UB by using it (blame it on cpp move not being enforced by the compiler)
     Storage<SIZE>(Storage<SIZE> && other): val(other.val) {}
     void operator=(Storage<SIZE> && other) { this->val = other.val; }
     constexpr const uint8_t * constPtr() const { return this->val->data(); }
