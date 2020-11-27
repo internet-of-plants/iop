@@ -56,17 +56,18 @@ class Storage {
       const uint16_t len = strnlen(str.get(), SIZE);
       auto val = std::make_shared<InnerStorage>();
       val->fill(0);
-      memcpy(val->data(), (uint8_t*) str.get(), len);
+      memcpy(val.get(), str.get(), len);
       return Storage<SIZE>(val);
     }
 
     static Result<Storage<SIZE>, enum ParseError> fromString(const StringView str) {
-      if (strnlen(str.get(), SIZE) == SIZE && str.get()[SIZE] != 0) {
+      const uint16_t len = strnlen(str.get(), SIZE + 1);
+      if (len == SIZE + 1 && str.get()[SIZE + 1] != 0) {
         return ParseError::TOO_BIG;
       }
       auto val = std::make_shared<InnerStorage>();
       val->fill(0);
-      memcpy(val.get(), str.get(), SIZE);
+      memcpy(val.get(), str.get(), len);
       return Storage<SIZE>(val);
     }
   };
