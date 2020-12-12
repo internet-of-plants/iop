@@ -12,24 +12,24 @@ class Flash {
   Log logger;
 
   public:
-    Flash(const LogLevel logLevel): logger(logLevel, F("FLASH")) {}
+    Flash(const LogLevel logLevel) noexcept: logger(logLevel, F("FLASH")) {}
     Flash(Flash& other) = delete;
     Flash(Flash&& other) = delete;
-    void operator=(Flash& other) = delete;
-    void operator=(Flash&& other) = delete;
-    void setup() const;
+    Flash& operator=(Flash& other) = delete;
+    Flash& operator=(Flash&& other) = delete;
+    void setup() const noexcept;
 
-    Option<AuthToken> readAuthToken() const;
-    void removeAuthToken() const;
-    void writeAuthToken(const AuthToken & token) const;
+    Option<AuthToken> readAuthToken() const noexcept;
+    void removeAuthToken() const noexcept;
+    void writeAuthToken(const AuthToken & token) const noexcept;
 
-    Option<PlantId> readPlantId() const;
-    void removePlantId() const;
-    void writePlantId(const PlantId & id) const;
+    Option<PlantId> readPlantId() const noexcept;
+    void removePlantId() const noexcept;
+    void writePlantId(const PlantId & id) const noexcept;
 
-    Option<struct WifiCredentials> readWifiConfig() const;
-    void removeWifiConfig() const;
-    void writeWifiConfig(const struct WifiCredentials & id) const;
+    Option<struct WifiCredentials> readWifiConfig() const noexcept;
+    void removeWifiConfig() const noexcept;
+    void writeWifiConfig(const struct WifiCredentials & id) const noexcept;
 };
 
 #include <utils.hpp>

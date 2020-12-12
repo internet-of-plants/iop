@@ -3,13 +3,13 @@
 #ifndef IOP_SENSORS_DISABLED
 #include <measurement.hpp>
 
-void Sensors::setup() {
+void Sensors::setup() noexcept {
   pinMode(this->soilResistivityPowerPin, OUTPUT);
   this->airTempAndHumiditySensor.begin();
   this->soilTemperatureSensor.begin();
 }
 
-Event Sensors::measure(PlantId plantId) {
+Event Sensors::measure(PlantId plantId) noexcept {
   return Event((EventStorage) {
     .airTemperatureCelsius = measurement::airTemperatureCelsius(this->airTempAndHumiditySensor),
     .airHumidityPercentage = measurement::airHumidityPercentage(this->airTempAndHumiditySensor),
@@ -21,8 +21,8 @@ Event Sensors::measure(PlantId plantId) {
 #endif
 
 #ifdef IOP_SENSORS_DISABLED
-void Sensors::setup() {}
-Event Sensors::measure(PlantId plantId) {
+void Sensors::setup() noexcept {}
+Event Sensors::measure(PlantId plantId) noexcept {
   return Event((EventStorage) {0}, std::move(plantId));
 }
 #endif

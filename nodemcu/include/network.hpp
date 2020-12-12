@@ -24,23 +24,23 @@ class Network {
   Log logger;
 
   public:
-    Network(const StaticString host, const LogLevel logLevel):
+    Network(const StaticString host, const LogLevel logLevel) noexcept:
       host_(host),
       logger(logLevel, F("NETWORK")) {}
     Network(Network& other) = delete;
     Network(Network&& other) = delete;
-    void operator=(Network& other) = delete;
-    void operator=(Network&& other) = delete;
-    void setup() const;
-    bool isConnected() const;
-    Option<Response> httpPut(const StringView token, const StaticString path, const StringView data) const;
-    Option<Response> httpPost(const StringView token, const StaticString path, const StringView data) const;
-    Option<Response> httpPost(const StaticString path, const StringView data) const;
-    Option<Response> httpRequest(const HttpMethod method, const Option<StringView> token, const StaticString path, const Option<StringView> data) const;
-    StaticString wifiCodeToString(const wl_status_t val) const;
-    String macAddress() const;
-    StaticString host() const { return this->host_; };
-    void disconnect() const;
+    Network& operator=(Network& other) = delete;
+    Network& operator=(Network&& other) = delete;
+    void setup() const noexcept;
+    bool isConnected() const noexcept;
+    Option<Response> httpPut(const StringView token, const StaticString path, const StringView data) const noexcept;
+    Option<Response> httpPost(const StringView token, const StaticString path, const StringView data) const noexcept;
+    Option<Response> httpPost(const StaticString path, const StringView data) const noexcept;
+    Option<Response> httpRequest(const HttpMethod method, const Option<StringView> token, const StaticString path, const Option<StringView> data) const noexcept;
+    StaticString wifiCodeToString(const wl_status_t val) const noexcept;
+    String macAddress() const noexcept;
+    StaticString host() const noexcept { return this->host_; };
+    void disconnect() const noexcept;
 };
 
 #include <utils.hpp>

@@ -14,7 +14,7 @@
 #include <flash.hpp>
 
 enum ServeError {
-  REMOVE_WIFI_CONFIG
+  INVALID_WIFI_CONFIG
 };
 
 /// Server to safely acquire wifi and Internet of Plants credentials
@@ -36,21 +36,21 @@ private:
   unsigned long nextTryHardcodedWifiCredentials = 0;
   unsigned long nextTryHardcodedIopCredentials = 0;
 public:
-  station_status_t connect(const StringView ssid, const StringView password) const;
-  Result<AuthToken, Option<HttpCode>> authenticate(const StringView username, const StringView password) const;
+  station_status_t connect(const StringView ssid, const StringView password) const noexcept;
+  Result<AuthToken, Option<HttpCode>> authenticate(const StringView username, const StringView password) const noexcept;
 
-  CredentialsServer(const StaticString host, const LogLevel logLevel):
+  CredentialsServer(const StaticString host, const LogLevel logLevel) noexcept:
     logger(logLevel, F("SERVER")),
     api(new Api(host, logLevel)),
     flash(new Flash(logLevel)) {}
   CredentialsServer(CredentialsServer& other) = delete;
   CredentialsServer(CredentialsServer&& other) = delete;
-  void operator=(CredentialsServer& other) = delete;
-  void operator=(CredentialsServer&& other) = delete;
+  CredentialsServer& operator=(CredentialsServer& other) = delete;
+  CredentialsServer& operator=(CredentialsServer&& other) = delete;
   
-  Result<Option<AuthToken>, ServeError> serve(const Option<struct WifiCredentials> & storedWifi, const Option<AuthToken> & authToken);
-  void close();
-  void start();
+  Result<Option<AuthToken>, ServeError> serve(const Option<struct WifiCredentials> & storedWifi, const Option<AuthToken> & authToken) noexcept;
+  void close() noexcept;
+  void start() noexcept;
 };
 
 #include <utils.hpp>

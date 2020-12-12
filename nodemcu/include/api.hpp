@@ -15,24 +15,24 @@ private:
   Network network;
 
 public:
-  Api(const StaticString host, const LogLevel logLevel):
+  Api(const StaticString host, const LogLevel logLevel) noexcept:
     logger(logLevel, F("API")),
     network(host, logLevel) {}
   Api(Api& other) = delete;
   Api(Api&& other) = delete;
-  void operator=(Api& other) = delete;
-  void operator=(Api&& other) = delete;
+  Api& operator=(Api& other) = delete;
+  Api& operator=(Api&& other) = delete;
 
-  void setup() const;
-  Option<HttpCode> registerEvent(const AuthToken & token, const Event & event) const;
-  Result<PlantId, Option<HttpCode>> registerPlant(const AuthToken & token) const;
-  Result<AuthToken, Option<HttpCode>> authenticate(const StringView username, const StringView password) const;
-  Option<HttpCode> reportError(const AuthToken &authToken, const PlantId &id, const StringView error) const;
-  StaticString host() const { return this->network.host(); }
-  bool isConnected() const;
-  String macAddress() const;
-  void disconnect() const;
-  LogLevel loggerLevel() const;
+  void setup() const noexcept;
+  Option<HttpCode> registerEvent(const AuthToken & token, const Event & event) const noexcept;
+  Result<PlantId, Option<HttpCode>> registerPlant(const AuthToken & token) const noexcept;
+  Result<AuthToken, Option<HttpCode>> authenticate(const StringView username, const StringView password) const noexcept;
+  Option<HttpCode> reportError(const AuthToken &authToken, const PlantId &id, const StringView error) const noexcept;
+  StaticString host() const noexcept { return this->network.host(); }
+  bool isConnected() const noexcept;
+  String macAddress() const noexcept;
+  void disconnect() const noexcept;
+  LogLevel loggerLevel() const noexcept;
 };
 
 #include <utils.hpp>

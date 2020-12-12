@@ -29,12 +29,12 @@ StaticString Network::wifiCodeToString(const wl_status_t val) const {
 #ifndef IOP_NETWORK_DISABLED
 #include <ESP8266HTTPClient.h>
 
-String Network::macAddress() const { return WiFi.macAddress(); }
-void Network::disconnect() const { WiFi.disconnect(); }
+String Network::macAddress() const noexcept { return WiFi.macAddress(); }
+void Network::disconnect() const noexcept { WiFi.disconnect(); }
 
 // TODO: connections aren't working with AP active
 
-void Network::setup() const {
+void Network::setup() const noexcept {
   #ifdef IOP_ONLINE
     // Makes sure the event handler is never dropped and only set once
     static const auto handler = WiFi.onStationModeGotIP([=](const WiFiEventStationModeGotIP &ev) {
@@ -58,46 +58,48 @@ void Network::setup() const {
   #endif
 }
 
-bool Network::isConnected() const {
+bool Network::isConnected() const noexcept {
   return WiFi.status() == WL_CONNECTED;
 }
 
-Option<Response> Network::httpPut(const StringView token, const StaticString path, const StringView data) const {
+Option<Response> Network::httpPut(const StringView token, const StaticString path, const StringView data) const noexcept {
   return this->httpRequest(PUT, token, path, data);
 }
 
-Option<Response> Network::httpPost(const StringView token, const StaticString path, const StringView data) const {
+Option<Response> Network::httpPost(const StringView token, const StaticString path, const StringView data) const noexcept {
   return this->httpRequest(POST, token, path, data);
 }
 
-Option<Response> Network::httpPost(const StaticString path, const StringView data) const {
+Option<Response> Network::httpPost(const StaticString path, const StringView data) const noexcept {
   return this->httpRequest(POST, Option<StringView>(), path, data);
 }
 
-StaticString methodToString(const enum HttpMethod method) {
+Option<StaticString> methodToString(const enum HttpMethod method) noexcept {
   switch (method) {
     case GET:
-      return F("GET");
+      return StaticString(F("GET"));
     case DELETE:
-      return F("DELETE");
+      return StaticString(F("DELETE"));
     case POST:
-      return F("POST");
+      return StaticString(F("POST"));
     case PUT:
-      return F("PUT");
+      return StaticString(F("PUT"));
   }
-  panic_(F("Invalid Method"));
+  return Option<StaticString>();
 }
 
 auto certStore = std::unique_ptr<BearSSL::CertStore>(new BearSSL::CertStore());
 auto client = std::unique_ptr<WiFiClientSecure>(new WiFiClientSecure());
 auto http = std::unique_ptr<HTTPClient>(new HTTPClient());
-Option<Response> Network::httpRequest(const enum HttpMethod method, const Option<StringView> token, const StaticString path, Option<StringView> data) const {
+Option<Response> Network::httpRequest(const enum HttpMethod method, const Option<StringView> token, const StaticString path, Option<StringView> data) const noexcept {
+  // TODO: fix this
   //const String uri = String(this->host_.get()) + String(FPSTR(path.get()));
   //const auto port 4001;
   const String uri = "https://google.com";
   const auto port = 443;
   const auto data_ = data.unwrapOr(StaticString(F("")));
-  this->logger.info(methodToString(method), START, F(" "));
+  const auto methodString = methodToString(method).expect(F("HTTP method not recognized"));
+  this->logger.info(methodString, START, F(" "));
   this->logger.info(uri, CONTINUITY);
   this->logger.info(data_);
 
@@ -135,7 +137,7 @@ Option<Response> Network::httpRequest(const enum HttpMethod method, const Option
       http->addHeader(F("Authorization"), String("Basic ") + String(tok.get()));
     }
 
-    const int httpCode = http->sendRequest(methodToString(method).asCharPtr(), reinterpret_cast<const uint8_t *>(data_.get()), strlen(data_.get()));
+    const int httpCode = http->sendRequest(methodString.asCharPtr(), reinterpret_cast<const uint8_t *>(data_.get()), strlen(data_.get()));
 
     this->logger.info(F("Response code:"), START, F(" "));
     this->logger.info(String(httpCode), CONTINUITY);
@@ -163,18 +165,18 @@ Option<Response> Network::httpRequest(const enum HttpMethod method, const Option
 #endif
 
 #ifdef IOP_NETWORK_DISABLED
-void Network::setup() const {}
-bool Network::isConnected() const { return true; }
-Option<Response> Network::httpPut(const StringView token, const StaticString path, const StringView data) const {
+void Network::setup() const noexcept {}
+bool Network::isConnected() const noexcept { return true; }
+Option<Response> Network::httpPut(const StringView token, const StaticString path, const StringView data) const noexcept {
   return this->httpRequest(PUT, token, path, data);
 }
-Option<Response> Network::httpPost(const StringView token, const StaticString path, const StringView data) const {
+Option<Response> Network::httpPost(const StringView token, const StaticString path, const StringView data) const noexcept {
   return this->httpRequest(POST, token, path, data);
 }
-Option<Response> Network::httpPost(const StaticString path, const StringView data) const {
+Option<Response> Network::httpPost(const StaticString path, const StringView data) const noexcept {
   return this->httpRequest(POST, Option<StringView>(), path, data);
 }
-Option<Response> Network::httpRequest(const enum HttpMethod method, const Option<StringView> token, const StaticString path, Option<StringView> data) const {
+Option<Response> Network::httpRequest(const enum HttpMethod method, const Option<StringView> token, const StaticString path, Option<StringView> data) const noexcept {
   (void) method;
   (void) token;
   (void) path;
@@ -184,6 +186,6 @@ Option<Response> Network::httpRequest(const enum HttpMethod method, const Option
     .payload = "",
   });
 }
-String Network::macAddress() const { return "MAC::MAC::ERS::ON"; }
-void Network::disconnect() const {}
+String Network::macAddress() const noexcept { return "MAC::MAC::ERS::ON"; }
+void Network::disconnect() const noexcept {}
 #endif

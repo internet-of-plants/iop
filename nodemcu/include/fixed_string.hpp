@@ -11,22 +11,25 @@ public:
 private:
   Storage<SIZE> str;
 public:
-  FixedString<SIZE>(Storage<SIZE> other): str(other) {}
-  FixedString<SIZE>(FixedString<SIZE>& other): str(other.str) {}
-  FixedString<SIZE>(FixedString<SIZE>&& other): str(std::move(other.str)) {}
-  void operator=(FixedString<SIZE>& other) { this->str = other; }
-  void operator=(FixedString<SIZE>&& other) { this->str = std::move(other.str); }
-  constexpr const char * const get() const { return this->str.asString().get(); }
-  char * const asMut() { return reinterpret_cast<char*>(this->str.mutPtr()); }
-  Storage<SIZE>& operator->() const { return this->str; }
-  Storage<SIZE>& operator*() const { return this->str; }
-  static FixedString<SIZE> empty() { return Storage<SIZE>::empty(); }
-  StringView asView() { return UnsafeRawPtr(this->get()); }
-  size_t length() const { return strlen(this->get()); }
-  bool isEmpty() const { return this->length() == 0; }
-  static Result<FixedString<SIZE>, enum ParseError> fromString(const StringView str) { return Storage<SIZE>::fromString(str); }
-  static FixedString<SIZE> fromStringTruncating(const StringView str) { return Storage<SIZE>::fromStringTruncating(str); }
-  Storage<SIZE> intoInner() const { return std::move(this->val); }
+  FixedString<SIZE>(Storage<SIZE> other) noexcept: str(other) {}
+  FixedString<SIZE>(FixedString<SIZE>& other) noexcept: str(other.str) {}
+  FixedString<SIZE>(FixedString<SIZE>&& other) noexcept: str(std::move(other.str)) {}
+  FixedString<SIZE>& operator=(FixedString<SIZE>& other) noexcept {
+    this->str = other;
+    return *this;
+  }
+  FixedString<SIZE>& operator=(FixedString<SIZE>&& other) = delete;
+  constexpr const char * const get() const noexcept { return this->str.asString().get(); }
+  char * const asMut() noexcept { return reinterpret_cast<char*>(this->str.mutPtr()); }
+  Storage<SIZE>& operator->() const noexcept { return this->str; }
+  Storage<SIZE>& operator*() const noexcept { return this->str; }
+  static FixedString<SIZE> empty() noexcept { return Storage<SIZE>::empty(); }
+  StringView asView() noexcept { return UnsafeRawPtr(this->get()); }
+  size_t length() const noexcept { return strlen(this->get()); }
+  bool isEmpty() const noexcept { return this->length() == 0; }
+  static Result<FixedString<SIZE>, enum ParseError> fromString(const StringView str) noexcept { return Storage<SIZE>::fromString(str); }
+  static FixedString<SIZE> fromStringTruncating(const StringView str) noexcept { return Storage<SIZE>::fromStringTruncating(str); }
+  Storage<SIZE> intoInner() const noexcept { return std::move(this->val); }
 };
 
 #endif

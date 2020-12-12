@@ -3,16 +3,16 @@
 #ifndef IOP_API_DISABLED
 #include <ArduinoJson.h>
 
-void Api::setup() const {
+void Api::setup() const noexcept {
   this->network.setup();
 }
 
-bool Api::isConnected() const { return this->network.isConnected(); }
-String Api::macAddress() const { return this->network.macAddress(); }
-void Api::disconnect() const { this->network.disconnect(); }
-LogLevel Api::loggerLevel() const { return this->logger.level(); }
+bool Api::isConnected() const noexcept { return this->network.isConnected(); }
+String Api::macAddress() const noexcept { return this->network.macAddress(); }
+void Api::disconnect() const noexcept { this->network.disconnect(); }
+LogLevel Api::loggerLevel() const noexcept { return this->logger.level(); }
 
-Option<HttpCode> Api::registerEvent(const AuthToken & authToken, const Event & event) const {
+Option<HttpCode> Api::registerEvent(const AuthToken & authToken, const Event & event) const noexcept {
   this->logger.info(F("Send event"), START);
 
   static const auto makeJson = [](const Log &logger, const Event &event) {
@@ -48,7 +48,7 @@ Option<HttpCode> Api::registerEvent(const AuthToken & authToken, const Event & e
   #endif
 }
 
-Result<AuthToken, Option<HttpCode>> Api::authenticate(const StringView username, const StringView password) const {
+Result<AuthToken, Option<HttpCode>> Api::authenticate(const StringView username, const StringView password) const noexcept {
   if (username.isEmpty() || password.isEmpty()) {
     return Result<AuthToken, Option<HttpCode>>(Option<HttpCode>(400));
   }
@@ -93,7 +93,7 @@ Result<AuthToken, Option<HttpCode>> Api::authenticate(const StringView username,
   #endif
 }
 
-Option<HttpCode> Api::reportError(const AuthToken &authToken, const PlantId &id, const StringView error) const {
+Option<HttpCode> Api::reportError(const AuthToken &authToken, const PlantId &id, const StringView error) const noexcept {
   const auto makeJson = [](const PlantId &id, const StringView error) {
     auto doc = std::unique_ptr<StaticJsonDocument<300>>(new StaticJsonDocument<300>());
     (*doc)["plant_id"] = id.asString().get();
@@ -129,7 +129,7 @@ Option<HttpCode> Api::reportError(const AuthToken &authToken, const PlantId &id,
   #endif
 }
 
-Result<PlantId, Option<HttpCode>> Api::registerPlant(const AuthToken & authToken) const {
+Result<PlantId, Option<HttpCode>> Api::registerPlant(const AuthToken & authToken) const noexcept {
   const auto makeJson = [](const Api & api) {
     auto doc = std::unique_ptr<StaticJsonDocument<30>>(new StaticJsonDocument<30>());
     (*doc)["mac"] = api.macAddress();
@@ -179,26 +179,25 @@ Result<PlantId, Option<HttpCode>> Api::registerPlant(const AuthToken & authToken
 }
 #endif
 
-
 #ifdef IOP_API_DISABLED
 void Api::setup() const {
   this->network.setup();
 }
 
-bool Api::isConnected() const { return true; }
-String Api::macAddress() const { return this->network.macAddress(); }
-void Api::disconnect() const {}
-LogLevel Api::loggerLevel() const { return this->logger.level(); }
+bool Api::isConnected() const noexcept { return true; }
+String Api::macAddress() const noexcept { return this->network.macAddress(); }
+void Api::disconnect() const noexcept {}
+LogLevel Api::loggerLevel() const noexcept { return this->logger.level(); }
 
-Option<HttpCode> Api::registerEvent(const AuthToken & authToken, const Event & event) const {
+Option<HttpCode> Api::registerEvent(const AuthToken & authToken, const Event & event) const noexcept {
   return Option<HttpCode>(200);
 }
 
-Result<AuthToken, Option<HttpCode>> Api::authenticate(const StringView username, const StringView password) const {
+Result<AuthToken, Option<HttpCode>> Api::authenticate(const StringView username, const StringView password) const noexcept {
   return Result<AuthToken, Option<HttpCode>>(AuthToken::empty());
 }
 
-Result<PlantId, Option<HttpCode>> Api::registerPlant(const AuthToken & authToken) const {
+Result<PlantId, Option<HttpCode>> Api::registerPlant(const AuthToken & authToken) const noexcept {
   return Result<PlantId, Option<HttpCode>>(PlantId::empty());
 }
 #endif

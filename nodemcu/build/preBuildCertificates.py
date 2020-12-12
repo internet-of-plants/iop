@@ -34,7 +34,7 @@ def preBuildCertificates(env):
         try:
             from asn1crypto.x509 import Certificate
         except Exception:
-            with open(dir_path + "/../src/generated/certificates.h") as generated:
+            with open(dir_path + "/../include/generated/certificates.h") as generated:
                 data = generated.read().split("\n")
                 for line in filter(lambda x: "SHA256" in x, data):
                     print("Unable to find or install asn1crypto python library, using cached certificates")
@@ -57,7 +57,7 @@ def preBuildCertificates(env):
         response = urlopen(mozurl)
     except Exception:
         try:
-            with open(dir_path + "/../src/generated/certificates.h") as generated:
+            with open(dir_path + "/../include/generated/certificates.h") as generated:
                 data = generated.read().split("\n")
                 for line in filter(lambda x: "SHA256" in x, data):
                     print("Connection failed, using cached certificates")
@@ -83,7 +83,7 @@ def preBuildCertificates(env):
     del pems[0]
 
     try:
-        with open(dir_path + "/../src/generated/certificates.h") as generated:
+        with open(dir_path + "/../include/generated/certificates.h") as generated:
             current = generated.read().split("\n")
             for line in filter(lambda x: "SHA256: " in x, current):
                 if line.split("SHA256: ")[1] == csvHash:
@@ -92,12 +92,12 @@ def preBuildCertificates(env):
                 break
     except FileNotFoundError:
         pass
-    print("Generating src/generated/certificates.h")
+    print("Generating include/generated/certificates.h")
 
 
-    try: mkdir(dir_path + "/../src/generated/")
+    try: mkdir(dir_path + "/../include/generated/")
     except FileExistsError: pass
-    f = open(dir_path + "/../src/generated/certificates.h", "w", encoding="utf8")
+    f = open(dir_path + "/../include/generated/certificates.h", "w", encoding="utf8")
 
     f.write("#ifndef IOP_CERTIFICATES_H" + "\n")
     f.write("#define IOP_CERTIFICATES_H" + "\n\n")

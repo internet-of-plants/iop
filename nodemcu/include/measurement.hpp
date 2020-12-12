@@ -6,11 +6,11 @@
 #include <cstdint>
 
 namespace measurement {
-float soilTemperatureCelsius(DallasTemperature &sensor);
-float airTemperatureCelsius(DHT &dht);
-float airHumidityPercentage(DHT &dht);
-float airHeatIndexCelsius(DHT &dht);
-uint16_t soilResistivityRaw(const uint8_t powerPin);
+  float soilTemperatureCelsius(DallasTemperature &sensor) noexcept;
+  float airTemperatureCelsius(DHT &dht) noexcept;
+  float airHumidityPercentage(DHT &dht) noexcept;
+  float airHeatIndexCelsius(DHT &dht) noexcept;
+  uint16_t soilResistivityRaw(const uint8_t powerPin) noexcept;
 }
 
 #include <utils.hpp>

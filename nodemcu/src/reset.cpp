@@ -6,13 +6,14 @@
 #include <log.hpp>
 #include <utils.hpp>
 
+PROGMEM_STRING(logTarget, "INTERRUPT");
 const char * const logTarget PROGMEM = "INTERRUPT";
-const Log logger(logLevel, StaticString(FPSTR(logTarget)), false);
+const Log logger(logLevel, logTarget, false);
 
 volatile unsigned long resetStateTime = 0;
-void ICACHE_RAM_ATTR buttonClosed();
+void ICACHE_RAM_ATTR buttonClosed() noexcept;
 
-void ICACHE_RAM_ATTR buttonOpen() {
+void ICACHE_RAM_ATTR buttonOpen() noexcept {
   detachInterrupt(digitalPinToInterrupt(factoryResetButton));
   attachInterrupt(digitalPinToInterrupt(factoryResetButton), buttonClosed, RISING);
   if (resetStateTime + 15000 < millis()) {
@@ -21,7 +22,7 @@ void ICACHE_RAM_ATTR buttonOpen() {
   }
 }
 
-void ICACHE_RAM_ATTR buttonClosed() {
+void ICACHE_RAM_ATTR buttonClosed() noexcept {
   detachInterrupt(digitalPinToInterrupt(factoryResetButton));
   attachInterrupt(digitalPinToInterrupt(factoryResetButton), buttonOpen, FALLING);
   resetStateTime = millis();
@@ -29,7 +30,7 @@ void ICACHE_RAM_ATTR buttonClosed() {
 }
 
 namespace reset {
-  void setup() {
+  void setup() noexcept {
     pinMode(factoryResetButton, INPUT);
     attachInterrupt(digitalPinToInterrupt(factoryResetButton), buttonClosed, RISING);
   }

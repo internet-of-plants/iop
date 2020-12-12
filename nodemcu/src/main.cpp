@@ -23,7 +23,7 @@ private:
   unsigned long nextYieldLog;
 
 public:
-  void setup() {
+  void setup() noexcept {
     pinMode(LED_BUILTIN, OUTPUT);
 
     reset::setup();
@@ -63,9 +63,9 @@ public:
     }
   }
 
-  void operator=(EventLoop & other) = delete;
-  void operator=(EventLoop && other) = delete;
-  EventLoop(const StaticString host):
+  EventLoop& operator=(EventLoop & other) = delete;
+  EventLoop& operator=(EventLoop && other) = delete;
+  EventLoop(const StaticString host) noexcept:
     sensors(soilResistivityPowerPin, soilTemperaturePin, airTempAndHumidityPin, dhtVersion),
     api(host, logLevel),
     credentialsServer(host, logLevel),
@@ -73,7 +73,7 @@ public:
     flash(logLevel) {}
 
 private:
-  void handleInterrupt() const {
+  void handleInterrupt() const noexcept {
     const InterruptEvent event = interruptEvent;
     interruptEvent = NONE;
 
@@ -117,11 +117,11 @@ private:
     };
   }
 
-  void handleCredentials(Option<AuthToken> maybeToken) {
+  void handleCredentials(Option<AuthToken> maybeToken) noexcept {
     auto result = this->credentialsServer.serve(this->flash.readWifiConfig(), maybeToken);
     if (result.isErr()) {
       switch (result.expectErr(F("Result is ok but shouldn't: at loop()"))) {
-        case ServeError::REMOVE_WIFI_CONFIG:
+        case ServeError::INVALID_WIFI_CONFIG:
           this->flash.removeWifiConfig();
           break;
       }
@@ -133,7 +133,7 @@ private:
     }
   }
 
-  void handlePlant(const AuthToken & token) const {
+  void handlePlant(const AuthToken & token) const noexcept {
     auto maybePlantId = this->api.registerPlant(token);
     if (maybePlantId.isErr()) {
       this->logger.error(F("Unable to get plant id"));
@@ -147,7 +147,7 @@ private:
     }
   }
 
-  void handleMeasurements(const AuthToken & token, const PlantId & id) {
+  void handleMeasurements(const AuthToken & token, const PlantId & id) noexcept {
     this->nextTime = millis() + interval;
     this->logger.info(F("Timer triggered"));
 
@@ -176,11 +176,11 @@ std::unique_ptr<EventLoop> eventLoop = std::unique_ptr<EventLoop>(new EventLoop(
   .asRef()
   .expect(expected)));
 
-void setup() {
+void setup() noexcept {
   eventLoop->setup();
 }
 
-void loop() {
+void loop() noexcept {
   eventLoop->loop();
   yield();
 }

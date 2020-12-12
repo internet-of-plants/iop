@@ -44,7 +44,7 @@ const char pageHTMLEnd[] PROGMEM =
 Option<std::pair<String, String>> credentialsWifi;
 Option<std::pair<String, String>> credentialsIop;
 
-void CredentialsServer::start() {
+void CredentialsServer::start() noexcept {
   if (server.isNone()) {
     this->logger.info(F("Setting our own wifi access point"));
 
@@ -53,14 +53,14 @@ void CredentialsServer::start() {
     // TODO: the password should be random (passed at compile time)
     // But also accessible externally (like a sticker in the hardware). So not dynamic.
     WiFi.softAPConfig(IPAddress(192,168,1,1), IPAddress(192,168,1,1), IPAddress(255,255,255,0));
-    const auto hash = std::to_string(utils::hashString(this->api->macAddress()));
-    const auto ssid = String("iop-") + String(hash.c_str());
+    const auto hash = std::to_string(StringView(this->api->macAddress()).hash());
+    const auto ssid = std::string(PSTR("iop-")) + hash;
 
     WiFi.setAutoReconnect(false);
     ETS_UART_INTR_DISABLE();
     wifi_station_disconnect();
     ETS_UART_INTR_ENABLE();
-    WiFi.softAP(ssid, "le$memester#passwordz", 2);
+    WiFi.softAP(ssid.c_str(), PSTR("le$memester#passwordz"), 2);
     WiFi.setAutoReconnect(true);
     WiFi.begin();
     // Makes it a captive portal (redirects all wifi trafic to us)
@@ -112,7 +112,7 @@ void CredentialsServer::start() {
   }
 }
 
-void CredentialsServer::close() {
+void CredentialsServer::close() noexcept {
   if (this->server.isSome()) {
     this->server.take().expect(F("Inside CredentialsServer::close, server is None but shouldn't be"))->close();
     WiFi.mode(WIFI_STA);
@@ -122,7 +122,7 @@ void CredentialsServer::close() {
   }
 }
 
-station_status_t CredentialsServer::connect(const StringView ssid, const StringView password) const {
+station_status_t CredentialsServer::connect(const StringView ssid, const StringView password) const noexcept {
   if (wifi_station_get_connect_status() == STATION_CONNECTING) {
     ETS_UART_INTR_DISABLE();
     wifi_station_disconnect();
@@ -150,7 +150,7 @@ station_status_t CredentialsServer::connect(const StringView ssid, const StringV
   }
 }
 
-Result<AuthToken, Option<HttpCode>> CredentialsServer::authenticate(const StringView username, const StringView password) const {
+Result<AuthToken, Option<HttpCode>> CredentialsServer::authenticate(const StringView username, const StringView password) const noexcept {
     auto authToken = this->api->authenticate(username, password);
     if (authToken.isErr()) {
       auto maybeCode = authToken.expectErr(F("authToken is ok CredentialsServer::authenticate"));
@@ -169,7 +169,7 @@ Result<AuthToken, Option<HttpCode>> CredentialsServer::authenticate(const String
     }
 }
 
-Result<Option<AuthToken>, ServeError> CredentialsServer::serve(const Option<struct WifiCredentials> & storedWifi, const Option<AuthToken> & authToken) {
+Result<Option<AuthToken>, ServeError> CredentialsServer::serve(const Option<struct WifiCredentials> & storedWifi, const Option<AuthToken> & authToken) noexcept {
   this->start();
 
   if (credentialsWifi.isSome()) {
@@ -194,7 +194,7 @@ Result<Option<AuthToken>, ServeError> CredentialsServer::serve(const Option<stru
     const auto status = this->connect(stored.ssid.asString(), stored.password.asString());
     if (status == STATION_WRONG_PASSWORD) {
       this->nextTryHardcodedWifiCredentials = 0;
-      return Result<Option<AuthToken>, ServeError>(ServeError::REMOVE_WIFI_CONFIG);
+      return Result<Option<AuthToken>, ServeError>(ServeError::INVALID_WIFI_CONFIG);
     }
   }
 
@@ -227,8 +227,6 @@ Result<Option<AuthToken>, ServeError> CredentialsServer::serve(const Option<stru
             this->nextTryHardcodedIopCredentials = now + 24 + 3600 + 1000;
           }
         }
-      } else {
-        panic_(F("Result was empty"));
       }
     }
   }
@@ -244,11 +242,11 @@ Result<Option<AuthToken>, ServeError> CredentialsServer::serve(const Option<stru
 #endif
 
 #ifdef IOP_SERVER_DISABLED
-  Result<Option<AuthToken>, ServeError> CredentialsServer::serve(const Option<struct WifiCredentials> & storedWifi, const Option<AuthToken> & authToken) {
+  Result<Option<AuthToken>, ServeError> CredentialsServer::serve(const Option<struct WifiCredentials> & storedWifi, const Option<AuthToken> & authToken) noexcept {
     (void) storedWifi;
     return Result<Option<AuthToken>, ServeError>(authToken.asRef()
       .map<AuthToken>([](const std::reference_wrapper<const AuthToken> token) { return token.get(); }));
   }
-  void CredentialsServer::close() {}
-  void CredentialsServer::start() {}
+  void CredentialsServer::close() noexcept {}
+  void CredentialsServer::start() noexcept {}
 #endif

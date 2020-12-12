@@ -2,7 +2,7 @@
 #define IOP_RESET_H_
 
 namespace reset {
-  void setup();
+  void setup() noexcept;
 }
 
 #include <utils.hpp>
