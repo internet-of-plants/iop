@@ -36,6 +36,7 @@ class Option {
   Option(Option<T>& other) = delete;
   Option<T>& operator=(Option<T>& other) = delete;
   Option<T>& operator=(Option<T>&& other) noexcept {
+    this->reset();
     this->filled = other.filled;
     if (other.filled) {
       this->value = std::move(other.value);
@@ -47,6 +48,7 @@ class Option {
   }
 
   Option(Option<T>&& other) noexcept {
+    this->reset();
     this->filled = other.filled;
     if (other.filled) {
       this->value = std::move(other.value);

@@ -49,6 +49,7 @@ class Result {
   Result(Result<T, E>& other) = delete;
   Result<T, E>& operator=(Result<T, E>& other) = delete;
   Result<T, E>& operator=(Result<T, E>&& other) noexcept {
+    this->reset();
     this->kind_ = other.kind_;
     switch (this->kind_) {
       case OK:
@@ -66,6 +67,7 @@ class Result {
   }
 
   Result(Result<T, E>&& other) noexcept {
+    this->reset();
     this->kind_ = other.kind_;
     switch (this->kind_) {
       case OK:
