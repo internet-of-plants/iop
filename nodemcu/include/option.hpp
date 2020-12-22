@@ -2,7 +2,10 @@
 #define IOP_OPTION_H_
 
 #include <functional>
+#include <string_view.hpp>
+#include <fixed_string.hpp>
 #include <panic.hpp>
+#include <utils.hpp>
 
 /// Optional sum-type, may be filled and contain a T, or not be filled and unable to access it
 /// methods panic instead of causing undefined behavior
@@ -96,12 +99,12 @@ class Option {
   }
   T expect(const StaticString msg) noexcept {
     if (this->isNone()) { panic_(msg); }
-    const T value = std::move(this->value);
+    T value = std::move(this->value);
     this->reset();
     return value;
   }
   T unwrap() noexcept { return this->expect(F("Tried to unwrap an empty Option")); }
-  T unwrapOr(const T or_) noexcept {
+  T unwrapOr(T or_) noexcept {
     if (this->isSome()) { return this->expect(F("unwrapOr is broken")); }
     return or_;
   }

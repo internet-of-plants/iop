@@ -17,6 +17,13 @@ TYPED_STORAGE(NetworkPassword, 64);
 
 typedef uint16_t HttpCode;
 
+typedef struct panic_data_ {
+    StaticString msg;
+    StaticString file;
+    uint32_t line;
+    UnsafeRawString func;
+} PanicData;
+
 struct WifiCredentials {
   NetworkName ssid;
   NetworkPassword password;

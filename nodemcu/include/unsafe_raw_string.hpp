@@ -1,9 +1,6 @@
 #ifndef IOP_UNSAFE_RAW_STRING_VIEW_H_
 #define IOP_UNSAFE_RAW_STRING_VIEW_H_
 
-#include <string>
-#include <WString.h>
-
 /// Type-safe runtime string pointers, it's the user telling the system
 /// That they should be trusted and this UnsafeRawString will not contain a NULL pointer
 /// And will not outlive the internal storage
@@ -20,8 +17,10 @@ public:
     this->str = other.str;
     return *this;
   }
-  UnsafeRawString& operator=(const UnsafeRawString&& other) = delete;
-  constexpr const char * const get() const noexcept { return this->str; }
+  UnsafeRawString& operator=(const UnsafeRawString&& other) noexcept {
+    this->str = other.str;
+    return *this;
+  }  constexpr const char * const get() const noexcept { return this->str; }
 };
 
 #endif

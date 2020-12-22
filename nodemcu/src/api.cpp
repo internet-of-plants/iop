@@ -1,4 +1,5 @@
 #include <api.hpp>
+#include <fixed_string.hpp>
 
 #ifndef IOP_API_DISABLED
 #include <ArduinoJson.h>
@@ -11,6 +12,46 @@ bool Api::isConnected() const noexcept { return this->network.isConnected(); }
 String Api::macAddress() const noexcept { return this->network.macAddress(); }
 void Api::disconnect() const noexcept { this->network.disconnect(); }
 LogLevel Api::loggerLevel() const noexcept { return this->logger.level(); }
+
+Option<HttpCode> Api::reportPanic(const AuthToken & authToken, Option<PlantId> id, const PanicData & event) const noexcept {
+  const auto makeJson = [](Option<PlantId> id, const PanicData & error) {
+    auto doc = std::unique_ptr<StaticJsonDocument<2048>>(new StaticJsonDocument<2048>());
+    if (id.isSome()) {
+      (*doc)["plant_id"] = id.expect(F("PlantId is None but shouldn't, at Api::reportPanic")).asString().get();
+    } else {
+      (*doc)["plant_id"] = nullptr;
+    }
+    (*doc)["file"] = error.file.get();
+    (*doc)["line"] = error.line;
+    (*doc)["func"] = error.func.get();
+    (*doc)["msg"] = error.msg.asCharPtr();
+
+    auto buffer = FixedString<2048>::empty();
+    serializeJson(*doc, buffer.asMut(), buffer.size);
+    return buffer;
+  };
+  const auto token = authToken.asString();
+  const auto json = makeJson(std::move(id), event);
+
+  this->logger.info(F("Report panic:"), START, F(" "));
+  this->logger.info(json.asString(), CONTINUITY);
+  const auto maybeResp = this->network.httpPost(token, F("/panic"), json.asString());
+
+  #ifndef IOP_MOCK_MONITOR
+  if (maybeResp.isNone()) {
+    this->logger.error(F("Unable to make POST request to /error"));
+    return Option<HttpCode>();
+  }
+
+  const Response & resp = maybeResp.asRef().expect(F("Maybe resp is None"));
+  if (resp.code != 200) {
+    this->logger.error(F("Failed to report error to IoP"));
+  }
+  return Option<HttpCode>(resp.code);
+  #else
+    return Option<HttpCode>(200);
+  #endif
+}
 
 Option<HttpCode> Api::registerEvent(const AuthToken & authToken, const Event & event) const noexcept {
   this->logger.info(F("Send event"), START);
@@ -27,16 +68,14 @@ Option<HttpCode> Api::registerEvent(const AuthToken & authToken, const Event & e
     (*doc)["soil_resistivity_raw"] = event.storage.soilResistivityRaw;
     (*doc)["plant_id"] = id.get();
 
-    auto buffer = std::unique_ptr<std::array<char, 256>>(new std::array<char, 256>());
-    buffer->fill(0);
-    serializeJson(*doc, buffer->data(), buffer->size());
-    auto json = String(buffer->data());
-    return json;
+    auto buffer = FixedString<256>::empty();
+    serializeJson(*doc, buffer.asMut(), buffer.size);
+    return buffer;
   };
 
   auto json = makeJson(this->logger, event);
   const auto token = authToken.asString();
-  const auto maybeResp = this->network.httpPost(token, F("/event"), json);
+  const auto maybeResp = this->network.httpPost(token, F("/event"), json.asString());
 
   #ifndef IOP_MOCK_MONITOR
   if (maybeResp.isNone()) {
@@ -60,14 +99,12 @@ Result<AuthToken, Option<HttpCode>> Api::authenticate(const StringView username,
     (*doc)["email"] = username.get();
     (*doc)["password"] = password.get();
 
-    auto buffer = std::unique_ptr<std::array<char, 256>>(new std::array<char, 256>());
-    buffer->fill(0);
-    serializeJson(*doc, buffer->data(), buffer->size());
-    auto json = String(buffer->data());
-    return json;
+    auto buffer = FixedString<256>::empty();
+    serializeJson(*doc, buffer.asMut(), buffer.size);
+    return buffer;
   };
   const auto json = makeJson(this->logger, username, password);
-  auto maybeResp = this->network.httpPost(F("/user/login"), json);
+  auto maybeResp = this->network.httpPost(F("/user/login"), json.asString());
 
   #ifndef IOP_MOCK_MONITOR
   if (maybeResp.isNone()) {
@@ -99,19 +136,16 @@ Option<HttpCode> Api::reportError(const AuthToken &authToken, const PlantId &id,
     (*doc)["plant_id"] = id.asString().get();
     (*doc)["error"] = error.get();
 
-    // TODO: study FixedString as a way to remove this boilerplate
-    auto buffer = std::unique_ptr<std::array<char, 300>>(new std::array<char, 300>());
-    buffer->fill(0);
-    serializeJson(*doc, buffer->data(), buffer->size());
-    auto json = String(buffer->data());
-    return json;
+    auto buffer = FixedString<300>::empty();
+    serializeJson(*doc, buffer.asMut(), buffer.size);
+    return buffer;
   };
   const auto token = authToken.asString();
   const auto json = makeJson(id, error);
 
   this->logger.info(F("Report error:"), START, F(" "));
-  this->logger.info(json, CONTINUITY);
-  const auto maybeResp = this->network.httpPost(token, F("/error"), json);
+  this->logger.info(json.asString(), CONTINUITY);
+  const auto maybeResp = this->network.httpPost(token, F("/error"), json.asString());
 
   #ifndef IOP_MOCK_MONITOR
   if (maybeResp.isNone()) {
@@ -134,11 +168,9 @@ Result<PlantId, Option<HttpCode>> Api::registerPlant(const AuthToken & authToken
     auto doc = std::unique_ptr<StaticJsonDocument<30>>(new StaticJsonDocument<30>());
     (*doc)["mac"] = api.macAddress();
 
-    auto buffer = std::unique_ptr<std::array<char, 30>>(new std::array<char, 30>());
-    buffer->fill(0);
-    serializeJson(*doc, buffer->data(), buffer->size());
-    auto json = String(buffer->data());
-    return json;
+    auto buffer = FixedString<30>::empty();
+    serializeJson(*doc, buffer.asMut(), buffer.size);
+    return buffer;
   };
   const auto token = authToken.asString();
   const auto json = makeJson(*this);
@@ -147,7 +179,7 @@ Result<PlantId, Option<HttpCode>> Api::registerPlant(const AuthToken & authToken
   this->logger.info(token, CONTINUITY, F(", "));
   this->logger.info(F("MAC:"), CONTINUITY, F(" "));
   this->logger.info(this->macAddress(), CONTINUITY);
-  const auto maybeResp = this->network.httpPut(token, F("/plant"), json);
+  const auto maybeResp = this->network.httpPut(token, F("/plant"), json.asString());
 
   #ifndef IOP_MOCK_MONITOR
   if (maybeResp.isNone()) {

@@ -7,7 +7,6 @@
 #include <utils.hpp>
 
 PROGMEM_STRING(logTarget, "INTERRUPT");
-const char * const logTarget PROGMEM = "INTERRUPT";
 const Log logger(logLevel, logTarget, false);
 
 volatile unsigned long resetStateTime = 0;

@@ -4,6 +4,7 @@
 #include <ESP8266WiFi.h>
 #include <log.hpp>
 #include <option.hpp>
+#include <result.hpp>
 #include <static_string.hpp>
 
 typedef struct response {

@@ -1,6 +1,7 @@
 #ifndef IOP_FIXED_STRING_VIEW_H_
 #define IOP_FIXED_STRING_VIEW_H_
 
+#include <string_view.hpp>
 #include <storage.hpp>
 
 /// String of fixed size. Heap allocated, but has fixed size
@@ -24,9 +25,11 @@ public:
   Storage<SIZE>& operator->() const noexcept { return this->str; }
   Storage<SIZE>& operator*() const noexcept { return this->str; }
   static FixedString<SIZE> empty() noexcept { return Storage<SIZE>::empty(); }
-  StringView asView() noexcept { return UnsafeRawPtr(this->get()); }
   size_t length() const noexcept { return strlen(this->get()); }
   bool isEmpty() const noexcept { return this->length() == 0; }
+  // This belongs at string_view.hpp as a constructor, but we get into a circular dependency hell
+  // TODO: It would be poggers if someone could solve this. But is this solvable?
+  StringView asString() const noexcept { return this->str.asString(); }
   static Result<FixedString<SIZE>, enum ParseError> fromString(const StringView str) noexcept { return Storage<SIZE>::fromString(str); }
   static FixedString<SIZE> fromStringTruncating(const StringView str) noexcept { return Storage<SIZE>::fromStringTruncating(str); }
   Storage<SIZE> intoInner() const noexcept { return std::move(this->val); }

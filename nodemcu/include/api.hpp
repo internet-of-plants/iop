@@ -24,6 +24,7 @@ public:
   Api& operator=(Api&& other) = delete;
 
   void setup() const noexcept;
+  Option<HttpCode> reportPanic(const AuthToken & authToken, Option<PlantId> id, const PanicData & event) const noexcept;
   Option<HttpCode> registerEvent(const AuthToken & token, const Event & event) const noexcept;
   Result<PlantId, Option<HttpCode>> registerPlant(const AuthToken & token) const noexcept;
   Result<AuthToken, Option<HttpCode>> authenticate(const StringView username, const StringView password) const noexcept;

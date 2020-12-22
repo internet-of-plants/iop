@@ -32,10 +32,11 @@ public:
     this->str = other.str;
     return *this;
   }
-  StringView& operator=(StringView&& other) = delete;
+  StringView& operator=(const StringView&& other) noexcept {
+    this->str = other.str;
+    return *this;
+  }
   constexpr const char * const get() const noexcept { return this->str; }
-  constexpr const char * const operator->() const noexcept { return this->get(); }
-  constexpr const char * const operator*() const noexcept { return this->get(); }
   size_t length() const noexcept { return strlen(this->get()); }
   bool isEmpty() const noexcept { return this->length() == 0; }
   

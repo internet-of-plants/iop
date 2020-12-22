@@ -104,7 +104,7 @@ private:
           auto maybeCurrConfig = this->flash.readWifiConfig();
           if (maybeCurrConfig.isSome()) {
             const auto currConfig = maybeCurrConfig.expect(F("maybeCurrConfig is none"));
-            if (currConfig.ssid == ssid && currConfig.password == psk) {
+            if (strcmp(currConfig.ssid.asString().get(), ssid.asString().get()) && strcmp(currConfig.password.asString().get(), psk.asString().get())) {
               break;
             }
 

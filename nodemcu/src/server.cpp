@@ -1,6 +1,7 @@
 #include <server.hpp>
 
 #ifndef IOP_SERVER_DISABLED
+#include <api.hpp>
 #include <configuration.h>
 #include <utils.hpp>
 
@@ -17,27 +18,27 @@ const unsigned long intervalTryFlashWifiCredentialsMillis = 600000; // 10 minute
 const unsigned long intervalTryHardcodedWifiCredentialsMillis = 600000; // 10 minutes
 const unsigned long intervalTryHardcodedIopCredentialsMillis = 3600000; // 1 hour
 
-const char pageHTMLStart[] PROGMEM =
+PROGMEM_STRING(pageHTMLStart, 
   "<!DOCTYPE HTML>\r\n"
   "<html><body>\r\n"
   "  <h1><center>Hello, I'm your plantomator</center></h1>\r\n"
   "  <h4><center>If, in the future, you want to reset the configurations set here, just press the factory reset button for at least 15 seconds</center></h4>"
-  "<form style='margin: 0 auto; width: 500px;' action='/submit' method='POST'>\r\n";
+  "<form style='margin: 0 auto; width: 500px;' action='/submit' method='POST'>\r\n");
 
-const char wifiHTML[] PROGMEM =
+PROGMEM_STRING(wifiHTML,
   "<h3><center>Please provide your Wifi credentials, so we can connect to it</center></h3>\r\n"
   "<div><div><strong>Network name:</strong></div><input name='ssid' type='text' style='width:100%' /></div>\r\n"
-  "<div><div><strong>Password:</strong></div><input name='password' type='password' style='width:100%' /></div>\r\n";
+  "<div><div><strong>Password:</strong></div><input name='password' type='password' style='width:100%' /></div>\r\n");
 
-const char iopHTML[] PROGMEM =
+PROGMEM_STRING(iopHTML,
   "<h3><center>Please provide your Iop credentials, so we can get an authentication token to use</center></h3>\r\n"
   "<div><div><strong>Email:</strong></div><input name='iopEmail' type='text' style='width:100%' /></div>\r\n"
-  "<div><div><strong>Password:</strong></div><input name='iopPassword' type='password' style='width:100%' /></div>\r\n";
+  "<div><div><strong>Password:</strong></div><input name='iopPassword' type='password' style='width:100%' /></div>\r\n");
 
-const char pageHTMLEnd[] PROGMEM =
+PROGMEM_STRING(pageHTMLEnd,
   "<br>\r\n"
   "<input type='submit' value='Submit' />\r\n"
-  "</form></body></html>";
+  "</form></body></html>");
 
 #include <unordered_map>
 
@@ -94,15 +95,15 @@ void CredentialsServer::start() noexcept {
       const auto wifi = !api->isConnected();
       const auto iop = flash->readAuthToken().isNone();
 
-      auto len = strlen_P(pageHTMLStart) + strlen_P(pageHTMLEnd);
-      if (wifi) len += strlen_P(wifiHTML);
-      if (iop) len += strlen_P(iopHTML);
+      auto len = pageHTMLStart.length() + pageHTMLEnd.length();
+      if (wifi) len += wifiHTML.length();
+      if (iop) len += iopHTML.length();
       s->setContentLength(len);
 
-      s->send_P(200, PSTR("text/html"), pageHTMLStart);
-      if (wifi) s->sendContent_P(wifiHTML);
-      if (iop) s->sendContent_P(iopHTML);
-      s->sendContent_P(pageHTMLEnd);
+      s->send_P(200, PSTR("text/html"), pageHTMLStart.asCharPtr());
+      if (wifi) s->sendContent_P(wifiHTML.asCharPtr());
+      if (iop) s->sendContent_P(iopHTML.asCharPtr());
+      s->sendContent_P(pageHTMLEnd.asCharPtr());
     });
     s->begin();
     this->logger.info(F("Opened captive portal"));
@@ -164,7 +165,7 @@ Result<AuthToken, Option<HttpCode>> CredentialsServer::authenticate(const String
       } else {
         return Option<HttpCode>();
       }
-    } else if (authToken.isOk()) {
+    } else /*if (authToken.isOk())*/ {
       return authToken.expectOk(F("Auth token is err at CredentialsServer::authenticate"));
     }
 }
