@@ -18,10 +18,11 @@ TYPED_STORAGE(NetworkPassword, 64);
 typedef uint16_t HttpCode;
 
 typedef struct panic_data_ {
-    StaticString msg;
-    StaticString file;
-    uint32_t line;
-    UnsafeRawString func;
+  // TODO: this could have a StaticString alternative to be able to use `_P` PROGMEM methods
+  StringView msg;
+  StaticString file;
+  uint32_t line;
+  StringView func;
 } PanicData;
 
 struct WifiCredentials {

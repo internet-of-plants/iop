@@ -25,7 +25,7 @@ Option<HttpCode> Api::reportPanic(const AuthToken & authToken, const Option<Plan
     (*doc)["file"] = error.file.get();
     (*doc)["line"] = error.line;
     (*doc)["func"] = error.func.get();
-    (*doc)["msg"] = error.msg.asCharPtr();
+    (*doc)["msg"] = error.msg.get();
 
     auto buffer = FixedString<2048>::empty();
     serializeJson(*doc, buffer.asMut(), buffer.size);
