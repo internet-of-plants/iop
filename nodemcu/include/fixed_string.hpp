@@ -22,14 +22,14 @@ public:
   FixedString<SIZE>& operator=(FixedString<SIZE>&& other) = delete;
   constexpr const char * const get() const noexcept { return this->str.asString().get(); }
   char * const asMut() noexcept { return reinterpret_cast<char*>(this->str.mutPtr()); }
-  Storage<SIZE>& operator->() const noexcept { return this->str; }
-  Storage<SIZE>& operator*() const noexcept { return this->str; }
+  Storage<SIZE>& asStorage() const noexcept { return this->str; }
   static FixedString<SIZE> empty() noexcept { return Storage<SIZE>::empty(); }
   size_t length() const noexcept { return strlen(this->get()); }
   bool isEmpty() const noexcept { return this->length() == 0; }
-  // This belongs at string_view.hpp as a constructor, but we get into a circular dependency hell
+  // We should also have a constructor at string_view.hpp, but we get into a circular dependency hell
   // TODO: It would be poggers if someone could solve this. But is this solvable?
-  StringView asString() const noexcept { return this->str.asString(); }
+  StringView operator*() const noexcept { return this->str.asString(); }
+  StringView operator->() const noexcept { return this->str.asString(); }
   static Result<FixedString<SIZE>, enum ParseError> fromString(const StringView str) noexcept { return Storage<SIZE>::fromString(str); }
   static FixedString<SIZE> fromStringTruncating(const StringView str) noexcept { return Storage<SIZE>::fromStringTruncating(str); }
   Storage<SIZE> intoInner() const noexcept { return std::move(this->val); }

@@ -91,10 +91,14 @@ Option<StaticString> methodToString(const enum HttpMethod method) noexcept {
 auto certStore = std::unique_ptr<BearSSL::CertStore>(new BearSSL::CertStore());
 auto client = std::unique_ptr<WiFiClientSecure>(new WiFiClientSecure());
 auto http = std::unique_ptr<HTTPClient>(new HTTPClient());
-Option<Response> Network::httpRequest(const enum HttpMethod method, const Option<StringView> token, const StaticString path, Option<StringView> data) const noexcept {
+Option<Response> Network::httpRequest(const enum HttpMethod method, const Option<StringView> & token, const StaticString path, const Option<StringView> & data) const noexcept {
   const String uri = String(this->host_.get()) + String(path.get());
   const auto port = 4001;
-  const auto data_ = data.unwrapOr(StaticString(F("")));
+  StringView data_(StaticString(F("")));
+  if (data.isSome()) {
+    const StringView & data__ = data.asRef().unwrap();
+    data_ = data__;
+  }
   const auto methodString = methodToString(method).expect(F("HTTP method not recognized"));
   this->logger.info(methodString, START, F(" "));
   this->logger.info(uri, CONTINUITY);

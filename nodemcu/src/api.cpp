@@ -13,11 +13,12 @@ String Api::macAddress() const noexcept { return this->network.macAddress(); }
 void Api::disconnect() const noexcept { this->network.disconnect(); }
 LogLevel Api::loggerLevel() const noexcept { return this->logger.level(); }
 
-Option<HttpCode> Api::reportPanic(const AuthToken & authToken, Option<PlantId> id, const PanicData & event) const noexcept {
-  const auto makeJson = [](Option<PlantId> id, const PanicData & error) {
+Option<HttpCode> Api::reportPanic(const AuthToken & authToken, const Option<PlantId> & id, const PanicData & event) const noexcept {
+  const auto makeJson = [](const Option<PlantId> & id, const PanicData & error) {
     auto doc = std::unique_ptr<StaticJsonDocument<2048>>(new StaticJsonDocument<2048>());
     if (id.isSome()) {
-      (*doc)["plant_id"] = id.expect(F("PlantId is None but shouldn't, at Api::reportPanic")).asString().get();
+      const PlantId & idRef = id.asRef().expect(F("PlantId is None but shouldn't, at Api::reportPanic"));
+      (*doc)["plant_id"] = idRef.asString().get();
     } else {
       (*doc)["plant_id"] = nullptr;
     }
@@ -31,11 +32,11 @@ Option<HttpCode> Api::reportPanic(const AuthToken & authToken, Option<PlantId> i
     return buffer;
   };
   const auto token = authToken.asString();
-  const auto json = makeJson(std::move(id), event);
+  const auto json = makeJson(id, event);
 
   this->logger.info(F("Report panic:"), START, F(" "));
-  this->logger.info(json.asString(), CONTINUITY);
-  const auto maybeResp = this->network.httpPost(token, F("/panic"), json.asString());
+  this->logger.info(*json, CONTINUITY);
+  const auto maybeResp = this->network.httpPost(token, F("/panic"), *json);
 
   #ifndef IOP_MOCK_MONITOR
   if (maybeResp.isNone()) {
@@ -75,7 +76,7 @@ Option<HttpCode> Api::registerEvent(const AuthToken & authToken, const Event & e
 
   auto json = makeJson(this->logger, event);
   const auto token = authToken.asString();
-  const auto maybeResp = this->network.httpPost(token, F("/event"), json.asString());
+  const auto maybeResp = this->network.httpPost(token, F("/event"), *json);
 
   #ifndef IOP_MOCK_MONITOR
   if (maybeResp.isNone()) {
@@ -104,14 +105,14 @@ Result<AuthToken, Option<HttpCode>> Api::authenticate(const StringView username,
     return buffer;
   };
   const auto json = makeJson(this->logger, username, password);
-  auto maybeResp = this->network.httpPost(F("/user/login"), json.asString());
+  const auto maybeResp = this->network.httpPost(F("/user/login"), *json);
 
   #ifndef IOP_MOCK_MONITOR
   if (maybeResp.isNone()) {
     this->logger.error(F("Unable to make POST request to /user/login"));
     return Result<AuthToken, Option<HttpCode>>(Option<HttpCode>());
   } else {
-    const auto resp = maybeResp.expect(F("maybeResp is none, inside Api::authenticate"));
+    const Response & resp = maybeResp.asRef().expect(F("maybeResp is none, inside Api::authenticate"));
     auto result = AuthToken::fromString(resp.payload);
     if (result.isErr()) {
       switch (result.expectErr(F("result isn't Err but should be"))) {
@@ -144,8 +145,8 @@ Option<HttpCode> Api::reportError(const AuthToken &authToken, const PlantId &id,
   const auto json = makeJson(id, error);
 
   this->logger.info(F("Report error:"), START, F(" "));
-  this->logger.info(json.asString(), CONTINUITY);
-  const auto maybeResp = this->network.httpPost(token, F("/error"), json.asString());
+  this->logger.info(*json, CONTINUITY);
+  const auto maybeResp = this->network.httpPost(token, F("/error"), *json);
 
   #ifndef IOP_MOCK_MONITOR
   if (maybeResp.isNone()) {
@@ -179,7 +180,7 @@ Result<PlantId, Option<HttpCode>> Api::registerPlant(const AuthToken & authToken
   this->logger.info(token, CONTINUITY, F(", "));
   this->logger.info(F("MAC:"), CONTINUITY, F(" "));
   this->logger.info(this->macAddress(), CONTINUITY);
-  const auto maybeResp = this->network.httpPut(token, F("/plant"), json.asString());
+  const auto maybeResp = this->network.httpPut(token, F("/plant"), *json);
 
   #ifndef IOP_MOCK_MONITOR
   if (maybeResp.isNone()) {

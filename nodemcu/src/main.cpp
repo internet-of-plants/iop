@@ -42,20 +42,20 @@ public:
     this->handleInterrupt();
 
     const unsigned long now = millis();
-    auto authToken = this->flash.readAuthToken();
-    auto plantId = this->flash.readPlantId();
+    const auto authToken = this->flash.readAuthToken();
+    const auto plantId = this->flash.readPlantId();
 
     if (this->api.isConnected() && authToken.isSome() && plantId.isSome()) {
       this->credentialsServer.close();
     }
 
     if (!this->api.isConnected() || authToken.isNone()) {
-      this->handleCredentials(std::move(authToken));
+      this->handleCredentials(authToken);
     } else if (plantId.isNone()) {
-      this->handlePlant(authToken.expect(F("authToken none at loop()")));
+      this->handlePlant(authToken.asRef().expect(F("authToken none at loop()")));
     } else if (this->nextTime <= now) {
-      const auto token = authToken.expect(F("Calling sendEvent, authToken is None"));
-      const auto id = plantId.expect(F("Calling Sensors::measure, plantId is None"));
+      const AuthToken & token = authToken.asRef().expect(F("Calling sendEvent, authToken is None"));
+      const PlantId & id = plantId.asRef().expect(F("Calling Sensors::measure, plantId is None"));
       this->handleMeasurements(token, id);
     } else if (this->nextYieldLog <= now) {
       this->nextYieldLog = now + 1000;
@@ -101,9 +101,9 @@ private:
           const auto ssid = NetworkName::fromStringTruncating(UnsafeRawString((char *) config.ssid));
           const auto psk = NetworkPassword::fromStringTruncating(UnsafeRawString((char *) config.password));
 
-          auto maybeCurrConfig = this->flash.readWifiConfig();
+          const auto maybeCurrConfig = this->flash.readWifiConfig();
           if (maybeCurrConfig.isSome()) {
-            const auto currConfig = maybeCurrConfig.expect(F("maybeCurrConfig is none"));
+            const WifiCredentials & currConfig = maybeCurrConfig.asRef().expect(F("maybeCurrConfig is none"));
             if (strcmp(currConfig.ssid.asString().get(), ssid.asString().get()) && strcmp(currConfig.password.asString().get(), psk.asString().get())) {
               break;
             }
@@ -117,7 +117,7 @@ private:
     };
   }
 
-  void handleCredentials(Option<AuthToken> maybeToken) noexcept {
+  void handleCredentials(const Option<AuthToken> & maybeToken) noexcept {
     auto result = this->credentialsServer.serve(this->flash.readWifiConfig(), maybeToken);
     if (result.isErr()) {
       switch (result.expectErr(F("Result is ok but shouldn't: at loop()"))) {
@@ -126,9 +126,9 @@ private:
           break;
       }
     } else if (result.isOk()) {
-      auto opt = result.expectOk(F("Result is err but shouldn't: at loop()"));
+      const auto opt = result.expectOk(F("Result is err but shouldn't: at loop()"));
       if (opt.isSome()) {
-        this->flash.writeAuthToken(opt.expect(F("AuthToken is None but shouldn't: at loop()")));
+        this->flash.writeAuthToken(opt.asRef().expect(F("AuthToken is None but shouldn't: at loop()")));
       }
     }
   }
@@ -152,14 +152,14 @@ private:
     this->logger.info(F("Timer triggered"));
 
     digitalWrite(LED_BUILTIN, HIGH);
-    auto maybeStatus = this->api.registerEvent(token, sensors.measure(id));
+    const auto maybeStatus = this->api.registerEvent(token, sensors.measure(id));
 
     if (maybeStatus.isNone()) {
       digitalWrite(LED_BUILTIN, LOW);
       return;
     }
 
-    const auto status = maybeStatus.expect(F("Status is none"));
+    const HttpCode & status = maybeStatus.asRef().expect(F("Status is none"));
     if (status == 403) {
       this->logger.warn(F("Auth token was refused, deleting it"));
       this->flash.removeAuthToken();

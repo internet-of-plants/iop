@@ -57,14 +57,14 @@ class Storage {
     std::shared_ptr<InnerStorage> intoInner() noexcept { return this->val; }
     constexpr static Storage<SIZE> empty() noexcept { return Storage<SIZE>((InnerStorage) {0}); }
 
-    static Storage<SIZE> fromStringTruncating(const StringView str) noexcept {
+    static Storage<SIZE> fromStringTruncating(const StringView & str) noexcept {
       auto val = Storage<SIZE>::empty();
       const auto len = str.length();
       memcpy(val.mutPtr(), (const uint8_t*) str.get(), len < SIZE ? len : SIZE);
       return val;
     }
 
-    static Result<Storage<SIZE>, enum ParseError> fromString(const StringView str) noexcept {
+    static Result<Storage<SIZE>, enum ParseError> fromString(const StringView & str) noexcept {
       if (str.length() > SIZE) return ParseError::TOO_BIG;
       return Storage<SIZE>::fromStringTruncating(str);
     }
@@ -91,8 +91,8 @@ class Storage {
     StringView asString() const noexcept { return this->val.asString(); }\
     static name##_class empty() noexcept { return name##_class(InnerStorage::empty()); }\
     InnerStorage intoInner() noexcept { return std::move(this->val); }\
-    static name##_class fromStringTruncating(const StringView str) noexcept { return InnerStorage::fromStringTruncating(str); }\
-    static Result<name##_class, enum ParseError> fromString(const StringView str) noexcept {\
+    static name##_class fromStringTruncating(const StringView & str) noexcept { return InnerStorage::fromStringTruncating(str); }\
+    static Result<name##_class, enum ParseError> fromString(const StringView & str) noexcept {\
       return InnerStorage::fromString(str).mapOk<name##_class>([](const InnerStorage& storage) noexcept {\
         return name##_class(storage);\
       });\

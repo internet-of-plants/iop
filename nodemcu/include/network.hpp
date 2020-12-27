@@ -37,7 +37,7 @@ class Network {
     Option<Response> httpPut(const StringView token, const StaticString path, const StringView data) const noexcept;
     Option<Response> httpPost(const StringView token, const StaticString path, const StringView data) const noexcept;
     Option<Response> httpPost(const StaticString path, const StringView data) const noexcept;
-    Option<Response> httpRequest(const HttpMethod method, const Option<StringView> token, const StaticString path, const Option<StringView> data) const noexcept;
+    Option<Response> httpRequest(const HttpMethod method, const Option<StringView> & token, const StaticString path, const Option<StringView> & data) const noexcept;
     StaticString wifiCodeToString(const wl_status_t val) const noexcept;
     String macAddress() const noexcept;
     StaticString host() const noexcept { return this->host_; };

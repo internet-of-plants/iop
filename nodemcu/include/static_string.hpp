@@ -25,8 +25,10 @@ public:
   StaticString& operator=(const StaticString && other) noexcept {
     this->str = other.str;
     return *this;
-  }  constexpr const __FlashStringHelper * const get() const noexcept { return this->str; }
+  }
+  constexpr const __FlashStringHelper * const get() const noexcept { return this->str; }
   size_t length() const noexcept { return strlen_P(this->asCharPtr()); }
+  bool isEmpty() const noexcept { return this->length() == 0; }
   constexpr const char * const asCharPtr() const noexcept { return (const char *) this->get(); }
 };
 
