@@ -3,9 +3,6 @@
 
 #include <cstdint>
 
-#include <string_view.hpp>
-#include <option.hpp>
-
 // (Un)Comment this line to toggle wifi dependency
 #define IOP_ONLINE
 
@@ -44,10 +41,6 @@ enum InterruptEvent {
 };
 
 static volatile enum InterruptEvent interruptEvent = NONE;
-
-namespace utils {
-  uint64_t hashString(const StringView string);
-}
 
 #define MAYBE_PROGMEM_STRING_EMPTY(name) static const Option<StaticString> name;
 #define MAYBE_PROGMEM_STRING(name, msg) PROGMEM_STRING(name_##storage, msg);\

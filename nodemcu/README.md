@@ -6,6 +6,10 @@ Datasheet: https://www.electrodragon.com/w/ESP-12F_ESP8266_Wifi_Board
 
 PlatformIO (nodemcu + arduino framework)
 
+Needs OpenSSL in PATH
+
+On linux you have to handle configs and permissions to deploy to serial port
+
 ```
 curl -fsSL https://raw.githubusercontent.com/platformio/platformio-core/master/scripts/99-platformio-udev.rules | sudo tee /etc/udev/rules.d/99-platformio-udev.rules
 sudo service udev restart

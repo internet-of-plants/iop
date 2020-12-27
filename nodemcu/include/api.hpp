@@ -3,9 +3,11 @@
 
 #include <models.hpp>
 #include <option.hpp>
+#include <storage.hpp>
 #include <result.hpp>
 #include <network.hpp>
 #include <log.hpp>
+#include <string_view.hpp>
 #include <static_string.hpp>
 
 /// Abstracts Internet of Plants API to avoid mistakes and properly report errors
