@@ -53,6 +53,8 @@ void Log::crit(const StringView & msg, const enum LogType logType, const StaticS
 
 void Log::setup() const noexcept {
   Serial.begin(9600);
+  const auto end = millis() + 30000;
+  while (!Serial && millis() < end) yield();
   this->info(F("Setup"));
 }
 

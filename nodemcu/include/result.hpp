@@ -12,7 +12,7 @@ class StaticString;
 /// This type can be moved out, so it _will_ be empty, it will panic if tried to access after
 /// a move instead of causing undefined behavior
 ///
-/// Most methods move out by default.
+/// Most methods move out by default. You probably want to call `.asRef()` before moving it out
 ///
 /// Pwease no exception at T's or E's destructor
 template<typename T, typename E>
@@ -30,7 +30,7 @@ class Result {
     E error;
   };
 
-  bool isEmpty() noexcept { return this->kind_ == EMPTY; }
+  bool isEmpty() const noexcept { return this->kind_ == EMPTY; }
   void reset() noexcept {
     switch (this->kind_) {
     case EMPTY:
@@ -158,6 +158,24 @@ class Result {
       return val;
     } else if (this->isOk()) {
       return or_;
+    }
+  }
+
+  Result<std::reference_wrapper<T>, std::reference_wrapper<E>> asMut() noexcept {
+    if (this->isEmpty()) panic_(F("Result is empty, at asMut"));
+    else if (this->isOk()) {
+      return std::reference_wrapper<T>(this->ok);
+    } else {
+      return std::reference_wrapper<E>(this->error);
+    }
+  }
+
+  Result<std::reference_wrapper<const T>, std::reference_wrapper<const E>> asRef() const noexcept {
+    if (this->isEmpty()) panic_(F("Result is empty, at asRef"));
+    else if (this->isOk()) {
+      return std::reference_wrapper<const T>(this->ok);
+    } else {
+      return std::reference_wrapper<const E>(this->error);
     }
   }
 

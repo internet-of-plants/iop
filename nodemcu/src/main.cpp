@@ -118,15 +118,16 @@ private:
   }
 
   void handleCredentials(const Option<AuthToken> & maybeToken) noexcept {
-    auto result = this->credentialsServer.serve(this->flash.readWifiConfig(), maybeToken);
+    const auto result = this->credentialsServer.serve(this->flash.readWifiConfig(), maybeToken);
     if (result.isErr()) {
-      switch (result.expectErr(F("Result is ok but shouldn't: at loop()"))) {
+      const ServeError & err = result.asRef().expectErr(F("Result is ok but shouldn't: at loop()"));
+      switch (err) {
         case ServeError::INVALID_WIFI_CONFIG:
           this->flash.removeWifiConfig();
           break;
       }
     } else if (result.isOk()) {
-      const auto opt = result.expectOk(F("Result is err but shouldn't: at loop()"));
+      const Option<AuthToken>& opt = result.asRef().expectOk(F("Result is err but shouldn't: at loop()"));
       if (opt.isSome()) {
         this->flash.writeAuthToken(opt.asRef().expect(F("AuthToken is None but shouldn't: at loop()")));
       }
@@ -134,15 +135,18 @@ private:
   }
 
   void handlePlant(const AuthToken & token) const noexcept {
-    auto maybePlantId = this->api.registerPlant(token);
+    const auto maybePlantId = this->api.registerPlant(token);
     if (maybePlantId.isErr()) {
       this->logger.error(F("Unable to get plant id"));
-      auto maybeStatusCode = maybePlantId.expectErr(F("maybePlantId is Ok but shouldn't"));
-      if (maybeStatusCode.isSome() && maybeStatusCode.expect(F("maybeStatusCode is None")) == 403) {
-        this->flash.removeAuthToken();
+      const Option<HttpCode> & maybeStatusCode = maybePlantId.asRef().expectErr(F("maybePlantId is Ok but shouldn't"));
+      if (maybeStatusCode.isSome()) {
+        const HttpCode & code = maybeStatusCode.asRef().expect(F("maybeStatusCode is None"));
+        if (code == 403) {
+          this->flash.removeAuthToken();
+        }
       }
     } else if (maybePlantId.isOk()) {
-      const auto plantId = maybePlantId.expectOk(F("maybePlantId is Err but shouldn't"));
+      const PlantId & plantId = maybePlantId.asRef().expectOk(F("maybePlantId is Err but shouldn't"));
       this->flash.writePlantId(plantId);
     }
   }

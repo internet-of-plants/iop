@@ -10,7 +10,7 @@
 /// Optional sum-type, may be filled and contain a T, or not be filled and unable to access it
 /// methods panic instead of causing undefined behavior
 ///
-/// Most methods move out by default.
+/// Most methods move out by default. You probably want to call `.asRef()` before moving it out.
 ///
 /// Pwease no exception at T's destructor
 template<typename T>

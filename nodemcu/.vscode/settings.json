@@ -1,5 +1,7 @@
 {
     "files.associations": {
+        "editor.formatOnSave": "true",
+        "clang-tidy.lintOnSave": "true",
         "cstdint": "cpp",
         "functional": "cpp",
         "array": "cpp",
