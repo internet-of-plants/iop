@@ -9,20 +9,16 @@ class StringView;
 class StaticString;
 
 /// Result sumtype, may be ok and contain a T, or not be ok and contain an E
-/// This type can be moved out, so it _will_ be empty, it will panic if tried to access after
-/// a move instead of causing undefined behavior
+/// This type can be moved out, so it _will_ be empty, it will panic if tried to
+/// access after a move instead of causing undefined behavior
 ///
-/// Most methods move out by default. You probably want to call `.asRef()` before moving it out
+/// Most methods move out by default. You probably want to call `.asRef()`
+/// before moving it out
 ///
 /// Pwease no exception at T's or E's destructor
-template<typename T, typename E>
-class Result {
- private:
-  enum ResultKind {
-    OK = 40,
-    ERROR,
-    EMPTY
-  };
+template <typename T, typename E> class Result {
+private:
+  enum ResultKind { OK = 40, ERROR, EMPTY };
   enum ResultKind kind_;
   union {
     uint8_t dummy;
@@ -43,12 +39,13 @@ class Result {
       break;
     }
   }
- public:
-  Result(T v) noexcept: kind_(OK), ok(std::move(v)) {}
-  Result(E e) noexcept: kind_(ERROR), error(std::move(e)) {}
-  Result(Result<T, E>& other) = delete;
-  Result<T, E>& operator=(Result<T, E>& other) = delete;
-  Result<T, E>& operator=(Result<T, E>&& other) noexcept {
+
+public:
+  Result(T v) noexcept : kind_(OK), ok(std::move(v)) {}
+  Result(E e) noexcept : kind_(ERROR), error(std::move(e)) {}
+  Result(Result<T, E> &other) = delete;
+  Result<T, E> &operator=(Result<T, E> &other) = delete;
+  Result<T, E> &operator=(Result<T, E> &&other) noexcept {
     this->reset();
     this->kind_ = other.kind_;
     switch (this->kind_) {
@@ -65,7 +62,7 @@ class Result {
     other.reset();
     return *this;
   }
-  Result(Result<T, E>&& other) noexcept {
+  Result(Result<T, E> &&other) noexcept {
     this->reset();
     this->kind_ = other.kind_;
     switch (this->kind_) {
@@ -84,12 +81,12 @@ class Result {
   ~Result() noexcept { this->reset(); }
   bool isOk() const noexcept {
     switch (this->kind_) {
-      case OK:
+    case OK:
       return true;
-      case ERROR:
+    case ERROR:
       return false;
-      case EMPTY:
-      default:
+    case EMPTY:
+    default:
       panic_(F("Result is empty, at isOk"));
     }
   }
@@ -100,30 +97,36 @@ class Result {
     case ERROR:
       return false;
     case EMPTY:
-      default:
+    default:
       panic_(F("Result is empty, at isErr"));
     }
   }
-  T expectOk(const StringView & msg) noexcept {
-    if (this->isEmpty()) panic_(F("Result is empty, at expectOk"));
-    if (this->isErr()) panic_(msg);
+  T expectOk(const StringView &msg) noexcept {
+    if (this->isEmpty())
+      panic_(F("Result is empty, at expectOk"));
+    if (this->isErr())
+      panic_(msg);
     T value = std::move(this->ok);
     this->reset();
     return value;
   }
-  T expectOk(const StaticString & msg) noexcept {
-    if (this->isEmpty()) panic_(F("Result is empty, at expectOk"));
-    if (this->isErr()) panic_(msg);
+  T expectOk(const StaticString &msg) noexcept {
+    if (this->isEmpty())
+      panic_(F("Result is empty, at expectOk"));
+    if (this->isErr())
+      panic_(msg);
     T value = std::move(this->ok);
     this->reset();
     return value;
   }
   T unwrapOk() noexcept {
-    if (this->isEmpty()) panic_(F("Result is empty, at unwrapOk"));
+    if (this->isEmpty())
+      panic_(F("Result is empty, at unwrapOk"));
     return this->expectOk(F("Tried to unwrapOk an errored Result"));
   }
   T unwrapOkOr(const T or_) noexcept {
-    if (this->isEmpty()) panic_(F("Result is empty, at unwrapOkOr"));
+    if (this->isEmpty())
+      panic_(F("Result is empty, at unwrapOkOr"));
     if (this->isOk()) {
       const auto val = std::move(this->ok);
       this->reset();
@@ -132,26 +135,32 @@ class Result {
       return or_;
     }
   }
-  E expectErr(const StringView & msg) noexcept {
-    if (this->isEmpty()) panic_(F("Result is empty, at expectErr"));
-    if (this->isOk()) panic_(msg);
+  E expectErr(const StringView &msg) noexcept {
+    if (this->isEmpty())
+      panic_(F("Result is empty, at expectErr"));
+    if (this->isOk())
+      panic_(msg);
     const E value = std::move(this->error);
     this->reset();
     return value;
   }
-  E expectErr(const StaticString & msg) noexcept {
-    if (this->isEmpty()) panic_(F("Result is empty, at expectErr"));
-    if (this->isOk()) panic_(msg);
+  E expectErr(const StaticString &msg) noexcept {
+    if (this->isEmpty())
+      panic_(F("Result is empty, at expectErr"));
+    if (this->isOk())
+      panic_(msg);
     E value = std::move(this->error);
     this->reset();
     return value;
   }
   E unwrapErr() noexcept {
-    if (this->isEmpty()) panic_(F("Result is empty, at unwrapErr"));
+    if (this->isEmpty())
+      panic_(F("Result is empty, at unwrapErr"));
     return this->expectErr(F("Tried to unwrapErr a Result that succeeded"));
   }
   E unwrapErrOr(const E or_) noexcept {
-    if (this->isEmpty()) panic_(F("Result is empty, at unwrapErrOr"));
+    if (this->isEmpty())
+      panic_(F("Result is empty, at unwrapErrOr"));
     if (this->isErr()) {
       const auto val = std::move(this->err);
       this->reset();
@@ -161,8 +170,10 @@ class Result {
     }
   }
 
-  Result<std::reference_wrapper<T>, std::reference_wrapper<E>> asMut() noexcept {
-    if (this->isEmpty()) panic_(F("Result is empty, at asMut"));
+  Result<std::reference_wrapper<T>, std::reference_wrapper<E>>
+  asMut() noexcept {
+    if (this->isEmpty())
+      panic_(F("Result is empty, at asMut"));
     else if (this->isOk()) {
       return std::reference_wrapper<T>(this->ok);
     } else {
@@ -170,8 +181,10 @@ class Result {
     }
   }
 
-  Result<std::reference_wrapper<const T>, std::reference_wrapper<const E>> asRef() const noexcept {
-    if (this->isEmpty()) panic_(F("Result is empty, at asRef"));
+  Result<std::reference_wrapper<const T>, std::reference_wrapper<const E>>
+  asRef() const noexcept {
+    if (this->isEmpty())
+      panic_(F("Result is empty, at asRef"));
     else if (this->isOk()) {
       return std::reference_wrapper<const T>(this->ok);
     } else {
@@ -179,9 +192,10 @@ class Result {
     }
   }
 
-  template<typename U>
-  Result<U, E> mapOk(std::function<U (const T)> f) noexcept {
-    if (this->isEmpty()) panic_(F("Result is empty, at mapOk"));
+  template <typename U>
+  Result<U, E> mapOk(std::function<U(const T)> f) noexcept {
+    if (this->isEmpty())
+      panic_(F("Result is empty, at mapOk"));
     else if (this->isOk()) {
       const auto val = f(std::move(this->ok));
       this->reset();

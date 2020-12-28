@@ -1,7 +1,9 @@
 {
+    "editor.defaultFormatter": "xaver.clang-format",
+    "editor.formatOnSave": true,
+    "editor.formatOnPaste": true,
+    "clang-tidy.lintOnSave": true,
     "files.associations": {
-        "editor.formatOnSave": "true",
-        "clang-tidy.lintOnSave": "true",
         "cstdint": "cpp",
         "functional": "cpp",
         "array": "cpp",

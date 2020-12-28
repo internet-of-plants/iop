@@ -6,21 +6,16 @@ namespace measurement {
 float soilTemperatureCelsius(DallasTemperature &sensor) noexcept {
   // Blocks until reading is done
   sensor.requestTemperatures();
-  // Accessing by index is bad. It's slow, we should store the sensor's address and use it
+  // Accessing by index is bad. It's slow, we should store the sensor's address
+  // and use it
   return sensor.getTempCByIndex(0);
 }
 
-float airTemperatureCelsius(DHT &dht) noexcept {
-  return dht.readTemperature();
-}
+float airTemperatureCelsius(DHT &dht) noexcept { return dht.readTemperature(); }
 
-float airHumidityPercentage(DHT &dht) noexcept {
-  return dht.readHumidity();
-}
+float airHumidityPercentage(DHT &dht) noexcept { return dht.readHumidity(); }
 
-float airHeatIndexCelsius(DHT &dht) noexcept {
-  return dht.computeHeatIndex();
-}
+float airHeatIndexCelsius(DHT &dht) noexcept { return dht.computeHeatIndex(); }
 
 uint16_t soilResistivityRaw(const uint8_t powerPin) noexcept {
   digitalWrite(powerPin, HIGH);
@@ -44,4 +39,4 @@ float airHumidityPercentage(DHT &dht) noexcept { return 0.; }
 float airHeatIndexCelsius(DHT &dht) noexcept { return 0.; }
 uint16_t soilResistivityRaw(const uint8_t powerPin) noexcept { return 0.; }
 #endif
-}
+} // namespace measurement

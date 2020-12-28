@@ -1,10 +1,10 @@
 #ifndef IOP_CONFIGURATION_H_
 #define IOP_CONFIGURATION_H_
 
-#include <static_string.hpp>
 #include <cstdint>
 #include <log.hpp>
 #include <option.hpp>
+#include <static_string.hpp>
 
 /// Minimum log level to print a message (if serial is enabled)
 const enum LogLevel logLevel = INFO;
@@ -14,20 +14,23 @@ const uint8_t airTempAndHumidityPin = D6;
 const uint8_t soilResistivityPowerPin = D7;
 const uint8_t factoryResetButton = D1;
 
-/// Version of DHT (Digital Humidity and Temperature) sensor. (ex: DHT11 or DHT21 or DHT22...)
+/// Version of DHT (Digital Humidity and Temperature) sensor. (ex: DHT11 or
+/// DHT21 or DHT22...)
 const uint8_t dhtVersion = 22; // DHT22
 
 /// Time between measurements
 const unsigned long interval = 5 * 1000;
 
 /// Expands to:
-/// static const char * const host_storage_progmem_char = "https://iop-monitor-server.tk:4001";
-/// static const StaticString host_storage(host_storage_progmem_char);
-/// static const Option<StaticString> host(host_storage)
+/// static const char * const host_storage_progmem_char =
+/// "https://iop-monitor-server.tk:4001"; static const StaticString
+/// host_storage(host_storage_progmem_char); static const Option<StaticString>
+/// host(host_storage)
 MAYBE_PROGMEM_STRING(host, "https://iop-monitor-server.tk:4001");
 
-/// You don't need to fill the fields below, they may actually be counter-productive
-/// Replace the MAYBE_PROGMEM_STRING_EMPTY(name) with MAYBE_PROGMEM_STRING(name, value)
+/// You don't need to fill the fields below, they may actually be
+/// counter-productive Replace the MAYBE_PROGMEM_STRING_EMPTY(name) with
+/// MAYBE_PROGMEM_STRING(name, value)
 
 MAYBE_PROGMEM_STRING_EMPTY(wifiNetworkName);
 MAYBE_PROGMEM_STRING_EMPTY(wifiPassword);

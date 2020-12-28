@@ -27,23 +27,20 @@
 // (Un)Comment this line to toggle memory stats logging
 //#define LOG_MEMORY
 
-
 // If IOP_MONITOR is not defined the Api methods will be short-circuited
 // If IOP_MOCK_MONITOR is defined, then the methods will run normally
 // and pretend the request didn't fail
-// If IOP_MONITOR is defined, then it doesn't matter whether IOP_MOCK_MONITOR is defined
+// If IOP_MONITOR is defined, then it doesn't matter whether IOP_MOCK_MONITOR is
+// defined
 #define IOP_MOCK_MONITOR
 
-enum InterruptEvent {
-  NONE,
-  FACTORY_RESET,
-  ON_CONNECTION
-};
+enum InterruptEvent { NONE, FACTORY_RESET, ON_CONNECTION };
 
 static volatile enum InterruptEvent interruptEvent = NONE;
 
 #define MAYBE_PROGMEM_STRING_EMPTY(name) static const Option<StaticString> name;
-#define MAYBE_PROGMEM_STRING(name, msg) PROGMEM_STRING(name_##storage, msg);\
+#define MAYBE_PROGMEM_STRING(name, msg)                                        \
+  PROGMEM_STRING(name_##storage, msg);                                         \
   static const Option<StaticString> name(name_##storage);
 
 #endif

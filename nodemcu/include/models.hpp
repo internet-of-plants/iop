@@ -6,8 +6,8 @@
 #include <memory>
 
 #include <result.hpp>
-#include <string_view.hpp>
 #include <storage.hpp>
+#include <string_view.hpp>
 
 // Those are basically utils::Storage but typesafe
 TYPED_STORAGE(AuthToken, 64);
@@ -18,7 +18,8 @@ TYPED_STORAGE(NetworkPassword, 64);
 typedef uint16_t HttpCode;
 
 typedef struct panic_data_ {
-  // TODO: this could have a StaticString alternative to be able to use `_P` PROGMEM methods
+  // TODO: this could have a StaticString alternative to be able to use `_P`
+  // PROGMEM methods
   StringView msg;
   StaticString file;
   uint32_t line;
@@ -42,12 +43,9 @@ class Event {
 public:
   const EventStorage storage;
   const PlantId plantId;
-  Event(EventStorage storage, PlantId plantId):
-    storage(storage),
-    plantId(std::move(plantId)) {}
-  Event(Event&& ev):
-    storage(ev.storage),
-    plantId(std::move(plantId)) {}
+  Event(EventStorage storage, PlantId plantId)
+      : storage(storage), plantId(std::move(plantId)) {}
+  Event(Event &&ev) : storage(ev.storage), plantId(std::move(plantId)) {}
 };
 
 #endif

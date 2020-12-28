@@ -14,28 +14,35 @@ void ICACHE_RAM_ATTR buttonClosed() noexcept;
 
 void ICACHE_RAM_ATTR buttonOpen() noexcept {
   detachInterrupt(digitalPinToInterrupt(factoryResetButton));
-  attachInterrupt(digitalPinToInterrupt(factoryResetButton), buttonClosed, RISING);
+  attachInterrupt(digitalPinToInterrupt(factoryResetButton), buttonClosed,
+                  RISING);
   if (resetStateTime + 15000 < millis()) {
     interruptEvent = FACTORY_RESET;
-    logger.info(F("Setted FACTORY_RESET flag, running it in the next loop run"));
+    logger.info(
+        F("Setted FACTORY_RESET flag, running it in the next loop run"));
   }
 }
 
 void ICACHE_RAM_ATTR buttonClosed() noexcept {
   detachInterrupt(digitalPinToInterrupt(factoryResetButton));
-  attachInterrupt(digitalPinToInterrupt(factoryResetButton), buttonOpen, FALLING);
+  attachInterrupt(digitalPinToInterrupt(factoryResetButton), buttonOpen,
+                  FALLING);
   resetStateTime = millis();
-  logger.info(F("Pressed FACTORY_RESET button. Keep it pressed for at least 15 seconds to factory reset your device"));
+  logger.info(F("Pressed FACTORY_RESET button. Keep it pressed for at least 15 "
+                "seconds to factory reset your device"));
 }
 
 namespace reset {
-  void setup() noexcept {
-    pinMode(factoryResetButton, INPUT);
-    attachInterrupt(digitalPinToInterrupt(factoryResetButton), buttonClosed, RISING);
-  }
+void setup() noexcept {
+  pinMode(factoryResetButton, INPUT);
+  attachInterrupt(digitalPinToInterrupt(factoryResetButton), buttonClosed,
+                  RISING);
 }
+} // namespace reset
 #endif
 
 #ifdef IOP_FACTORY_RESET_DISABLED
-namespace reset { void setup() {} }
+namespace reset {
+void setup() {}
+} // namespace reset
 #endif

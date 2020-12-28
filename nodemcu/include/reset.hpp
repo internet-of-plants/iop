@@ -2,12 +2,12 @@
 #define IOP_RESET_H_
 
 namespace reset {
-  void setup() noexcept;
+void setup() noexcept;
 }
 
 #include <utils.hpp>
 #ifndef IOP_FACTORY_RESET
-  #define IOP_FACTORY_RESET_DISABLED
+#define IOP_FACTORY_RESET_DISABLED
 #endif
 
 #endif

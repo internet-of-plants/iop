@@ -1,18 +1,20 @@
-#include <panic.hpp>
-#include <log.hpp>
-#include <ESP8266WiFi.h>
 #include <EEPROM.h>
+#include <ESP8266WiFi.h>
+#include <log.hpp>
+#include <panic.hpp>
 
-#include <string_view.hpp>
 #include <static_string.hpp>
+#include <string_view.hpp>
 #include <unsafe_raw_string.hpp>
 
-#include <configuration.h>
 #include <api.hpp>
+#include <configuration.h>
 #include <flash.hpp>
 
-void reportPanic(const StringView & msg, const StaticString & file, const uint32_t line, const StringView & func) {
-  const StaticString & host_ = host.asRef().expect(F("No host available: at panic__"));
+void reportPanic(const StringView &msg, const StaticString &file,
+                 const uint32_t line, const StringView &func) {
+  const StaticString &host_ =
+      host.asRef().expect(F("No host available: at panic__"));
   const Log logger(CRIT, F("PANIC"));
   const Api api(host_, TRACE);
   if (!api.isConnected()) {
@@ -25,12 +27,20 @@ void reportPanic(const StringView & msg, const StaticString & file, const uint32
     logger.crit(F("No auth token, unable to report panic"));
     return;
   }
-  const AuthToken & token = maybeToken.asRef().expect(F("AuthToken is None but shouldn't: at panic__"));
-  const auto panicData = (PanicData) { msg, file, line, func, };
+  const AuthToken &token = maybeToken.asRef().expect(
+      F("AuthToken is None but shouldn't: at panic__"));
+  const auto panicData = (PanicData){
+      msg,
+      file,
+      line,
+      func,
+  };
   const auto resp = api.reportPanic(token, flash.readPlantId(), panicData);
-  // TODO: We could broadcast panics to other devices in the same network if Api::reportPanic fails
+  // TODO: We could broadcast panics to other devices in the same network if
+  // Api::reportPanic fails
   if (resp.isSome()) {
-    const HttpCode & code = resp.asRef().expect(F("HttpCode is None but shouldn't: at panic__"));
+    const HttpCode &code =
+        resp.asRef().expect(F("HttpCode is None but shouldn't: at panic__"));
     if (code == 200) {
       logger.info(F("Reported panic to server successfully"));
     } else {
@@ -42,7 +52,8 @@ void reportPanic(const StringView & msg, const StaticString & file, const uint32
   }
 }
 
-void panic__(const StringView & msg, const StaticString & file, const uint32_t line, const StringView & func) {
+void panic__(const StringView &msg, const StaticString &file,
+             const uint32_t line, const StringView &func) {
   delay(1000);
   const String line_(line);
   const Log logger(CRIT, F("PANIC"));
@@ -60,7 +71,8 @@ void panic__(const StringView & msg, const StaticString & file, const uint32_t l
   __panic_func(file.asCharPtr(), line, func.get());
 }
 
-void panic__(const StaticString & msg, const StaticString & file, const uint32_t line, const StringView & func) {
+void panic__(const StaticString &msg, const StaticString &file,
+             const uint32_t line, const StringView &func) {
   delay(1000);
   const Log logger(CRIT, F("PANIC"));
   logger.crit(F("Line"), START, F(" "));
@@ -77,6 +89,7 @@ void panic__(const StaticString & msg, const StaticString & file, const uint32_t
   __panic_func(file.asCharPtr(), line, func.get());
 }
 
-void panic__(const __FlashStringHelper * msg, const StaticString & file, const uint32_t line, const StringView & func) {
+void panic__(const __FlashStringHelper *msg, const StaticString &file,
+             const uint32_t line, const StringView &func) {
   panic__(StaticString(msg), file, line, func);
 }
