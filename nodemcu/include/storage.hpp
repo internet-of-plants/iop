@@ -1,11 +1,11 @@
-#ifndef IOP_STORAGE_H_
-#define IOP_STORAGE_H_
+#ifndef IOP_STORAGE_H
+#define IOP_STORAGE_H
 
 #include <cinttypes>
 #include <memory>
 
-#include <result.hpp>
-#include <string_view.hpp>
+#include "result.hpp"
+#include "string_view.hpp"
 
 struct MovedOut {
   uint8_t dummy;
@@ -72,7 +72,9 @@ public:
   StringView asString() const noexcept {
     return UnsafeRawString((const char *)this->constPtr());
   }
-  std::shared_ptr<InnerStorage> intoInner() noexcept { return this->val; }
+  std::shared_ptr<InnerStorage> asSharedArray() const noexcept {
+    return this->val;
+  }
   constexpr static Storage<SIZE> empty() noexcept {
     return Storage<SIZE>((InnerStorage){0});
   }
@@ -122,16 +124,19 @@ public:
     static name##_class empty() noexcept {                                     \
       return name##_class(InnerStorage::empty());                              \
     }                                                                          \
-    InnerStorage intoInner() noexcept { return std::move(this->val); }         \
+    std::shared_ptr<InnerStorage::InnerStorage>                                \
+    asSharedArray() const noexcept {                                           \
+      return this->val.asSharedArray();                                        \
+    }                                                                          \
     static name##_class fromStringTruncating(const StringView &str) noexcept { \
       return InnerStorage::fromStringTruncating(str);                          \
     }                                                                          \
     static Result<name##_class, enum ParseError>                               \
     fromString(const StringView &str) noexcept {                               \
-      return InnerStorage::fromString(str).mapOk<name##_class>(                \
-          [](const InnerStorage &storage) noexcept {                           \
-            return name##_class(storage);                                      \
-          });                                                                  \
+      return RESULT_MAP_OK(InnerStorage::fromString(str), name##_class,        \
+                           [](const InnerStorage &storage) noexcept {          \
+                             return name##_class(storage);                     \
+                           });                                                 \
     }                                                                          \
   };                                                                           \
   typedef name##_class name;

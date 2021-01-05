@@ -1,13 +1,13 @@
-#ifndef IOP_SENSORS_H_
-#define IOP_SENSORS_H_
+#ifndef IOP_SENSORS_H
+#define IOP_SENSORS_H
 
+#include "models.hpp"
 #include <memory>
-#include <models.hpp>
 
-#include <DHT.h>
-#include <DallasTemperature.h>
-#include <OneWire.h>
-
+#include "DHT.h"
+#include "DallasTemperature.h"
+#include "OneWire.h"
+#include "utils.hpp"
 
 /// Abstracts away sensors access, providing a cohesive state. It's completely
 /// synchronous.
@@ -24,7 +24,7 @@ public:
           const uint8_t soilTemperaturePin, const uint8_t dhtPin,
           const uint8_t dhtVersion) noexcept
       : soilResistivityPowerPin(soilResistivityPowerPin),
-        soilTemperatureOneWireBus(new OneWire(soilTemperaturePin)),
+        soilTemperatureOneWireBus(make_unique<OneWire>(soilTemperaturePin)),
         soilTemperatureSensor(soilTemperatureOneWireBus.get()),
         airTempAndHumiditySensor(dhtPin, dhtVersion) {}
   Sensors(Sensors &other) = delete;
@@ -32,10 +32,10 @@ public:
   Sensors &operator=(Sensors &other) = delete;
   Sensors &operator=(Sensors &&other) = delete;
   void setup() noexcept;
-  Event measure(PlantId plantId) noexcept;
+  Event measure(PlantId plantId, MD5Hash firmwareHash) noexcept;
 };
 
-#include <utils.hpp>
+#include "utils.hpp"
 #ifndef IOP_SENSORS
 #define IOP_SENSORS_DISABLED
 #endif

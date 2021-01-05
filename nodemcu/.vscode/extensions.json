@@ -4,7 +4,6 @@
     "recommendations": [
         "ms-vscode.cpptools",
         "platformio.platformio-ide",
-        "xaver.clang-format",
-        "notskm.clang-tidy"
+        "xaver.clang-format"
     ]
 }

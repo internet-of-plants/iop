@@ -1,16 +1,16 @@
-#include <api.hpp>
-#include <configuration.h>
-#include <flash.hpp>
-#include <log.hpp>
-#include <reset.hpp>
-#include <sensors.hpp>
-#include <server.hpp>
-#include <static_string.hpp>
-#include <utils.hpp>
+#include "api.hpp"
+#include "configuration.h"
+#include "flash.hpp"
+#include "log.hpp"
+#include "reset.hpp"
+#include "sensors.hpp"
+#include "server.hpp"
+#include "static_string.hpp"
+#include "utils.hpp"
 
 // TODO:
 // https://github.com/maakbaas/esp8266-iot-framework/blob/master/src/timeSync.cpp
-// TODO: Over the Air updates (OTA)
+// TODO: Over the Air updates (OTA) using ESPhttpUpdate
 
 class EventLoop {
 private:
@@ -19,6 +19,7 @@ private:
   CredentialsServer credentialsServer;
   Log logger;
   Flash flash;
+  MD5Hash firmwareHash;
 
   unsigned long nextTime;
   unsigned long nextYieldLog;
@@ -36,11 +37,9 @@ public:
 
   void loop() noexcept {
 #ifdef LOG_MEMORY
-    this->logger.info(F("Memory:"), START, F(" "));
-    this->logger.info(String(ESP.getFreeHeap()) + " " +
-                          String(ESP.getFreeContStack()) + " " +
-                          ESP.getFreeSketchSpace(),
-                      CONTINUITY);
+    this->logger.infoln(F("Memory: "), std::to_string(ESP.getFreeHeap()),
+                        F(" "), std::to_string(ESP.getFreeContStack()), F(" "),
+                        ESP.getFreeSketchSpace());
 #endif
 
     this->handleInterrupt();
@@ -55,18 +54,16 @@ public:
 
     if (!this->api.isConnected() || authToken.isNone()) {
       this->handleCredentials(authToken);
+
     } else if (plantId.isNone()) {
-      this->handlePlant(
-          authToken.asRef().expect(F("authToken none at loop()")));
+      this->handlePlant(UNWRAP_REF(authToken));
+
     } else if (this->nextTime <= now) {
-      const AuthToken &token =
-          authToken.asRef().expect(F("Calling sendEvent, authToken is None"));
-      const PlantId &id = plantId.asRef().expect(
-          F("Calling Sensors::measure, plantId is None"));
-      this->handleMeasurements(token, id);
+      this->handleMeasurements(UNWRAP_REF(authToken), UNWRAP_REF(plantId));
+
     } else if (this->nextYieldLog <= now) {
       this->nextYieldLog = now + 1000;
-      this->logger.debug(F("Waiting"));
+      this->logger.debugln(F("Waiting"));
     }
   }
 
@@ -76,7 +73,8 @@ public:
       : sensors(soilResistivityPowerPin, soilTemperaturePin,
                 airTempAndHumidityPin, dhtVersion),
         api(host, logLevel), credentialsServer(host, logLevel),
-        logger(logLevel, F("LOOP")), flash(logLevel) {}
+        logger(logLevel, F("LOOP")), flash(logLevel),
+        firmwareHash(hashSketch()) {}
 
 private:
   void handleInterrupt() const noexcept {
@@ -86,10 +84,21 @@ private:
     switch (event) {
     case NONE:
       break;
+    case MUST_UPGRADE:
+#ifdef IOP_OTA
+      const auto maybeToken = this->flash.readAuthToken();
+      if (maybeToken.isSome()) {
+        const auto &token = UNWRAP_REF(maybeToken);
+        const auto maybeCode = this->api.upgrade(token, this->firmwareHash);
+        // TODO: handle maybeCode
+      } else {
+        // TODO: this should never happen, how to ensure?
+      }
+#endif
+      break;
     case FACTORY_RESET:
 #ifdef IOP_FACTORY_RESET
-      this->logger.info(
-          F("Resetting all user information saved in flash storage"));
+      this->logger.infoln(F("Factory Reset: deleting stored credentials"));
       this->flash.removeWifiConfig();
       this->flash.removeAuthToken();
       this->flash.removePlantId();
@@ -98,111 +107,113 @@ private:
       break;
     case ON_CONNECTION:
 #ifdef IOP_ONLINE
-      this->logger.info(F("WiFi connected ("), START, F(" "));
-      this->logger.info(WiFi.localIP().toString(), CONTINUITY, F(" "));
-      this->logger.info(F("):"), CONTINUITY, F(" "));
-      this->logger.info(String(wifi_station_get_connect_status()), CONTINUITY);
+      const auto ip = WiFi.localIP().toString();
+      const auto status = std::to_string(wifi_station_get_connect_status());
+      this->logger.infoln(F("WiFi connected ("), ip, F("): "), status);
+
       struct station_config config = {0};
       wifi_station_get_config(&config);
 
-      const auto ssid = NetworkName::fromStringTruncating(
-          UnsafeRawString((char *)config.ssid));
-      const auto psk = NetworkPassword::fromStringTruncating(
-          UnsafeRawString((char *)config.password));
+      const auto rawSsid = UnsafeRawString((char *)config.ssid);
+      const auto ssid = NetworkName::fromStringTruncating(rawSsid);
+      this->logger.infoln(F("Connected to network:"), ssid.asString());
+
+      const auto rawPsk = UnsafeRawString((char *)config.password);
+      const auto psk = NetworkPassword::fromStringTruncating(rawPsk);
 
       const auto maybeCurrConfig = this->flash.readWifiConfig();
       if (maybeCurrConfig.isSome()) {
-        const WifiCredentials &currConfig =
-            maybeCurrConfig.asRef().expect(F("maybeCurrConfig is none"));
-        if (strcmp(currConfig.ssid.asString().get(), ssid.asString().get()) &&
-            strcmp(currConfig.password.asString().get(),
-                   psk.asString().get())) {
+        const auto &currConfig = UNWRAP_REF(maybeCurrConfig);
+
+        if (currConfig.ssid.asString() == ssid.asString() &&
+            currConfig.password.asString() == psk.asString()) {
+          // No need to save credential that already are stored
           break;
         }
-
-        this->flash.writeWifiConfig(
-            (struct WifiCredentials){.ssid = ssid, .password = psk});
       }
-      this->logger.info(F("Connected to:"), START, F(" "));
-      this->logger.info(ssid.asString(), CONTINUITY);
+
+      this->flash.writeWifiConfig({.ssid = ssid, .password = psk});
 #endif
       break;
     };
   }
 
   void handleCredentials(const Option<AuthToken> &maybeToken) noexcept {
-    const auto result =
-        this->credentialsServer.serve(this->flash.readWifiConfig(), maybeToken);
-    if (result.isErr()) {
-      const ServeError &err =
-          result.asRef().expectErr(F("Result is ok but shouldn't: at loop()"));
-      switch (err) {
+    const auto wifiConfig = this->flash.readWifiConfig();
+    const auto result = this->credentialsServer.serve(wifiConfig, maybeToken);
+
+    if (IS_ERR(result)) {
+      switch (UNWRAP_ERR_REF(result)) {
       case ServeError::INVALID_WIFI_CONFIG:
         this->flash.removeWifiConfig();
         break;
       }
-    } else if (result.isOk()) {
-      const Option<AuthToken> &opt =
-          result.asRef().expectOk(F("Result is err but shouldn't: at loop()"));
+
+    } else {
+      const auto &opt = UNWRAP_OK_REF(result);
+
       if (opt.isSome()) {
-        this->flash.writeAuthToken(opt.asRef().expect(
-            F("AuthToken is None but shouldn't: at loop()")));
+        this->flash.writeAuthToken(UNWRAP_REF(opt));
       }
     }
   }
 
   void handlePlant(const AuthToken &token) const noexcept {
     const auto maybePlantId = this->api.registerPlant(token);
-    if (maybePlantId.isErr()) {
-      this->logger.error(F("Unable to get plant id"));
-      const Option<HttpCode> &maybeStatusCode =
-          maybePlantId.asRef().expectErr(F("maybePlantId is Ok but shouldn't"));
+
+    if (IS_ERR(maybePlantId)) {
+      this->logger.errorln(F("Unable to get plant id"));
+
+      const auto &maybeStatusCode = UNWRAP_ERR_REF(maybePlantId);
+
       if (maybeStatusCode.isSome()) {
-        const HttpCode &code =
-            maybeStatusCode.asRef().expect(F("maybeStatusCode is None"));
+        const auto &code = UNWRAP_REF(maybeStatusCode);
+
+        // Forbidden (403): our auth token is invalid
+        // Not found (404): our plant id is invalid (shouldn't happen)
+        // Bad request (400): the json didn't fit the local buffer, this bad
         if (code == 403) {
           this->flash.removeAuthToken();
+        } else if (code == 404) {
+          this->flash.removePlantId();
+        } else if (code == 400) {
+          // TODO: handle this (how tho?)
         }
       }
-    } else if (maybePlantId.isOk()) {
-      const PlantId &plantId =
-          maybePlantId.asRef().expectOk(F("maybePlantId is Err but shouldn't"));
-      this->flash.writePlantId(plantId);
+    } else if (IS_OK(maybePlantId)) {
+      this->flash.writePlantId(UNWRAP_OK_REF(maybePlantId));
     }
   }
 
   void handleMeasurements(const AuthToken &token, const PlantId &id) noexcept {
     this->nextTime = millis() + interval;
-    this->logger.info(F("Timer triggered"));
+    this->logger.debugln(F("Handle Measurements"));
 
     digitalWrite(LED_BUILTIN, HIGH);
-    const auto maybeStatus =
-        this->api.registerEvent(token, sensors.measure(id));
+    const auto measurements = sensors.measure(id, this->firmwareHash);
+    const auto maybeStatus = this->api.registerEvent(token, measurements);
 
     if (maybeStatus.isNone()) {
       digitalWrite(LED_BUILTIN, LOW);
       return;
     }
 
-    const HttpCode &status = maybeStatus.asRef().expect(F("Status is none"));
+    const auto &status = UNWRAP_REF(maybeStatus);
     if (status == 403) {
-      this->logger.warn(F("Auth token was refused, deleting it"));
+      this->logger.warnln(F("Auth token was refused, deleting it"));
       this->flash.removeAuthToken();
     } else if (status == 404) {
-      this->logger.warn(F("Plant Id was not found, deleting it"));
+      this->logger.warnln(F("Plant Id was not found, deleting it"));
       this->flash.removePlantId();
+    } else if (status == 412) { // Must upgrade binary
+      interruptEvent = MUST_UPGRADE;
     }
     digitalWrite(LED_BUILTIN, LOW);
   }
 };
 
-PROGMEM_STRING(expected, "No host available");
-std::unique_ptr<EventLoop> eventLoop =
-    std::unique_ptr<EventLoop>(new EventLoop(host.asRef().expect(expected)));
+PROGMEM_STRING(missingHost, "No host available");
+auto eventLoop = make_unique<EventLoop>(host.asRef().expect(missingHost));
 
 void setup() noexcept { eventLoop->setup(); }
-
-void loop() noexcept {
-  eventLoop->loop();
-  yield();
-}
+void loop() noexcept { eventLoop->loop(); }

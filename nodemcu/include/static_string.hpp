@@ -1,7 +1,9 @@
-#ifndef IOP_STATIC_STRING_H_
-#define IOP_STATIC_STRING_H_
+#ifndef IOP_STATIC_STRING_H
+#define IOP_STATIC_STRING_H
 
-#include <WString.h>
+#include "WString.h"
+
+class StringView;
 
 /// Helper string that holds a pointer to a string stored in PROGMEM
 /// It's here to provide a typesafe way to handle PROGMEM data and to avoid
@@ -32,6 +34,8 @@ public:
   constexpr const __FlashStringHelper *const get() const noexcept {
     return this->str;
   }
+  bool contains(const StaticString needle) const noexcept;
+  bool contains(const StringView needle) const noexcept;
   size_t length() const noexcept { return strlen_P(this->asCharPtr()); }
   bool isEmpty() const noexcept { return this->length() == 0; }
   constexpr const char *const asCharPtr() const noexcept {

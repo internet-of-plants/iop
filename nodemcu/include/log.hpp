@@ -1,9 +1,12 @@
-#ifndef IOP_LOG_H_
-#define IOP_LOG_H_
+#ifndef IOP_LOG_H
+#define IOP_LOG_H
 
-#include <option.hpp>
-#include <static_string.hpp>
-#include <string_view.hpp>
+#include "option.hpp"
+#include "static_string.hpp"
+#include "string_view.hpp"
+
+// TODO: think about remote logging (at least errors/crits) - syslog?
+// TODO: think about logging some important things to flash (FS.h)
 
 enum LogLevel { TRACE = 0, DEBUG, INFO, WARN, ERROR, CRIT };
 
@@ -24,7 +27,7 @@ private:
   void log(const LogLevel level, const StaticString msg,
            const enum LogType logType,
            const StaticString lineTermination) const noexcept;
-  void log(const LogLevel level, const char *const msg,
+  void log(const LogLevel level, const StringView msg,
            const enum LogType logType,
            const StaticString lineTermination) const noexcept;
 
@@ -34,54 +37,96 @@ public:
   Log(const LogLevel level, const StaticString target,
       const bool flush) noexcept
       : logLevel{level}, targetLogger(target), flush{flush} {}
-  Log(Log &other) = delete;
-  Log(Log &&other) = delete;
-  Log &operator=(Log &other) = delete;
-  Log &operator=(Log &&other) = delete;
+  Log(Log &other) noexcept
+      : logLevel(other.logLevel),
+        targetLogger(other.targetLogger), flush{other.flush} {}
+  Log(Log &&other) noexcept
+      : logLevel(other.logLevel),
+        targetLogger(other.targetLogger), flush{other.flush} {}
+  Log &operator=(Log &other) noexcept {
+    this->logLevel = other.logLevel;
+    this->targetLogger = other.targetLogger;
+    this->flush = other.flush;
+    return *this;
+  }
+  Log &operator=(Log &&other) noexcept {
+    this->logLevel = other.logLevel;
+    this->targetLogger = other.targetLogger;
+    this->flush = other.flush;
+    return *this;
+  }
   LogLevel level() const noexcept { return this->logLevel; }
   StaticString target() const noexcept { return this->targetLogger; }
   void setup() const noexcept;
 
-  void trace(const StaticString &msg, const enum LogType logType = START,
-             const StaticString lineTermination =
-                 defaultLineTermination) const noexcept;
-  void debug(const StaticString &msg, const enum LogType logType = START,
-             const StaticString lineTermination =
-                 defaultLineTermination) const noexcept;
-  void info(const StaticString &msg, const enum LogType logType = START,
-            const StaticString lineTermination =
-                defaultLineTermination) const noexcept;
-  void warn(const StaticString &msg, const enum LogType logType = START,
-            const StaticString lineTermination =
-                defaultLineTermination) const noexcept;
-  void error(const StaticString &msg, const enum LogType logType = START,
-             const StaticString lineTermination =
-                 defaultLineTermination) const noexcept;
-  void crit(const StaticString &msg, const enum LogType logType = START,
-            const StaticString lineTermination =
-                defaultLineTermination) const noexcept;
+  template <typename... Args> void traceln(const Args &...args) const noexcept {
+    this->log_recursive(TRACE, true, args...);
+  }
+  template <typename... Args> void debugln(const Args &...args) const noexcept {
+    this->log_recursive(DEBUG, true, args...);
+  }
+  template <typename... Args> void infoln(const Args &...args) const noexcept {
+    this->log_recursive(INFO, true, args...);
+  }
+  template <typename... Args> void warnln(const Args &...args) const noexcept {
+    this->log_recursive(WARN, true, args...);
+  }
+  template <typename... Args> void errorln(const Args &...args) const noexcept {
+    this->log_recursive(ERROR, true, args...);
+  }
+  template <typename... Args> void critln(const Args &...args) const noexcept {
+    this->log_recursive(CRIT, true, args...);
+  }
 
-  void trace(const StringView &msg, const enum LogType logType = START,
-             const StaticString lineTermination =
-                 defaultLineTermination) const noexcept;
-  void debug(const StringView &msg, const enum LogType logType = START,
-             const StaticString lineTermination =
-                 defaultLineTermination) const noexcept;
-  void info(const StringView &msg, const enum LogType logType = START,
-            const StaticString lineTermination =
-                defaultLineTermination) const noexcept;
-  void warn(const StringView &msg, const enum LogType logType = START,
-            const StaticString lineTermination =
-                defaultLineTermination) const noexcept;
-  void error(const StringView &msg, const enum LogType logType = START,
-             const StaticString lineTermination =
-                 defaultLineTermination) const noexcept;
-  void crit(const StringView &msg, const enum LogType logType = START,
-            const StaticString lineTermination =
-                defaultLineTermination) const noexcept;
+  // "Recursive" variadic function
+  template <typename... Args>
+  void log_recursive(const LogLevel level, const bool first,
+                     const StaticString msg,
+                     const Args &...args) const noexcept {
+    if (first) {
+      this->log(level, msg, START, F(""));
+    } else {
+      this->log(level, msg, CONTINUITY, F(""));
+    }
+    this->log_recursive(level, false, args...);
+  }
+
+  // Terminator
+  template <typename... Args>
+  void log_recursive(const LogLevel level, const bool first,
+                     const StaticString msg) const noexcept {
+    if (first) {
+      this->log(level, msg, START, F("\n"));
+    } else {
+      this->log(level, msg, CONTINUITY, F("\n"));
+    }
+  }
+
+  // "Recursive" variadic function
+  template <typename... Args>
+  void log_recursive(const LogLevel level, const bool first,
+                     const StringView msg, const Args &...args) const noexcept {
+    if (first) {
+      this->log(level, msg, START, F(""));
+    } else {
+      this->log(level, msg, CONTINUITY, F(""));
+    }
+    this->log_recursive(level, false, args...);
+  }
+
+  // Terminator
+  template <typename... Args>
+  void log_recursive(const LogLevel level, const bool first,
+                     const StringView msg) const noexcept {
+    if (first) {
+      this->log(level, msg, START, F("\n"));
+    } else {
+      this->log(level, msg, CONTINUITY, F("\n"));
+    }
+  }
 };
 
-#include <utils.hpp>
+#include "utils.hpp"
 #ifndef IOP_SERIAL
 #define IOP_LOG_DISABLED
 #endif

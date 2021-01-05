@@ -1,19 +1,55 @@
-#ifndef IOP_RESULT_H_
-#define IOP_RESULT_H_
+#ifndef IOP_RESULT_H
+#define IOP_RESULT_H
 
-#include <cstdint>
+#include "option.hpp"
+#include "static_string.hpp"
+#include "string_view.hpp"
 #include <functional>
-#include <panic.hpp>
+
+#include "panic.hpp"
 
 class StringView;
 class StaticString;
+
+#define RESULT_MAP_OK(res, type, func)                                         \
+  res.mapOk<type>(func, F(#res), CUTE_FILE, CUTE_LINE, CUTE_FUNC)
+
+#define UNWRAP_OK_OR(res, or_)                                                 \
+  std::move(res.unwrapOkOr(or_, F(#res), CUTE_FILE, CUTE_LINE, CUTE_FUNC))
+#define UNWRAP_ERR_OR(res, or_)                                                \
+  std::move(res.unwrapErrOr(or_, F(#res), CUTE_FILE, CUTE_LINE, CUTE_FUNC))
+
+#define UNWRAP_OK(res)                                                         \
+  std::move(res.expectOk(F(#res " isn't Ok"), CUTE_FILE, CUTE_LINE, CUTE_FUNC))
+#define UNWRAP_OK_REF(res)                                                     \
+  UNWRAP_OK(res.asRef(F(#res), CUTE_FILE, CUTE_LINE, CUTE_FUNC)).get()
+#define UNWRAP_OK_MUT(res)                                                     \
+  UNWRAP_OK(res.asMut(F(#res), CUTE_FILE, CUTE_LINE, CUTE_FUNC)).get()
+
+#define UNWRAP_ERR(r)                                                          \
+  std::move(r.expectErr(F(#r " isn't Err"), CUTE_FILE, CUTE_LINE, CUTE_FUNC))
+#define UNWRAP_ERR_REF(res) UNWRAP_ERR(RESULT_AS_REF(res)).get()
+#define UNWRAP_ERR_MUT(res) UNWRAP_ERR(RESULT_AS_MUT(res)).get()
+
+#define RESULT_AS_REF(res) res.asRef(F(#res), CUTE_FILE, CUTE_LINE, CUTE_FUNC)
+#define RESULT_AS_MUT(res) res.asMut(F(#res), CUTE_FILE, CUTE_LINE, CUTE_FUNC)
+
+#define IS_OK(res) res.isOk(F(#res), CUTE_FILE, CUTE_LINE, CUTE_FUNC)
+#define IS_ERR(res) res.isErr(F(#res), CUTE_FILE, CUTE_LINE, CUTE_FUNC)
+
+#define OK(res) res.ok(F(#res), CUTE_FILE, CUTE_LINE, CUTE_FUNC)
+#define ERR(res) res.err(F(#res), CUTE_FILE, CUTE_LINE, CUTE_FUNC)
 
 /// Result sumtype, may be ok and contain a T, or not be ok and contain an E
 /// This type can be moved out, so it _will_ be empty, it will panic if tried to
 /// access after a move instead of causing undefined behavior
 ///
+/// You should probably use the macros defined above, instead of directly using
+/// Result's methods. They will report where empty results were accessed.
+/// Most used macros will be IS_{OK, ERR}, UNWRAP_{OK, ERR}_{REF, MUT}
+///
 /// Most methods move out by default. You probably want to call `.asRef()`
-/// before moving it out
+/// before moving it out (UNWRAP_REF)
 ///
 /// Pwease no exception at T's or E's destructor
 template <typename T, typename E> class Result {
@@ -22,7 +58,7 @@ private:
   enum ResultKind kind_;
   union {
     uint8_t dummy;
-    T ok;
+    T success;
     E error;
   };
 
@@ -32,7 +68,7 @@ private:
     case EMPTY:
       return;
     case OK:
-      this->ok.~T();
+      this->success.~T();
       break;
     case ERROR:
       this->error.~E();
@@ -41,7 +77,7 @@ private:
   }
 
 public:
-  Result(T v) noexcept : kind_(OK), ok(std::move(v)) {}
+  Result(T v) noexcept : kind_(OK), success(std::move(v)) {}
   Result(E e) noexcept : kind_(ERROR), error(std::move(e)) {}
   Result(Result<T, E> &other) = delete;
   Result<T, E> &operator=(Result<T, E> &other) = delete;
@@ -50,13 +86,13 @@ public:
     this->kind_ = other.kind_;
     switch (this->kind_) {
     case OK:
-      this->ok = std::move(other.ok);
+      this->success = std::move(other.success);
       break;
     case ERROR:
       this->error = std::move(other.error);
       break;
     case EMPTY:
-      panic_(F("Tried to move out of an empty result, at operator="));
+      panic_(F("Result is empty"));
       break;
     }
     other.reset();
@@ -67,13 +103,13 @@ public:
     this->kind_ = other.kind_;
     switch (this->kind_) {
     case OK:
-      this->ok = std::move(other.ok);
+      this->success = std::move(other.success);
       break;
     case ERROR:
       this->error = std::move(other.error);
       break;
     case EMPTY:
-      panic_(F("Tried to move out of an empty result, at constructor"));
+      panic_(F("Result is empty"));
       break;
     }
     other.reset();
@@ -87,7 +123,7 @@ public:
       return false;
     case EMPTY:
     default:
-      panic_(F("Result is empty, at isOk"));
+      panic_(F("Result is empty"));
     }
   }
   bool isErr() const noexcept {
@@ -98,84 +134,62 @@ public:
       return false;
     case EMPTY:
     default:
-      panic_(F("Result is empty, at isErr"));
+      panic_(F("Result is empty"));
     }
   }
-  T expectOk(const StringView &msg) noexcept {
-    if (this->isEmpty())
-      panic_(F("Result is empty, at expectOk"));
-    if (this->isErr())
+  T expectOk(const StringView msg) noexcept {
+    if (IS_ERR(*this))
       panic_(msg);
-    T value = std::move(this->ok);
+
+    T value = std::move(this->success);
     this->reset();
     return value;
   }
-  T expectOk(const StaticString &msg) noexcept {
-    if (this->isEmpty())
-      panic_(F("Result is empty, at expectOk"));
-    if (this->isErr())
+  T expectOk(const StaticString msg) noexcept {
+    if (IS_ERR(*this))
       panic_(msg);
-    T value = std::move(this->ok);
+
+    T value = std::move(this->success);
     this->reset();
     return value;
-  }
-  T unwrapOk() noexcept {
-    if (this->isEmpty())
-      panic_(F("Result is empty, at unwrapOk"));
-    return this->expectOk(F("Tried to unwrapOk an errored Result"));
   }
   T unwrapOkOr(const T or_) noexcept {
-    if (this->isEmpty())
-      panic_(F("Result is empty, at unwrapOkOr"));
-    if (this->isOk()) {
-      const auto val = std::move(this->ok);
-      this->reset();
-      return val;
-    } else if (this->isErr()) {
+    if (IS_ERR(*this))
       return or_;
-    }
+
+    const auto val = std::move(this->success);
+    this->reset();
+    return val;
   }
-  E expectErr(const StringView &msg) noexcept {
-    if (this->isEmpty())
-      panic_(F("Result is empty, at expectErr"));
-    if (this->isOk())
+  E expectErr(const StringView msg) noexcept {
+    if (IS_OK(*this))
       panic_(msg);
+
     const E value = std::move(this->error);
     this->reset();
     return value;
   }
-  E expectErr(const StaticString &msg) noexcept {
-    if (this->isEmpty())
-      panic_(F("Result is empty, at expectErr"));
-    if (this->isOk())
+  E expectErr(const StaticString msg) noexcept {
+    if (IS_OK(*this))
       panic_(msg);
+
     E value = std::move(this->error);
     this->reset();
     return value;
   }
-  E unwrapErr() noexcept {
-    if (this->isEmpty())
-      panic_(F("Result is empty, at unwrapErr"));
-    return this->expectErr(F("Tried to unwrapErr a Result that succeeded"));
-  }
   E unwrapErrOr(const E or_) noexcept {
-    if (this->isEmpty())
-      panic_(F("Result is empty, at unwrapErrOr"));
-    if (this->isErr()) {
-      const auto val = std::move(this->err);
-      this->reset();
-      return val;
-    } else if (this->isOk()) {
+    if (IS_OK(*this))
       return or_;
-    }
+
+    const auto val = std::move(this->err);
+    this->reset();
+    return val;
   }
 
   Result<std::reference_wrapper<T>, std::reference_wrapper<E>>
   asMut() noexcept {
-    if (this->isEmpty())
-      panic_(F("Result is empty, at asMut"));
-    else if (this->isOk()) {
-      return std::reference_wrapper<T>(this->ok);
+    if (IS_OK(*this)) {
+      return std::reference_wrapper<T>(this->success);
     } else {
       return std::reference_wrapper<E>(this->error);
     }
@@ -183,10 +197,8 @@ public:
 
   Result<std::reference_wrapper<const T>, std::reference_wrapper<const E>>
   asRef() const noexcept {
-    if (this->isEmpty())
-      panic_(F("Result is empty, at asRef"));
-    else if (this->isOk()) {
-      return std::reference_wrapper<const T>(this->ok);
+    if (IS_OK(*this)) {
+      return std::reference_wrapper<const T>(this->success);
     } else {
       return std::reference_wrapper<const E>(this->error);
     }
@@ -194,16 +206,168 @@ public:
 
   template <typename U>
   Result<U, E> mapOk(std::function<U(const T)> f) noexcept {
-    if (this->isEmpty())
-      panic_(F("Result is empty, at mapOk"));
-    else if (this->isOk()) {
-      const auto val = f(std::move(this->ok));
+    if (IS_OK(*this)) {
+      auto val = f(std::move(this->success));
+      this->reset();
+      return std::move(val);
+    } else {
+      auto val = std::move(this->error);
+      this->reset();
+      return std::move(val);
+    }
+  }
+
+  Option<T> ok() noexcept {
+    if (IS_ERR(*this))
+      return Option<T>();
+
+    auto val = std::move(this->success);
+    this->reset();
+    return std::move(val);
+  }
+
+  Option<T> err() noexcept {
+    if (IS_OK(*this))
+      return Option<T>();
+
+    auto val = std::move(this->error);
+    this->reset();
+    return std::move(val);
+  }
+
+  // Allows more detailed panics, used by UNWRAP(_OK, _ERR)(_REF, _MUT) macros
+  Result<std::reference_wrapper<T>, std::reference_wrapper<E>>
+  asMut(const StaticString varName, const StaticString file,
+        const uint32_t line, const StringView func) noexcept {
+    if (this->isOk(varName, file, line, func)) {
+      return std::reference_wrapper<T>(this->success);
+    } else {
+      return std::reference_wrapper<E>(this->error);
+    }
+  }
+
+  Result<std::reference_wrapper<const T>, std::reference_wrapper<const E>>
+  asRef(const StaticString varName, const StaticString file,
+        const uint32_t line, const StringView func) const noexcept {
+    if (this->isOk(varName, file, line, func)) {
+      return std::reference_wrapper<const T>(this->success);
+    } else {
+      return std::reference_wrapper<const E>(this->error);
+    }
+  }
+
+  T expectOk(const StringView msg, const StaticString file, const uint32_t line,
+             const StringView func) noexcept {
+    if (this->isErr(msg, file, line, func))
+      panic__(msg, file, line, func);
+
+    T value = std::move(this->success);
+    this->reset();
+    return value;
+  }
+  T expectOk(const StaticString msg, const StaticString file,
+             const uint32_t line, const StringView func) noexcept {
+    if (this->isErr(msg, file, line, func))
+      panic__(msg, file, line, func);
+
+    T value = std::move(this->success);
+    this->reset();
+    return value;
+  }
+  E expectErr(const StringView msg, const StaticString file,
+              const uint32_t line, const StringView func) noexcept {
+    if (this->isOk(msg, file, line, func))
+      panic__(msg, file, line, func);
+
+    T value = std::move(this->error);
+    this->reset();
+    return value;
+  }
+  E expectErr(const StaticString msg, const StaticString file,
+              const uint32_t line, const StringView func) noexcept {
+    if (this->isOk(msg, file, line, func))
+      panic__(msg, file, line, func);
+
+    E value = std::move(this->error);
+    this->reset();
+    return value;
+  }
+  Option<T> ok(const StaticString varName, const StaticString file,
+               const uint32_t line, const StringView func) noexcept {
+    if (this->isErr(varName, file, line, func))
+      return Option<T>();
+
+    const auto val = std::move(this->success);
+    this->reset();
+    return val;
+  }
+
+  Option<T> err(const StaticString varName, const StaticString file,
+                const uint32_t line, const StringView func) noexcept {
+    if (this->isOk(varName, file, line, func))
+      panic__(varName, file, line, func);
+
+    T value = std::move(this->error);
+    this->reset();
+    return value;
+  }
+
+  template <typename U>
+  Result<U, E> mapOk(std::function<U(const T)> f, const StaticString varName,
+                     const StaticString file, const uint32_t line,
+                     const StringView func) noexcept {
+    if (this->isOk(varName, file, line, func)) {
+      const auto val = f(std::move(this->success));
       this->reset();
       return val;
-    } else /*if (this->isErr())*/ {
+
+    } else {
       const auto val = std::move(this->error);
       this->reset();
       return val;
+    }
+  }
+  T unwrapOkOr(const T or_, const StaticString varName, const StaticString file,
+               const uint32_t line, const StringView func) noexcept {
+    if (this->isErr(varName, file, line, func))
+      return or_;
+
+    const auto val = std::move(this->success);
+    this->reset();
+    return val;
+  }
+  E unwrapErrOr(const E or_, const StaticString varName,
+                const StaticString file, const uint32_t line,
+                const StringView func) noexcept {
+    if (this->isOk(varName, file, line, func))
+      return or_;
+
+    const auto val = std::move(this->error);
+    this->reset();
+    return val;
+  }
+  bool isOk(const StaticString varName, const StaticString file,
+            const uint32_t line, const StringView func) const noexcept {
+    switch (this->kind_) {
+    case OK:
+      return true;
+    case ERROR:
+      return false;
+    case EMPTY:
+    default:
+      panic__(String(F("Empty Result: ")) + varName.get(), file, line, func);
+    }
+  }
+  bool isErr(const StaticString varName, const StaticString file,
+             const uint32_t line, const StringView func) const noexcept {
+    switch (this->kind_) {
+    case OK:
+      return false;
+    case ERROR:
+      return true;
+    case EMPTY:
+    default:
+      panic__(String(F("Empty Result: ")) + varName.get(), file, line, func);
     }
   }
 };

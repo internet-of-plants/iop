@@ -1,10 +1,10 @@
-#ifndef IOP_CONFIGURATION_H_
-#define IOP_CONFIGURATION_H_
+#ifndef IOP_CONFIGURATION_H
+#define IOP_CONFIGURATION_H
 
+#include "log.hpp"
+#include "option.hpp"
+#include "static_string.hpp"
 #include <cstdint>
-#include <log.hpp>
-#include <option.hpp>
-#include <static_string.hpp>
 
 /// Minimum log level to print a message (if serial is enabled)
 const enum LogLevel logLevel = INFO;

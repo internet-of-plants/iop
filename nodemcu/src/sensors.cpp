@@ -1,7 +1,7 @@
-#include <sensors.hpp>
+#include "sensors.hpp"
 
 #ifndef IOP_SENSORS_DISABLED
-#include <measurement.hpp>
+#include "measurement.hpp"
 
 void Sensors::setup() noexcept {
   pinMode(this->soilResistivityPowerPin, OUTPUT);
@@ -9,7 +9,7 @@ void Sensors::setup() noexcept {
   this->soilTemperatureSensor.begin();
 }
 
-Event Sensors::measure(PlantId plantId) noexcept {
+Event Sensors::measure(PlantId plantId, MD5Hash firmwareHash) noexcept {
   return Event(
       (EventStorage){
           .airTemperatureCelsius = measurement::airTemperatureCelsius(
@@ -23,13 +23,13 @@ Event Sensors::measure(PlantId plantId) noexcept {
           .soilTemperatureCelsius =
               measurement::soilTemperatureCelsius(this->soilTemperatureSensor),
       },
-      std::move(plantId));
+      std::move(plantId), std::move(firmwareHash));
 }
 #endif
 
 #ifdef IOP_SENSORS_DISABLED
 void Sensors::setup() noexcept {}
-Event Sensors::measure(PlantId plantId) noexcept {
-  return Event((EventStorage){0}, std::move(plantId));
+Event Sensors::measure(PlantId plantId, MD5Hash firmwareHash) noexcept {
+  return Event((EventStorage){0}, std::move(plantId), std::move(firmwareHash));
 }
 #endif

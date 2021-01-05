@@ -5,9 +5,9 @@
 #ifndef _CERTSTORE_BEARSSL_H
 #define _CERTSTORE_BEARSSL_H
 
-#include <Arduino.h>
-#include <BearSSLHelpers.h>
-#include <bearssl/bearssl.h>
+#include "Arduino.h"
+#include "BearSSLHelpers.h"
+#include "bearssl/bearssl.h"
 
 namespace BearSSL {
 

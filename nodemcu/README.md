@@ -6,7 +6,7 @@ Datasheet: https://www.electrodragon.com/w/ESP-12F_ESP8266_Wifi_Board
 
 PlatformIO (nodemcu + arduino framework)
 
-Needs OpenSSL in PATH, clang-tidy and clang-format (install LLVM to get them) also should be in PATH if you want to be nice with our codebase :).
+Needs OpenSSL in PATH, clang-format (install LLVM to get it) also should be in PATH if you want to be nice with our codebase :).
 
 - https://wiki.openssl.org/index.php/Binaries
 - https://releases.llvm.org/download.html
@@ -49,6 +49,8 @@ Most decisions are listed here. If you find some other questionable decision ple
 - Hijack all moves to make copies
 
     Since cpp doesn't have destructive moves, it can leave our code in invalid state. Either with a nulled `std::{unique_ptr,shared_ptr}`. Or with a empty `Result<T, E>`. And since those abstractions are heavily used throughout the code we don't want a human mistake to cause UB, panic or raise exceptions. To prevent that we try to hijack moves when we can, and force them to operate like copies. Either by doing it in a smart-pointer wrapper (`Storage<SIZE>`, `FixedString<SIZE>`...). Or by calling `.asRef()` or `.asMut()` (on `Option<T>` or `Result<T, E>`), since we don't need to move out of the object, we can move a reference out and keep the original intact.
+
+    For `Optional<T>` `UNWRAP_{REF, MUT}` macros are the best way to ergonomically access a reference to the inner value, although `UNWRAP` also is available. And for `Result<T, E>` you should not use `Result` methods, but only the macros defined in `result.hpp`, like `UNWRAP_{OK, ERR}(_REF, _MUT)`, `IS_{OK, ERR}`, `{OK, ERR}`, etc. All methods have a macro alternative, that checks for an emptied Result and properly reports the invalid access location.
 
 - No exceptions, but we halt using the `panic_` macro
 

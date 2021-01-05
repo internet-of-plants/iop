@@ -1,11 +1,10 @@
-#ifndef IOP_FLASH_H_
-#define IOP_FLASH_H_
+#ifndef IOP_FLASH_H
+#define IOP_FLASH_H
 
-#include <ESP8266WiFi.h>
-
-#include <log.hpp>
-#include <models.hpp>
-#include <option.hpp>
+#include "ESP8266WiFi.h"
+#include "log.hpp"
+#include "models.hpp"
+#include "option.hpp"
 
 /// Wraps flash memory to provide a API that satisfies our storage needs
 class Flash {
@@ -13,8 +12,8 @@ class Flash {
 
 public:
   Flash(const LogLevel logLevel) noexcept : logger(logLevel, F("FLASH")) {}
-  Flash(Flash &other) = delete;
-  Flash(Flash &&other) = delete;
+  Flash(Flash &other) noexcept : logger(other.logger) {}
+  Flash(Flash &&other) noexcept : logger(other.logger) {}
   Flash &operator=(Flash &other) = delete;
   Flash &operator=(Flash &&other) = delete;
   void setup() const noexcept;
@@ -27,12 +26,12 @@ public:
   void removePlantId() const noexcept;
   void writePlantId(const PlantId &id) const noexcept;
 
-  Option<struct WifiCredentials> readWifiConfig() const noexcept;
+  Option<WifiCredentials> readWifiConfig() const noexcept;
   void removeWifiConfig() const noexcept;
-  void writeWifiConfig(const struct WifiCredentials &id) const noexcept;
+  void writeWifiConfig(const WifiCredentials &id) const noexcept;
 };
 
-#include <utils.hpp>
+#include "utils.hpp"
 #ifndef IOP_FLASH
 #define IOP_FLASH_DISABLED
 #endif

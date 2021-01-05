@@ -1,10 +1,10 @@
-#include <reset.hpp>
+#include "reset.hpp"
 
 #ifndef IOP_FACTORY_RESET_DISABLED
-#include <Arduino.h>
-#include <configuration.h>
-#include <log.hpp>
-#include <utils.hpp>
+#include "Arduino.h"
+#include "configuration.h"
+#include "log.hpp"
+#include "utils.hpp"
 
 PROGMEM_STRING(logTarget, "INTERRUPT");
 const Log logger(logLevel, logTarget, false);
@@ -18,7 +18,7 @@ void ICACHE_RAM_ATTR buttonOpen() noexcept {
                   RISING);
   if (resetStateTime + 15000 < millis()) {
     interruptEvent = FACTORY_RESET;
-    logger.info(
+    logger.infoln(
         F("Setted FACTORY_RESET flag, running it in the next loop run"));
   }
 }
@@ -28,8 +28,9 @@ void ICACHE_RAM_ATTR buttonClosed() noexcept {
   attachInterrupt(digitalPinToInterrupt(factoryResetButton), buttonOpen,
                   FALLING);
   resetStateTime = millis();
-  logger.info(F("Pressed FACTORY_RESET button. Keep it pressed for at least 15 "
-                "seconds to factory reset your device"));
+  logger.infoln(
+      F("Pressed FACTORY_RESET button. Keep it pressed for at least 15 "
+        "seconds to factory reset your device"));
 }
 
 namespace reset {

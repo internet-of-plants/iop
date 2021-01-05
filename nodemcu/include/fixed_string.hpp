@@ -1,8 +1,8 @@
-#ifndef IOP_FIXED_STRING_VIEW_H_
-#define IOP_FIXED_STRING_VIEW_H_
+#ifndef IOP_FIXED_STRING_VIEW_H
+#define IOP_FIXED_STRING_VIEW_H
 
-#include <storage.hpp>
-#include <string_view.hpp>
+#include "storage.hpp"
+#include "string_view.hpp"
 
 /// String of fixed size. Heap allocated, but has fixed size
 template <uint16_t SIZE> class FixedString {
@@ -18,17 +18,20 @@ public:
   FixedString<SIZE>(FixedString<SIZE> &&other) noexcept
       : str(std::move(other.str)) {}
   FixedString<SIZE> &operator=(FixedString<SIZE> &other) noexcept {
-    this->str = other;
+    this->str = other.asStorage();
     return *this;
   }
-  FixedString<SIZE> &operator=(FixedString<SIZE> &&other) = delete;
+  FixedString<SIZE> &operator=(FixedString<SIZE> &&other) noexcept {
+    this->str = other.asStorage();
+    return *this;
+  }
   constexpr const char *const get() const noexcept {
     return this->str.asString().get();
   }
   char *const asMut() noexcept {
     return reinterpret_cast<char *>(this->str.mutPtr());
   }
-  Storage<SIZE> &asStorage() const noexcept { return this->str; }
+  Storage<SIZE> asStorage() const noexcept { return this->str; }
   static FixedString<SIZE> empty() noexcept { return Storage<SIZE>::empty(); }
   size_t length() const noexcept { return strlen(this->get()); }
   bool isEmpty() const noexcept { return this->length() == 0; }

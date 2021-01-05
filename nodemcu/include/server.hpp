@@ -1,5 +1,5 @@
-#ifndef IOP_SERVER_H_
-#define IOP_SERVER_H_
+#ifndef IOP_SERVER_H
+#define IOP_SERVER_H
 
 #include <Arduino.h>
 #include <DNSServer.h>
@@ -36,6 +36,9 @@ private:
   unsigned long nextTryHardcodedWifiCredentials = 0;
   unsigned long nextTryHardcodedIopCredentials = 0;
 
+  using Server = std::shared_ptr<ESP8266WebServer>;
+  void makeRouter(const Server &s) const noexcept;
+
 public:
   station_status_t connect(const StringView ssid,
                            const StringView password) const noexcept;
@@ -44,21 +47,24 @@ public:
                const StringView password) const noexcept;
 
   CredentialsServer(const StaticString host, const LogLevel logLevel) noexcept
-      : logger(logLevel, F("SERVER")), api(new Api(host, logLevel)),
-        flash(new Flash(logLevel)) {}
+      : logger(logLevel, F("SERVER")), api(make_unique<Api>(host, logLevel)),
+        flash(make_unique<Flash>(Flash(logLevel))) {}
   CredentialsServer(CredentialsServer &other) = delete;
   CredentialsServer(CredentialsServer &&other) = delete;
   CredentialsServer &operator=(CredentialsServer &other) = delete;
   CredentialsServer &operator=(CredentialsServer &&other) = delete;
 
   Result<Option<AuthToken>, ServeError>
-  serve(const Option<struct WifiCredentials> &storedWifi,
+  serve(const Option<WifiCredentials> &storedWifi,
         const Option<AuthToken> &authToken) noexcept;
   void close() noexcept;
   void start() noexcept;
+
+  Option<StaticString>
+  statusToString(const station_status_t status) const noexcept;
 };
 
-#include <utils.hpp>
+#include "utils.hpp"
 #ifndef IOP_ONLINE
 #define IOP_SERVER_DISABLED
 #endif

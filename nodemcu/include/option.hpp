@@ -1,11 +1,16 @@
-#ifndef IOP_OPTION_H_
-#define IOP_OPTION_H_
+#ifndef IOP_OPTION_H
+#define IOP_OPTION_H
 
-#include <fixed_string.hpp>
+#include "static_string.hpp"
+#include "string_view.hpp"
 #include <functional>
-#include <panic.hpp>
-#include <string_view.hpp>
-#include <utils.hpp>
+
+#include "panic.hpp"
+
+#define UNWRAP(opt)                                                            \
+  std::move(opt.expect(F(#opt " is None"), CUTE_FILE, CUTE_LINE, CUTE_FUNC))
+#define UNWRAP_REF(opt) UNWRAP(opt.asRef()).get()
+#define UNWRAP_MUT(opt) UNWRAP(opt.asMut()).get()
 
 /// Optional sum-type, may be filled and contain a T, or not be filled and
 /// unable to access it methods panic instead of causing undefined behavior
@@ -109,9 +114,6 @@ public:
     this->reset();
     return value;
   }
-  T unwrap() noexcept {
-    return this->expect(F("Tried to unwrap an empty Option"));
-  }
   T unwrapOr(T or_) noexcept {
     if (this->isSome()) {
       return this->expect(F("unwrapOr is broken"));
@@ -142,6 +144,26 @@ public:
     if (this->isSome())
       return std::move(this);
     return v();
+  }
+
+  // Allows for more detailed panics, used by UNWRAP(_REF, _MUT) macros
+  T expect(const StringView msg, const StaticString file, const uint32_t line,
+           const StringView func) noexcept {
+    if (this->isNone()) {
+      panic__(msg, file, line, func);
+    }
+    const T value = std::move(this->value);
+    this->reset();
+    return value;
+  }
+  T expect(const StaticString msg, const StaticString file, const uint32_t line,
+           const StringView func) noexcept {
+    if (this->isNone()) {
+      panic__(msg, file, line, func);
+    }
+    T value = std::move(this->value);
+    this->reset();
+    return value;
   }
 };
 

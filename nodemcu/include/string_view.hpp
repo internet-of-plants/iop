@@ -1,10 +1,10 @@
-#ifndef IOP_STRING_VIEW_H_
-#define IOP_STRING_VIEW_H_
+#ifndef IOP_STRING_VIEW_H
+#define IOP_STRING_VIEW_H
 
-#include <WString.h>
-#include <static_string.hpp>
+#include "WString.h"
+#include "static_string.hpp"
+#include "unsafe_raw_string.hpp"
 #include <string>
-#include <unsafe_raw_string.hpp>
 
 /// Borrow type to temporarily access all string abstractions as one
 /// It's basically a `const char*` with glitter. It's typesafe and can't be NULL
@@ -31,6 +31,12 @@ public:
       : str(other.asCharPtr()) {}
   constexpr StringView(const StringView &other) noexcept : str(other.str) {}
   constexpr StringView(StringView &&other) noexcept : str(other.str) {}
+  bool operator==(const StringView &other) const noexcept {
+    return strcmp(this->str, other.str);
+  }
+  bool operator==(const StaticString &other) const noexcept {
+    return strcmp(this->str, other.asCharPtr());
+  }
   StringView &operator=(const StringView &other) noexcept {
     this->str = other.str;
     return *this;
@@ -42,6 +48,14 @@ public:
   constexpr const char *const get() const noexcept { return this->str; }
   size_t length() const noexcept { return strlen(this->get()); }
   bool isEmpty() const noexcept { return this->length() == 0; }
+
+  bool contains(const StringView needle) {
+    return strstr(this->get(), needle.get()) != nullptr;
+  }
+
+  bool contains(const StaticString needle) {
+    return strstr_P(this->get(), needle.asCharPtr()) != nullptr;
+  }
 
   // FNV hash
   uint64_t hash() const noexcept {

@@ -1,8 +1,8 @@
-#ifndef IOP_MEASUREMENT_H_
-#define IOP_MEASUREMENT_H_
+#ifndef IOP_MEASUREMENT_H
+#define IOP_MEASUREMENT_H
 
-#include <DHT.h>
-#include <DallasTemperature.h>
+#include "DHT.h"
+#include "DallasTemperature.h"
 #include <cstdint>
 
 namespace measurement {
@@ -13,7 +13,7 @@ float airHeatIndexCelsius(DHT &dht) noexcept;
 uint16_t soilResistivityRaw(const uint8_t powerPin) noexcept;
 } // namespace measurement
 
-#include <utils.hpp>
+#include "utils.hpp"
 #ifndef IOP_SERIAL
 #define IOP_MEASUREMENT_DISABLED
 #endif

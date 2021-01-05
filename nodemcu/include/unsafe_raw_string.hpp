@@ -1,5 +1,5 @@
-#ifndef IOP_UNSAFE_RAW_STRING_VIEW_H_
-#define IOP_UNSAFE_RAW_STRING_VIEW_H_
+#ifndef IOP_UNSAFE_RAW_STRING_VIEW_H
+#define IOP_UNSAFE_RAW_STRING_VIEW_H
 
 class StringView;
 
@@ -16,6 +16,10 @@ private:
 
 public:
   constexpr UnsafeRawString(const char *str) noexcept : str(str) {}
+  constexpr UnsafeRawString(const UnsafeRawString &str) noexcept
+      : str(str.str) {}
+  constexpr UnsafeRawString(const UnsafeRawString &&str) noexcept
+      : str(str.str) {}
   UnsafeRawString &operator=(const UnsafeRawString &other) noexcept {
     this->str = other.str;
     return *this;
