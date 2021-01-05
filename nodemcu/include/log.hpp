@@ -59,22 +59,22 @@ public:
   StaticString target() const noexcept { return this->targetLogger; }
   void setup() const noexcept;
 
-  template <typename... Args> void traceln(const Args &...args) const noexcept {
+  template <typename... Args> void trace(const Args &...args) const noexcept {
     this->log_recursive(TRACE, true, args...);
   }
-  template <typename... Args> void debugln(const Args &...args) const noexcept {
+  template <typename... Args> void debug(const Args &...args) const noexcept {
     this->log_recursive(DEBUG, true, args...);
   }
-  template <typename... Args> void infoln(const Args &...args) const noexcept {
+  template <typename... Args> void info(const Args &...args) const noexcept {
     this->log_recursive(INFO, true, args...);
   }
-  template <typename... Args> void warnln(const Args &...args) const noexcept {
+  template <typename... Args> void warn(const Args &...args) const noexcept {
     this->log_recursive(WARN, true, args...);
   }
-  template <typename... Args> void errorln(const Args &...args) const noexcept {
+  template <typename... Args> void error(const Args &...args) const noexcept {
     this->log_recursive(ERROR, true, args...);
   }
-  template <typename... Args> void critln(const Args &...args) const noexcept {
+  template <typename... Args> void crit(const Args &...args) const noexcept {
     this->log_recursive(CRIT, true, args...);
   }
 

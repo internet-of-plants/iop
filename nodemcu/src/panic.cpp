@@ -19,15 +19,17 @@ void reportPanic(const StringView &msg, const StaticString &file,
   const Log logger(CRIT, F("PANIC"));
   const Api api(host_, TRACE);
   if (!api.isConnected()) {
-    logger.critln(F("No connection, unable to report panic"));
+    logger.crit(F("No connection, unable to report panic"));
     return;
   }
+
   const Flash flash(TRACE);
   const auto maybeToken = flash.readAuthToken();
   if (maybeToken.isNone()) {
-    logger.critln(F("No auth token, unable to report panic"));
+    logger.crit(F("No auth token, unable to report panic"));
     return;
   }
+
   const auto &token = UNWRAP_REF(maybeToken);
   const auto panicData = (PanicData){
       msg,
@@ -35,19 +37,24 @@ void reportPanic(const StringView &msg, const StaticString &file,
       line,
       func,
   };
+
   const auto resp = api.reportPanic(token, flash.readPlantId(), panicData);
   // TODO: We could broadcast panics to other devices in the same network if
   // Api::reportPanic fails
   if (resp.isSome()) {
     const auto &code = UNWRAP_REF(resp);
     if (code == 200) {
-      logger.infoln(F("Reported panic to server successfully"));
+      logger.info(F("Reported panic to server successfully"));
+
     } else {
-      logger.critln(F("Api::reportPanic failed with http code "),
-                    std::to_string(code));
+      // If this request fails there is nothing we can do besides logging it
+      logger.crit(F("Api::reportPanic failed with http code "),
+                  std::to_string(code));
     }
+
   } else {
-    logger.critln(F("Api::reportPanic failed without a HttpCode"));
+    // Nothing to be done if the connection failed during panic
+    logger.crit(F("Api::reportPanic failed without a HttpCode"));
   }
 }
 
@@ -55,8 +62,8 @@ void panic__(const StringView msg, const StaticString file, const uint32_t line,
              const StringView func) {
   delay(1000);
   const Log logger(CRIT, F("PANIC"));
-  logger.critln(F("Line "), std::to_string(line), F(" of file "), file,
-                F(" inside "), func, F(": "), msg);
+  logger.crit(F("Line "), std::to_string(line), F(" of file "), file,
+              F(" inside "), func, F(": "), msg);
   reportPanic(msg, file, line, func);
   WiFi.mode(WIFI_OFF);
   ESP.deepSleep(0);
@@ -67,8 +74,8 @@ void panic__(const StaticString msg, const StaticString file,
              const uint32_t line, const StringView func) {
   delay(1000);
   const Log logger(CRIT, F("PANIC"));
-  logger.critln(F("Line "), std::to_string(line), F(" of file "), file,
-                F(" inside "), func, F(": "), msg);
+  logger.crit(F("Line "), std::to_string(line), F(" of file "), file,
+              F(" inside "), func, F(": "), msg);
   WiFi.mode(WIFI_OFF);
   ESP.deepSleep(0);
   __panic_func(file.asCharPtr(), line, func.get());

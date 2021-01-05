@@ -305,7 +305,7 @@ public:
   Option<T> err(const StaticString varName, const StaticString file,
                 const uint32_t line, const StringView func) noexcept {
     if (this->isOk(varName, file, line, func))
-      panic__(varName, file, line, func);
+      return Option<T>();
 
     T value = std::move(this->error);
     this->reset();
@@ -360,15 +360,7 @@ public:
   }
   bool isErr(const StaticString varName, const StaticString file,
              const uint32_t line, const StringView func) const noexcept {
-    switch (this->kind_) {
-    case OK:
-      return false;
-    case ERROR:
-      return true;
-    case EMPTY:
-    default:
-      panic__(String(F("Empty Result: ")) + varName.get(), file, line, func);
-    }
+    return !this->isOk(varName, file, line, func);
   }
 };
 

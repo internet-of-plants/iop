@@ -11,7 +11,6 @@
 #include "storage.hpp"
 #include "string_view.hpp"
 
-
 #include "ArduinoJson.h"
 
 /// Abstracts Internet of Plants API to avoid mistakes and properly report
@@ -60,13 +59,13 @@ private:
 
     if (doc->overflowed()) {
       const auto s = std::to_string(SIZE);
-      this->logger.errorln(F("Payload doesn't fit Json<"), s, F("> at "), name);
+      this->logger.error(F("Payload doesn't fit Json<"), s, F("> at "), name);
       return Option<FixedString<SIZE>>();
     }
 
     auto buffer = FixedString<SIZE>::empty();
     serializeJson(*doc, buffer.asMut(), buffer.size);
-    this->logger.debugln(F("Json: "), *buffer);
+    this->logger.debug(F("Json: "), *buffer);
     return Option<FixedString<SIZE>>(buffer);
   }
 };

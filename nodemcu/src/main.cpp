@@ -63,7 +63,7 @@ public:
 
     } else if (this->nextYieldLog <= now) {
       this->nextYieldLog = now + 1000;
-      this->logger.debugln(F("Waiting"));
+      this->logger.debug(F("Waiting"));
     }
   }
 
@@ -98,7 +98,7 @@ private:
       break;
     case FACTORY_RESET:
 #ifdef IOP_FACTORY_RESET
-      this->logger.infoln(F("Factory Reset: deleting stored credentials"));
+      this->logger.info(F("Factory Reset: deleting stored credentials"));
       this->flash.removeWifiConfig();
       this->flash.removeAuthToken();
       this->flash.removePlantId();
@@ -109,14 +109,14 @@ private:
 #ifdef IOP_ONLINE
       const auto ip = WiFi.localIP().toString();
       const auto status = std::to_string(wifi_station_get_connect_status());
-      this->logger.infoln(F("WiFi connected ("), ip, F("): "), status);
+      this->logger.info(F("WiFi connected ("), ip, F("): "), status);
 
       struct station_config config = {0};
       wifi_station_get_config(&config);
 
       const auto rawSsid = UnsafeRawString((char *)config.ssid);
       const auto ssid = NetworkName::fromStringTruncating(rawSsid);
-      this->logger.infoln(F("Connected to network:"), ssid.asString());
+      this->logger.info(F("Connected to network:"), ssid.asString());
 
       const auto rawPsk = UnsafeRawString((char *)config.password);
       const auto psk = NetworkPassword::fromStringTruncating(rawPsk);
@@ -162,52 +162,68 @@ private:
     const auto maybePlantId = this->api.registerPlant(token);
 
     if (IS_ERR(maybePlantId)) {
-      this->logger.errorln(F("Unable to get plant id"));
+      this->logger.error(F("Unable to get plant id"));
 
       const auto &maybeStatusCode = UNWRAP_ERR_REF(maybePlantId);
 
       if (maybeStatusCode.isSome()) {
         const auto &code = UNWRAP_REF(maybeStatusCode);
-
-        // Forbidden (403): our auth token is invalid
-        // Not found (404): our plant id is invalid (shouldn't happen)
-        // Bad request (400): the json didn't fit the local buffer, this bad
         if (code == 403) {
           this->flash.removeAuthToken();
-        } else if (code == 404) {
-          this->flash.removePlantId();
+
         } else if (code == 400) {
           // TODO: handle this (how tho?)
+
+        } else if (code == 500) {
+          // Authentication server is broken. Nothing we can do besides waiting
+          delay(20000);
         }
+
+      } else {
+        // Authentication server is broken. Nothing we can do besides waiting
+        delay(20000);
       }
-    } else if (IS_OK(maybePlantId)) {
+
+    } else {
       this->flash.writePlantId(UNWRAP_OK_REF(maybePlantId));
     }
   }
 
   void handleMeasurements(const AuthToken &token, const PlantId &id) noexcept {
     this->nextTime = millis() + interval;
-    this->logger.debugln(F("Handle Measurements"));
+    this->logger.debug(F("Handle Measurements"));
 
     digitalWrite(LED_BUILTIN, HIGH);
     const auto measurements = sensors.measure(id, this->firmwareHash);
     const auto maybeStatus = this->api.registerEvent(token, measurements);
 
     if (maybeStatus.isNone()) {
+      // Central server is broken. Nothing we can do besides waiting
+      // It doesn't make much sense to log events to flash
       digitalWrite(LED_BUILTIN, LOW);
       return;
     }
 
     const auto &status = UNWRAP_REF(maybeStatus);
     if (status == 403) {
-      this->logger.warnln(F("Auth token was refused, deleting it"));
+      this->logger.warn(F("Auth token was refused, deleting it"));
       this->flash.removeAuthToken();
+
     } else if (status == 404) {
-      this->logger.warnln(F("Plant Id was not found, deleting it"));
+      this->logger.warn(F("Plant Id was not found, deleting it"));
       this->flash.removePlantId();
+
     } else if (status == 412) { // Must upgrade binary
       interruptEvent = MUST_UPGRADE;
+
+    } else if (status == 400) {
+      // TODO: handle this (how tho?)
+
+    } else if (status == 500) {
+      // Central server is broken. Nothing we can do besides waiting
+      // It doesn't make much sense to log events to flash
     }
+
     digitalWrite(LED_BUILTIN, LOW);
   }
 };

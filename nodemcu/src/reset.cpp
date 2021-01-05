@@ -18,7 +18,7 @@ void ICACHE_RAM_ATTR buttonOpen() noexcept {
                   RISING);
   if (resetStateTime + 15000 < millis()) {
     interruptEvent = FACTORY_RESET;
-    logger.infoln(
+    logger.info(
         F("Setted FACTORY_RESET flag, running it in the next loop run"));
   }
 }
@@ -28,7 +28,7 @@ void ICACHE_RAM_ATTR buttonClosed() noexcept {
   attachInterrupt(digitalPinToInterrupt(factoryResetButton), buttonOpen,
                   FALLING);
   resetStateTime = millis();
-  logger.infoln(
+  logger.info(
       F("Pressed FACTORY_RESET button. Keep it pressed for at least 15 "
         "seconds to factory reset your device"));
 }

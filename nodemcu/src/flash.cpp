@@ -24,7 +24,7 @@ const uint8_t plantIdIndex = authTokenIndex + authTokenSize;
 void Flash::setup() const noexcept { EEPROM.begin(512); }
 
 Option<PlantId> Flash::readPlantId() const noexcept {
-  this->logger.debugln(F("Reading PlantId from Flash"));
+  this->logger.debug(F("Reading PlantId from Flash"));
 
   if (EEPROM.read(plantIdIndex) != usedPlantIdEEPROMFlag) {
     return Option<PlantId>();
@@ -32,12 +32,12 @@ Option<PlantId> Flash::readPlantId() const noexcept {
 
   const auto ptr = (char *)EEPROM.getConstDataPtr() + plantIdIndex + 1;
   const auto id = PlantId::fromStringTruncating(UnsafeRawString(ptr));
-  this->logger.debugln(F("Plant id found: "), id.asString());
+  this->logger.debug(F("Plant id found: "), id.asString());
   return Option<PlantId>(id);
 }
 
 void Flash::removePlantId() const noexcept {
-  this->logger.debugln(F("Deleting stored plant id"));
+  this->logger.debug(F("Deleting stored plant id"));
   if (EEPROM.read(plantIdIndex) == usedPlantIdEEPROMFlag) {
     EEPROM.write(plantIdIndex, 0);
     EEPROM.commit();
@@ -45,26 +45,26 @@ void Flash::removePlantId() const noexcept {
 }
 
 void Flash::writePlantId(const PlantId &id) const noexcept {
-  this->logger.debugln(F("Writing plant id to storage: "), id.asString());
+  this->logger.debug(F("Writing plant id to storage: "), id.asString());
   EEPROM.write(plantIdIndex, usedPlantIdEEPROMFlag);
   EEPROM.put(plantIdIndex + 1, *id.asSharedArray().get());
   EEPROM.commit();
 }
 
 Option<AuthToken> Flash::readAuthToken() const noexcept {
-  this->logger.debugln(F("Reading AuthToken from Flash"));
+  this->logger.debug(F("Reading AuthToken from Flash"));
   if (EEPROM.read(authTokenIndex) != usedAuthTokenEEPROMFlag) {
     return Option<AuthToken>();
   }
 
   const auto ptr = (char *)EEPROM.getConstDataPtr() + authTokenSize + 1;
   const auto token = AuthToken::fromStringTruncating(UnsafeRawString(ptr));
-  this->logger.debugln(F("Auth token found: "), token.asString());
+  this->logger.debug(F("Auth token found: "), token.asString());
   return Option<AuthToken>(token);
 }
 
 void Flash::removeAuthToken() const noexcept {
-  this->logger.debugln(F("Deleting stored auth token"));
+  this->logger.debug(F("Deleting stored auth token"));
   if (EEPROM.read(authTokenIndex) == usedAuthTokenEEPROMFlag) {
     EEPROM.write(authTokenIndex, 0);
     EEPROM.commit();
@@ -72,14 +72,14 @@ void Flash::removeAuthToken() const noexcept {
 }
 
 void Flash::writeAuthToken(const AuthToken &token) const noexcept {
-  this->logger.debugln(F("Writing auth token to storage: "), token.asString());
+  this->logger.debug(F("Writing auth token to storage: "), token.asString());
   EEPROM.write(authTokenIndex, usedAuthTokenEEPROMFlag);
   EEPROM.put(authTokenSize + 1, *token.asSharedArray().get());
   EEPROM.commit();
 }
 
 Option<WifiCredentials> Flash::readWifiConfig() const noexcept {
-  this->logger.debugln(F("Reading WifiCredentials from Flash"));
+  this->logger.debug(F("Reading WifiCredentials from Flash"));
 
   if (EEPROM.read(wifiConfigIndex) != usedWifiConfigEEPROMFlag) {
     return Option<WifiCredentials>();
@@ -91,12 +91,12 @@ Option<WifiCredentials> Flash::readWifiConfig() const noexcept {
   const auto pskRaw = UnsafeRawString(ptr + NetworkName::size);
   const auto psk = NetworkPassword::fromStringTruncating(pskRaw);
 
-  this->logger.debugln(F("Found network credentials: "), ssid.asString());
+  this->logger.debug(F("Found network credentials: "), ssid.asString());
   return (WifiCredentials){.ssid = ssid, .password = psk};
 }
 
 void Flash::removeWifiConfig() const noexcept {
-  this->logger.debugln(F("Deleting stored wifi config"));
+  this->logger.debug(F("Deleting stored wifi config"));
   if (EEPROM.read(wifiConfigIndex) == usedWifiConfigEEPROMFlag) {
     EEPROM.write(wifiConfigIndex, 0);
     EEPROM.commit();
@@ -105,7 +105,7 @@ void Flash::removeWifiConfig() const noexcept {
 
 void Flash::writeWifiConfig(const WifiCredentials &config) const noexcept {
   const auto ssidStr = config.ssid.asString();
-  this->logger.debugln(F("Writing network credentials to storage: "), ssidStr);
+  this->logger.debug(F("Writing network credentials to storage: "), ssidStr);
   const auto &psk = *config.password.asSharedArray().get();
 
   EEPROM.write(wifiConfigIndex, usedWifiConfigEEPROMFlag);

@@ -8,7 +8,7 @@ void Log::setup() const noexcept {
   const auto end = millis() + 30000;
   while (!Serial && millis() < end)
     yield();
-  this->infoln(F("Setup"));
+  this->info(F("Setup"));
 }
 
 void Log::printLogType(const enum LogType logType,

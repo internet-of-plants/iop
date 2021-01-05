@@ -100,7 +100,7 @@ Network::httpClient(const StaticString path,
     panic_(String(error.get()) + this->host_.asCharPtr());
   }
   const auto uri = String(this->host_.get()) + path.get();
-  this->logger.infoln(uri);
+  this->logger.info(uri);
   constexpr const auto port = 4001;
 
   if (this->isConnected()) {
@@ -113,13 +113,13 @@ Network::httpClient(const StaticString path,
     client->setCertStore(certStore.get());
     // client->setInsecure();
     if (client->connect(uri, port) <= 0) {
-      this->logger.warnln(F("Failed to connect to "), uri);
+      this->logger.warn(F("Failed to connect to "), uri);
       return Option<std::shared_ptr<HTTPClient>>();
     }
     client->disableKeepAlive();
 
     if (!http->begin(*client, uri)) {
-      this->logger.warnln(F("Failed to begin http connection to "), uri);
+      this->logger.warn(F("Failed to begin http connection to "), uri);
       return Option<std::shared_ptr<HTTPClient>>();
     }
     http->setReuse(false);
@@ -139,7 +139,7 @@ Network::httpRequest(const enum HttpMethod method_,
                      const Option<StringView> &token, const StaticString path,
                      const Option<StringView> &data) const noexcept {
   if (this->httpClient(path, token).isNone()) {
-    this->logger.errorln(F("Unable to obtain http client"));
+    this->logger.error(F("Unable to obtain http client"));
     return Option<Response>();
   }
 
@@ -150,10 +150,10 @@ Network::httpRequest(const enum HttpMethod method_,
 
   const auto method = UNWRAP(methodToString(method_));
 
-  this->logger.infoln(F("["), method, F("] "), path);
+  this->logger.info(F("["), method, F("] "), path);
   // TODO: will this be a problem if we start streaming logs?
   // wifi credentials logged are a big no-no
-  this->logger.debugln(F("Json data: "), data_);
+  this->logger.debug(F("Json data: "), data_);
 
   http->addHeader(F("Connection"), F("close"));
   if (data.isSome()) {
@@ -166,16 +166,16 @@ Network::httpRequest(const enum HttpMethod method_,
   const auto code = http->sendRequest(mtd, data__, data_.length());
   const auto strCode = std::to_string(code);
 
-  this->logger.infoln(F("Response code: "), strCode);
+  this->logger.info(F("Response code: "), strCode);
 
   if (code < 0 || code >= UINT16_MAX) {
-    this->logger.errorln(F("Connection failed. Code: "), strCode);
+    this->logger.error(F("Connection failed. Code: "), strCode);
     return Option<Response>();
   }
 
   if (http->getSize() > 2048) {
     const auto lengthStr = std::to_string(http->getSize());
-    this->logger.errorln(F("Payload from server was too big: "), lengthStr);
+    this->logger.error(F("Payload from server was too big: "), lengthStr);
     return Option<Response>();
   }
 

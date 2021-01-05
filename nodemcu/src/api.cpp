@@ -15,10 +15,15 @@ LogLevel Api::loggerLevel() const noexcept { return this->logger.level(); }
 // TODO: should we panic if Api::makeJson fails because of overflow? Or just
 // report it? Is returning 400 enough?
 
+/// Ok (200): success
+/// Forbidden (403): auth token is invalid
+/// Not Found (404): invalid plant id (if any) (is it owned by another account?)
+/// Bad request (400): the json didn't fit the local buffer, this bad
+/// No HttpCode and Internal Error (500): bad vibes at the wlan/server
 Option<HttpCode> Api::reportPanic(const AuthToken &authToken,
                                   const Option<PlantId> &id,
                                   const PanicData &event) const noexcept {
-  this->logger.debugln(F("Report panic:"), event.msg);
+  this->logger.debug(F("Report panic:"), event.msg);
 
   const auto make = [authToken, &id, event](JsonDocument &doc) {
     if (id.isSome()) {
@@ -52,9 +57,15 @@ Option<HttpCode> Api::reportPanic(const AuthToken &authToken,
 #endif
 }
 
+/// Ok (200): success
+/// Forbidden (403): auth token is invalid
+/// Not Found (404): plant id is invalid (maybe it's owned by another account?)
+/// Must Upgrade (412): event saved, but firmware is outdated, must upgrade it
+/// Bad request (400): the json didn't fit the local buffer, this bad No
+/// HttpCode and Internal Error (500): bad vibes at the wlan/server
 Option<HttpCode> Api::registerEvent(const AuthToken &authToken,
                                     const Event &event) const noexcept {
-  this->logger.debugln(F("Send event: "), event.plantId.asString());
+  this->logger.debug(F("Send event: "), event.plantId.asString());
 
   const auto make = [&event](JsonDocument &doc) {
     doc["air_temperature_celsius"] = event.storage.airTemperatureCelsius;
@@ -89,13 +100,16 @@ Option<HttpCode> Api::registerEvent(const AuthToken &authToken,
 #endif
 }
 
+/// Not Found (404): invalid credentials
+/// Bad request (400): the json didn't fit the local buffer, this bad
+/// No HttpCode and Internal Error (500): bad vibes at the wlan/server
 Result<AuthToken, Option<HttpCode>>
 Api::authenticate(const StringView username,
                   const StringView password) const noexcept {
-  this->logger.debugln(F("Authenticate IoP user: "), username);
+  this->logger.debug(F("Authenticate IoP user: "), username);
 
   if (username.isEmpty() || password.isEmpty()) {
-    this->logger.debugln(F("Empty username or password, at Api::authenticate"));
+    this->logger.debug(F("Empty username or password, at Api::authenticate"));
     return Option<HttpCode>(404);
   }
 
@@ -126,7 +140,7 @@ Api::authenticate(const StringView username,
       switch (UNWRAP_ERR(result)) {
       case TOO_BIG:
         const auto lengthStr = std::to_string(resp.payload.length());
-        this->logger.errorln(F("Auth token is too big: size = "), lengthStr);
+        this->logger.error(F("Auth token is too big: size = "), lengthStr);
         break;
       }
       return Option<HttpCode>(500);
@@ -138,9 +152,14 @@ Api::authenticate(const StringView username,
 #endif
 }
 
+/// Ok (200): success
+/// Forbidden (403): auth token is invalid
+/// Not Found (404): plant id unavailable (maybe it's owned by another account?)
+/// Bad request (400): the json didn't fit the local buffer, this bad No
+/// HttpCode and Internal Error (500): bad vibes at the wlan/server
 Option<HttpCode> Api::reportError(const AuthToken &authToken, const PlantId &id,
                                   const StringView error) const noexcept {
-  this->logger.debugln(F("Report error: "), error);
+  this->logger.debug(F("Report error: "), error);
 
   const auto make = [id, error](JsonDocument &doc) {
     doc["plant_id"] = id.asString().get();
@@ -166,11 +185,14 @@ Option<HttpCode> Api::reportError(const AuthToken &authToken, const PlantId &id,
 #endif
 }
 
+/// Forbidden (403): auth token is invalid
+/// Bad request (400): the json didn't fit the local buffer, this bad
+/// No HttpCode and Internal Error (500): bad vibes at the wlan/server
 Result<PlantId, Option<HttpCode>>
 Api::registerPlant(const AuthToken &authToken) const noexcept {
   const auto token = authToken.asString();
   const auto mac = this->macAddress();
-  this->logger.debugln(F("Register plant. Token: "), token, F(", MAC: "), mac);
+  this->logger.debug(F("Register plant. Token: "), token, F(", MAC: "), mac);
 
   const auto make = [this](JsonDocument &doc) {
     doc["mac"] = this->macAddress();
@@ -198,7 +220,7 @@ Api::registerPlant(const AuthToken &authToken) const noexcept {
     switch (UNWRAP_ERR(result)) {
     case TOO_BIG:
       const auto sizeStr = std::to_string(resp.payload.length());
-      this->logger.errorln(F("Plant Id is too big: size = "), sizeStr);
+      this->logger.error(F("Plant Id is too big: size = "), sizeStr);
       return Option<HttpCode>(500);
       break;
     }
@@ -216,7 +238,7 @@ extern "C" uint32_t _FS_end;
 Option<HttpCode> Api::upgrade(const AuthToken &token,
                               const MD5Hash sketchHash) const noexcept {
   // TODO: this is garbate, fix this gambiarra mess
-  this->logger.debugln(F("Upgrading sketch"));
+  this->logger.debug(F("Upgrading sketch"));
   auto maybeHttp = this->network.httpClient(F("/upgrade"), token.asString());
 
   if (maybeHttp.isNone()) {

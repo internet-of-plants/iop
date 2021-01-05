@@ -1,7 +1,6 @@
 #include "measurement.hpp"
 #include "Arduino.h"
 
-
 namespace measurement {
 #ifndef IOP_MEASUREMENT_DISABLED
 float soilTemperatureCelsius(DallasTemperature &sensor) noexcept {
@@ -20,7 +19,6 @@ float airHeatIndexCelsius(DHT &dht) noexcept { return dht.computeHeatIndex(); }
 
 uint16_t soilResistivityRaw(const uint8_t powerPin) noexcept {
   digitalWrite(powerPin, HIGH);
-  digitalWrite(LED_BUILTIN, HIGH);
   delay(2000);
   uint16_t value1 = analogRead(A0);
   delay(500);
@@ -28,7 +26,6 @@ uint16_t soilResistivityRaw(const uint8_t powerPin) noexcept {
   delay(500);
   uint16_t value = (value1 + value2 + analogRead(A0)) / 3;
   digitalWrite(powerPin, LOW);
-  digitalWrite(LED_BUILTIN, LOW);
   return value;
 }
 #endif

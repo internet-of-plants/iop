@@ -63,7 +63,7 @@ void CredentialsServer::makeRouter(const Server &s) const noexcept {
 
   s->on(F("/submit"), [s, loggerLevel]() {
     const Log logger(loggerLevel, F("SERVER_CALLBACK"), false);
-    logger.debugln(F("Received form with credentials"));
+    logger.debug(F("Received form with credentials"));
 
     if (s->hasArg(F("ssid")) && s->hasArg(F("password"))) {
       const auto ssid = s->arg(F("ssid")).c_str();
@@ -83,7 +83,7 @@ void CredentialsServer::makeRouter(const Server &s) const noexcept {
 
   s->onNotFound([s, api, flash, loggerLevel]() {
     const Log logger(loggerLevel, F("SERVER_CALLBACK"), false);
-    logger.debugln(F("Serving captive portal HTML"));
+    logger.debug(F("Serving captive portal HTML"));
 
     const auto isConnected = !api->isConnected();
     const auto needsIopAuth = flash->readAuthToken().isNone();
@@ -106,7 +106,7 @@ void CredentialsServer::makeRouter(const Server &s) const noexcept {
 
 void CredentialsServer::start() noexcept {
   if (server.isNone()) {
-    this->logger.infoln(F("Setting our own wifi access point"));
+    this->logger.info(F("Setting our own wifi access point"));
 
     WiFi.mode(WIFI_AP_STA);
 
@@ -140,7 +140,7 @@ void CredentialsServer::start() noexcept {
     s->begin();
 
     const auto ip = WiFi.softAPIP().toString();
-    this->logger.infoln(F("Opened captive portal: "), ip);
+    this->logger.info(F("Opened captive portal: "), ip);
 
     // We can move them here because they won't ever be used
     // Beware of adding things to this method, this should always be at the end
@@ -175,7 +175,7 @@ Option<StaticString> CredentialsServer::statusToString(
   case STATION_GOT_IP:
     return StaticString(F("STATION_GOT_IP"));
   }
-  this->logger.errorln(String(F("Unknown status: ")) + String(status));
+  this->logger.error(String(F("Unknown status: ")) + String(status));
   return Option<StaticString>();
 }
 
@@ -191,7 +191,7 @@ CredentialsServer::connect(const StringView ssid,
   WiFi.begin(ssid.get(), password.get(), 3);
 
   if (WiFi.waitForConnectResult() == -1) {
-    this->logger.warnln(F("Wifi authentication timed out"));
+    this->logger.warn(F("Wifi authentication timed out"));
     return wifi_station_get_connect_status();
 
   } else {
@@ -200,7 +200,7 @@ CredentialsServer::connect(const StringView ssid,
       const auto maybeStatusStr = CredentialsServer::statusToString(status);
       if (maybeStatusStr.isSome()) {
         const auto statusStr = UNWRAP_REF(maybeStatusStr);
-        this->logger.warnln(F("Invalid wifi credentials ("), statusStr,
+        this->logger.warn(F("Invalid wifi credentials ("), statusStr,
                             F("): "), ssid, F(", "), password);
       }
     }
@@ -208,6 +208,9 @@ CredentialsServer::connect(const StringView ssid,
   }
 }
 
+/// Not Found (404): invalid credentials
+/// Bad request (400): the json didn't fit the local buffer, this bad
+/// No HttpCode and Internal Error (500): bad vibes at the wlan/server
 Result<AuthToken, Option<HttpCode>>
 CredentialsServer::authenticate(const StringView username,
                                 const StringView password) const noexcept {
@@ -216,7 +219,7 @@ CredentialsServer::authenticate(const StringView username,
     const auto &maybeCode = UNWRAP_ERR_REF(authToken);
     if (maybeCode.isSome()) {
       const auto &code = UNWRAP_REF(maybeCode);
-      this->logger.warnln(F("Invalid IoP credentials ("), std::to_string(code),
+      this->logger.warn(F("Invalid IoP credentials ("), std::to_string(code),
                           F("): "), username, F(", "), password);
 
       return Option<HttpCode>(code);
@@ -243,7 +246,27 @@ CredentialsServer::serve(const Option<WifiCredentials> &storedWifi,
     auto result = this->authenticate(cred.first, cred.second);
     if (IS_OK(result)) {
       const auto token = UNWRAP_OK(result);
-      return Result<Option<AuthToken>, ServeError>(token);
+      return Option<AuthToken>(token);
+    } else {
+      const auto maybeCode = UNWRAP_ERR(result);
+      if (maybeCode.isSome()) {
+        const auto &code = UNWRAP_REF(maybeCode);
+        if (code == 404) {
+          // NOP, the credentials will just be ignored
+
+        } else if (code == 400) {
+          // TODO: handle this (how tho?)
+
+        } else if (code == 500) {
+          // Authentication server is broken. Nothing we can do besides waiting
+          delay(20000);
+        }
+
+      } else {
+        // Authentication server is broken. Nothing we can do besides waiting
+        delay(20000);
+      }
+      // This isn't needed because
     }
   }
 
