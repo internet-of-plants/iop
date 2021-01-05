@@ -18,36 +18,37 @@
 class Api {
 private:
   Log logger;
-  Network network;
+  Network network_;
 
 public:
   Api(const StaticString host, const LogLevel logLevel) noexcept
-      : logger(logLevel, F("API")), network(host, logLevel) {}
+      : logger(logLevel, F("API")), network_(host, logLevel) {}
   Api(Api &other) = delete;
   Api(Api &&other) = delete;
   Api &operator=(Api &other) = delete;
   Api &operator=(Api &&other) = delete;
 
   void setup() const noexcept;
-  Option<HttpCode> upgrade(const AuthToken &token,
-                           const MD5Hash sketchHash) const noexcept;
-  Option<HttpCode> reportPanic(const AuthToken &authToken,
-                               const Option<PlantId> &id,
-                               const PanicData &event) const noexcept;
-  Option<HttpCode> registerEvent(const AuthToken &token,
-                                 const Event &event) const noexcept;
-  Result<PlantId, Option<HttpCode>>
+  ApiStatus upgrade(const AuthToken &token,
+                    const MD5Hash sketchHash) const noexcept;
+  ApiStatus reportPanic(const AuthToken &authToken, const Option<PlantId> &id,
+                        const PanicData &event) const noexcept;
+  ApiStatus registerEvent(const AuthToken &token,
+                          const Event &event) const noexcept;
+  Result<PlantId, ApiStatus>
   registerPlant(const AuthToken &token) const noexcept;
-  Result<AuthToken, Option<HttpCode>>
+  Result<AuthToken, ApiStatus>
   authenticate(const StringView username,
                const StringView password) const noexcept;
-  Option<HttpCode> reportError(const AuthToken &authToken, const PlantId &id,
-                               const StringView error) const noexcept;
-  StaticString host() const noexcept { return this->network.host(); }
+  ApiStatus reportError(const AuthToken &authToken, const PlantId &id,
+                        const StringView error) const noexcept;
+  StaticString host() const noexcept { return this->network().host(); }
   bool isConnected() const noexcept;
   String macAddress() const noexcept;
   void disconnect() const noexcept;
   LogLevel loggerLevel() const noexcept;
+
+  const Network &network() const noexcept { return this->network_; }
 
 private:
   using JsonCallback = std::function<void(JsonDocument &)>;

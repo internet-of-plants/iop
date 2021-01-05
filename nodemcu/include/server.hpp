@@ -42,7 +42,7 @@ private:
 public:
   station_status_t connect(const StringView ssid,
                            const StringView password) const noexcept;
-  Result<AuthToken, Option<HttpCode>>
+  Result<AuthToken, ApiStatus>
   authenticate(const StringView username,
                const StringView password) const noexcept;
 

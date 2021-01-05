@@ -15,46 +15,79 @@
 // https://github.com/sticilface/ESPmanager/blob/dce7fc06806a90c179a40eb2d74f4278fffad5b4/src/SaveStack.cpp
 void reportPanic(const StringView &msg, const StaticString &file,
                  const uint32_t line, const StringView &func) {
-  const auto &host_ = UNWRAP_REF(host);
-  const Log logger(CRIT, F("PANIC"));
-  const Api api(host_, TRACE);
-  if (!api.isConnected()) {
-    logger.crit(F("No connection, unable to report panic"));
-    return;
-  }
-
-  const Flash flash(TRACE);
-  const auto maybeToken = flash.readAuthToken();
-  if (maybeToken.isNone()) {
-    logger.crit(F("No auth token, unable to report panic"));
-    return;
-  }
-
-  const auto &token = UNWRAP_REF(maybeToken);
-  const auto panicData = (PanicData){
-      msg,
-      file,
-      line,
-      func,
-  };
-
-  const auto resp = api.reportPanic(token, flash.readPlantId(), panicData);
-  // TODO: We could broadcast panics to other devices in the same network if
-  // Api::reportPanic fails
-  if (resp.isSome()) {
-    const auto &code = UNWRAP_REF(resp);
-    if (code == 200) {
-      logger.info(F("Reported panic to server successfully"));
-
-    } else {
-      // If this request fails there is nothing we can do besides logging it
-      logger.crit(F("Api::reportPanic failed with http code "),
-                  std::to_string(code));
+  while (true) {
+    const auto &host_ = UNWRAP_REF(host);
+    const Log logger(CRIT, F("PANIC"));
+    const Api api(host_, TRACE);
+    if (!api.isConnected()) {
+      logger.crit(F("No connection, unable to report panic"));
+      return;
     }
 
-  } else {
-    // Nothing to be done if the connection failed during panic
-    logger.crit(F("Api::reportPanic failed without a HttpCode"));
+    const Flash flash(TRACE);
+    const auto maybeToken = flash.readAuthToken();
+    if (maybeToken.isNone()) {
+      logger.crit(F("No auth token, unable to report panic"));
+      return;
+    }
+
+    const auto &token = UNWRAP_REF(maybeToken);
+    const auto panicData = (PanicData){
+        msg,
+        file,
+        line,
+        func,
+    };
+
+    const auto status = api.reportPanic(token, flash.readPlantId(), panicData);
+    // TODO: We could broadcast panics to other devices in the same network if
+    // Api::reportPanic fails
+
+    switch (status) {
+    case ApiStatus::FORBIDDEN:
+      logger.warn(F("Invalid auth token, but keeping since at panic"));
+      return;
+
+    case ApiStatus::NOT_FOUND:
+      logger.warn(F("Invalid plant id, but keeping since at panic"));
+      return;
+
+    case ApiStatus::CLIENT_BUFFER_OVERFLOW:
+      // TODO: deal with this, but how? Truncating the msg?
+      return;
+
+    case ApiStatus::BROKEN_SERVER:
+    case ApiStatus::PAYLOAD_TOO_BIG:
+    case ApiStatus::BAD_REQUEST:
+      // Central server is broken. Nothing we can do besides waiting
+      // It doesn't make much sense to log events to flash
+      ESP.deepSleep(60);
+      break;
+
+    case ApiStatus::BROKEN_PIPE:
+    case ApiStatus::TIMEOUT:
+    case ApiStatus::NO_CONNECTION:
+      // Nothing to be done besides retrying later
+      ESP.deepSleep(10);
+      break;
+
+    case ApiStatus::LOW_RAM:
+      // Rotate. What can we do?
+      break;
+
+    case ApiStatus::OK:
+      logger.info(F("Reported panic to server successfully"));
+      break;
+
+    case ApiStatus::MUST_UPGRADE:
+      // TODO: try to upgrade in here
+      interruptEvent = InterruptEvent::MUST_UPGRADE;
+      break;
+
+    default:
+      logger.error(F("Unexpected status, panic.h: reportPanic: "),
+                   api.network().apiStatusToString(status));
+    }
   }
 }
 

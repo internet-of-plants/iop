@@ -43,6 +43,13 @@
         "bitset": "cpp",
         "ctime": "cpp",
         "regex": "cpp",
-        "memory": "cpp"
+        "memory": "cpp",
+        "cstddef": "cpp",
+        "algorithm": "cpp",
+        "iterator": "cpp",
+        "memory_resource": "cpp",
+        "optional": "cpp",
+        "string_view": "cpp",
+        "system_error": "cpp"
     }
 }

@@ -21,10 +21,8 @@ class StaticString;
 
 #define UNWRAP_OK(res)                                                         \
   std::move(res.expectOk(F(#res " isn't Ok"), CUTE_FILE, CUTE_LINE, CUTE_FUNC))
-#define UNWRAP_OK_REF(res)                                                     \
-  UNWRAP_OK(res.asRef(F(#res), CUTE_FILE, CUTE_LINE, CUTE_FUNC)).get()
-#define UNWRAP_OK_MUT(res)                                                     \
-  UNWRAP_OK(res.asMut(F(#res), CUTE_FILE, CUTE_LINE, CUTE_FUNC)).get()
+#define UNWRAP_OK_REF(res) UNWRAP_OK(RESULT_AS_REF(res)).get()
+#define UNWRAP_OK_MUT(res) UNWRAP_OK(RESULT_AS_MUT(res)).get()
 
 #define UNWRAP_ERR(r)                                                          \
   std::move(r.expectErr(F(#r " isn't Err"), CUTE_FILE, CUTE_LINE, CUTE_FUNC))

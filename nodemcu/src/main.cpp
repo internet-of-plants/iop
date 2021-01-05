@@ -10,7 +10,6 @@
 
 // TODO:
 // https://github.com/maakbaas/esp8266-iot-framework/blob/master/src/timeSync.cpp
-// TODO: Over the Air updates (OTA) using ESPhttpUpdate
 
 class EventLoop {
 private:
@@ -89,8 +88,54 @@ private:
       const auto maybeToken = this->flash.readAuthToken();
       if (maybeToken.isSome()) {
         const auto &token = UNWRAP_REF(maybeToken);
-        const auto maybeCode = this->api.upgrade(token, this->firmwareHash);
-        // TODO: handle maybeCode
+        const auto status = this->api.upgrade(token, this->firmwareHash);
+        switch (status) {
+        case ApiStatus::FORBIDDEN:
+          this->logger.warn(F("Invalid auth token, but keeping since at OTA"));
+          delay(5000);
+          break;
+
+        case ApiStatus::NOT_FOUND:
+          this->logger.warn(F("Invalid plant id, but keeping since at OTA"));
+          delay(5000);
+          break;
+
+        case ApiStatus::CLIENT_BUFFER_OVERFLOW:
+          // This endpoint does not use the internal buffer
+          break;
+
+        case ApiStatus::BROKEN_SERVER:
+        case ApiStatus::PAYLOAD_TOO_BIG:
+        case ApiStatus::BAD_REQUEST:
+          // Central server is broken. Nothing we can do besides waiting
+          // It doesn't make much sense to log events to flash
+          delay(60000);
+          break;
+
+        case ApiStatus::BROKEN_PIPE:
+        case ApiStatus::TIMEOUT:
+        case ApiStatus::NO_CONNECTION:
+          // Nothing to be done besides retrying later
+          delay(5000);
+          break;
+
+        case ApiStatus::LOW_RAM:
+          // Rotate. What can we do?
+          break;
+
+        case ApiStatus::OK:
+          // Cool beans
+          break;
+
+        case ApiStatus::MUST_UPGRADE:
+          // Bruh
+          break;
+
+        default:
+          this->logger.error(
+              F("Unexpected status, EventLoop::handleInterrupt "),
+              this->api.network().apiStatusToString(status));
+        }
       } else {
         // TODO: this should never happen, how to ensure?
       }
@@ -164,26 +209,47 @@ private:
     if (IS_ERR(maybePlantId)) {
       this->logger.error(F("Unable to get plant id"));
 
-      const auto &maybeStatusCode = UNWRAP_ERR_REF(maybePlantId);
+      const auto &status = UNWRAP_ERR_REF(maybePlantId);
+      switch (status) {
+      case ApiStatus::FORBIDDEN:
+        this->logger.warn(F("Auth token was refused, deleting it"));
+        this->flash.removeAuthToken();
+        break;
 
-      if (maybeStatusCode.isSome()) {
-        const auto &code = UNWRAP_REF(maybeStatusCode);
-        if (code == 403) {
-          this->flash.removeAuthToken();
+      case ApiStatus::CLIENT_BUFFER_OVERFLOW:
+        // TODO: handle this (how tho?)
+        break;
 
-        } else if (code == 400) {
-          // TODO: handle this (how tho?)
+      case ApiStatus::BROKEN_SERVER:
+      case ApiStatus::PAYLOAD_TOO_BIG:
+      case ApiStatus::BAD_REQUEST:
+      case ApiStatus::NOT_FOUND:
+        // Server is broken. Nothing we can do besides waiting
+        delay(60000);
+        break;
 
-        } else if (code == 500) {
-          // Authentication server is broken. Nothing we can do besides waiting
-          delay(20000);
-        }
+      case ApiStatus::BROKEN_PIPE:
+      case ApiStatus::TIMEOUT:
+      case ApiStatus::NO_CONNECTION:
+        // Nothing to be done besides retrying later
+        delay(5000);
+        break;
 
-      } else {
-        // Authentication server is broken. Nothing we can do besides waiting
-        delay(20000);
+      case ApiStatus::LOW_RAM:
+        // Rotate. What can we do?
+        break;
+
+      case ApiStatus::OK:
+        break;
+
+      case ApiStatus::MUST_UPGRADE:
+        interruptEvent = InterruptEvent::MUST_UPGRADE;
+        break;
+
+      default:
+        const auto s = this->api.network().apiStatusToString(status);
+        this->logger.error(F("Unexpected status, EventLoop::handlePlant: "), s);
       }
-
     } else {
       this->flash.writePlantId(UNWRAP_OK_REF(maybePlantId));
     }
@@ -195,33 +261,54 @@ private:
 
     digitalWrite(LED_BUILTIN, HIGH);
     const auto measurements = sensors.measure(id, this->firmwareHash);
-    const auto maybeStatus = this->api.registerEvent(token, measurements);
+    const auto status = this->api.registerEvent(token, measurements);
 
-    if (maybeStatus.isNone()) {
-      // Central server is broken. Nothing we can do besides waiting
-      // It doesn't make much sense to log events to flash
-      digitalWrite(LED_BUILTIN, LOW);
-      return;
-    }
-
-    const auto &status = UNWRAP_REF(maybeStatus);
-    if (status == 403) {
+    switch (status) {
+    case ApiStatus::FORBIDDEN:
       this->logger.warn(F("Auth token was refused, deleting it"));
       this->flash.removeAuthToken();
+      break;
 
-    } else if (status == 404) {
+    case ApiStatus::NOT_FOUND:
       this->logger.warn(F("Plant Id was not found, deleting it"));
       this->flash.removePlantId();
+      break;
 
-    } else if (status == 412) { // Must upgrade binary
-      interruptEvent = MUST_UPGRADE;
+    case ApiStatus::CLIENT_BUFFER_OVERFLOW:
+      // TODO: this endpoint also is used to detect updates
+      // So we should make a request to look for new updates
+      // Or the device will be stuck forever with broken code
+      break;
 
-    } else if (status == 400) {
-      // TODO: handle this (how tho?)
-
-    } else if (status == 500) {
+    case ApiStatus::BROKEN_SERVER:
+    case ApiStatus::PAYLOAD_TOO_BIG:
+    case ApiStatus::BAD_REQUEST:
       // Central server is broken. Nothing we can do besides waiting
       // It doesn't make much sense to log events to flash
+      break;
+
+    case ApiStatus::BROKEN_PIPE:
+    case ApiStatus::TIMEOUT:
+    case ApiStatus::NO_CONNECTION:
+      // Nothing to be done besides retrying later
+      break;
+
+    case ApiStatus::LOW_RAM:
+      // Rotate. What can we do?
+      break;
+
+    case ApiStatus::OK:
+      // Cool beans
+      break;
+
+    case ApiStatus::MUST_UPGRADE:
+      interruptEvent = InterruptEvent::MUST_UPGRADE;
+      break;
+
+    default:
+      this->logger.error(
+          F("Unexpected status, EventLoop::handleMeasurements: "),
+          this->api.network().apiStatusToString(status));
     }
 
     digitalWrite(LED_BUILTIN, LOW);

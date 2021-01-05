@@ -1,6 +1,6 @@
 #include "server.hpp"
 
-#ifndef IOP_SERVER_DISABLED
+#ifndef SERVER_DISABLED
 #include "api.hpp"
 #include "configuration.h"
 #include "utils.hpp"
@@ -200,8 +200,8 @@ CredentialsServer::connect(const StringView ssid,
       const auto maybeStatusStr = CredentialsServer::statusToString(status);
       if (maybeStatusStr.isSome()) {
         const auto statusStr = UNWRAP_REF(maybeStatusStr);
-        this->logger.warn(F("Invalid wifi credentials ("), statusStr,
-                            F("): "), ssid, F(", "), password);
+        this->logger.warn(F("Invalid wifi credentials ("), statusStr, F("): "),
+                          ssid, F(", "), password);
       }
     }
     return status;
@@ -211,21 +211,54 @@ CredentialsServer::connect(const StringView ssid,
 /// Not Found (404): invalid credentials
 /// Bad request (400): the json didn't fit the local buffer, this bad
 /// No HttpCode and Internal Error (500): bad vibes at the wlan/server
-Result<AuthToken, Option<HttpCode>>
+Result<AuthToken, ApiStatus>
 CredentialsServer::authenticate(const StringView username,
                                 const StringView password) const noexcept {
   auto authToken = this->api->authenticate(username, password);
   if (IS_ERR(authToken)) {
-    const auto &maybeCode = UNWRAP_ERR_REF(authToken);
-    if (maybeCode.isSome()) {
-      const auto &code = UNWRAP_REF(maybeCode);
-      this->logger.warn(F("Invalid IoP credentials ("), std::to_string(code),
-                          F("): "), username, F(", "), password);
+    const auto &status = UNWRAP_ERR_REF(authToken);
 
-      return Option<HttpCode>(code);
-    } else {
-      return Option<HttpCode>();
+    switch (status) {
+    case ApiStatus::FORBIDDEN:
+      this->logger.warn(F("Invalid IoP credentials ("),
+                        this->api->network().apiStatusToString(status),
+                        F("): "), username, F(", "), password);
+      return status;
+
+    case ApiStatus::LOW_RAM:
+      this->logger.warn(F("ESP8266 is low on RAM, Api::authenticate failed"));
+      return status;
+
+    case ApiStatus::CLIENT_BUFFER_OVERFLOW:
+      this->logger.crit(F("JSON buffer is too small to fit client's payload"));
+      return status;
+
+    case ApiStatus::BROKEN_PIPE:
+    case ApiStatus::TIMEOUT:
+    case ApiStatus::NO_CONNECTION:
+      this->logger.warn(F("Unexpected request error, trying again later"));
+      return status;
+
+    case ApiStatus::BROKEN_SERVER:
+    case ApiStatus::PAYLOAD_TOO_BIG:
+    case ApiStatus::BAD_REQUEST:
+    case ApiStatus::NOT_FOUND:
+      this->logger.warn(F("Unexpected server error, sleeping for 20 seconds"));
+      delay(20000);
+      return status;
+
+    case ApiStatus::OK:
+      // Cool beans
+      return status;
+
+    case ApiStatus::MUST_UPGRADE:
+      interruptEvent = InterruptEvent::MUST_UPGRADE;
+      return status;
     }
+
+    this->logger.error(F("Unexpected status, CredentialsServer::authenticate "),
+                       this->api->network().apiStatusToString(status));
+    return status;
   } else {
     return UNWRAP_OK(authToken);
   }
@@ -247,26 +280,6 @@ CredentialsServer::serve(const Option<WifiCredentials> &storedWifi,
     if (IS_OK(result)) {
       const auto token = UNWRAP_OK(result);
       return Option<AuthToken>(token);
-    } else {
-      const auto maybeCode = UNWRAP_ERR(result);
-      if (maybeCode.isSome()) {
-        const auto &code = UNWRAP_REF(maybeCode);
-        if (code == 404) {
-          // NOP, the credentials will just be ignored
-
-        } else if (code == 400) {
-          // TODO: handle this (how tho?)
-
-        } else if (code == 500) {
-          // Authentication server is broken. Nothing we can do besides waiting
-          delay(20000);
-        }
-
-      } else {
-        // Authentication server is broken. Nothing we can do besides waiting
-        delay(20000);
-      }
-      // This isn't needed because
     }
   }
 
@@ -281,8 +294,7 @@ CredentialsServer::serve(const Option<WifiCredentials> &storedWifi,
         this->connect(stored.ssid.asString(), stored.password.asString());
     if (status == STATION_WRONG_PASSWORD) {
       this->nextTryHardcodedWifiCredentials = 0;
-      return Result<Option<AuthToken>, ServeError>(
-          ServeError::INVALID_WIFI_CONFIG);
+      return ServeError::INVALID_WIFI_CONFIG;
     }
   }
 
@@ -307,18 +319,13 @@ CredentialsServer::serve(const Option<WifiCredentials> &storedWifi,
     if (iopEmail.isSome() && iopPassword.isSome()) {
       const auto &email = UNWRAP_REF(iopEmail);
       const auto &password = UNWRAP_REF(iopPassword);
-      auto token = this->authenticate(email, password);
-      if (IS_OK(token)) {
+      auto res = this->authenticate(email, password);
+
+      if (IS_OK(res)) {
         this->nextTryHardcodedIopCredentials = 0;
-        return OK(token);
-      } else if (IS_ERR(token)) {
-        auto maybeCode = UNWRAP_ERR(token);
-        if (maybeCode.isSome()) {
-          const auto code = UNWRAP(maybeCode);
-          if (code == 403) {
-            this->nextTryHardcodedIopCredentials = now + 24 + 3600 + 1000;
-          }
-        }
+        return OK(res);
+      } else if (UNWRAP_ERR(res) == ApiStatus::FORBIDDEN) {
+        this->nextTryHardcodedIopCredentials = now + 24 + 3600 + 1000;
       }
     }
   }

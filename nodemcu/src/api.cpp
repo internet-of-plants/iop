@@ -5,11 +5,11 @@
 #ifndef IOP_API_DISABLED
 #include "ESP8266httpUpdate.h"
 
-void Api::setup() const noexcept { this->network.setup(); }
+void Api::setup() const noexcept { this->network().setup(); }
 
-bool Api::isConnected() const noexcept { return this->network.isConnected(); }
-String Api::macAddress() const noexcept { return this->network.macAddress(); }
-void Api::disconnect() const noexcept { this->network.disconnect(); }
+bool Api::isConnected() const noexcept { return this->network().isConnected(); }
+String Api::macAddress() const noexcept { return this->network().macAddress(); }
+void Api::disconnect() const noexcept { this->network().disconnect(); }
 LogLevel Api::loggerLevel() const noexcept { return this->logger.level(); }
 
 // TODO: should we panic if Api::makeJson fails because of overflow? Or just
@@ -20,40 +20,39 @@ LogLevel Api::loggerLevel() const noexcept { return this->logger.level(); }
 /// Not Found (404): invalid plant id (if any) (is it owned by another account?)
 /// Bad request (400): the json didn't fit the local buffer, this bad
 /// No HttpCode and Internal Error (500): bad vibes at the wlan/server
-Option<HttpCode> Api::reportPanic(const AuthToken &authToken,
-                                  const Option<PlantId> &id,
-                                  const PanicData &event) const noexcept {
+ApiStatus Api::reportPanic(const AuthToken &authToken,
+                           const Option<PlantId> &id,
+                           const PanicData &event) const noexcept {
   this->logger.debug(F("Report panic:"), event.msg);
 
   const auto make = [authToken, &id, event](JsonDocument &doc) {
-    if (id.isSome()) {
+    if (id.isSome())
       doc["plant_id"] = UNWRAP_REF(id).asString().get();
-    } else {
+    else
       doc["plant_id"] = nullptr;
-    }
     doc["file"] = event.file.get();
     doc["line"] = event.line;
     doc["func"] = event.func.get();
     doc["msg"] = event.msg.get();
   };
+
   const auto maybeJson = this->makeJson<2048>(F("Api::reportPanic"), make);
+  if (maybeJson.isNone())
+    return ApiStatus::CLIENT_BUFFER_OVERFLOW;
 
   const auto token = authToken.asString();
-  if (maybeJson.isNone()) {
-    return Option<HttpCode>(400);
-  }
-
   const auto &json = UNWRAP_REF(maybeJson);
-  const auto maybeResp = this->network.httpPost(token, F("/panic"), *json);
+  const auto maybeResp = this->network().httpPost(token, F("/panic"), *json);
 
 #ifndef IOP_MOCK_MONITOR
-  if (maybeResp.isNone()) {
-    return Option<HttpCode>();
+  if (IS_ERR(maybeResp)) {
+    const auto code = std::to_string(UNWRAP_ERR_REF(maybeResp));
+    this->logger.error(F("Unexpected response at Api::reportPanic: "), code);
+    return ApiStatus::BROKEN_SERVER;
   }
-
-  return Option<HttpCode>(UNWRAP_REF(maybeResp).code);
+  return UNWRAP_OK_REF(maybeResp).status;
 #else
-  return Option<HttpCode>(200);
+  return ApiStatus::OK;
 #endif
 }
 
@@ -63,8 +62,8 @@ Option<HttpCode> Api::reportPanic(const AuthToken &authToken,
 /// Must Upgrade (412): event saved, but firmware is outdated, must upgrade it
 /// Bad request (400): the json didn't fit the local buffer, this bad No
 /// HttpCode and Internal Error (500): bad vibes at the wlan/server
-Option<HttpCode> Api::registerEvent(const AuthToken &authToken,
-                                    const Event &event) const noexcept {
+ApiStatus Api::registerEvent(const AuthToken &authToken,
+                             const Event &event) const noexcept {
   this->logger.debug(F("Send event: "), event.plantId.asString());
 
   const auto make = [&event](JsonDocument &doc) {
@@ -77,40 +76,36 @@ Option<HttpCode> Api::registerEvent(const AuthToken &authToken,
     doc["plant_id"] = event.plantId.asString().get();
   };
   const auto maybeJson = this->makeJson<256>(F("Api::registerEvent"), make);
-  if (maybeJson.isNone()) {
-    // TODO: this endpoint also is used to detect updates
-    // So we should make a request to look for new updates
-    // Or the device will be stuck forever with broken code
-    return Option<HttpCode>(400);
-  }
+  if (maybeJson.isNone())
+    return ApiStatus::CLIENT_BUFFER_OVERFLOW;
 
-  const auto &json = UNWRAP_REF(maybeJson);
   const auto token = authToken.asString();
-
-  const auto maybeResp = this->network.httpPost(token, F("/event"), *json);
+  const auto &json = UNWRAP_REF(maybeJson);
+  const auto maybeResp = this->network().httpPost(token, F("/event"), *json);
 
 #ifndef IOP_MOCK_MONITOR
-  if (maybeResp.isNone()) {
-    return Option<HttpCode>();
+  if (IS_ERR(maybeResp)) {
+    const auto code = std::to_string(UNWRAP_ERR_REF(maybeResp));
+    this->logger.error(F("Unexpected response at Api::registerEvent: "), code);
+    return ApiStatus::BROKEN_SERVER;
   }
-
-  return Option<HttpCode>(UNWRAP_REF(maybeResp).code);
+  return UNWRAP_OK_REF(maybeResp).status;
 #else
-  return Option<HttpCode>(200);
+  return ApiStatus::OK;
 #endif
 }
 
-/// Not Found (404): invalid credentials
-/// Bad request (400): the json didn't fit the local buffer, this bad
-/// No HttpCode and Internal Error (500): bad vibes at the wlan/server
-Result<AuthToken, Option<HttpCode>>
+/// ApiStatus::NOT_FOUND: invalid credentials
+/// ApiStatus::CLIENT_BUFFER_OVERFLOW: json didn't fit. This bad
+/// ApiStatus::BROKEN_SERVER: Unexpected/broken response or too big
+Result<AuthToken, ApiStatus>
 Api::authenticate(const StringView username,
                   const StringView password) const noexcept {
   this->logger.debug(F("Authenticate IoP user: "), username);
 
   if (username.isEmpty() || password.isEmpty()) {
     this->logger.debug(F("Empty username or password, at Api::authenticate"));
-    return Option<HttpCode>(404);
+    return ApiStatus::FORBIDDEN;
   }
 
   const auto make = [username, password](JsonDocument &doc) {
@@ -118,33 +113,43 @@ Api::authenticate(const StringView username,
     doc["password"] = password.get();
   };
   const auto maybeJson = this->makeJson<256>(F("Api::authenticate"), make);
-  if (maybeJson.isNone()) {
-    return Option<HttpCode>(400);
-  }
+  if (maybeJson.isNone())
+    return ApiStatus::CLIENT_BUFFER_OVERFLOW;
 
   const auto &json = UNWRAP_REF(maybeJson);
-  const auto maybeResp = this->network.httpPost(F("/user/login"), *json);
+  auto maybeResp = this->network().httpPost(F("/user/login"), *json);
 
 #ifndef IOP_MOCK_MONITOR
-  if (maybeResp.isNone()) {
-    return Option<HttpCode>();
+  if (IS_ERR(maybeResp)) {
+    const auto code = std::to_string(UNWRAP_ERR_REF(maybeResp));
+    this->logger.error(F("Unexpected response at Api::authenticate: "), code);
+    return ApiStatus::BROKEN_SERVER;
+
   } else {
-    const auto &resp = UNWRAP_REF(maybeResp);
-    if (resp.code != 200) {
-      return Option<HttpCode>(resp.code);
+    auto resp = UNWRAP_OK(maybeResp);
+
+    if (resp.status != ApiStatus::OK)
+      return resp.status;
+
+    if (resp.payload.isNone()) {
+      this->logger.error(F("Server answered OK, but payload is missing"));
+      return ApiStatus::BROKEN_SERVER;
     }
 
-    auto result = AuthToken::fromString(resp.payload);
+    const auto payload = UNWRAP(resp.payload);
+    auto result = AuthToken::fromString(payload);
 
     if (IS_ERR(result)) {
       switch (UNWRAP_ERR(result)) {
       case TOO_BIG:
-        const auto lengthStr = std::to_string(resp.payload.length());
+        const auto lengthStr = std::to_string(payload.length());
         this->logger.error(F("Auth token is too big: size = "), lengthStr);
         break;
       }
-      return Option<HttpCode>(500);
+
+      return ApiStatus::BROKEN_SERVER;
     }
+
     return UNWRAP_OK(result);
   }
 #else
@@ -157,38 +162,39 @@ Api::authenticate(const StringView username,
 /// Not Found (404): plant id unavailable (maybe it's owned by another account?)
 /// Bad request (400): the json didn't fit the local buffer, this bad No
 /// HttpCode and Internal Error (500): bad vibes at the wlan/server
-Option<HttpCode> Api::reportError(const AuthToken &authToken, const PlantId &id,
-                                  const StringView error) const noexcept {
+ApiStatus Api::reportError(const AuthToken &authToken, const PlantId &id,
+                           const StringView error) const noexcept {
   this->logger.debug(F("Report error: "), error);
 
   const auto make = [id, error](JsonDocument &doc) {
     doc["plant_id"] = id.asString().get();
     doc["error"] = error.get();
   };
-  const auto token = authToken.asString();
   const auto maybeJson = this->makeJson<300>(F("Api::reportError"), make);
-  if (maybeJson.isNone()) {
-    return Option<HttpCode>(400);
-  }
+  if (maybeJson.isNone())
+    return ApiStatus::CLIENT_BUFFER_OVERFLOW;
 
+  const auto token = authToken.asString();
   const auto &json = UNWRAP_REF(maybeJson);
-  const auto maybeResp = this->network.httpPost(token, F("/error"), *json);
+  const auto maybeResp = this->network().httpPost(token, F("/error"), *json);
 
 #ifndef IOP_MOCK_MONITOR
-  if (maybeResp.isNone()) {
-    return Option<HttpCode>();
+  if (IS_ERR(maybeResp)) {
+    const auto code = std::to_string(UNWRAP_ERR_REF(maybeResp));
+    this->logger.error(F("Unexpected response at Api::reportError: "), code);
+    return ApiStatus::BROKEN_SERVER;
   }
 
-  return Option<HttpCode>(UNWRAP_REF(maybeResp).code);
+  return UNWRAP_OK_REF(maybeResp).status;
 #else
-  return Option<HttpCode>(200);
+  return ApiStatus::OK;
 #endif
 }
 
 /// Forbidden (403): auth token is invalid
 /// Bad request (400): the json didn't fit the local buffer, this bad
 /// No HttpCode and Internal Error (500): bad vibes at the wlan/server
-Result<PlantId, Option<HttpCode>>
+Result<PlantId, ApiStatus>
 Api::registerPlant(const AuthToken &authToken) const noexcept {
   const auto token = authToken.asString();
   const auto mac = this->macAddress();
@@ -198,33 +204,38 @@ Api::registerPlant(const AuthToken &authToken) const noexcept {
     doc["mac"] = this->macAddress();
   };
   const auto maybeJson = this->makeJson<30>(F("Api::registerPlant"), make);
-  if (maybeJson.isNone()) {
-    return Option<HttpCode>(400);
-  }
+  if (maybeJson.isNone())
+    return ApiStatus::CLIENT_BUFFER_OVERFLOW;
 
   const auto &json = UNWRAP_REF(maybeJson);
-  const auto maybeResp = this->network.httpPut(token, F("/plant"), *json);
+  auto maybeResp = this->network().httpPut(token, F("/plant"), *json);
 
 #ifndef IOP_MOCK_MONITOR
-  if (maybeResp.isNone()) {
-    return Option<HttpCode>();
+  if (IS_ERR(maybeResp)) {
+    const auto code = std::to_string(UNWRAP_ERR_REF(maybeResp));
+    this->logger.error(F("Unexpected response at Api::registerPlant: "), code);
+    return ApiStatus::BROKEN_SERVER;
   }
 
-  const auto &resp = UNWRAP_REF(maybeResp);
-  if (resp.code != 200) {
-    return Option<HttpCode>(resp.code);
+  auto resp = UNWRAP_OK(maybeResp);
+  if (resp.status != ApiStatus::OK)
+    return resp.status;
+
+  if (resp.payload.isNone()) {
+    this->logger.error(F("Server answered OK, but payload is missing"));
+    return ApiStatus::BROKEN_SERVER;
   }
 
-  auto result = PlantId::fromString(resp.payload);
+  const auto payload = UNWRAP(resp.payload);
+  auto result = PlantId::fromString(payload);
   if (IS_ERR(result)) {
     switch (UNWRAP_ERR(result)) {
     case TOO_BIG:
-      const auto sizeStr = std::to_string(resp.payload.length());
+      const auto sizeStr = std::to_string(payload.length());
       this->logger.error(F("Plant Id is too big: size = "), sizeStr);
-      return Option<HttpCode>(500);
       break;
     }
-    return Option<HttpCode>();
+    return ApiStatus::BROKEN_SERVER;
   }
   return UNWRAP_OK(result);
 #else
@@ -235,16 +246,25 @@ Api::registerPlant(const AuthToken &authToken) const noexcept {
 extern "C" uint32_t _FS_start;
 extern "C" uint32_t _FS_end;
 
-Option<HttpCode> Api::upgrade(const AuthToken &token,
-                              const MD5Hash sketchHash) const noexcept {
+ApiStatus Api::upgrade(const AuthToken &token,
+                       const MD5Hash sketchHash) const noexcept {
   // TODO: this is garbate, fix this gambiarra mess
   this->logger.debug(F("Upgrading sketch"));
-  auto maybeHttp = this->network.httpClient(F("/upgrade"), token.asString());
 
-  if (maybeHttp.isNone()) {
-    return Option<HttpCode>();
+  const auto tok = token.asString();
+  const auto clientResult = this->network().httpClient(F("/upgrade"), tok);
+  if (IS_ERR(clientResult)) {
+    const auto rawStatus = UNWRAP_ERR_REF(clientResult);
+    const auto apiStatus = this->network().apiStatus(rawStatus);
+    if (apiStatus.isSome())
+      return UNWRAP_REF(apiStatus);
+
+    const auto s = this->network().rawStatusToString(rawStatus);
+    this->logger.warn(F("Api::upgrade returned invalid RawStatus: "), s);
+    return ApiStatus::BROKEN_SERVER;
   }
-  auto &http = *UNWRAP_REF(maybeHttp);
+
+  auto &http = *UNWRAP_OK_REF(clientResult);
 
   // The following code was addapted from ESP8266httpUpdate.h, to allow for
   // authentication and better customization of the upgrade software
@@ -281,7 +301,8 @@ Option<HttpCode> Api::upgrade(const AuthToken &token,
     //                  http.errorToString(code).c_str());
     //_setLastError(code);
     http.end();
-    return HTTP_UPDATE_FAILED;
+    // return HTTP_UPDATE_FAILED;
+    return ApiStatus::BROKEN_SERVER;
   }
 
   // DEBUG_HTTP_UPDATE("[httpUpdate] Header read fin.\n");
@@ -379,40 +400,40 @@ Option<HttpCode> Api::upgrade(const AuthToken &token,
   // return ret;
 
 #ifndef IOP_MOCK_MONITOR
-  return Option<HttpCode>(200);
+  return ApiStatus::OK;
 #else
-  return Result<AuthToken, Option<HttpCode>>(AuthToken::empty());
+  return ApiStatus::IOP_OK;
 #endif
 }
 #endif
 
 #ifdef IOP_API_DISABLED
-void Api::setup() const { this->network.setup(); }
+void Api::setup() const { this->network().setup(); }
 
 bool Api::isConnected() const noexcept { return true; }
-String Api::macAddress() const noexcept { return this->network.macAddress(); }
+String Api::macAddress() const noexcept { return this->network().macAddress(); }
 void Api::disconnect() const noexcept {}
 LogLevel Api::loggerLevel() const noexcept { return this->logger.level(); }
 
-Option<HttpCode> Api::upgrade(const AuthToken &token,
-                              const MD5Hash sketchHash) const noexcept {
+ApiStatus Api::upgrade(const AuthToken &token,
+                       const MD5Hash sketchHash) const noexcept {
   (void)token;
   (void)sketchHash;
   return Option<HttpCode>(200);
 }
-Option<HttpCode> Api::registerEvent(const AuthToken &authToken,
-                                    const Event &event) const noexcept {
+ApiStatus Api::registerEvent(const AuthToken &authToken,
+                             const Event &event) const noexcept {
   return Option<HttpCode>(200);
 }
 
-Result<AuthToken, Option<HttpCode>>
+Result<AuthToken, ApiStatus>
 Api::authenticate(const StringView username,
                   const StringView password) const noexcept {
-  return Result<AuthToken, Option<HttpCode>>(AuthToken::empty());
+  return AuthToken::empty();
 }
 
-Result<PlantId, Option<HttpCode>>
+Result<PlantId, ApiStatus>
 Api::registerPlant(const AuthToken &authToken) const noexcept {
-  return Result<PlantId, Option<HttpCode>>(PlantId::empty());
+  return PlantId::empty();
 }
 #endif
