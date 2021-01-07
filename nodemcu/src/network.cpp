@@ -182,7 +182,7 @@ Network::httpRequest(const enum HttpMethod method_,
   if (http->getSize() > 2048) {
     const auto lengthStr = std::to_string(http->getSize());
     this->logger.error(F("Payload from server was too big: "), lengthStr);
-    return Response(ApiStatus::PAYLOAD_TOO_BIG);
+    return Response(ApiStatus::BROKEN_SERVER);
   }
 
   const auto maybeApiStatus = this->apiStatus(rawStatus);
@@ -210,8 +210,6 @@ StaticString Network::rawStatusToString(const RawStatus status) const noexcept {
     return F("READ_TIMEOUT");
   case RawStatus::CONNECTION_LOST:
     return F("CONNECTION_LOST");
-  case RawStatus::LOW_RAM:
-    return F("LOW_RAM");
   case RawStatus::OK:
     return F("OK");
   case RawStatus::NOT_FOUND:
@@ -258,8 +256,6 @@ RawStatus Network::rawStatus(const int code) const noexcept {
     return RawStatus::READ_FAILED;
   case HTTPC_ERROR_NO_HTTP_SERVER:
     return RawStatus::NO_SERVER;
-  case HTTPC_ERROR_TOO_LESS_RAM:
-    return RawStatus::LOW_RAM;
   case HTTPC_ERROR_ENCODING:
     // Unsupported Transfer-Encoding header, if set it must be "chunked"
     return RawStatus::ENCODING_NOT_SUPPORTED;
@@ -285,20 +281,14 @@ StaticString Network::apiStatusToString(const ApiStatus status) const noexcept {
     return F("BROKEN_SERVER");
   case ApiStatus::TIMEOUT:
     return F("TIMEOUT");
-  case ApiStatus::LOW_RAM:
-    return F("LOW_RAM");
   case ApiStatus::OK:
     return F("OK");
   case ApiStatus::NOT_FOUND:
     return F("NOT_FOUND");
-  case ApiStatus::BAD_REQUEST:
-    return F("BAD_REQUEST");
   case ApiStatus::FORBIDDEN:
     return F("FORBIDDEN");
   case ApiStatus::MUST_UPGRADE:
     return F("MUST_UPGRADE");
-  case ApiStatus::PAYLOAD_TOO_BIG:
-    return F("PAYLOAD_TOO_BIG");
   }
   return F("UNKNOWN");
 }
@@ -325,10 +315,6 @@ Option<ApiStatus> Network::apiStatus(const RawStatus raw) const noexcept {
     this->logger.warn(F("Network timeout triggered"));
     return ApiStatus::TIMEOUT;
 
-  case RawStatus::LOW_RAM:
-    this->logger.crit(F("Little RAM available for request to succeed"));
-    return ApiStatus::LOW_RAM;
-
   case RawStatus::OK:
     return ApiStatus::OK;
   case RawStatus::NOT_FOUND:
@@ -336,7 +322,7 @@ Option<ApiStatus> Network::apiStatus(const RawStatus raw) const noexcept {
   case RawStatus::FORBIDDEN:
     return ApiStatus::FORBIDDEN;
   case RawStatus::BAD_REQUEST:
-    return ApiStatus::BAD_REQUEST;
+    return ApiStatus::BROKEN_SERVER;
   case RawStatus::MUST_UPGRADE:
     return ApiStatus::MUST_UPGRADE;
 

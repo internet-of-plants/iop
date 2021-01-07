@@ -92,50 +92,32 @@ private:
         switch (status) {
         case ApiStatus::FORBIDDEN:
           this->logger.warn(F("Invalid auth token, but keeping since at OTA"));
-          delay(5000);
-          break;
+          return;
 
         case ApiStatus::NOT_FOUND:
           this->logger.warn(F("Invalid plant id, but keeping since at OTA"));
-          delay(5000);
-          break;
-
-        case ApiStatus::CLIENT_BUFFER_OVERFLOW:
-          // This endpoint does not use the internal buffer
-          break;
+          return;
 
         case ApiStatus::BROKEN_SERVER:
-        case ApiStatus::PAYLOAD_TOO_BIG:
-        case ApiStatus::BAD_REQUEST:
           // Central server is broken. Nothing we can do besides waiting
-          // It doesn't make much sense to log events to flash
-          delay(60000);
-          break;
+          return;
 
+        case ApiStatus::CLIENT_BUFFER_OVERFLOW:
+          panic_(F("Api::upgrade internal buffer overflow"));
+
+        case ApiStatus::MUST_UPGRADE: // Bruh
         case ApiStatus::BROKEN_PIPE:
         case ApiStatus::TIMEOUT:
         case ApiStatus::NO_CONNECTION:
           // Nothing to be done besides retrying later
-          delay(5000);
-          break;
+          return;
 
-        case ApiStatus::LOW_RAM:
-          // Rotate. What can we do?
-          break;
-
-        case ApiStatus::OK:
-          // Cool beans
-          break;
-
-        case ApiStatus::MUST_UPGRADE:
-          // Bruh
-          break;
-
-        default:
-          this->logger.error(
-              F("Unexpected status, EventLoop::handleInterrupt "),
-              this->api.network().apiStatusToString(status));
+        case ApiStatus::OK: // Cool beans
+          return;
         }
+
+        const auto str = this->api.network().apiStatusToString(status);
+        this->logger.error(F("Bad status, EventLoop::handleInterrupt "), str);
       } else {
         // TODO: this should never happen, how to ensure?
       }
@@ -214,42 +196,38 @@ private:
       case ApiStatus::FORBIDDEN:
         this->logger.warn(F("Auth token was refused, deleting it"));
         this->flash.removeAuthToken();
-        break;
+        return;
 
       case ApiStatus::CLIENT_BUFFER_OVERFLOW:
-        // TODO: handle this (how tho?)
-        break;
+        panic_(F("Api::registerPlant internal buffer overflow"));
+        return;
 
       case ApiStatus::BROKEN_SERVER:
-      case ApiStatus::PAYLOAD_TOO_BIG:
-      case ApiStatus::BAD_REQUEST:
       case ApiStatus::NOT_FOUND:
         // Server is broken. Nothing we can do besides waiting
-        delay(60000);
-        break;
+        this->logger.warn(F("EventLoop::handlePlant server error"));
+
+        ESP.deepSleep(5 * 60 * 1000 * 1000);
+        return;
 
       case ApiStatus::BROKEN_PIPE:
       case ApiStatus::TIMEOUT:
       case ApiStatus::NO_CONNECTION:
         // Nothing to be done besides retrying later
         delay(5000);
-        break;
+        return;
 
-      case ApiStatus::LOW_RAM:
-        // Rotate. What can we do?
-        break;
-
-      case ApiStatus::OK:
-        break;
+      case ApiStatus::OK: // Cool beans
+        return;
 
       case ApiStatus::MUST_UPGRADE:
         interruptEvent = InterruptEvent::MUST_UPGRADE;
-        break;
-
-      default:
-        const auto s = this->api.network().apiStatusToString(status);
-        this->logger.error(F("Unexpected status, EventLoop::handlePlant: "), s);
+        return;
       }
+
+      const auto s = this->api.network().apiStatusToString(status);
+      this->logger.error(F("Unexpected status, EventLoop::handlePlant: "), s);
+
     } else {
       this->flash.writePlantId(UNWRAP_OK_REF(maybePlantId));
     }
@@ -259,7 +237,6 @@ private:
     this->nextTime = millis() + interval;
     this->logger.debug(F("Handle Measurements"));
 
-    digitalWrite(LED_BUILTIN, HIGH);
     const auto measurements = sensors.measure(id, this->firmwareHash);
     const auto status = this->api.registerEvent(token, measurements);
 
@@ -267,51 +244,37 @@ private:
     case ApiStatus::FORBIDDEN:
       this->logger.warn(F("Auth token was refused, deleting it"));
       this->flash.removeAuthToken();
-      break;
+      return;
 
     case ApiStatus::NOT_FOUND:
       this->logger.warn(F("Plant Id was not found, deleting it"));
       this->flash.removePlantId();
-      break;
+      return;
 
     case ApiStatus::CLIENT_BUFFER_OVERFLOW:
-      // TODO: this endpoint also is used to detect updates
-      // So we should make a request to look for new updates
-      // Or the device will be stuck forever with broken code
-      break;
+      panic_(F("Api::registerEvent internal buffer overflow"));
 
     case ApiStatus::BROKEN_SERVER:
-    case ApiStatus::PAYLOAD_TOO_BIG:
-    case ApiStatus::BAD_REQUEST:
       // Central server is broken. Nothing we can do besides waiting
       // It doesn't make much sense to log events to flash
-      break;
+      return;
 
     case ApiStatus::BROKEN_PIPE:
     case ApiStatus::TIMEOUT:
     case ApiStatus::NO_CONNECTION:
       // Nothing to be done besides retrying later
-      break;
+      return;
 
-    case ApiStatus::LOW_RAM:
-      // Rotate. What can we do?
-      break;
-
-    case ApiStatus::OK:
-      // Cool beans
-      break;
+    case ApiStatus::OK: // Cool beans
+      return;
 
     case ApiStatus::MUST_UPGRADE:
       interruptEvent = InterruptEvent::MUST_UPGRADE;
-      break;
-
-    default:
-      this->logger.error(
-          F("Unexpected status, EventLoop::handleMeasurements: "),
-          this->api.network().apiStatusToString(status));
+      return;
     }
 
-    digitalWrite(LED_BUILTIN, LOW);
+    this->logger.error(F("Unexpected status, EventLoop::handleMeasurements: "),
+                       this->api.network().apiStatusToString(status));
   }
 };
 

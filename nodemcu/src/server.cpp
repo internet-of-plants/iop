@@ -208,9 +208,7 @@ CredentialsServer::connect(const StringView ssid,
   }
 }
 
-/// Not Found (404): invalid credentials
-/// Bad request (400): the json didn't fit the local buffer, this bad
-/// No HttpCode and Internal Error (500): bad vibes at the wlan/server
+/// Forbidden (403): invalid credentials
 Result<AuthToken, ApiStatus>
 CredentialsServer::authenticate(const StringView username,
                                 const StringView password) const noexcept {
@@ -225,30 +223,21 @@ CredentialsServer::authenticate(const StringView username,
                         F("): "), username, F(", "), password);
       return status;
 
-    case ApiStatus::LOW_RAM:
-      this->logger.warn(F("ESP8266 is low on RAM, Api::authenticate failed"));
-      return status;
-
     case ApiStatus::CLIENT_BUFFER_OVERFLOW:
-      this->logger.crit(F("JSON buffer is too small to fit client's payload"));
-      return status;
+      panic_(F("CredentialsServer::authenticate internal buffer overflow"));
 
     case ApiStatus::BROKEN_PIPE:
     case ApiStatus::TIMEOUT:
     case ApiStatus::NO_CONNECTION:
-      this->logger.warn(F("Unexpected request error, trying again later"));
+      this->logger.warn(F("CredentialsServer::authenticate network error"));
       return status;
 
     case ApiStatus::BROKEN_SERVER:
-    case ApiStatus::PAYLOAD_TOO_BIG:
-    case ApiStatus::BAD_REQUEST:
     case ApiStatus::NOT_FOUND:
-      this->logger.warn(F("Unexpected server error, sleeping for 20 seconds"));
-      delay(20000);
+      this->logger.warn(F("CredentialsServer::authenticate server error"));
       return status;
 
-    case ApiStatus::OK:
-      // Cool beans
+    case ApiStatus::OK: // Cool beans
       return status;
 
     case ApiStatus::MUST_UPGRADE:
@@ -256,8 +245,8 @@ CredentialsServer::authenticate(const StringView username,
       return status;
     }
 
-    this->logger.error(F("Unexpected status, CredentialsServer::authenticate "),
-                       this->api->network().apiStatusToString(status));
+    const auto str = this->api->network().apiStatusToString(status);
+    this->logger.error(F("CredentialsServer::authenticate bad status "), str);
     return status;
   } else {
     return UNWRAP_OK(authToken);

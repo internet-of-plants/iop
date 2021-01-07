@@ -54,40 +54,33 @@ void reportPanic(const StringView &msg, const StaticString &file,
 
     case ApiStatus::CLIENT_BUFFER_OVERFLOW:
       // TODO: deal with this, but how? Truncating the msg?
+      // Should we have an endpoint to report this type of error that can't
+      // trigger it?
       return;
 
     case ApiStatus::BROKEN_SERVER:
-    case ApiStatus::PAYLOAD_TOO_BIG:
-    case ApiStatus::BAD_REQUEST:
-      // Central server is broken. Nothing we can do besides waiting
-      // It doesn't make much sense to log events to flash
-      ESP.deepSleep(60);
-      break;
+      // Nothing we can do besides waiting.
+      ESP.deepSleep(60 * 1000 * 1000);
+      continue;
 
     case ApiStatus::BROKEN_PIPE:
     case ApiStatus::TIMEOUT:
     case ApiStatus::NO_CONNECTION:
       // Nothing to be done besides retrying later
-      ESP.deepSleep(10);
-      break;
-
-    case ApiStatus::LOW_RAM:
-      // Rotate. What can we do?
-      break;
+      ESP.deepSleep(10 * 1000 * 1000);
+      continue;
 
     case ApiStatus::OK:
       logger.info(F("Reported panic to server successfully"));
-      break;
+      return;
 
     case ApiStatus::MUST_UPGRADE:
       // TODO: try to upgrade in here
       interruptEvent = InterruptEvent::MUST_UPGRADE;
-      break;
-
-    default:
-      logger.error(F("Unexpected status, panic.h: reportPanic: "),
-                   api.network().apiStatusToString(status));
+      return;
     }
+    const auto str = api.network().apiStatusToString(status);
+    logger.error(F("Unexpected status, panic.h: reportPanic: "), str);
   }
 }
 
