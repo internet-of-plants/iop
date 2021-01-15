@@ -11,7 +11,7 @@
 #include "configuration.h"
 #include "flash.hpp"
 
-// TODO: save unique panics to flash
+// TODO(pc): save unique panics to flash
 // https://github.com/sticilface/ESPmanager/blob/dce7fc06806a90c179a40eb2d74f4278fffad5b4/src/SaveStack.cpp
 void reportPanic(const StringView &msg, const StaticString &file,
                  const uint32_t line, const StringView &func) {
@@ -19,7 +19,7 @@ void reportPanic(const StringView &msg, const StaticString &file,
     const auto &host_ = UNWRAP_REF(host);
     const Log logger(CRIT, F("PANIC"));
     const Api api(host_, TRACE);
-    if (!api.isConnected()) {
+    if (!Api::isConnected()) {
       logger.crit(F("No connection, unable to report panic"));
       return;
     }
@@ -40,9 +40,11 @@ void reportPanic(const StringView &msg, const StaticString &file,
     };
 
     const auto status = api.reportPanic(token, flash.readPlantId(), panicData);
-    // TODO: We could broadcast panics to other devices in the same network if
-    // Api::reportPanic fails
+    // TODO(pc): We could broadcast panics to other devices in the same network
+    // if Api::reportPanic fails
 
+    const uint32_t oneMinuteUs = 60 * 1000 * 1000;
+    const uint32_t tenSecondsUs = 10 * 1000 * 1000;
     switch (status) {
     case ApiStatus::FORBIDDEN:
       logger.warn(F("Invalid auth token, but keeping since at panic"));
@@ -53,21 +55,21 @@ void reportPanic(const StringView &msg, const StaticString &file,
       return;
 
     case ApiStatus::CLIENT_BUFFER_OVERFLOW:
-      // TODO: deal with this, but how? Truncating the msg?
+      // TODO(pc): deal with this, but how? Truncating the msg?
       // Should we have an endpoint to report this type of error that can't
       // trigger it?
       return;
 
     case ApiStatus::BROKEN_SERVER:
       // Nothing we can do besides waiting.
-      ESP.deepSleep(60 * 1000 * 1000);
+      ESP.deepSleep(oneMinuteUs);
       continue;
 
     case ApiStatus::BROKEN_PIPE:
     case ApiStatus::TIMEOUT:
     case ApiStatus::NO_CONNECTION:
       // Nothing to be done besides retrying later
-      ESP.deepSleep(10 * 1000 * 1000);
+      ESP.deepSleep(tenSecondsUs);
       continue;
 
     case ApiStatus::OK:
@@ -75,18 +77,19 @@ void reportPanic(const StringView &msg, const StaticString &file,
       return;
 
     case ApiStatus::MUST_UPGRADE:
-      // TODO: try to upgrade in here
+      // TODO(pc): try to upgrade in here
       interruptEvent = InterruptEvent::MUST_UPGRADE;
       return;
     }
-    const auto str = api.network().apiStatusToString(status);
+    const auto str = Network::apiStatusToString(status);
     logger.error(F("Unexpected status, panic.h: reportPanic: "), str);
   }
 }
 
 void panic__(const StringView msg, const StaticString file, const uint32_t line,
              const StringView func) {
-  delay(1000);
+  constexpr const uint16_t oneSecond = 1000;
+  delay(oneSecond);
   const Log logger(CRIT, F("PANIC"));
   logger.crit(F("Line "), std::to_string(line), F(" of file "), file,
               F(" inside "), func, F(": "), msg);
@@ -98,7 +101,8 @@ void panic__(const StringView msg, const StaticString file, const uint32_t line,
 
 void panic__(const StaticString msg, const StaticString file,
              const uint32_t line, const StringView func) {
-  delay(1000);
+  constexpr const uint16_t oneSecond = 1000;
+  delay(oneSecond);
   const Log logger(CRIT, F("PANIC"));
   logger.crit(F("Line "), std::to_string(line), F(" of file "), file,
               F(" inside "), func, F(": "), msg);

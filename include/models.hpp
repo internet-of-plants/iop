@@ -1,5 +1,5 @@
-#ifndef IOP_MODELS_H
-#define IOP_MODELS_H
+#ifndef IOP_MODELS_HPP
+#define IOP_MODELS_HPP
 
 #include <array>
 #include <cstdint>
@@ -16,44 +16,45 @@ TYPED_STORAGE(NetworkName, 32);
 TYPED_STORAGE(NetworkPassword, 64);
 TYPED_STORAGE(MD5Hash, 32);
 
-MD5Hash hashSketch() noexcept;
+auto hashSketch() noexcept -> MD5Hash;
 
 typedef uint16_t HttpCode;
 
-typedef struct panic_data_ {
+using PanicData = struct panic_data_ {
   // TODO: this could have a StaticString alternative to be able to use `_P`
   // PROGMEM methods
   StringView msg;
   StaticString file;
   uint32_t line;
   StringView func;
-} PanicData;
+};
 
-typedef struct wifiCredentials {
+using WifiCredentials = struct wifiCredentials {
   NetworkName ssid;
   NetworkPassword password;
-} WifiCredentials;
+};
 
-typedef struct eventStorage {
+using EventStorage = struct eventStorage {
   float airTemperatureCelsius;
   float airHumidityPercentage;
   float airHeatIndexCelsius;
   uint16_t soilResistivityRaw;
   float soilTemperatureCelsius;
-} EventStorage;
+};
 
 class Event {
 public:
-  const EventStorage storage;
-  const PlantId plantId;
-  const MD5Hash firmwareHash;
-  Event(const EventStorage storage, const PlantId plantId,
-        const MD5Hash firmwareHash) noexcept
+  EventStorage storage; // NOLINT misc-non-private-member-variables-in-classes
+  PlantId plantId;      // NOLINT misc-non-private-member-variables-in-classes
+  MD5Hash firmwareHash; // NOLINT misc-non-private-member-variables-in-classes
+  ~Event() = default;
+  Event(EventStorage storage, PlantId plantId, MD5Hash firmwareHash) noexcept
       : storage(storage), plantId(std::move(plantId)),
         firmwareHash(std::move(firmwareHash)) {}
-  Event(Event &&ev)
-      : storage(ev.storage), plantId(std::move(plantId)),
-        firmwareHash(std::move(firmwareHash)) {}
+  Event(Event const &ev) = default;
+  Event(Event &&ev) = default;
+  auto operator=(Event const &ev) -> Event & = default;
+  auto operator=(Event &&ev) noexcept -> Event & = default;
 };
 
 #endif

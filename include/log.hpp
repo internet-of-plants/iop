@@ -1,14 +1,16 @@
-#ifndef IOP_LOG_H
-#define IOP_LOG_H
+#ifndef IOP_LOG_HPP
+#define IOP_LOG_HPP
 
 #include "option.hpp"
 #include "static_string.hpp"
 #include "string_view.hpp"
 
-// TODO: think about remote logging (at least errors/crits) - syslog?
-// TODO: think about logging some important things to flash (FS.h)
+// TODO(pc): think about remote logging (at least errors/crits) - syslog?
+// TODO(pc): think about logging some important things to flash (FS.h)
 
-enum LogLevel { TRACE = 0, DEBUG, INFO, WARN, ERROR, CRIT };
+class Api;
+
+enum LogLevel { TRACE = 0, DEBUG, INFO, WARN, ERROR, CRIT, NO_LOG };
 
 enum LogType { CONTINUITY, START };
 
@@ -21,42 +23,29 @@ private:
   StaticString targetLogger;
   bool flush = true;
 
-  void printLogType(const enum LogType logType,
-                    const LogLevel level) const noexcept;
+  void printLogType(enum LogType logType, LogLevel level) const noexcept;
 
-  void log(const LogLevel level, const StaticString msg,
-           const enum LogType logType,
-           const StaticString lineTermination) const noexcept;
-  void log(const LogLevel level, const StringView msg,
-           const enum LogType logType,
-           const StaticString lineTermination) const noexcept;
+  void log(LogLevel level, StaticString msg, enum LogType logType,
+           StaticString lineTermination) const noexcept;
+  void log(LogLevel level, StringView msg, enum LogType logType,
+           StaticString lineTermination) const noexcept;
+
+  static void print(StaticString str) noexcept;
+  static void print(StringView str) noexcept;
+  static void reportLog() noexcept;
 
 public:
-  Log(const LogLevel level, const StaticString target) noexcept
-      : logLevel{level}, targetLogger(target) {}
-  Log(const LogLevel level, const StaticString target,
-      const bool flush) noexcept
-      : logLevel{level}, targetLogger(target), flush{flush} {}
-  Log(Log &other) noexcept
-      : logLevel(other.logLevel),
-        targetLogger(other.targetLogger), flush{other.flush} {}
-  Log(Log &&other) noexcept
-      : logLevel(other.logLevel),
-        targetLogger(other.targetLogger), flush{other.flush} {}
-  Log &operator=(Log &other) noexcept {
-    this->logLevel = other.logLevel;
-    this->targetLogger = other.targetLogger;
-    this->flush = other.flush;
-    return *this;
-  }
-  Log &operator=(Log &&other) noexcept {
-    this->logLevel = other.logLevel;
-    this->targetLogger = other.targetLogger;
-    this->flush = other.flush;
-    return *this;
-  }
-  LogLevel level() const noexcept { return this->logLevel; }
-  StaticString target() const noexcept { return this->targetLogger; }
+  ~Log() = default;
+  Log(LogLevel level, StaticString target) noexcept
+      : logLevel{level}, targetLogger(std::move(target)) {}
+  Log(LogLevel level, StaticString target, bool flush) noexcept
+      : logLevel{level}, targetLogger(std::move(target)), flush{flush} {}
+  Log(Log const &other) = default;
+  Log(Log &&other) = default;
+  auto operator=(Log const &other) noexcept -> Log & = default;
+  auto operator=(Log &&other) noexcept -> Log & = default;
+  auto level() const noexcept -> LogLevel { return this->logLevel; }
+  auto target() const noexcept -> StaticString { return this->targetLogger; }
   void setup() const noexcept;
 
   template <typename... Args> void trace(const Args &...args) const noexcept {
@@ -100,6 +89,7 @@ public:
     } else {
       this->log(level, msg, CONTINUITY, F("\n"));
     }
+    this->reportLog();
   }
 
   // "Recursive" variadic function
@@ -123,6 +113,7 @@ public:
     } else {
       this->log(level, msg, CONTINUITY, F("\n"));
     }
+    this->reportLog();
   }
 };
 

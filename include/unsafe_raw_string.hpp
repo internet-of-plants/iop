@@ -1,5 +1,5 @@
-#ifndef IOP_UNSAFE_RAW_STRING_VIEW_H
-#define IOP_UNSAFE_RAW_STRING_VIEW_H
+#ifndef IOP_UNSAFE_RAW_STRING_HPP
+#define IOP_UNSAFE_RAW_STRING_HPP
 
 class StringView;
 
@@ -15,22 +15,19 @@ private:
   const char *str;
 
 public:
-  constexpr UnsafeRawString(const char *str) noexcept : str(str) {}
-  constexpr UnsafeRawString(const UnsafeRawString &str) noexcept
-      : str(str.str) {}
-  constexpr UnsafeRawString(const UnsafeRawString &&str) noexcept
-      : str(str.str) {}
-  UnsafeRawString &operator=(const UnsafeRawString &other) noexcept {
+  ~UnsafeRawString() = default;
+  constexpr explicit UnsafeRawString(const char *str) noexcept : str(str) {}
+  constexpr UnsafeRawString(const UnsafeRawString &str) noexcept = default;
+  constexpr UnsafeRawString(UnsafeRawString &&str) noexcept : str(str.str) {}
+  auto operator=(UnsafeRawString const &other) noexcept
+      -> UnsafeRawString & = default;
+  auto operator=(UnsafeRawString &&other) noexcept -> UnsafeRawString & {
     this->str = other.str;
     return *this;
   }
-  UnsafeRawString &operator=(const UnsafeRawString &&other) noexcept {
-    this->str = other.str;
-    return *this;
-  }
-  constexpr const char *const get() const noexcept { return this->str; }
-  StringView operator*() const noexcept;
-  StringView operator->() const noexcept;
+  constexpr auto get() const noexcept -> const char * { return this->str; }
+  auto operator*() const noexcept -> StringView;
+  auto operator->() const noexcept -> StringView;
 };
 
 #endif

@@ -1,5 +1,5 @@
-#ifndef IOP_OPTION_H
-#define IOP_OPTION_H
+#ifndef IOP_OPTION_HPP
+#define IOP_OPTION_HPP
 
 #include "static_string.hpp"
 #include "string_view.hpp"
@@ -8,9 +8,9 @@
 #include "panic.hpp"
 
 #define UNWRAP(opt)                                                            \
-  std::move(opt.expect(F(#opt " is None"), CUTE_FILE, CUTE_LINE, CUTE_FUNC))
-#define UNWRAP_REF(opt) UNWRAP(opt.asRef()).get()
-#define UNWRAP_MUT(opt) UNWRAP(opt.asMut()).get()
+  std::move((opt).expect(F(#opt " is None"), CUTE_FILE, CUTE_LINE, CUTE_FUNC))
+#define UNWRAP_REF(opt) UNWRAP((opt).asRef()).get()
+#define UNWRAP_MUT(opt) UNWRAP((opt).asMut()).get()
 
 /// Optional sum-type, may be filled and contain a T, or not be filled and
 /// unable to access it methods panic instead of causing undefined behavior
@@ -29,9 +29,9 @@ private:
 
   void reset() noexcept {
     if (this->isSome()) {
-      // TODO: do we really need this checks? If so we also need them at Result.
-      // They were taken from the std::optional spec
-      // if (!std::is_pointer<T>() && !std::is_reference<T>() &&
+      // TODO(pc): do we really need this checks? If so we also need them at
+      // Result. They were taken from the std::optional spec if
+      // (!std::is_pointer<T>() && !std::is_reference<T>() &&
       // !std::is_trivially_destructible<T>()) {
       this->value.~T();
       //}
@@ -42,10 +42,11 @@ private:
 
 public:
   constexpr Option() noexcept : filled(false), dummy(0) {}
+  // NOLINTNEXTLINE hicpp-explicit-conversions *-member-init
   constexpr Option(T v) noexcept : filled(true), value(std::move(v)) {}
   Option(Option<T> &other) = delete;
-  Option<T> &operator=(Option<T> &other) = delete;
-  Option<T> &operator=(Option<T> &&other) noexcept {
+  auto operator=(Option<T> &other) -> Option<T> & = delete;
+  auto operator=(Option<T> &&other) noexcept -> Option<T> & {
     this->reset();
     this->filled = other.filled;
     if (other.filled) {
@@ -68,25 +69,25 @@ public:
     other.reset();
   }
 
-  Option<std::reference_wrapper<T>> asMut() noexcept {
+  auto asMut() noexcept -> Option<std::reference_wrapper<T>> {
     if (this->isSome()) {
-      return std::reference_wrapper<T>(this->value);
+      return std::ref(this->value);
     }
     return Option<std::reference_wrapper<T>>();
   }
 
-  Option<std::reference_wrapper<const T>> asRef() const noexcept {
+  auto asRef() const noexcept -> Option<std::reference_wrapper<const T>> {
     if (this->isSome()) {
-      return std::reference_wrapper<const T>(this->value);
+      return std::ref<const T>(this->value);
     }
     return Option<std::reference_wrapper<const T>>();
   }
 
   ~Option() noexcept { this->reset(); }
 
-  constexpr bool isSome() const noexcept { return filled; }
-  constexpr bool isNone() const noexcept { return !this->isSome(); }
-  Option<T> take() noexcept {
+  constexpr auto isSome() const noexcept -> bool { return filled; }
+  constexpr auto isNone() const noexcept -> bool { return !this->isSome(); }
+  auto take() noexcept -> Option<T> {
     Option<T> other;
     other.filled = this->filled;
     if (this->filled) {
@@ -98,7 +99,7 @@ public:
     return other;
   }
 
-  T expect(const StringView msg) noexcept {
+  auto expect(const StringView msg) noexcept -> T {
     if (this->isNone()) {
       panic_(msg);
     }
@@ -106,7 +107,7 @@ public:
     this->reset();
     return value;
   }
-  T expect(const StaticString msg) noexcept {
+  auto expect(const StaticString msg) noexcept -> T {
     if (this->isNone()) {
       panic_(msg);
     }
@@ -114,7 +115,7 @@ public:
     this->reset();
     return value;
   }
-  T unwrapOr(T or_) noexcept {
+  auto unwrapOr(T or_) noexcept -> T {
     if (this->isSome()) {
       return this->expect(F("unwrapOr is broken"));
     }
@@ -122,33 +123,34 @@ public:
   }
 
   template <typename U>
-  Option<U> andThen(std::function<Option<U>(const T)> f) noexcept {
+  auto andThen(std::function<Option<U>(const T)> f) noexcept -> Option<U> {
     if (this->isSome())
       return f(this->expect(F("Option::map, is none but shouldn't")));
     return Option<U>();
   }
 
-  template <typename U> Option<U> map(std::function<U(const T)> f) noexcept {
+  template <typename U>
+  auto map(std::function<U(const T)> f) noexcept -> Option<U> {
     if (this->isSome())
       return f(this->expect(F("Option::map, is none but shouldn't")));
     return Option<U>();
   }
 
-  Option<T> or_(Option<T> v) noexcept {
+  auto or_(Option<T> v) noexcept -> Option<T> {
     if (this->isSome())
       return std::move(this);
     return v;
   }
 
-  Option<T> orElse(std::function<Option<T>()> v) noexcept {
+  auto orElse(std::function<Option<T>()> v) noexcept -> Option<T> {
     if (this->isSome())
       return std::move(this);
     return v();
   }
 
   // Allows for more detailed panics, used by UNWRAP(_REF, _MUT) macros
-  T expect(const StringView msg, const StaticString file, const uint32_t line,
-           const StringView func) noexcept {
+  auto expect(const StringView msg, const StaticString file,
+              const uint32_t line, const StringView func) noexcept -> T {
     if (this->isNone()) {
       panic__(msg, file, line, func);
     }
@@ -156,8 +158,8 @@ public:
     this->reset();
     return value;
   }
-  T expect(const StaticString msg, const StaticString file, const uint32_t line,
-           const StringView func) noexcept {
+  auto expect(const StaticString msg, const StaticString file,
+              const uint32_t line, const StringView func) noexcept -> T {
     if (this->isNone()) {
       panic__(msg, file, line, func);
     }

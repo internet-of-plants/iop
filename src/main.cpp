@@ -8,7 +8,7 @@
 #include "static_string.hpp"
 #include "utils.hpp"
 
-// TODO:
+// TODO(pc):
 // https://github.com/maakbaas/esp8266-iot-framework/blob/master/src/timeSync.cpp
 
 class EventLoop {
@@ -20,8 +20,8 @@ private:
   Flash flash;
   MD5Hash firmwareHash;
 
-  unsigned long nextTime;
-  unsigned long nextYieldLog;
+  unsigned long nextTime;     // NOLINT google-runtime-int
+  unsigned long nextYieldLog; // NOLINT google-runtime-int
 
 public:
   void setup() noexcept {
@@ -30,7 +30,7 @@ public:
     reset::setup();
     this->logger.setup();
     this->sensors.setup();
-    this->flash.setup();
+    Flash::setup();
     this->api.setup();
   }
 
@@ -41,17 +41,21 @@ public:
                         ESP.getFreeSketchSpace());
 #endif
 
+    // TODO(pc): multiple sequenced interrupts may be lost
     this->handleInterrupt();
 
-    const unsigned long now = millis();
+    const unsigned long now = millis(); // NOLINT google-runtime-int
     const auto authToken = this->flash.readAuthToken();
     const auto plantId = this->flash.readPlantId();
 
-    if (this->api.isConnected() && authToken.isSome() && plantId.isSome()) {
+    if (Api::isConnected() && authToken.isSome() && plantId.isSome()) {
       this->credentialsServer.close();
     }
 
-    if (!this->api.isConnected() || authToken.isNone()) {
+    if (!Api::isConnected()) {
+      // No-op
+
+    } else if (authToken.isNone()) {
       this->handleCredentials(authToken);
 
     } else if (plantId.isNone()) {
@@ -61,19 +65,23 @@ public:
       this->handleMeasurements(UNWRAP_REF(authToken), UNWRAP_REF(plantId));
 
     } else if (this->nextYieldLog <= now) {
-      this->nextYieldLog = now + 1000;
-      this->logger.debug(F("Waiting"));
+      constexpr const uint16_t minute = 1000;
+      this->nextYieldLog = now + minute;
+      this->logger.trace(F("Waiting"));
     }
   }
 
-  EventLoop &operator=(EventLoop &other) = delete;
-  EventLoop &operator=(EventLoop &&other) = delete;
-  EventLoop(const StaticString host) noexcept
+  auto operator=(EventLoop const &other) -> EventLoop & = delete;
+  auto operator=(EventLoop &&other) -> EventLoop & = delete;
+  ~EventLoop() = default;
+  explicit EventLoop(const StaticString host) noexcept
       : sensors(soilResistivityPowerPin, soilTemperaturePin,
                 airTempAndHumidityPin, dhtVersion),
         api(host, logLevel), credentialsServer(host, logLevel),
         logger(logLevel, F("LOOP")), flash(logLevel),
-        firmwareHash(hashSketch()) {}
+        firmwareHash(hashSketch()), nextTime(0), nextYieldLog(0) {}
+  EventLoop(EventLoop const &other) = delete;
+  EventLoop(EventLoop &&other) = delete;
 
 private:
   void handleInterrupt() const noexcept {
@@ -82,6 +90,15 @@ private:
 
     switch (event) {
     case NONE:
+      break;
+    case FACTORY_RESET:
+#ifdef IOP_FACTORY_RESET
+      this->logger.info(F("Factory Reset: deleting stored credentials"));
+      this->flash.removeWifiConfig();
+      this->flash.removeAuthToken();
+      this->flash.removePlantId();
+      Api::disconnect();
+#endif
       break;
     case MUST_UPGRADE:
 #ifdef IOP_OTA
@@ -123,15 +140,6 @@ private:
       }
 #endif
       break;
-    case FACTORY_RESET:
-#ifdef IOP_FACTORY_RESET
-      this->logger.info(F("Factory Reset: deleting stored credentials"));
-      this->flash.removeWifiConfig();
-      this->flash.removeAuthToken();
-      this->flash.removePlantId();
-      this->api.disconnect();
-#endif
-      break;
     case ON_CONNECTION:
 #ifdef IOP_ONLINE
       const auto ip = WiFi.localIP().toString();
@@ -141,11 +149,13 @@ private:
       struct station_config config = {0};
       wifi_station_get_config(&config);
 
-      const auto rawSsid = UnsafeRawString((char *)config.ssid);
+      const auto rawSsid =
+          UnsafeRawString(reinterpret_cast<char *>(config.ssid));
       const auto ssid = NetworkName::fromStringTruncating(rawSsid);
       this->logger.info(F("Connected to network:"), ssid.asString());
 
-      const auto rawPsk = UnsafeRawString((char *)config.password);
+      const auto rawPsk =
+          UnsafeRawString(reinterpret_cast<char *>(config.password));
       const auto psk = NetworkPassword::fromStringTruncating(rawPsk);
 
       const auto maybeCurrConfig = this->flash.readWifiConfig();
@@ -192,6 +202,10 @@ private:
       this->logger.error(F("Unable to get plant id"));
 
       const auto &status = UNWRAP_ERR_REF(maybePlantId);
+
+      const uint32_t fiveMinutesUs = 5 * 60 * 1000 * 1000;
+      const uint32_t fiveSeconds = 5 * 1000;
+
       switch (status) {
       case ApiStatus::FORBIDDEN:
         this->logger.warn(F("Auth token was refused, deleting it"));
@@ -207,14 +221,14 @@ private:
         // Server is broken. Nothing we can do besides waiting
         this->logger.warn(F("EventLoop::handlePlant server error"));
 
-        ESP.deepSleep(5 * 60 * 1000 * 1000);
+        ESP.deepSleep(fiveMinutesUs);
         return;
 
       case ApiStatus::BROKEN_PIPE:
       case ApiStatus::TIMEOUT:
       case ApiStatus::NO_CONNECTION:
         // Nothing to be done besides retrying later
-        delay(5000);
+        delay(fiveSeconds);
         return;
 
       case ApiStatus::OK: // Cool beans
@@ -225,7 +239,7 @@ private:
         return;
       }
 
-      const auto s = this->api.network().apiStatusToString(status);
+      const auto s = Network::apiStatusToString(status);
       this->logger.error(F("Unexpected status, EventLoop::handlePlant: "), s);
 
     } else {
@@ -257,13 +271,11 @@ private:
     case ApiStatus::BROKEN_SERVER:
       // Central server is broken. Nothing we can do besides waiting
       // It doesn't make much sense to log events to flash
-      return;
 
     case ApiStatus::BROKEN_PIPE:
     case ApiStatus::TIMEOUT:
     case ApiStatus::NO_CONNECTION:
       // Nothing to be done besides retrying later
-      return;
 
     case ApiStatus::OK: // Cool beans
       return;
@@ -274,12 +286,17 @@ private:
     }
 
     this->logger.error(F("Unexpected status, EventLoop::handleMeasurements: "),
-                       this->api.network().apiStatusToString(status));
+                       Network::apiStatusToString(status));
   }
 };
 
 PROGMEM_STRING(missingHost, "No host available");
-auto eventLoop = make_unique<EventLoop>(host.asRef().expect(missingHost));
+auto eventLoop = try_make_unique<EventLoop>(host.asRef().expect(missingHost));
 
-void setup() noexcept { eventLoop->setup(); }
-void loop() noexcept { eventLoop->loop(); }
+void setup() {
+  if (!eventLoop)
+    panic_(F("Unable to allocate EventLoop"));
+
+  eventLoop->setup();
+}
+void loop() { eventLoop->loop(); }

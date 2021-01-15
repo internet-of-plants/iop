@@ -1,13 +1,89 @@
 #include "log.hpp"
 
 #ifndef IOP_LOG_DISABLED
+#include "api.hpp"
+#include "configuration.h"
+#include "flash.hpp"
 #include <Arduino.h>
 
+class ByteRate {
+  uint32_t lastBytesPerMinute{0};
+  uint32_t bytes{0};
+  uint64_t nextReset{0};
+
+public:
+  ByteRate() noexcept = default;
+
+  void resetIfNeeded() noexcept {
+    constexpr const uint8_t minutes = 5;
+    constexpr const uint32_t fiveMin = minutes * 1000 * 60;
+    this->nextReset = millis() + fiveMin;
+    this->lastBytesPerMinute = this->bytes / minutes;
+    this->bytes = 0;
+  }
+
+  void addBytes(uint16_t bytes) noexcept {
+    this->resetIfNeeded();
+    this->bytes += bytes;
+  }
+
+  auto bytesPerMinute() const noexcept -> uint32_t {
+    return this->lastBytesPerMinute;
+  }
+};
+
+static ByteRate byteRate;
+static String currentLog; // NOLINT cert-err58-cpp
+
+// TODO(pc): add network log level
+// TODO(pc): allow gradually sending bytes wifiClient->write(...) instead of
+// buffering the log before sending We can use the already in place system of
+// variadic templates to avoid this buffer
+// TODO(pc): use ByteRate to allow grouping messages before sending, or reuse
+// the TCP connection to many
+
+PROGMEM_STRING(missingHost, "No host available");
+const auto &host_ = host.asRef().expect(missingHost).get();
+
+// Logs are disabled for those, this may be a problem
+// TODO(pc): allow to disable network logging so at we can enable logging here
+static auto api = try_make_unique<Api>(host_, NO_LOG);
+static Flash flash(NO_LOG);
+
+void Log::print(const StaticString str) noexcept {
+  Serial.print(str.get());
+  currentLog += str.get();
+  byteRate.addBytes(str.length());
+}
+void Log::print(const StringView str) noexcept {
+  Serial.print(str.get());
+  currentLog += str.get();
+  byteRate.addBytes(str.length());
+}
+
+void Log::reportLog() noexcept {
+  const auto maybeToken = flash.readAuthToken();
+  const auto maybePlantId = flash.readPlantId();
+
+  if (maybeToken.isSome()) {
+    api->registerLog(UNWRAP_REF(maybeToken), maybePlantId, currentLog);
+  }
+  currentLog.clear();
+}
+
 void Log::setup() const noexcept {
-  Serial.begin(9600);
-  const auto end = millis() + 30000;
+  if (!api)
+    panic_(F("Unable to allocate api"));
+
+  constexpr const uint32_t BAUD_RATE = 9600;
+  Serial.begin(BAUD_RATE);
+
+  constexpr const uint32_t thirtySec = 30 * 1000;
+  const auto end = millis() + thirtySec;
+
   while (!Serial && millis() < end)
     yield();
+
   this->info(F("Setup"));
 }
 
@@ -17,30 +93,33 @@ void Log::printLogType(const enum LogType logType,
   case CONTINUITY:
     break;
   case START:
-    Serial.print(F("["));
+    this->print(F("["));
     switch (level) {
     case TRACE:
-      Serial.print(F("TRACE"));
+      this->print(F("TRACE"));
       break;
     case DEBUG:
-      Serial.print(F("DEBUG"));
+      this->print(F("DEBUG"));
       break;
     case INFO:
-      Serial.print(F("INFO"));
+      this->print(F("INFO"));
       break;
     case WARN:
-      Serial.print(F("WARN"));
+      this->print(F("WARN"));
       break;
     case ERROR:
-      Serial.print(F("ERROR"));
+      this->print(F("ERROR"));
       break;
+    case NO_LOG:
+      return;
     case CRIT:
-      Serial.print(F("CRIT"));
+    default:
+      this->print(F("CRIT"));
       break;
     }
-    Serial.print(F("] "));
-    Serial.print(this->targetLogger.get());
-    Serial.print(F(": "));
+    this->print(F("] "));
+    this->print(this->targetLogger);
+    this->print(F(": "));
   };
 }
 
@@ -49,11 +128,14 @@ void Log::log(const enum LogLevel level, const StaticString msg,
               const StaticString lineTermination) const noexcept {
   if (this->logLevel > level)
     return;
+
   if (this->flush)
     Serial.flush();
+
   this->printLogType(logType, level);
-  Serial.print(msg.get());
-  Serial.print(lineTermination.get());
+
+  this->print(msg);
+  this->print(lineTermination);
   if (this->flush)
     Serial.flush();
 }
@@ -63,11 +145,13 @@ void Log::log(const enum LogLevel level, const StringView msg,
               const StaticString lineTermination) const noexcept {
   if (this->logLevel > level)
     return;
+
   if (this->flush)
     Serial.flush();
+
   this->printLogType(logType, level);
-  Serial.print(msg.get());
-  Serial.print(lineTermination.get());
+  this->print(msg);
+  this->print(lineTermination);
   if (this->flush)
     Serial.flush();
 }

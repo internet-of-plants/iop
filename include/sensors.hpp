@@ -1,5 +1,5 @@
-#ifndef IOP_SENSORS_H
-#define IOP_SENSORS_H
+#ifndef IOP_SENSORS_HPP
+#define IOP_SENSORS_HPP
 
 #include "models.hpp"
 #include <memory>
@@ -20,19 +20,23 @@ private:
   DHT airTempAndHumiditySensor;
 
 public:
+  ~Sensors() = default;
   Sensors(const uint8_t soilResistivityPowerPin,
           const uint8_t soilTemperaturePin, const uint8_t dhtPin,
           const uint8_t dhtVersion) noexcept
       : soilResistivityPowerPin(soilResistivityPowerPin),
-        soilTemperatureOneWireBus(make_unique<OneWire>(soilTemperaturePin)),
+        soilTemperatureOneWireBus(try_make_unique<OneWire>(soilTemperaturePin)),
         soilTemperatureSensor(soilTemperatureOneWireBus.get()),
-        airTempAndHumiditySensor(dhtPin, dhtVersion) {}
+        airTempAndHumiditySensor(dhtPin, dhtVersion) {
+    if (!soilTemperatureOneWireBus)
+      panic_(F("Unnable to allocate soilTemperatureOneWireBus"));
+  }
   Sensors(Sensors &other) = delete;
   Sensors(Sensors &&other) = delete;
-  Sensors &operator=(Sensors &other) = delete;
-  Sensors &operator=(Sensors &&other) = delete;
+  auto operator=(Sensors &other) -> Sensors & = delete;
+  auto operator=(Sensors &&other) -> Sensors & = delete;
   void setup() noexcept;
-  Event measure(PlantId plantId, MD5Hash firmwareHash) noexcept;
+  auto measure(PlantId plantId, MD5Hash firmwareHash) noexcept -> Event;
 };
 
 #include "utils.hpp"

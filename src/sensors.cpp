@@ -9,7 +9,7 @@ void Sensors::setup() noexcept {
   this->soilTemperatureSensor.begin();
 }
 
-Event Sensors::measure(PlantId plantId, MD5Hash firmwareHash) noexcept {
+auto Sensors::measure(PlantId plantId, MD5Hash firmwareHash) noexcept -> Event {
   return Event(
       (EventStorage){
           .airTemperatureCelsius = measurement::airTemperatureCelsius(

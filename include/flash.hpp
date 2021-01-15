@@ -1,5 +1,5 @@
-#ifndef IOP_FLASH_H
-#define IOP_FLASH_H
+#ifndef IOP_FLASH_HPP
+#define IOP_FLASH_HPP
 
 #include "ESP8266WiFi.h"
 #include "log.hpp"
@@ -11,24 +11,25 @@ class Flash {
   Log logger;
 
 public:
-  Flash(const LogLevel logLevel) noexcept : logger(logLevel, F("FLASH")) {}
-  Flash(Flash &other) noexcept : logger(other.logger) {}
-  Flash(Flash &&other) noexcept : logger(other.logger) {}
-  Flash &operator=(Flash &other) = delete;
-  Flash &operator=(Flash &&other) = delete;
-  void setup() const noexcept;
+  ~Flash() = default;
+  explicit Flash(LogLevel logLevel) noexcept : logger(logLevel, F("FLASH")) {}
+  Flash(Flash const &other) noexcept = default;
+  Flash(Flash &&other) noexcept = default;
+  auto operator=(Flash const &other) -> Flash & = default;
+  auto operator=(Flash &&other) -> Flash & = default;
+  static auto setup() noexcept -> void;
 
-  Option<AuthToken> readAuthToken() const noexcept;
+  auto readAuthToken() const noexcept -> Option<AuthToken>;
   void removeAuthToken() const noexcept;
   void writeAuthToken(const AuthToken &token) const noexcept;
 
-  Option<PlantId> readPlantId() const noexcept;
+  auto readPlantId() const noexcept -> Option<PlantId>;
   void removePlantId() const noexcept;
   void writePlantId(const PlantId &id) const noexcept;
 
-  Option<WifiCredentials> readWifiConfig() const noexcept;
+  auto readWifiConfig() const noexcept -> Option<WifiCredentials>;
   void removeWifiConfig() const noexcept;
-  void writeWifiConfig(const WifiCredentials &id) const noexcept;
+  void writeWifiConfig(const WifiCredentials &config) const noexcept;
 };
 
 #include "utils.hpp"

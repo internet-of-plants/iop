@@ -1,5 +1,5 @@
-#ifndef IOP_UTILS_H
-#define IOP_UTILS_H
+#ifndef IOP_UTILS_HPP
+#define IOP_UTILS_HPP
 
 #include <cstdint>
 
@@ -46,17 +46,20 @@ static volatile enum InterruptEvent interruptEvent = NONE;
   PROGMEM_STRING(name_##storage, msg);                                         \
   static const Option<StaticString> name(name_##storage);
 
-#include "Stream.h"
-#include "WString.h"
-
-bool runUpdate(Stream &in, uint32_t size, const String &md5,
-               int command) noexcept;
-
 #include <memory>
-
 template <typename T, typename... Args>
-std::unique_ptr<T> make_unique(Args &&...args) {
-  return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
+inline auto try_make_unique(Args &&...args) noexcept -> std::unique_ptr<T> {
+  return std::unique_ptr<T>(new (std::nothrow) T(std::forward<Args>(args)...));
+}
+
+// TODO: OOm can still cause problems because refcount is still alloced
+// separately and can fail
+template <typename _Tp, typename... _Args>
+inline auto try_make_shared(_Args &&...__args) noexcept
+    -> std::shared_ptr<_Tp> {
+  typedef typename std::remove_const<_Tp>::type _Tp_nc;
+  return std::allocate_shared<_Tp>(std::allocator<_Tp_nc>(),
+                                   std::forward<_Args>(__args)...);
 }
 
 #endif

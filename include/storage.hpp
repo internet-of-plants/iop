@@ -1,11 +1,12 @@
-#ifndef IOP_STORAGE_H
-#define IOP_STORAGE_H
+#ifndef IOP_STORAGE_HPP
+#define IOP_STORAGE_HPP
 
 #include <cinttypes>
 #include <memory>
 
 #include "result.hpp"
 #include "string_view.hpp"
+#include "utils.hpp"
 
 struct MovedOut {
   uint8_t dummy;
@@ -38,60 +39,62 @@ private:
   // This dangerous, since we don't check here if std::shared_ptr is moved-out,
   // the caller should handle that. It only exists to provide a safe and
   // efficient tryFrom
-  Storage<SIZE>(std::shared_ptr<InnerStorage> val) noexcept
+  explicit Storage<SIZE>(std::shared_ptr<InnerStorage> val) noexcept
       : val(std::move(val)) {
     *this->val->end() = 0;
   }
 
 public:
-  Storage<SIZE>(const InnerStorage val) noexcept
-      : val(std::make_shared<InnerStorage>(val)) {
+  ~Storage<SIZE>() = default;
+  explicit Storage<SIZE>(const InnerStorage val) noexcept
+      : val(try_make_shared<InnerStorage>(val)) {
+    if (!this->val)
+      panic_(F("Unnable to allocate val"));
+
     *this->val->end() = 0;
   }
-  Result<Storage<SIZE>, MovedOut>
-  tryFrom(std::shared_ptr<InnerStorage> val) noexcept {
+  auto tryFrom(std::shared_ptr<InnerStorage> val) noexcept
+      -> Result<Storage<SIZE>, MovedOut> {
     if (val.get() == nullptr)
       return (MovedOut){.dummy = 0};
     return Storage<SIZE>(std::move(val));
   }
-  constexpr Storage<SIZE>(const Storage<SIZE> &other) noexcept
+  constexpr Storage<SIZE>(Storage<SIZE> const &other) noexcept
       : val(other.val) {}
   constexpr Storage<SIZE>(Storage<SIZE> &&other) noexcept : val(other.val) {}
-  Storage<SIZE> &operator=(const Storage<SIZE> &other) noexcept {
+  auto operator=(Storage<SIZE> const &other) noexcept
+      -> Storage<SIZE> & = default;
+  auto operator=(Storage<SIZE> &&other) noexcept -> Storage<SIZE> & {
     this->val = other.val;
     return *this;
   }
-  Storage<SIZE> &operator=(const Storage<SIZE> &&other) noexcept {
-    this->val = other.val;
-    return *this;
-  }
-  constexpr const uint8_t *constPtr() const noexcept {
+  constexpr auto constPtr() const noexcept -> const uint8_t * {
     return this->val->data();
   }
-  constexpr uint8_t *mutPtr() noexcept { return this->val->data(); }
-  StringView asString() const noexcept {
+  constexpr auto mutPtr() noexcept -> uint8_t * { return this->val->data(); }
+  auto asString() const noexcept -> StringView {
     return UnsafeRawString((const char *)this->constPtr());
   }
-  std::shared_ptr<InnerStorage> asSharedArray() const noexcept {
+  auto asSharedArray() const noexcept -> std::shared_ptr<InnerStorage> {
     return this->val;
   }
-  constexpr static Storage<SIZE> empty() noexcept {
+  constexpr static auto empty() noexcept -> Storage<SIZE> {
     return Storage<SIZE>((InnerStorage){0});
   }
 
-  static Storage<SIZE> fromStringTruncating(const StringView &str) noexcept {
+  static auto fromStringTruncating(const StringView str) noexcept
+      -> Storage<SIZE> {
     auto val = Storage<SIZE>::empty();
     const auto len = str.length();
     memcpy(val.mutPtr(), (const uint8_t *)str.get(), len < SIZE ? len : SIZE);
     return val;
   }
 
-  static Result<Storage<SIZE>, enum ParseError>
-  fromString(const StringView &str) noexcept {
-    if (str.length() > SIZE)
-      return ParseError::TOO_BIG;
-    return Storage<SIZE>::fromStringTruncating(str);
-  }
+  static auto fromString(const StringView str) noexcept
+      -> Result<Storage<SIZE>, enum ParseError> {
+        if (str.length() > SIZE) return ParseError::TOO_BIG;
+        return Storage<SIZE>::fromStringTruncating(str);
+      }
 };
 
 /// Creates a typed Storage<size_>, check it's documentation and definition for
@@ -107,37 +110,38 @@ public:
     InnerStorage val;                                                          \
                                                                                \
   public:                                                                      \
-    name##_class(const InnerStorage val) noexcept : val(val) {}                \
-    name##_class(const name##_class &other) noexcept : val(other.val) {}       \
-    name##_class(name##_class &&other) noexcept : val(other.val) {}            \
-    name##_class &operator=(const name##_class &other) noexcept {              \
-      this->val = other.val;                                                   \
-      return *this;                                                            \
+    ~name##_class() = default;                                                 \
+    explicit name##_class(InnerStorage val) noexcept : val(std::move(val)) {}  \
+    name##_class(name##_class const &other) noexcept = default;                \
+    name##_class(name##_class &&other) noexcept = default;                     \
+    auto operator=(name##_class const &other) noexcept -> name                 \
+        ##_class & = default;                                                  \
+    auto operator=(name##_class &&other) noexcept -> name##_class & = default; \
+    auto constPtr() const noexcept -> const uint8_t * {                        \
+      return this->val.constPtr();                                             \
     }                                                                          \
-    name##_class &operator=(const name##_class &&other) noexcept {             \
-      this->val = other.val;                                                   \
-      return *this;                                                            \
+    auto mutPtr() noexcept -> uint8_t * { return this->val.mutPtr(); }         \
+    auto asString() const noexcept -> StringView {                             \
+      return this->val.asString();                                             \
     }                                                                          \
-    const uint8_t *constPtr() const noexcept { return this->val.constPtr(); }  \
-    uint8_t *mutPtr() noexcept { return this->val.mutPtr(); }                  \
-    StringView asString() const noexcept { return this->val.asString(); }      \
-    static name##_class empty() noexcept {                                     \
+    static auto empty() noexcept -> name##_class {                             \
       return name##_class(InnerStorage::empty());                              \
     }                                                                          \
-    std::shared_ptr<InnerStorage::InnerStorage>                                \
-    asSharedArray() const noexcept {                                           \
+    auto asSharedArray() const noexcept                                        \
+        -> std::shared_ptr<InnerStorage::InnerStorage> {                       \
       return this->val.asSharedArray();                                        \
     }                                                                          \
-    static name##_class fromStringTruncating(const StringView &str) noexcept { \
-      return InnerStorage::fromStringTruncating(str);                          \
+    static auto fromStringTruncating(const StringView str) noexcept -> name    \
+        ##_class {                                                             \
+      return name##_class(InnerStorage::fromStringTruncating(str));            \
     }                                                                          \
-    static Result<name##_class, enum ParseError>                               \
-    fromString(const StringView &str) noexcept {                               \
-      return RESULT_MAP_OK(InnerStorage::fromString(str), name##_class,        \
-                           [](const InnerStorage &storage) noexcept {          \
-                             return name##_class(storage);                     \
-                           });                                                 \
-    }                                                                          \
+    static auto fromString(const StringView str) noexcept                      \
+        -> Result<name##_class, enum ParseError> {                             \
+          return RESULT_MAP_OK(InnerStorage::fromString(str), name##_class,    \
+                               [](InnerStorage storage) noexcept {             \
+                                 return name##_class(std::move(storage));      \
+                               });                                             \
+        }                                                                      \
   };                                                                           \
   typedef name##_class name;
 

@@ -2,12 +2,13 @@
 #include "string_view.hpp"
 #include "unsafe_raw_string.hpp"
 
-
-StringView UnsafeRawString::operator*() const noexcept { return *this; }
-StringView UnsafeRawString::operator->() const noexcept { return *this; }
-bool StaticString::contains(const StaticString needle) const noexcept {
+auto UnsafeRawString::operator*() const noexcept -> StringView { return *this; }
+auto UnsafeRawString::operator->() const noexcept -> StringView {
+  return *this;
+}
+auto StaticString::contains(const StaticString needle) const noexcept -> bool {
   return StringView(*this).contains(needle);
 }
-bool StaticString::contains(const StringView needle) const noexcept {
+auto StaticString::contains(const StringView needle) const noexcept -> bool {
   return StringView(*this).contains(needle);
 }

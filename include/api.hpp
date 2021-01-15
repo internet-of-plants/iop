@@ -1,5 +1,5 @@
-#ifndef IOP_API_H
-#define IOP_API_H
+#ifndef IOP_API_HPP
+#define IOP_API_HPP
 
 #include "fixed_string.hpp"
 #include "log.hpp"
@@ -21,41 +21,48 @@ private:
   Network network_;
 
 public:
-  Api(const StaticString host, const LogLevel logLevel) noexcept
+  ~Api() = default;
+  Api(const StaticString &host, const LogLevel logLevel) noexcept
       : logger(logLevel, F("API")), network_(host, logLevel) {}
-  Api(Api &other) = delete;
+  Api(Api const &other) = delete;
   Api(Api &&other) = delete;
-  Api &operator=(Api &other) = delete;
-  Api &operator=(Api &&other) = delete;
+  auto operator=(Api const &other) -> Api & = delete;
+  auto operator=(Api &&other) -> Api & = delete;
 
-  void setup() const noexcept;
-  ApiStatus upgrade(const AuthToken &token,
-                    const MD5Hash sketchHash) const noexcept;
-  ApiStatus reportPanic(const AuthToken &authToken, const Option<PlantId> &id,
-                        const PanicData &event) const noexcept;
-  ApiStatus registerEvent(const AuthToken &token,
-                          const Event &event) const noexcept;
-  Result<PlantId, ApiStatus>
-  registerPlant(const AuthToken &token) const noexcept;
-  Result<AuthToken, ApiStatus>
-  authenticate(const StringView username,
-               const StringView password) const noexcept;
-  ApiStatus reportError(const AuthToken &authToken, const PlantId &id,
-                        const StringView error) const noexcept;
-  StaticString host() const noexcept { return this->network().host(); }
-  bool isConnected() const noexcept;
-  String macAddress() const noexcept;
-  void disconnect() const noexcept;
-  LogLevel loggerLevel() const noexcept;
+  auto setup() const noexcept -> void { this->network().setup(); }
 
-  const Network &network() const noexcept { return this->network_; }
+  static auto isConnected() noexcept -> bool { return Network::isConnected(); }
+  static auto macAddress() noexcept -> String { return Network::macAddress(); }
+  static auto disconnect() noexcept -> void { Network::disconnect(); }
+  auto upgrade(const AuthToken &token, const MD5Hash &sketchHash) const noexcept
+      -> ApiStatus;
+  auto reportPanic(const AuthToken &authToken, const Option<PlantId> &id,
+                   const PanicData &event) const noexcept -> ApiStatus;
+  auto registerEvent(const AuthToken &token, const Event &event) const noexcept
+      -> ApiStatus;
+  auto registerPlant(const AuthToken &token) const noexcept
+      -> Result<PlantId, ApiStatus>;
+  auto authenticate(StringView username, StringView password) const noexcept
+      -> Result<AuthToken, ApiStatus>;
+  auto reportError(const AuthToken &authToken, const PlantId &id,
+                   StringView error) const noexcept -> ApiStatus;
+  auto registerLog(const AuthToken &authToken, const Option<PlantId> &plantId,
+                   StringView log) const noexcept -> ApiStatus;
+  auto host() const noexcept -> StaticString { return this->network().host(); };
+  auto loggerLevel() const noexcept -> LogLevel;
+
+  auto network() const noexcept -> const Network & { return this->network_; }
 
 private:
   using JsonCallback = std::function<void(JsonDocument &)>;
   template <uint16_t SIZE>
-  Option<FixedString<SIZE>> makeJson(const StaticString name,
-                                     const JsonCallback func) const noexcept {
-    auto doc = make_unique<StaticJsonDocument<SIZE>>();
+  auto makeJson(const StaticString name, const JsonCallback func) const noexcept
+      -> Option<FixedString<SIZE>> {
+    auto doc = try_make_unique<StaticJsonDocument<SIZE>>();
+    if (!doc) {
+      this->logger.error(F("Unable to allocate at Api::makeJson for "), name);
+      return Option<FixedString<SIZE>>();
+    }
     func(*doc);
 
     if (doc->overflowed()) {

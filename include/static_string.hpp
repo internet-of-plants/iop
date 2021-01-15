@@ -1,5 +1,5 @@
-#ifndef IOP_STATIC_STRING_H
-#define IOP_STATIC_STRING_H
+#ifndef IOP_STATIC_STRING_HPP
+#define IOP_STATIC_STRING_HPP
 
 #include "WString.h"
 
@@ -19,27 +19,22 @@ private:
   const __FlashStringHelper *str;
 
 public:
+  ~StaticString() = default;
+
+  // NOLINTNEXTLINE hicpp-explicit-conversions
   constexpr StaticString(const __FlashStringHelper *str) noexcept : str(str) {}
-  constexpr StaticString(const StaticString &other) noexcept : str(other.str) {}
-  constexpr StaticString(const StaticString &&other) noexcept
-      : str(other.str) {}
-  StaticString &operator=(const StaticString &other) noexcept {
-    this->str = other.str;
-    return *this;
-  }
-  StaticString &operator=(const StaticString &&other) noexcept {
-    this->str = other.str;
-    return *this;
-  }
-  constexpr const __FlashStringHelper *const get() const noexcept {
-    return this->str;
-  }
-  bool contains(const StaticString needle) const noexcept;
-  bool contains(const StringView needle) const noexcept;
-  size_t length() const noexcept { return strlen_P(this->asCharPtr()); }
-  bool isEmpty() const noexcept { return this->length() == 0; }
-  constexpr const char *const asCharPtr() const noexcept {
-    return (const char *)this->get();
+  constexpr StaticString(StaticString const &other) noexcept = default;
+  constexpr StaticString(StaticString &&other) noexcept : str(other.str) {}
+  auto operator=(StaticString const &other) noexcept
+      -> StaticString & = default;
+  auto operator=(StaticString &&other) noexcept -> StaticString & = default;
+  auto get() const noexcept -> const __FlashStringHelper * { return this->str; }
+  auto contains(StaticString needle) const noexcept -> bool;
+  auto contains(StringView needle) const noexcept -> bool;
+  auto length() const noexcept -> size_t { return strlen_P(this->asCharPtr()); }
+  auto isEmpty() const noexcept -> bool { return this->length() == 0; }
+  auto asCharPtr() const noexcept -> const char * {
+    return reinterpret_cast<const char *const>(this->get());
   }
 };
 

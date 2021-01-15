@@ -1,16 +1,16 @@
-#ifndef IOP_MEASUREMENT_H
-#define IOP_MEASUREMENT_H
+#ifndef IOP_MEASUREMENT_HPP
+#define IOP_MEASUREMENT_HPP
 
 #include "DHT.h"
 #include "DallasTemperature.h"
 #include <cstdint>
 
 namespace measurement {
-float soilTemperatureCelsius(DallasTemperature &sensor) noexcept;
-float airTemperatureCelsius(DHT &dht) noexcept;
-float airHumidityPercentage(DHT &dht) noexcept;
-float airHeatIndexCelsius(DHT &dht) noexcept;
-uint16_t soilResistivityRaw(const uint8_t powerPin) noexcept;
+auto soilTemperatureCelsius(DallasTemperature &sensor) noexcept -> float;
+auto airTemperatureCelsius(DHT &dht) noexcept -> float;
+auto airHumidityPercentage(DHT &dht) noexcept -> float;
+auto airHeatIndexCelsius(DHT &dht) noexcept -> float;
+auto soilResistivityRaw(uint8_t powerPin) noexcept -> uint16_t;
 } // namespace measurement
 
 #include "utils.hpp"

@@ -3,7 +3,7 @@
 
 namespace measurement {
 #ifndef IOP_MEASUREMENT_DISABLED
-float soilTemperatureCelsius(DallasTemperature &sensor) noexcept {
+auto soilTemperatureCelsius(DallasTemperature &sensor) noexcept -> float {
   // Blocks until reading is done
   sensor.requestTemperatures();
   // Accessing by index is bad. It's slow, we should store the sensor's address
@@ -11,19 +11,25 @@ float soilTemperatureCelsius(DallasTemperature &sensor) noexcept {
   return sensor.getTempCByIndex(0);
 }
 
-float airTemperatureCelsius(DHT &dht) noexcept { return dht.readTemperature(); }
+auto airTemperatureCelsius(DHT &dht) noexcept -> float {
+  return dht.readTemperature();
+}
 
-float airHumidityPercentage(DHT &dht) noexcept { return dht.readHumidity(); }
+auto airHumidityPercentage(DHT &dht) noexcept -> float {
+  return dht.readHumidity();
+}
 
-float airHeatIndexCelsius(DHT &dht) noexcept { return dht.computeHeatIndex(); }
+auto airHeatIndexCelsius(DHT &dht) noexcept -> float {
+  return dht.computeHeatIndex();
+}
 
-uint16_t soilResistivityRaw(const uint8_t powerPin) noexcept {
+auto soilResistivityRaw(const uint8_t powerPin) noexcept -> uint16_t {
   digitalWrite(powerPin, HIGH);
-  delay(2000);
+  delay(2000); // NOLINT *-avoid-magic-numbers
   uint16_t value1 = analogRead(A0);
-  delay(500);
+  delay(500); // NOLINT *-avoid-magic-numbers
   uint16_t value2 = analogRead(A0);
-  delay(500);
+  delay(500); // NOLINT *-avoid-magic-numbers
   uint16_t value = (value1 + value2 + analogRead(A0)) / 3;
   digitalWrite(powerPin, LOW);
   return value;

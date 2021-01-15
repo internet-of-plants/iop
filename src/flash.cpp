@@ -21,16 +21,22 @@ const uint8_t authTokenSize = 1 + AuthToken::size;
 const uint8_t plantIdIndex = authTokenIndex + authTokenSize;
 // const uint8_t plantTokenSize = 1 + PlantId::size;
 
-void Flash::setup() const noexcept { EEPROM.begin(512); }
+constexpr const uint16_t EEPROM_SIZE = 512;
 
-Option<PlantId> Flash::readPlantId() const noexcept {
+auto Flash::setup() noexcept -> void { EEPROM.begin(EEPROM_SIZE); }
+
+static auto constPtr() noexcept -> const char * {
+  return reinterpret_cast<const char *>(EEPROM.getConstDataPtr());
+}
+
+auto Flash::readPlantId() const noexcept -> Option<PlantId> {
   this->logger.debug(F("Reading PlantId from Flash"));
 
-  if (EEPROM.read(plantIdIndex) != usedPlantIdEEPROMFlag) {
+  if (EEPROM.read(plantIdIndex) != usedPlantIdEEPROMFlag)
     return Option<PlantId>();
-  }
 
-  const auto ptr = (char *)EEPROM.getConstDataPtr() + plantIdIndex + 1;
+  // NOLINTNEXTLINE *-pro-bounds-pointer-arithmetic
+  const auto ptr = constPtr() + plantIdIndex + 1;
   const auto id = PlantId::fromStringTruncating(UnsafeRawString(ptr));
   this->logger.debug(F("Plant id found: "), id.asString());
   return Option<PlantId>(id);
@@ -47,17 +53,17 @@ void Flash::removePlantId() const noexcept {
 void Flash::writePlantId(const PlantId &id) const noexcept {
   this->logger.debug(F("Writing plant id to storage: "), id.asString());
   EEPROM.write(plantIdIndex, usedPlantIdEEPROMFlag);
-  EEPROM.put(plantIdIndex + 1, *id.asSharedArray().get());
+  EEPROM.put(plantIdIndex + 1, *id.asSharedArray());
   EEPROM.commit();
 }
 
-Option<AuthToken> Flash::readAuthToken() const noexcept {
+auto Flash::readAuthToken() const noexcept -> Option<AuthToken> {
   this->logger.debug(F("Reading AuthToken from Flash"));
-  if (EEPROM.read(authTokenIndex) != usedAuthTokenEEPROMFlag) {
+  if (EEPROM.read(authTokenIndex) != usedAuthTokenEEPROMFlag)
     return Option<AuthToken>();
-  }
 
-  const auto ptr = (char *)EEPROM.getConstDataPtr() + authTokenSize + 1;
+  // NOLINTNEXTLINE *-pro-bounds-pointer-arithmetic
+  const auto ptr = constPtr() + authTokenSize + 1;
   const auto token = AuthToken::fromStringTruncating(UnsafeRawString(ptr));
   this->logger.debug(F("Auth token found: "), token.asString());
   return Option<AuthToken>(token);
@@ -74,20 +80,21 @@ void Flash::removeAuthToken() const noexcept {
 void Flash::writeAuthToken(const AuthToken &token) const noexcept {
   this->logger.debug(F("Writing auth token to storage: "), token.asString());
   EEPROM.write(authTokenIndex, usedAuthTokenEEPROMFlag);
-  EEPROM.put(authTokenSize + 1, *token.asSharedArray().get());
+  EEPROM.put(authTokenSize + 1, *token.asSharedArray());
   EEPROM.commit();
 }
 
-Option<WifiCredentials> Flash::readWifiConfig() const noexcept {
+auto Flash::readWifiConfig() const noexcept -> Option<WifiCredentials> {
   this->logger.debug(F("Reading WifiCredentials from Flash"));
 
-  if (EEPROM.read(wifiConfigIndex) != usedWifiConfigEEPROMFlag) {
+  if (EEPROM.read(wifiConfigIndex) != usedWifiConfigEEPROMFlag)
     return Option<WifiCredentials>();
-  }
 
-  const auto ptr = (char *)EEPROM.getConstDataPtr() + wifiConfigIndex + 1;
+  // NOLINTNEXTLINE *-pro-bounds-pointer-arithmetic
+  const auto ptr = constPtr() + wifiConfigIndex + 1;
   const auto ssid = NetworkName::fromStringTruncating(UnsafeRawString(ptr));
 
+  // NOLINTNEXTLINE *-pro-bounds-pointer-arithmetic
   const auto pskRaw = UnsafeRawString(ptr + NetworkName::size);
   const auto psk = NetworkPassword::fromStringTruncating(pskRaw);
 
@@ -106,10 +113,10 @@ void Flash::removeWifiConfig() const noexcept {
 void Flash::writeWifiConfig(const WifiCredentials &config) const noexcept {
   const auto ssidStr = config.ssid.asString();
   this->logger.debug(F("Writing network credentials to storage: "), ssidStr);
-  const auto &psk = *config.password.asSharedArray().get();
+  const auto &psk = *config.password.asSharedArray();
 
   EEPROM.write(wifiConfigIndex, usedWifiConfigEEPROMFlag);
-  EEPROM.put(wifiConfigIndex + 1, *config.ssid.asSharedArray().get());
+  EEPROM.put(wifiConfigIndex + 1, *config.ssid.asSharedArray());
   EEPROM.put(wifiConfigIndex + 1 + NetworkName::size, psk);
   EEPROM.commit();
 }
@@ -118,15 +125,13 @@ void Flash::writeWifiConfig(const WifiCredentials &config) const noexcept {
 #ifdef IOP_FLASH_DISABLED
 void Flash::setup() const noexcept {}
 Option<AuthToken> Flash::readAuthToken() const noexcept {
-  return Option<AuthToken>(AuthToken::empty());
+  return AuthToken::empty();
 }
 void Flash::removeAuthToken() const noexcept {}
 void Flash::writeAuthToken(const AuthToken &token) const noexcept {
   (void)token;
 }
-Option<PlantId> Flash::readPlantId() const noexcept {
-  return Option<PlantId>(PlantId::empty());
-}
+Option<PlantId> Flash::readPlantId() const noexcept { return PlantId::empty(); }
 void Flash::removePlantId() const noexcept {};
 void Flash::writePlantId(const PlantId &id) const noexcept { (void)id; }
 Option<struct WifiCredentials> Flash::readWifiConfig() const noexcept {
