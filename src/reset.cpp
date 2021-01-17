@@ -7,10 +7,9 @@
 #include "utils.hpp"
 
 PROGMEM_STRING(logTarget, "INTERRUPT");
-const Log logger(logLevel, logTarget, false);
+const static Log logger(logLevel, logTarget, false);
 
-volatile unsigned long resetStateTime = 0; // NOLINT google-runtime-int
-void ICACHE_RAM_ATTR buttonChanged() noexcept;
+static volatile esp_time resetStateTime = 0;
 
 void ICACHE_RAM_ATTR buttonChanged() noexcept {
   if (digitalRead(factoryResetButton) == HIGH) {
@@ -35,9 +34,7 @@ void setup() noexcept {
                   CHANGE);
 }
 } // namespace reset
-#endif
-
-#ifdef IOP_FACTORY_RESET_DISABLED
+#else
 namespace reset {
 void setup() {}
 } // namespace reset

@@ -1,6 +1,8 @@
-#include "network.hpp"
+#include "ESP8266HTTPClient.h"
+
 #include "certificate_storage.hpp"
 #include "generated/certificates.h"
+#include "network.hpp"
 
 #include "static_string.hpp"
 #include "string_view.hpp"
@@ -9,21 +11,17 @@
 #include <memory>
 
 #ifndef IOP_NETWORK_DISABLED
-#include "ESP8266HTTPClient.h"
 
-auto certStore = try_make_unique<BearSSL::CertStore>();
-auto client = try_make_unique<WiFiClientSecure>();
-auto http = try_make_unique<HTTPClient>();
-
-void Network::disconnect() noexcept { WiFi.disconnect(); }
+static BearSSL::CertStore certStore; // NOLINT cert-err58-cpp
+static WiFiClientSecure client;      // NOLINT cert-err58-cpp
+static HTTPClient http;              // NOLINT cert-err58-cpp
 
 // TODO(pc): connections aren't working with AP active, maybe because of the DNS
 // hijack of server.cpp?
 
-// NOLINTNEXTLINE readability-convert-member-functions-to-static
-auto Network::setup() const noexcept -> void {
-  if (!certStore || !client || !http)
-    panic_(F("Unnable to allocate CertStore, WiFiClientSecure or HTTPClient"));
+auto Network::setup() noexcept -> void {
+  assert_(certStoreOverrideWorked,
+          F("CertStore override is broken, fix it or HTTPS won't work"));
 
 #ifdef IOP_ONLINE
   // Makes sure the event handler is never dropped and only set once
@@ -99,27 +97,27 @@ auto Network::wifiClient(const StaticString path) const noexcept
     panic_(String(error.get()) + this->host_.asCharPtr());
   }
   const auto uri = String(this->host_.get()) + path.get();
-  this->logger.info(uri);
+  this->logger.debug(uri);
   constexpr const auto port = 4001;
 
   if (Network::isConnected()) {
     // We should make sure our server supports Max Fragment Length Negotiation
-    // if (client->probeMaxFragmentLength(uri, port, 512)) {
-    //   client->setBufferSizes(512, 512);
+    // if (client.probeMaxFragmentLength(uri, port, 512)) {
+    //   client.setBufferSizes(512, 512);
     // }
-    client->setNoDelay(false);
-    client->setSync(true);
-    client->setCertStore(certStore.get());
-    // client->setInsecure();
-    if (client->connect(uri, port) <= 0) {
+    client.setNoDelay(false);
+    client.setSync(true);
+    client.setCertStore(&certStore);
+    // client.setInsecure();
+    if (client.connect(uri, port) <= 0) {
       this->logger.warn(F("Failed to connect to "), uri);
       return RawStatus::CONNECTION_FAILED;
     }
-    client->disableKeepAlive();
+    client.disableKeepAlive();
   } else {
     return RawStatus::CONNECTION_LOST;
   }
-  return std::ref(*client);
+  return std::ref(client);
 }
 
 // Returns Response if it can understand what the server sent, int is the raw
@@ -142,11 +140,8 @@ auto Network::httpRequest(const enum HttpMethod method_,
   }
 
   StringView data_(StaticString(F("")));
-  if (data.isSome()) {
-    {
-      { data_ = UNWRAP_REF(data); }
-    }
-  }
+  if (data.isSome())
+    data_ = UNWRAP_REF(data);
 
   const auto method = UNWRAP(methodToString(method_));
 
@@ -156,27 +151,21 @@ auto Network::httpRequest(const enum HttpMethod method_,
   this->logger.debug(F("Json data: "), data_);
 
   const auto uri = String(this->host_.get()) + path.get();
-  if (!http->begin(*client, uri)) {
+  if (!http.begin(client, uri)) {
     this->logger.warn(F("Failed to begin http connection to "), uri);
     return Response(ApiStatus::NO_CONNECTION);
   }
-  http->setReuse(false);
+  http.setReuse(false);
 
-  if (token.isSome()) {
-    {
-      { http->setAuthorization(UNWRAP_REF(token).get()); }
-    }
-  }
+  if (token.isSome())
+    http.setAuthorization(UNWRAP_REF(token).get());
 
-  if (data.isSome()) {
-    {
-      { http->addHeader(F("Content-Type"), F("application/json")); }
-    }
-  }
+  if (data.isSome())
+    http.addHeader(F("Content-Type"), F("application/json"));
 
   const auto *const data__ = reinterpret_cast<const uint8_t *>(data_.get());
   const auto *const mtd = method.asCharPtr();
-  const auto code = http->sendRequest(mtd, data__, data_.length());
+  const auto code = http.sendRequest(mtd, data__, data_.length());
   const auto codeStr = std::to_string(code);
 
   const auto rawStatus = this->rawStatus(code);
@@ -185,15 +174,15 @@ auto Network::httpRequest(const enum HttpMethod method_,
   this->logger.info(F("Response code ("), codeStr, F("): "), rawStatusStr);
 
   constexpr const int32_t maxPayloadSizeAcceptable = 2048;
-  if (http->getSize() > maxPayloadSizeAcceptable) {
-    const auto lengthStr = std::to_string(http->getSize());
+  if (http.getSize() > maxPayloadSizeAcceptable) {
+    const auto lengthStr = std::to_string(http.getSize());
     this->logger.error(F("Payload from server was too big: "), lengthStr);
     return Response(ApiStatus::BROKEN_SERVER);
   }
 
   const auto maybeApiStatus = this->apiStatus(rawStatus);
   if (maybeApiStatus.isSome()) {
-    return Response(UNWRAP_REF(maybeApiStatus), http->getString());
+    return Response(UNWRAP_REF(maybeApiStatus), http.getString());
   }
   return code;
 }
@@ -358,13 +347,6 @@ Option<Response> Network::httpPost(const StringView token,
 Option<Response> Network::httpPost(const StaticString path,
                                    const StringView data) const noexcept {
   return this->httpRequest(POST, Option<StringView>(), path, data);
-}
-Option<std::shared_ptr<HTTPClient>>
-httpClient(const StaticString path,
-           const Option<StringView> &token) const noexcept {
-  (void)path;
-  (void)token;
-  return http;
 }
 Option<Response> Network::httpRequest(const enum HttpMethod method,
                                       const Option<StringView> token,

@@ -1,10 +1,10 @@
+#include "ESP8266httpUpdate.h"
+
 #include "api.hpp"
 #include "fixed_string.hpp"
 #include "utils.hpp"
 
 #ifndef IOP_API_DISABLED
-#include "ESP8266httpUpdate.h"
-
 auto Api::loggerLevel() const noexcept -> LogLevel {
   return this->logger.level();
 }
@@ -252,7 +252,8 @@ auto Api::registerLog(const AuthToken &authToken,
   if (IS_ERR(maybeResp)) {
     const auto code = std::to_string(UNWRAP_ERR_REF(maybeResp));
     // Infinite recursion
-    // this->logger.error(F("Unexpected response at Api::registerLog: "), code);
+    // this->logger.error(F("Unexpected response at Api::registerLog: "),
+    // code);
     return ApiStatus::BROKEN_SERVER;
   }
 

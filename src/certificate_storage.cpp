@@ -1,57 +1,58 @@
 #include "certificate_storage.hpp"
 #include "generated/certificates.h"
-#include <memory>
-
-// TODO: fix this mess, we shouldn't override it, but properly use it
+#include "utils.hpp"
 
 namespace BearSSL {
 
 void CertStore::installCertStore(br_x509_minimal_context *ctx) {
+  // NOLINTNEXTLINE *-pro-type-reinterpret-cast
   br_x509_minimal_set_dynamic(ctx, reinterpret_cast<void *>(this), findHashedTA,
                               freeHashedTA);
 }
 
 auto CertStore::findHashedTA(void *ctx, void *hashed_dn, size_t len)
     -> const br_x509_trust_anchor * {
+  constexpr const uint8_t hashSize = 32;
+  if (ctx == nullptr || len != hashSize)
+    return nullptr;
+
   auto *cs = static_cast<CertStore *>(ctx);
 
-  // NOLINTNEXTLINE *-avoid-magic-numbers
-  if ((cs == nullptr) || len != 32) {
-    return nullptr;
-  }
-
   for (int i = 0; i < numberOfCertificates; i++) {
-    // NOLINTNEXTLINE *-avoid-magic-numbers
-    if (memcmp_P(hashed_dn, indices[i], 32) == 0) {
-      uint16_t certSize[1];
-      memcpy_P(certSize, certSizes + i, 2); // NOLINT
+    // NOLINTNEXTLINE cppcoreguidelines-pro-bounds-constant-array-index
+    if (memcmp_P(hashed_dn, indices[i], hashSize) == 0) {
 
-      uint8_t *der = static_cast<uint8_t *>(malloc(certSize[0])); // NOLINT
-      memcpy_P(der, certificates[i], certSize[0]);                // NOLINT
-      cs->_x509 = new X509List(der, certSize[0]);                 // NOLINT
-      free(der);                                                  // NOLINT
+      // NOLINTNEXTLINE cppcoreguidelines-pro-bounds-constant-array-index
+      auto der = try_make_unique<uint8_t[]>(certSizes[i]);
+      // NOLINTNEXTLINE cppcoreguidelines-pro-bounds-constant-array-index
+      memcpy_P(der.get(), certificates[i], certSizes[i]);
 
-      if (cs->_x509 == nullptr) {
+      // NOLINTNEXTLINE cppcoreguidelines-pro-bounds-constant-array-index
+      cs->_x509 = try_make_unique<X509List>(der.get(), certSizes[i]);
+      der.reset(nullptr);
+
+      if (!cs->_x509)
         return nullptr;
-      }
 
-      // NOLINTNEXTLINE
-      br_x509_trust_anchor *ta = const_cast<br_x509_trust_anchor *>(
-          cs->_x509->getTrustAnchors());     // NOLINT
-      memcpy_P(ta->dn.data, indices[i], 32); // NOLINT
-      ta->dn.len = 32;                       // NOLINT
+      const auto *taTmp = cs->_x509->getTrustAnchors();
+      // _x509 is heap allocated so it's mutable
+      // NOLINTNEXTLINE cppcoreguidelines-pro-type-const-cast
+      auto *ta = const_cast<br_x509_trust_anchor *>(taTmp);
+      // NOLINTNEXTLINE cppcoreguidelines-pro-bounds-constant-array-index
+      memcpy_P(ta->dn.data, indices[i], hashSize);
+      ta->dn.len = hashSize;
 
       return ta;
     }
   }
+
   return nullptr;
 }
 
 void CertStore::freeHashedTA(void *ctx, const br_x509_trust_anchor *ta) {
   auto *cs = static_cast<CertStore *>(ctx);
-  (void)ta;         // Unused
-  delete cs->_x509; // NOLINT
-  cs->_x509 = nullptr;
+  cs->_x509.reset(nullptr);
+  (void)ta; // Unused
 }
 
 } // namespace BearSSL

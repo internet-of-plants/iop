@@ -27,40 +27,36 @@ enum ServeError { INVALID_WIFI_CONFIG };
 class CredentialsServer {
 private:
   Log logger;
-  std::shared_ptr<Api> api;
-  std::shared_ptr<Flash> flash;
-  Option<std::shared_ptr<ESP8266WebServer>> server;
+  Option<std::unique_ptr<ESP8266WebServer>> server;
   Option<std::unique_ptr<DNSServer>> dnsServer;
-  unsigned long nextTryFlashWifiCredentials = 0; // NOLINT google-runtime-int
-  // NOLINTNEXTLINE google-runtime-int
-  unsigned long nextTryHardcodedWifiCredentials = 0;
-  unsigned long nextTryHardcodedIopCredentials = 0; // NOLINT google-runtime-int
 
-  using Server = std::shared_ptr<ESP8266WebServer>;
-  void makeRouter(const Server &s) const noexcept;
+  esp_time nextTryFlashWifiCredentials = 0;
+  esp_time nextTryHardcodedWifiCredentials = 0;
+  esp_time nextTryHardcodedIopCredentials = 0;
+
+  void makeRouter(ESP8266WebServer &s) const noexcept;
 
 public:
   ~CredentialsServer() = default;
 
   auto connect(StringView ssid, StringView password) const noexcept
       -> station_status_t;
-  auto authenticate(StringView username, StringView password) const noexcept
+  auto authenticate(StringView username, StringView password,
+                    const Api &api) const noexcept
       -> Result<AuthToken, ApiStatus>;
 
-  CredentialsServer(const StaticString &host, const LogLevel logLevel) noexcept
-      : logger(logLevel, F("SERVER")),
-        api(try_make_unique<Api>(host, logLevel)),
-        flash(try_make_unique<Flash>(Flash(logLevel))) {
-    if (!api || !flash)
-      panic_(F("Unnable to allocate api or flash"));
-  }
+  explicit CredentialsServer(const LogLevel logLevel) noexcept
+      : logger(logLevel, F("SERVER")) {}
+
+  // Self-referential class, it must not be moved or copied. SELF_REF
   CredentialsServer(CredentialsServer const &other) = delete;
   CredentialsServer(CredentialsServer &&other) = delete;
-  auto operator=(CredentialsServer &other) -> CredentialsServer & = delete;
+  auto operator=(CredentialsServer const &other)
+      -> CredentialsServer & = delete;
   auto operator=(CredentialsServer &&other) -> CredentialsServer & = delete;
 
   auto serve(const Option<WifiCredentials> &storedWifi,
-             const Option<AuthToken> &authToken) noexcept
+             const Option<AuthToken> &authToken, const Api &api) noexcept
       -> Result<Option<AuthToken>, ServeError>;
   void close() noexcept;
   void start() noexcept;

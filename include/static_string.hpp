@@ -34,13 +34,14 @@ public:
   auto length() const noexcept -> size_t { return strlen_P(this->asCharPtr()); }
   auto isEmpty() const noexcept -> bool { return this->length() == 0; }
   auto asCharPtr() const noexcept -> const char * {
-    return reinterpret_cast<const char *const>(this->get());
+    // NOLINT *-pro-type-reinterpret-cast
+    return reinterpret_cast<const char *>(this->get());
   }
 };
 
 #define PROGMEM_STRING(name, msg)                                              \
   static const char *const PROGMEM name##_progmem_char = msg;                  \
   static const StaticString name(                                              \
-      reinterpret_cast<const __FlashStringHelper *>(name##_progmem_char));
+      FPSTR(name##_progmem_char)); // NOLINT cert-err58-cpp
 
 #endif

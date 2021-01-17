@@ -1,3 +1,6 @@
+#include "IPAddress.h"
+#include "WiFiClient.h"
+
 #include "server.hpp"
 
 #ifndef SERVER_DISABLED
@@ -5,11 +8,11 @@
 #include "configuration.h"
 #include "utils.hpp"
 
-#include "IPAddress.h"
-#include "WiFiClient.h"
 #include "bits/basic_string.h"
 #include <cstring>
 #include <string>
+
+#include "static_string.hpp"
 
 // TODO(pc): make sure this captive portal can't be bypassed
 
@@ -53,16 +56,17 @@ PROGMEM_STRING(pageHTMLEnd, "<br>\r\n"
 
 #include <unordered_map>
 
-Option<std::pair<String, String>> credentialsWifi;
-Option<std::pair<String, String>> credentialsIop;
+// We use this globals to share messages from the callbacks
+static Option<std::pair<String, String>> credentialsWifi;
+static Option<std::pair<String, String>> credentialsIop;
 
-void CredentialsServer::makeRouter(const Server &s) const noexcept {
-  const auto api = this->api;
+void CredentialsServer::makeRouter(ESP8266WebServer &server) const noexcept {
   const auto loggerLevel = this->logger.level();
-  const auto flash = this->flash;
 
+  // Self reference, this is dangerous. UNSAFE: SELF_REF
+  auto *s = &server;
   s->on(F("/submit"), [s, loggerLevel]() {
-    const Log logger(loggerLevel, F("SERVER_CALLBACK"), false);
+    const static Log logger(loggerLevel, F("SERVER_CALLBACK"), false);
     logger.debug(F("Received form with credentials"));
 
     if (s->hasArg(F("ssid")) && s->hasArg(F("password"))) {
@@ -81,15 +85,16 @@ void CredentialsServer::makeRouter(const Server &s) const noexcept {
     s->send_P(HTTP_CODE_FOUND, PSTR("text/plain"), PSTR(""));
   });
 
-  s->onNotFound([s, api, flash, loggerLevel]() {
-    const Log logger(loggerLevel, F("SERVER_CALLBACK"), false);
+  s->onNotFound([s, loggerLevel]() {
+    const static Log logger(loggerLevel, F("SERVER_CALLBACK"), false);
+    const static Flash flash(loggerLevel);
     logger.debug(F("Serving captive portal HTML"));
 
-    const auto isConnected = !api->isConnected();
-    const auto needsIopAuth = flash->readAuthToken().isNone();
+    const auto mustConnect = !Api::isConnected();
+    const auto needsIopAuth = flash.readAuthToken().isNone();
 
     auto len = pageHTMLStart.length() + pageHTMLEnd.length();
-    if (isConnected)
+    if (mustConnect)
       len += wifiHTML.length();
 
     if (needsIopAuth)
@@ -98,7 +103,7 @@ void CredentialsServer::makeRouter(const Server &s) const noexcept {
     s->setContentLength(len);
 
     s->send_P(HTTP_CODE_OK, PSTR("text/html"), pageHTMLStart.asCharPtr());
-    if (isConnected)
+    if (mustConnect)
       s->sendContent_P(wifiHTML.asCharPtr());
 
     if (needsIopAuth)
@@ -109,7 +114,7 @@ void CredentialsServer::makeRouter(const Server &s) const noexcept {
 }
 
 void CredentialsServer::start() noexcept {
-  if (server.isNone()) {
+  if (this->server.isNone()) {
     this->logger.info(F("Setting our own wifi access point"));
 
     WiFi.mode(WIFI_AP_STA);
@@ -123,9 +128,7 @@ void CredentialsServer::start() noexcept {
     // NOLINTNEXTLINE *-avoid-magic-numbers
     WiFi.softAPConfig(staticIp, staticIp, IPAddress(255, 255, 255, 0));
 
-    const auto hash = StringView(this->api->macAddress()).hash();
-    // TODO(pc): Should we use String here because of the F() optimization? Or
-    // is String still worse at optimizations when comparing to std::string?
+    const auto hash = StringView(Api::macAddress()).hash();
     const auto ssid = std::string(PSTR("iop-")) + std::to_string(hash);
 
     WiFi.setAutoReconnect(false);
@@ -137,30 +140,27 @@ void CredentialsServer::start() noexcept {
     WiFi.setAutoReconnect(true);
     WiFi.begin();
 
-    // Makes it a captive portal (redirects all wifi trafic to ir)
+    constexpr const uint8_t serverPort = 80;
+    auto s = try_make_unique<ESP8266WebServer>(serverPort);
+    if (!s)
+      panic_(F("ESP8266WebServer allocation failed"));
+
+    this->makeRouter(*s);
+    s->begin();
+    this->server = std::move(s);
+
+    // Makes it a captive portal (redirects all wifi trafic to it)
+    constexpr const uint8_t dnsPort = 53;
     auto dns = try_make_unique<DNSServer>();
     if (!dns)
-      panic_(F("Unable to allocate DNSServer"));
+      panic_(F("DNSServer allocation failed"));
 
     dns->setErrorReplyCode(DNSReplyCode::NoError);
-    constexpr const uint8_t dnsPort = 53;
     dns->start(dnsPort, F("*"), WiFi.softAPIP());
-
-    // NOLINTNEXTLINE *-avoid-magic-numbers
-    auto s = try_make_shared<ESP8266WebServer>(80);
-    if (!s)
-      panic_(F("Unable to allocate ESP8266WebServer"));
-
-    this->makeRouter(s);
-    s->begin();
+    this->dnsServer = std::move(dns);
 
     const auto ip = WiFi.softAPIP().toString();
     this->logger.info(F("Opened captive portal: "), ip);
-
-    // We can move them here because they won't ever be used
-    // Beware of adding things to this method, this should always be at the end
-    server = std::move(s);
-    dnsServer = std::move(dns);
   }
 }
 
@@ -211,8 +211,8 @@ auto CredentialsServer::connect(const StringView ssid,
     return wifi_station_get_connect_status();
   }
   const auto status = wifi_station_get_connect_status();
-  if (!this->api->isConnected()) {
-    const auto maybeStatusStr = CredentialsServer::statusToString(status);
+  if (!Api::isConnected()) {
+    const auto maybeStatusStr = this->statusToString(status);
     if (maybeStatusStr.isSome()) {
       const auto statusStr = UNWRAP_REF(maybeStatusStr);
       this->logger.warn(F("Invalid wifi credentials ("), statusStr, F("): "),
@@ -224,9 +224,10 @@ auto CredentialsServer::connect(const StringView ssid,
 
 /// Forbidden (403): invalid credentials
 auto CredentialsServer::authenticate(const StringView username,
-                                     const StringView password) const noexcept
+                                     const StringView password,
+                                     const Api &api) const noexcept
     -> Result<AuthToken, ApiStatus> {
-  auto authToken = this->api->authenticate(username, password);
+  auto authToken = api.authenticate(username, password);
   if (IS_ERR(authToken)) {
     const auto &status = UNWRAP_ERR_REF(authToken);
 
@@ -267,7 +268,8 @@ auto CredentialsServer::authenticate(const StringView username,
 }
 
 auto CredentialsServer::serve(const Option<WifiCredentials> &storedWifi,
-                              const Option<AuthToken> &authToken) noexcept
+                              const Option<AuthToken> &authToken,
+                              const Api &api) noexcept
     -> Result<Option<AuthToken>, ServeError> {
   this->start();
 
@@ -278,7 +280,7 @@ auto CredentialsServer::serve(const Option<WifiCredentials> &storedWifi,
 
   if (credentialsIop.isSome()) {
     const auto cred = UNWRAP(credentialsIop);
-    auto result = this->authenticate(cred.first, cred.second);
+    auto result = this->authenticate(cred.first, cred.second, api);
     if (IS_OK(result)) {
       const auto token = UNWRAP_OK(result);
       return Option<AuthToken>(token);
@@ -286,7 +288,7 @@ auto CredentialsServer::serve(const Option<WifiCredentials> &storedWifi,
   }
 
   const auto now = millis();
-  if (!this->api->isConnected() && storedWifi.isSome() &&
+  if (!Api::isConnected() && storedWifi.isSome() &&
       this->nextTryFlashWifiCredentials <= now) {
     this->nextTryFlashWifiCredentials =
         now + intervalTryFlashWifiCredentialsMillis;
@@ -300,7 +302,7 @@ auto CredentialsServer::serve(const Option<WifiCredentials> &storedWifi,
     }
   }
 
-  if (!this->api->isConnected() && wifiNetworkName.isSome() &&
+  if (!Api::isConnected() && wifiNetworkName.isSome() &&
       wifiPassword.isSome() && this->nextTryHardcodedWifiCredentials <= now) {
     this->nextTryHardcodedWifiCredentials =
         now + intervalTryHardcodedWifiCredentialsMillis;
@@ -315,14 +317,14 @@ auto CredentialsServer::serve(const Option<WifiCredentials> &storedWifi,
     }
   }
 
-  if (this->api->isConnected() && authToken.isNone() &&
+  if (Api::isConnected() && authToken.isNone() &&
       this->nextTryHardcodedIopCredentials <= now) {
     this->nextTryHardcodedIopCredentials =
         now + intervalTryHardcodedIopCredentialsMillis;
     if (iopEmail.isSome() && iopPassword.isSome()) {
       const auto &email = UNWRAP_REF(iopEmail);
       const auto &password = UNWRAP_REF(iopPassword);
-      auto res = this->authenticate(email, password);
+      auto res = this->authenticate(email, password, api);
 
       if (IS_OK(res)) {
         this->nextTryHardcodedIopCredentials = 0;

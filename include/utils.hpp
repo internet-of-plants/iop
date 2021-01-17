@@ -37,6 +37,8 @@
 // defined
 #define IOP_MOCK_MONITOR
 
+using esp_time = unsigned long; // NOLINT google-runtime-int
+
 enum InterruptEvent { NONE, FACTORY_RESET, ON_CONNECTION, MUST_UPGRADE };
 
 static volatile enum InterruptEvent interruptEvent = NONE;
@@ -46,13 +48,27 @@ static volatile enum InterruptEvent interruptEvent = NONE;
   PROGMEM_STRING(name_##storage, msg);                                         \
   static const Option<StaticString> name(name_##storage);
 
+// This is a sanity check, we override CertStore by hijacking the header guard
+// That means if someone breaks the include order HTTPS will break silently
+static volatile auto certStoreOverrideWorked = false;
+
 #include <memory>
-template <typename T, typename... Args>
-inline auto try_make_unique(Args &&...args) noexcept -> std::unique_ptr<T> {
+
+template <bool B, class T = void>
+using enable_if_t = typename std::enable_if<B, T>::type;
+
+template <typename T, typename = enable_if_t<std::is_array<T>::value>>
+auto try_make_unique(size_t size) noexcept -> std::unique_ptr<T> {
+  return std::unique_ptr<T>(new typename std::remove_extent<T>::type[size]());
+}
+
+template <typename T, typename = enable_if_t<!std::is_array<T>::value>,
+          typename... Args>
+auto try_make_unique(Args &&...args) noexcept -> std::unique_ptr<T> {
   return std::unique_ptr<T>(new (std::nothrow) T(std::forward<Args>(args)...));
 }
 
-// TODO: OOm can still cause problems because refcount is still alloced
+// TODO: OOm can still cause problems because refcount is still allocated
 // separately and can fail
 template <typename _Tp, typename... _Args>
 inline auto try_make_shared(_Args &&...__args) noexcept

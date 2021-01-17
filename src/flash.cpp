@@ -9,6 +9,7 @@ const uint8_t usedWifiConfigEEPROMFlag = 126;
 const uint8_t usedAuthTokenEEPROMFlag = 127;
 const uint8_t usedPlantIdEEPROMFlag = 128;
 
+constexpr const uint16_t EEPROM_SIZE = 512;
 // Indexes, so each function know where they can write to.
 // It's kinda bad, but for now it works (TODO: maybe use FS.h?)
 // There is always 1 bit used for the 'isWritten' flag
@@ -19,13 +20,15 @@ const uint8_t authTokenIndex = wifiConfigIndex + wifiConfigSize;
 const uint8_t authTokenSize = 1 + AuthToken::size;
 
 const uint8_t plantIdIndex = authTokenIndex + authTokenSize;
-// const uint8_t plantTokenSize = 1 + PlantId::size;
+const uint8_t plantTokenSize = 1 + PlantId::size;
 
-constexpr const uint16_t EEPROM_SIZE = 512;
+static_assert(plantIdIndex + plantTokenSize < EEPROM_SIZE,
+              "EEPROM too small to store needed credentials");
 
 auto Flash::setup() noexcept -> void { EEPROM.begin(EEPROM_SIZE); }
 
 static auto constPtr() noexcept -> const char * {
+  // NOLINTNEXTLINE *-pro-type-reinterpret-cast
   return reinterpret_cast<const char *>(EEPROM.getConstDataPtr());
 }
 

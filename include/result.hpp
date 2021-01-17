@@ -2,14 +2,11 @@
 #define IOP_RESULT_HPP
 
 #include "option.hpp"
-#include "static_string.hpp"
 #include "string_view.hpp"
 #include <functional>
 
 #include "panic.hpp"
-
-class StringView;
-class StaticString;
+#include "static_string.hpp"
 
 #define RESULT_MAP_OK(res, type, func)                                         \
   res.mapOk<type>(func, F(#res), CUTE_FILE, CUTE_LINE, CUTE_FUNC)

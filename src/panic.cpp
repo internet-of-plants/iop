@@ -1,8 +1,8 @@
-#include "panic.hpp"
 #include "EEPROM.h"
 #include "ESP8266WiFi.h"
-#include "log.hpp"
 
+#include "log.hpp"
+#include "panic.hpp"
 #include "static_string.hpp"
 #include "string_view.hpp"
 #include "unsafe_raw_string.hpp"
@@ -12,9 +12,10 @@
 #include "flash.hpp"
 
 // TODO(pc): save unique panics to flash
+// TODO(pc): dump stackstrace on panic
 // https://github.com/sticilface/ESPmanager/blob/dce7fc06806a90c179a40eb2d74f4278fffad5b4/src/SaveStack.cpp
-void reportPanic(const StringView &msg, const StaticString &file,
-                 const uint32_t line, const StringView &func) {
+void reportPanic(const StringView msg, const StaticString file,
+                 const uint32_t line, const StringView func) {
   while (true) {
     const auto &host_ = UNWRAP_REF(host);
     const Log logger(CRIT, F("PANIC"));

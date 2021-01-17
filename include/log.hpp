@@ -5,8 +5,7 @@
 #include "static_string.hpp"
 #include "string_view.hpp"
 
-// TODO(pc): think about remote logging (at least errors/crits) - syslog?
-// TODO(pc): think about logging some important things to flash (FS.h)
+// TODO: think about logging some important things to flash (FS.h)
 
 class Api;
 

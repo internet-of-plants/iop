@@ -1,11 +1,12 @@
 #ifndef IOP_OPTION_HPP
 #define IOP_OPTION_HPP
 
-#include "static_string.hpp"
 #include "string_view.hpp"
 #include <functional>
 
 #include "panic.hpp"
+
+#include "static_string.hpp"
 
 #define UNWRAP(opt)                                                            \
   std::move((opt).expect(F(#opt " is None"), CUTE_FILE, CUTE_LINE, CUTE_FUNC))
@@ -43,9 +44,9 @@ private:
 public:
   constexpr Option() noexcept : filled(false), dummy(0) {}
   // NOLINTNEXTLINE hicpp-explicit-conversions *-member-init
-  constexpr Option(T v) noexcept : filled(true), value(std::move(v)) {}
-  Option(Option<T> &other) = delete;
-  auto operator=(Option<T> &other) -> Option<T> & = delete;
+  Option(T v) noexcept : filled(true), value(std::move(v)) {}
+  Option(Option<T> const &other) = delete;
+  auto operator=(Option<T> const &other) -> Option<T> & = delete;
   auto operator=(Option<T> &&other) noexcept -> Option<T> & {
     this->reset();
     this->filled = other.filled;

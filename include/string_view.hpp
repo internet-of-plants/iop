@@ -56,13 +56,14 @@ public:
 
   // FNV hash
   auto hash() const noexcept -> uint64_t {
-    const auto *const bytes = reinterpret_cast<const uint8_t *>(this->get());
+    const auto *const bytes = this->get();
     const uint64_t p = 16777619; // NOLINT cppcoreguidelines-avoid-magic-numbers
     uint64_t hash = 2166136261;  // NOLINT cppcoreguidelines-avoid-magic-numbers
 
     const auto length = this->length();
     for (uint32_t i = 0; i < length; ++i) {
-      hash = (hash ^ bytes[i]) * p; // NOLINT *-pro-bounds-pointer-arithmetic
+      // NOLINTNEXTLINE *-pro-bounds-pointer-arithmetic
+      hash = (hash ^ (uint64_t)bytes[i]) * p;
     }
 
     hash += hash << 13; // NOLINT cppcoreguidelines-avoid-magic-numbers

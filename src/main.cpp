@@ -1,3 +1,12 @@
+// Those are here so we can hijack BearlSSL::CertStore and the F macro
+#include "certificate_storage.hpp"
+
+#include "Arduino.h"
+
+#include "static_string.hpp"
+
+// Now actual includes can start
+
 #include "api.hpp"
 #include "configuration.h"
 #include "flash.hpp"
@@ -7,6 +16,8 @@
 #include "server.hpp"
 #include "static_string.hpp"
 #include "utils.hpp"
+
+#include "static_string.hpp"
 
 // TODO(pc):
 // https://github.com/maakbaas/esp8266-iot-framework/blob/master/src/timeSync.cpp
@@ -20,8 +31,8 @@ private:
   Flash flash;
   MD5Hash firmwareHash;
 
-  unsigned long nextTime;     // NOLINT google-runtime-int
-  unsigned long nextYieldLog; // NOLINT google-runtime-int
+  esp_time nextTime;
+  esp_time nextYieldLog;
 
 public:
   void setup() noexcept {
@@ -31,20 +42,20 @@ public:
     this->logger.setup();
     this->sensors.setup();
     Flash::setup();
-    this->api.setup();
+    Api::setup();
   }
 
   void loop() noexcept {
 #ifdef LOG_MEMORY
-    this->logger.infoln(F("Memory: "), std::to_string(ESP.getFreeHeap()),
-                        F(" "), std::to_string(ESP.getFreeContStack()), F(" "),
-                        ESP.getFreeSketchSpace());
+    this->logger.debug(F("Memory: "), String(ESP.getFreeHeap()), F(" "),
+                       String(ESP.getFreeContStack()), F(" "),
+                       ESP.getFreeSketchSpace());
 #endif
 
     // TODO(pc): multiple sequenced interrupts may be lost
     this->handleInterrupt();
 
-    const unsigned long now = millis(); // NOLINT google-runtime-int
+    const esp_time now = millis();
     const auto authToken = this->flash.readAuthToken();
     const auto plantId = this->flash.readPlantId();
 
@@ -77,7 +88,7 @@ public:
   explicit EventLoop(const StaticString host) noexcept
       : sensors(soilResistivityPowerPin, soilTemperaturePin,
                 airTempAndHumidityPin, dhtVersion),
-        api(host, logLevel), credentialsServer(host, logLevel),
+        api(host, logLevel), credentialsServer(logLevel),
         logger(logLevel, F("LOOP")), flash(logLevel),
         firmwareHash(hashSketch()), nextTime(0), nextYieldLog(0) {}
   EventLoop(EventLoop const &other) = delete;
@@ -93,7 +104,7 @@ private:
       break;
     case FACTORY_RESET:
 #ifdef IOP_FACTORY_RESET
-      this->logger.info(F("Factory Reset: deleting stored credentials"));
+      this->logger.warn(F("Factory Reset: deleting stored credentials"));
       this->flash.removeWifiConfig();
       this->flash.removeAuthToken();
       this->flash.removePlantId();
@@ -144,7 +155,7 @@ private:
 #ifdef IOP_ONLINE
       const auto ip = WiFi.localIP().toString();
       const auto status = std::to_string(wifi_station_get_connect_status());
-      this->logger.info(F("WiFi connected ("), ip, F("): "), status);
+      this->logger.debug(F("WiFi connected ("), ip, F("): "), status);
 
       struct station_config config = {0};
       wifi_station_get_config(&config);
@@ -177,7 +188,8 @@ private:
 
   void handleCredentials(const Option<AuthToken> &maybeToken) noexcept {
     const auto wifiConfig = this->flash.readWifiConfig();
-    const auto result = this->credentialsServer.serve(wifiConfig, maybeToken);
+    const auto result =
+        this->credentialsServer.serve(wifiConfig, maybeToken, this->api);
 
     if (IS_ERR(result)) {
       switch (UNWRAP_ERR_REF(result)) {
@@ -291,12 +303,7 @@ private:
 };
 
 PROGMEM_STRING(missingHost, "No host available");
-auto eventLoop = try_make_unique<EventLoop>(host.asRef().expect(missingHost));
+static EventLoop eventLoop(host.asRef().expect(missingHost));
 
-void setup() {
-  if (!eventLoop)
-    panic_(F("Unable to allocate EventLoop"));
-
-  eventLoop->setup();
-}
-void loop() { eventLoop->loop(); }
+void setup() { eventLoop.setup(); }
+void loop() { eventLoop.loop(); }

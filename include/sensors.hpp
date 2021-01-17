@@ -14,8 +14,7 @@
 class Sensors {
 private:
   uint8_t soilResistivityPowerPin;
-  std::unique_ptr<OneWire> soilTemperatureOneWireBus;
-  // Self-reference, so we need a pointer to pin it
+  OneWire soilTemperatureOneWireBus;
   DallasTemperature soilTemperatureSensor;
   DHT airTempAndHumiditySensor;
 
@@ -25,18 +24,18 @@ public:
           const uint8_t soilTemperaturePin, const uint8_t dhtPin,
           const uint8_t dhtVersion) noexcept
       : soilResistivityPowerPin(soilResistivityPowerPin),
-        soilTemperatureOneWireBus(try_make_unique<OneWire>(soilTemperaturePin)),
-        soilTemperatureSensor(soilTemperatureOneWireBus.get()),
-        airTempAndHumiditySensor(dhtPin, dhtVersion) {
-    if (!soilTemperatureOneWireBus)
-      panic_(F("Unnable to allocate soilTemperatureOneWireBus"));
-  }
+        soilTemperatureOneWireBus(soilTemperaturePin),
+        // Self reference, this is dangerous. UNSAFE: SELF_REF
+        soilTemperatureSensor(&soilTemperatureOneWireBus),
+        airTempAndHumiditySensor(dhtPin, dhtVersion) {}
+  void setup() noexcept;
+  auto measure(PlantId plantId, MD5Hash firmwareHash) noexcept -> Event;
+
+  // Self-referential class, it must not be moved or copied. SELF_REF
   Sensors(Sensors &other) = delete;
   Sensors(Sensors &&other) = delete;
   auto operator=(Sensors &other) -> Sensors & = delete;
   auto operator=(Sensors &&other) -> Sensors & = delete;
-  void setup() noexcept;
-  auto measure(PlantId plantId, MD5Hash firmwareHash) noexcept -> Event;
 };
 
 #include "utils.hpp"

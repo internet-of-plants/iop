@@ -13,10 +13,10 @@ class Flash {
 public:
   ~Flash() = default;
   explicit Flash(LogLevel logLevel) noexcept : logger(logLevel, F("FLASH")) {}
-  Flash(Flash const &other) noexcept = default;
-  Flash(Flash &&other) noexcept = default;
-  auto operator=(Flash const &other) -> Flash & = default;
-  auto operator=(Flash &&other) -> Flash & = default;
+  Flash(Flash const &other) noexcept = delete;
+  Flash(Flash &&other) noexcept = delete;
+  auto operator=(Flash const &other) -> Flash & = delete;
+  auto operator=(Flash &&other) -> Flash & = delete;
   static auto setup() noexcept -> void;
 
   auto readAuthToken() const noexcept -> Option<AuthToken>;

@@ -1,7 +1,7 @@
 #ifndef IOP_NETWORK_HPP
 #define IOP_NETWORK_HPP
 
-// TODO(pc): Remove. It's here so we can hijack the CertStore from BearSSL
+// This hack sucks, hijackes CertStore before upstream updates
 #include "certificate_storage.hpp"
 
 #include "ESP8266HTTPClient.h"
@@ -27,8 +27,8 @@ typedef enum class apiStatus {
 
 class Response {
 public:
-  ApiStatus status;       // NOLINT misc-non-private-member-variables-in-classes
-  Option<String> payload; // NOLINT misc-non-private-member-variables-in-classes
+  ApiStatus status;
+  Option<String> payload;
   ~Response() = default;
   explicit Response(const ApiStatus status) noexcept : status(status) {}
   Response(ApiStatus status, String payload) noexcept
@@ -83,11 +83,11 @@ public:
   ~Network() = default;
   Network(const StaticString host, const LogLevel logLevel) noexcept
       : host_(host), logger(logLevel, F("NETWORK")) {}
-  Network(Network &other) = delete;
+  Network(Network const &other) = delete;
   Network(Network &&other) = delete;
-  auto operator=(Network &other) -> Network & = delete;
+  auto operator=(Network const &other) -> Network & = delete;
   auto operator=(Network &&other) -> Network & = delete;
-  auto setup() const noexcept -> void;
+  static auto setup() noexcept -> void;
   static auto isConnected() noexcept -> bool {
     return WiFi.status() == WL_CONNECTED;
   }
@@ -111,7 +111,7 @@ public:
 
   static auto macAddress() noexcept -> String { return WiFi.macAddress(); }
   auto host() const noexcept -> StaticString { return this->host_; };
-  static void disconnect() noexcept;
+  static void disconnect() noexcept { WiFi.disconnect(); }
 };
 
 #include "utils.hpp"

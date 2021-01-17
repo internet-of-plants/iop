@@ -5,7 +5,7 @@
 
 auto hashSketch() noexcept -> MD5Hash {
   static MD5Hash result = MD5Hash::empty();
-  if (result.asString().length() != 0U) {
+  if (result.asString().length() > 0) {
     return result;
   }
   uint32_t lengthLeft = ESP.getSketchSize();
@@ -16,6 +16,7 @@ auto hashSketch() noexcept -> MD5Hash {
   md5.begin();
   while (lengthLeft > 0) {
     size_t readBytes = (lengthLeft < bufSize) ? lengthLeft : bufSize;
+    // NOLINTNEXTLINE *-pro-type-reinterpret-cast
     if (!ESP.flashRead(offset, reinterpret_cast<uint32_t *>(buf.asMut()),
                        (readBytes + 3) & ~3)) { // NOLINT hicpp-signed-bitwise
       return result;

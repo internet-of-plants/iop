@@ -29,7 +29,7 @@ public:
   auto operator=(Api const &other) -> Api & = delete;
   auto operator=(Api &&other) -> Api & = delete;
 
-  auto setup() const noexcept -> void { this->network().setup(); }
+  static auto setup() noexcept -> void { Network::setup(); }
 
   static auto isConnected() noexcept -> bool { return Network::isConnected(); }
   static auto macAddress() noexcept -> String { return Network::macAddress(); }
@@ -60,7 +60,8 @@ private:
       -> Option<FixedString<SIZE>> {
     auto doc = try_make_unique<StaticJsonDocument<SIZE>>();
     if (!doc) {
-      this->logger.error(F("Unable to allocate at Api::makeJson for "), name);
+      this->logger.error(F("Unable to allocate "), String(SIZE),
+                         F(" bytes at Api::makeJson for "), name);
       return Option<FixedString<SIZE>>();
     }
     func(*doc);
@@ -71,10 +72,10 @@ private:
       return Option<FixedString<SIZE>>();
     }
 
-    auto buffer = FixedString<SIZE>::empty();
-    serializeJson(*doc, buffer.asMut(), buffer.size);
-    this->logger.debug(F("Json: "), *buffer);
-    return Option<FixedString<SIZE>>(buffer);
+    auto fixed = FixedString<SIZE>::empty();
+    serializeJson(*doc, fixed.asMut(), fixed.size);
+    this->logger.debug(F("Json: "), *fixed);
+    return Option<FixedString<SIZE>>(fixed);
   }
 };
 

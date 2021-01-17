@@ -10,6 +10,9 @@ import sys
 import hashlib
 from shutil import which
 
+# Based on https://github.com/arduino/esp8266/blob/master/libraries/ESP8266WiFi/examples/BearSSL_CertStore/certs-from-mozilla.py
+# Adapted to be able to bake the certificates into the source code
+
 try:
     from urllib.request import urlopen
 except Exception:
@@ -135,7 +138,7 @@ def preBuildCertificates(env):
                 cert = Certificate.load(bytestr)
                 idxHash = hashlib.sha256(cert.issuer.dump()).digest()
 
-                f.write("const uint8_t cert_" + str(idx) + "[] PROGMEM = {")
+                f.write("constexpr static const uint8_t cert_" + str(idx) + "[] PROGMEM = {")
                 for j in range(0, len(bytestr)):
                     totalbytes+=1
                     f.write(hex(bytestr[j]))
@@ -143,7 +146,7 @@ def preBuildCertificates(env):
                         f.write(", ")
                 f.write("};\n")
 
-                f.write("const uint8_t idx_" + str(idx) + "[] PROGMEM = {")
+                f.write("constexpr static const uint8_t idx_" + str(idx) + "[] PROGMEM = {")
                 for j in range(0, len(idxHash)):
                     totalbytes+=1
                     f.write(hex(idxHash[j]))
@@ -155,23 +158,23 @@ def preBuildCertificates(env):
             unlink(certName + '.der')
         unlink(certName + '.pem')
 
-    f.write("const uint16_t numberOfCertificates PROGMEM = " + str(idx) + ";\n\n")
+    f.write("constexpr static const uint16_t numberOfCertificates PROGMEM = " + str(idx) + ";\n\n")
 
-    f.write("const uint16_t certSizes[] PROGMEM = {")
+    f.write("constexpr static const uint16_t certSizes[] PROGMEM = {")
     for i in range(0, idx):
         f.write(str(sizes[i]))
         if i<idx-1:
             f.write(", ")
     f.write("};\n\n")
 
-    f.write("const uint8_t* const certificates[] PROGMEM = {")
+    f.write("constexpr static const uint8_t* const certificates[] PROGMEM = {")
     for i in range(0, idx):
         f.write("cert_" + str(i))
         if i<idx-1:
             f.write(", ")
     f.write("};\n\n")
 
-    f.write("const uint8_t* const indices[] PROGMEM = {")
+    f.write("constexpr static const uint8_t* const indices[] PROGMEM = {")
     for i in range(0, idx):
         f.write("idx_" + str(i))
         if i<idx-1:

@@ -43,11 +43,10 @@ static String currentLog; // NOLINT cert-err58-cpp
 // the TCP connection to many
 
 PROGMEM_STRING(missingHost, "No host available");
-const auto &host_ = host.asRef().expect(missingHost).get();
 
 // Logs are disabled for those, this may be a problem
 // TODO(pc): allow to disable network logging so at we can enable logging here
-static auto api = try_make_unique<Api>(host_, NO_LOG);
+static Api api(host.asRef().expect(missingHost), NO_LOG);
 static Flash flash(NO_LOG);
 
 void Log::print(const StaticString str) noexcept {
@@ -66,15 +65,12 @@ void Log::reportLog() noexcept {
   const auto maybePlantId = flash.readPlantId();
 
   if (maybeToken.isSome()) {
-    api->registerLog(UNWRAP_REF(maybeToken), maybePlantId, currentLog);
+    api.registerLog(UNWRAP_REF(maybeToken), maybePlantId, currentLog);
   }
   currentLog.clear();
 }
 
 void Log::setup() const noexcept {
-  if (!api)
-    panic_(F("Unable to allocate api"));
-
   constexpr const uint32_t BAUD_RATE = 9600;
   Serial.begin(BAUD_RATE);
 
@@ -155,9 +151,7 @@ void Log::log(const enum LogLevel level, const StringView msg,
   if (this->flush)
     Serial.flush();
 }
-#endif
-
-#ifdef IOP_LOG_DISABLED
+#else
 void Log::setup() const {}
 void Log::printLogType(const enum LogType logType,
                        const LogLevel level) const noexcept {

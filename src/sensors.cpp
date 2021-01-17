@@ -25,9 +25,7 @@ auto Sensors::measure(PlantId plantId, MD5Hash firmwareHash) noexcept -> Event {
       },
       std::move(plantId), std::move(firmwareHash));
 }
-#endif
-
-#ifdef IOP_SENSORS_DISABLED
+#else
 void Sensors::setup() noexcept {}
 Event Sensors::measure(PlantId plantId, MD5Hash firmwareHash) noexcept {
   return Event((EventStorage){0}, std::move(plantId), std::move(firmwareHash));

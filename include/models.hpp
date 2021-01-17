@@ -44,9 +44,9 @@ using EventStorage = struct eventStorage {
 
 class Event {
 public:
-  EventStorage storage; // NOLINT misc-non-private-member-variables-in-classes
-  PlantId plantId;      // NOLINT misc-non-private-member-variables-in-classes
-  MD5Hash firmwareHash; // NOLINT misc-non-private-member-variables-in-classes
+  EventStorage storage;
+  PlantId plantId;
+  MD5Hash firmwareHash;
   ~Event() = default;
   Event(EventStorage storage, PlantId plantId, MD5Hash firmwareHash) noexcept
       : storage(storage), plantId(std::move(plantId)),
