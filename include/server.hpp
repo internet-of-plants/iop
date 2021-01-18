@@ -39,11 +39,9 @@ private:
 public:
   ~CredentialsServer() = default;
 
-  auto connect(StringView ssid, StringView password) const noexcept
-      -> station_status_t;
+  auto connect(StringView ssid, StringView password) const noexcept -> void;
   auto authenticate(StringView username, StringView password,
-                    const Api &api) const noexcept
-      -> Result<AuthToken, ApiStatus>;
+                    const Api &api) const noexcept -> Option<AuthToken>;
 
   explicit CredentialsServer(const LogLevel logLevel) noexcept
       : logger(logLevel, F("SERVER")) {}
@@ -55,9 +53,8 @@ public:
       -> CredentialsServer & = delete;
   auto operator=(CredentialsServer &&other) -> CredentialsServer & = delete;
 
-  auto serve(const Option<WifiCredentials> &storedWifi,
-             const Option<AuthToken> &authToken, const Api &api) noexcept
-      -> Result<Option<AuthToken>, ServeError>;
+  auto serve(const Option<WifiCredentials> &storedWifi, const Api &api) noexcept
+      -> Option<AuthToken>;
   void close() noexcept;
   void start() noexcept;
 

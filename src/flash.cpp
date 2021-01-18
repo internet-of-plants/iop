@@ -20,9 +20,9 @@ const uint8_t authTokenIndex = wifiConfigIndex + wifiConfigSize;
 const uint8_t authTokenSize = 1 + AuthToken::size;
 
 const uint8_t plantIdIndex = authTokenIndex + authTokenSize;
-const uint8_t plantTokenSize = 1 + PlantId::size;
+const uint8_t plantIdSize = 1 + PlantId::size;
 
-static_assert(plantIdIndex + plantTokenSize < EEPROM_SIZE,
+static_assert(plantIdIndex + plantIdSize < EEPROM_SIZE,
               "EEPROM too small to store needed credentials");
 
 auto Flash::setup() noexcept -> void { EEPROM.begin(EEPROM_SIZE); }
@@ -48,7 +48,8 @@ auto Flash::readPlantId() const noexcept -> Option<PlantId> {
 void Flash::removePlantId() const noexcept {
   this->logger.debug(F("Deleting stored plant id"));
   if (EEPROM.read(plantIdIndex) == usedPlantIdEEPROMFlag) {
-    EEPROM.write(plantIdIndex, 0);
+    // NOLINTNEXTLINE *-pro-bounds-pointer-arithmetic
+    memset(EEPROM.getDataPtr() + plantIdIndex, 0, plantIdSize);
     EEPROM.commit();
   }
 }
@@ -75,7 +76,8 @@ auto Flash::readAuthToken() const noexcept -> Option<AuthToken> {
 void Flash::removeAuthToken() const noexcept {
   this->logger.debug(F("Deleting stored auth token"));
   if (EEPROM.read(authTokenIndex) == usedAuthTokenEEPROMFlag) {
-    EEPROM.write(authTokenIndex, 0);
+    // NOLINTNEXTLINE *-pro-bounds-pointer-arithmetic
+    memset(EEPROM.getDataPtr() + authTokenIndex, 0, authTokenSize);
     EEPROM.commit();
   }
 }
@@ -108,7 +110,8 @@ auto Flash::readWifiConfig() const noexcept -> Option<WifiCredentials> {
 void Flash::removeWifiConfig() const noexcept {
   this->logger.debug(F("Deleting stored wifi config"));
   if (EEPROM.read(wifiConfigIndex) == usedWifiConfigEEPROMFlag) {
-    EEPROM.write(wifiConfigIndex, 0);
+    // NOLINTNEXTLINE *-pro-bounds-pointer-arithmetic
+    memset(EEPROM.getDataPtr() + wifiConfigIndex, 0, wifiConfigSize);
     EEPROM.commit();
   }
 }

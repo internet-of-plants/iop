@@ -9,9 +9,6 @@ auto Api::loggerLevel() const noexcept -> LogLevel {
   return this->logger.level();
 }
 
-// TODO(pc): should we panic if Api::makeJson fails because of overflow? Or just
-// report it? Is returning 400 enough?
-
 /// Ok (200): success
 /// Forbidden (403): auth token is invalid
 /// Not Found (404): invalid plant id (if any) (is it owned by another account?)
@@ -39,7 +36,8 @@ auto Api::reportPanic(const AuthToken &authToken, const Option<PlantId> &id,
 
   const auto token = authToken.asString();
   const auto &json = UNWRAP_REF(maybeJson);
-  const auto maybeResp = this->network().httpPost(token, F("/panic"), *json);
+  const auto maybeResp =
+      this->network().httpPost(token, F("/device-panic"), json);
 
 #ifndef IOP_MOCK_MONITOR
   if (IS_ERR(maybeResp)) {
@@ -78,7 +76,7 @@ auto Api::registerEvent(const AuthToken &authToken,
 
   const auto token = authToken.asString();
   const auto &json = UNWRAP_REF(maybeJson);
-  const auto maybeResp = this->network().httpPost(token, F("/event"), *json);
+  const auto maybeResp = this->network().httpPost(token, F("/event"), json);
 
 #ifndef IOP_MOCK_MONITOR
   if (IS_ERR(maybeResp)) {
@@ -114,7 +112,7 @@ auto Api::authenticate(const StringView username,
     return ApiStatus::CLIENT_BUFFER_OVERFLOW;
 
   const auto &json = UNWRAP_REF(maybeJson);
-  auto maybeResp = this->network().httpPost(F("/user/login"), *json);
+  auto maybeResp = this->network().httpPost(F("/user/login"), json);
 
 #ifndef IOP_MOCK_MONITOR
   if (IS_ERR(maybeResp)) {
@@ -124,7 +122,7 @@ auto Api::authenticate(const StringView username,
   }
   auto resp = UNWRAP_OK(maybeResp);
 
-  if (resp.status != ApiStatus::OK)
+  if (resp.status != ApiStatus::OK && resp.status != ApiStatus::MUST_UPGRADE)
     return resp.status;
 
   if (resp.payload.isNone()) {
@@ -153,40 +151,6 @@ auto Api::authenticate(const StringView username,
 #endif
 }
 
-/// Ok (200): success
-/// Forbidden (403): auth token is invalid
-/// Not Found (404): plant id unavailable (maybe it's owned by another account?)
-/// Bad request (400): the json didn't fit the local buffer, this bad No
-/// HttpCode and Internal Error (500): bad vibes at the wlan/server
-auto Api::reportError(const AuthToken &authToken, const PlantId &id,
-                      const StringView error) const noexcept -> ApiStatus {
-  this->logger.debug(F("Report error: "), error);
-
-  const auto make = [id, error](JsonDocument &doc) {
-    doc["plant_id"] = id.asString().get();
-    doc["error"] = error.get();
-  };
-  const auto maybeJson = this->makeJson<300>(F("Api::reportError"), make);
-  if (maybeJson.isNone())
-    return ApiStatus::CLIENT_BUFFER_OVERFLOW;
-
-  const auto token = authToken.asString();
-  const auto &json = UNWRAP_REF(maybeJson);
-  const auto maybeResp = this->network().httpPost(token, F("/error"), *json);
-
-#ifndef IOP_MOCK_MONITOR
-  if (IS_ERR(maybeResp)) {
-    const auto code = std::to_string(UNWRAP_ERR_REF(maybeResp));
-    this->logger.error(F("Unexpected response at Api::reportError: "), code);
-    return ApiStatus::BROKEN_SERVER;
-  }
-
-  return UNWRAP_OK_REF(maybeResp).status;
-#else
-  return ApiStatus::OK;
-#endif
-}
-
 /// Forbidden (403): auth token is invalid
 /// Bad request (400): the json didn't fit the local buffer, this bad
 /// No HttpCode and Internal Error (500): bad vibes at the wlan/server
@@ -204,7 +168,7 @@ auto Api::registerPlant(const AuthToken &authToken) const noexcept
     return ApiStatus::CLIENT_BUFFER_OVERFLOW;
 
   const auto &json = UNWRAP_REF(maybeJson);
-  auto maybeResp = this->network().httpPut(token, F("/plant"), *json);
+  auto maybeResp = this->network().httpPut(token, F("/plant"), json);
 
 #ifndef IOP_MOCK_MONITOR
   if (IS_ERR(maybeResp)) {
@@ -214,7 +178,7 @@ auto Api::registerPlant(const AuthToken &authToken) const noexcept
   }
 
   auto resp = UNWRAP_OK(maybeResp);
-  if (resp.status != ApiStatus::OK)
+  if (resp.status != ApiStatus::OK && resp.status != ApiStatus::MUST_UPGRADE)
     return resp.status;
 
   if (resp.payload.isNone()) {
@@ -240,20 +204,24 @@ auto Api::registerPlant(const AuthToken &authToken) const noexcept
 }
 
 auto Api::registerLog(const AuthToken &authToken,
-                      const Option<PlantId> & /*plantId*/,
+                      const Option<PlantId> &plantId,
                       const StringView log) const noexcept -> ApiStatus {
   const auto token = authToken.asString();
   this->logger.debug(F("Register log. Token: "), token, F(". Log: "), log);
   // TODO(pc): dynamically generate the log string, instead of buffering it,
-  // similar to a Stream but we choose when to write
-  auto maybeResp = this->network().httpPost(token, F("/log"), log);
+  // similar to a Stream but we choose when to write (using logger template
+  // variadics)
+  String uri(F("/log"));
+  if (plantId.isSome()) {
+    uri += F("/");
+    uri += UNWRAP_REF(plantId).asString().get();
+  }
+  auto maybeResp = this->network().httpPost(token, uri, log);
 
 #ifndef IOP_MOCK_MONITOR
   if (IS_ERR(maybeResp)) {
     const auto code = std::to_string(UNWRAP_ERR_REF(maybeResp));
-    // Infinite recursion
-    // this->logger.error(F("Unexpected response at Api::registerLog: "),
-    // code);
+    this->logger.error(F("Unexpected response at Api::registerLog: "), code);
     return ApiStatus::BROKEN_SERVER;
   }
 
@@ -266,11 +234,20 @@ auto Api::registerLog(const AuthToken &authToken,
 extern "C" uint32_t _FS_start;
 extern "C" uint32_t _FS_end;
 
-auto Api::upgrade(const AuthToken &token,
+auto Api::upgrade(const AuthToken &token, const Option<PlantId> &id,
                   const MD5Hash &sketchHash) const noexcept -> ApiStatus {
   this->logger.debug(F("Upgrading sketch"));
 
-  auto clientResult = this->network().wifiClient(F("/update"));
+  const auto tok = token.asString();
+
+  String path(F("/update/"));
+  path += tok.get();
+  if (id.isSome()) {
+    path += F("/");
+    path += UNWRAP_REF(id).asString().get();
+  }
+
+  auto clientResult = this->network().wifiClient(path);
   if (IS_ERR(clientResult)) {
     const auto rawStatus = UNWRAP_ERR_REF(clientResult);
     const auto apiStatus = this->network().apiStatus(rawStatus);
@@ -284,10 +261,9 @@ auto Api::upgrade(const AuthToken &token,
   auto &client = UNWRAP_OK_MUT(clientResult).get();
 
   const auto *const version = sketchHash.asString().get();
-  const auto tok = token.asString();
   // TODO: upstream we already can use the setAuthorization header, but it's not
   // published
-  const auto uri = String(this->host().get()) + F("/update/") + tok.get();
+  const auto uri = String(this->host().asCharPtr()) + path;
 
   ESPhttpUpdate.closeConnectionsOnUpdate(true);
   ESPhttpUpdate.rebootOnUpdate(true);
@@ -300,7 +276,6 @@ auto Api::upgrade(const AuthToken &token,
 
   switch (updateResult) {
   case HTTP_UPDATE_NO_UPDATES:
-    this->logger.warn(F("Server said there is no update available"));
     return ApiStatus::NOT_FOUND;
   case HTTP_UPDATE_OK:
     return ApiStatus::OK;

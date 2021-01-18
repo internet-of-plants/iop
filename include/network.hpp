@@ -91,16 +91,18 @@ public:
   static auto isConnected() noexcept -> bool {
     return WiFi.status() == WL_CONNECTED;
   }
-  auto wifiClient(StaticString path) const noexcept
+  auto wifiClient(StringView path) const noexcept
       -> Result<std::reference_wrapper<WiFiClientSecure>, RawStatus>;
   auto httpPut(StringView token, StaticString path,
                StringView data) const noexcept -> Result<Response, int>;
+  auto httpPost(StringView token, StringView path,
+                StringView data) const noexcept -> Result<Response, int>;
   auto httpPost(StringView token, StaticString path,
                 StringView data) const noexcept -> Result<Response, int>;
   auto httpPost(StaticString path, StringView data) const noexcept
       -> Result<Response, int>;
-  auto httpRequest(HttpMethod method, Option<StringView> token,
-                   StaticString path, Option<StringView> data) const noexcept
+  auto httpRequest(HttpMethod method, Option<StringView> token, StringView path,
+                   Option<StringView> data) const noexcept
       -> Result<Response, int>;
 
   static auto rawStatusToString(RawStatus status) noexcept -> StaticString;

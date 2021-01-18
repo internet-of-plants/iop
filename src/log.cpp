@@ -35,7 +35,6 @@ public:
 static ByteRate byteRate;
 static String currentLog; // NOLINT cert-err58-cpp
 
-// TODO(pc): add network log level
 // TODO(pc): allow gradually sending bytes wifiClient->write(...) instead of
 // buffering the log before sending We can use the already in place system of
 // variadic templates to avoid this buffer
@@ -43,29 +42,39 @@ static String currentLog; // NOLINT cert-err58-cpp
 // the TCP connection to many
 
 PROGMEM_STRING(missingHost, "No host available");
-
-// Logs are disabled for those, this may be a problem
-// TODO(pc): allow to disable network logging so at we can enable logging here
-static Api api(host.asRef().expect(missingHost), NO_LOG);
-static Flash flash(NO_LOG);
+static Api api(host.asRef().expect(missingHost), WARN);
+static Flash flash(WARN);
+static bool logNetwork = true;
 
 void Log::print(const StaticString str) noexcept {
   Serial.print(str.get());
-  currentLog += str.get();
-  byteRate.addBytes(str.length());
+  if (logNetwork) {
+    currentLog += str.get();
+    byteRate.addBytes(str.length());
+  }
 }
 void Log::print(const StringView str) noexcept {
   Serial.print(str.get());
-  currentLog += str.get();
-  byteRate.addBytes(str.length());
+  if (logNetwork) {
+    currentLog += str.get();
+    byteRate.addBytes(str.length());
+  }
 }
 
 void Log::reportLog() noexcept {
-  const auto maybeToken = flash.readAuthToken();
-  const auto maybePlantId = flash.readPlantId();
+  if (!logNetwork) {
+    currentLog.clear();
+    return;
+  }
 
+  const auto maybeToken = flash.readAuthToken();
   if (maybeToken.isSome()) {
-    api.registerLog(UNWRAP_REF(maybeToken), maybePlantId, currentLog);
+    const auto oldLogNetwork = logNetwork;
+    logNetwork = false;
+
+    api.registerLog(UNWRAP_REF(maybeToken), flash.readPlantId(), currentLog);
+
+    logNetwork = oldLogNetwork;
   }
   currentLog.clear();
 }

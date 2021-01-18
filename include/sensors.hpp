@@ -26,15 +26,16 @@ public:
       : soilResistivityPowerPin(soilResistivityPowerPin),
         soilTemperatureOneWireBus(soilTemperaturePin),
         // Self reference, this is dangerous. UNSAFE: SELF_REF
+        // Allocating would be a little bit better, but it could fail
         soilTemperatureSensor(&soilTemperatureOneWireBus),
         airTempAndHumiditySensor(dhtPin, dhtVersion) {}
   void setup() noexcept;
   auto measure(PlantId plantId, MD5Hash firmwareHash) noexcept -> Event;
 
   // Self-referential class, it must not be moved or copied. SELF_REF
-  Sensors(Sensors &other) = delete;
+  Sensors(Sensors const &other) = delete;
   Sensors(Sensors &&other) = delete;
-  auto operator=(Sensors &other) -> Sensors & = delete;
+  auto operator=(Sensors const &other) -> Sensors & = delete;
   auto operator=(Sensors &&other) -> Sensors & = delete;
 };
 

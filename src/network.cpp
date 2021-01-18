@@ -16,20 +16,19 @@ static BearSSL::CertStore certStore; // NOLINT cert-err58-cpp
 static WiFiClientSecure client;      // NOLINT cert-err58-cpp
 static HTTPClient http;              // NOLINT cert-err58-cpp
 
-// TODO(pc): connections aren't working with AP active, maybe because of the DNS
-// hijack of server.cpp?
-
 auto Network::setup() noexcept -> void {
   assert_(certStoreOverrideWorked,
           F("CertStore override is broken, fix it or HTTPS won't work"));
 
 #ifdef IOP_ONLINE
-  // Makes sure the event handler is never dropped and only set once
-  static const auto callback = [](const WiFiEventStationModeGotIP &ev) {
+  // Makes sure the event handlers are never dropped and only set once
+  static const auto onCallback = [](const WiFiEventStationModeGotIP &ev) {
     interruptEvent = ON_CONNECTION;
     (void)ev;
   };
-  static const auto handler = WiFi.onStationModeGotIP(callback);
+  static const auto onHandler = WiFi.onStationModeGotIP(onCallback);
+
+  // Initialize the wifi configurations
 
   if (Network::isConnected())
     interruptEvent = ON_CONNECTION;
@@ -38,6 +37,8 @@ auto Network::setup() noexcept -> void {
   WiFi.setAutoReconnect(true);
   WiFi.setAutoConnect(true);
   WiFi.mode(WIFI_STA);
+  delay(1);
+  WiFi.reconnect();
 
   // station_config status = {0};
   // wifi_station_get_config_default(&status);
@@ -46,6 +47,7 @@ auto Network::setup() noexcept -> void {
   // }
 #else
   WiFi.mode(WIFI_OFF);
+  delay(1);
 #endif
 }
 
@@ -56,6 +58,12 @@ auto Network::httpPut(const StringView token, const StaticString path,
 }
 
 auto Network::httpPost(const StringView token, const StaticString path,
+                       const StringView data) const noexcept
+    -> Result<Response, int> {
+  return this->httpRequest(POST, token, path, data);
+}
+
+auto Network::httpPost(const StringView token, const StringView path,
                        const StringView data) const noexcept
     -> Result<Response, int> {
   return this->httpRequest(POST, token, path, data);
@@ -90,7 +98,7 @@ static auto methodToString(const enum HttpMethod method) noexcept
   return Option<StaticString>();
 }
 
-auto Network::wifiClient(const StaticString path) const noexcept
+auto Network::wifiClient(const StringView path) const noexcept
     -> Result<std::reference_wrapper<WiFiClientSecure>, RawStatus> {
   if (!this->host_.contains(F(":"))) {
     PROGMEM_STRING(error, "Host must contain protocol (http:// or https://): ");
@@ -123,8 +131,7 @@ auto Network::wifiClient(const StaticString path) const noexcept
 // Returns Response if it can understand what the server sent, int is the raw
 // status code given by ESP8266HTTPClient
 auto Network::httpRequest(const enum HttpMethod method_,
-                          const Option<StringView> token,
-                          const StaticString path,
+                          const Option<StringView> token, const StringView path,
                           const Option<StringView> data) const noexcept
     -> Result<Response, int> {
   const auto clientResult = this->wifiClient(path);
@@ -145,10 +152,8 @@ auto Network::httpRequest(const enum HttpMethod method_,
 
   const auto method = UNWRAP(methodToString(method_));
 
-  this->logger.info(F("["), method, F("] "), path);
-  // TODO(pc): will this be a problem if we start streaming logs?
-  // credentials logged are a big no-no
-  this->logger.debug(F("Json data: "), data_);
+  this->logger.info(F("["), method, F("] "), path,
+                    data.isSome() ? F("has payload") : F("no payload"));
 
   const auto uri = String(this->host_.get()) + path.get();
   if (!http.begin(client, uri)) {
@@ -307,8 +312,8 @@ auto Network::apiStatus(const RawStatus raw) const noexcept
   case RawStatus::ENCODING_NOT_SUPPORTED:
   case RawStatus::NO_SERVER:
   case RawStatus::SERVER_ERROR:
-    this->logger.warn(F("Server is broken. Code: "),
-                      std::to_string(static_cast<int>(raw)));
+    this->logger.error(F("Server is broken. Code: "),
+                       std::to_string(static_cast<int>(raw)));
     return ApiStatus::BROKEN_SERVER;
 
   case RawStatus::READ_TIMEOUT:

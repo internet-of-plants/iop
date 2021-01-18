@@ -6,6 +6,8 @@
 #include "unsafe_raw_string.hpp"
 #include <string>
 
+template <uint16_t SIZE> class FixedString;
+
 /// Readonly non-owning reference to string abstractions,
 /// treating them all as one.
 ///
@@ -13,8 +15,9 @@
 /// it will endup outliving the inner storage and causing a use-after-free.
 ///
 /// Use it heavily as a function parameter that isn't stored, instead of the
-/// plain char* or String&, it's typesafe, doesn't allocate and its constructor
-/// will implicitly copy the internal pointer of each string abstraction.
+/// plain char* or String&, it's typesafe, doesn't allocate and its
+/// constructor will implicitly copy the internal pointer of each string
+/// abstraction.
 class StringView {
 private:
   const char *str;
@@ -29,6 +32,9 @@ public:
   StringView(const String &other) noexcept : str(other.c_str()) {}
   // NOLINTNEXTLINE hicpp-explicit-conversions
   StringView(const StaticString other) noexcept : str(other.asCharPtr()) {}
+  template <uint16_t SIZE>
+  // NOLINTNEXTLINE hicpp-explicit-conversions
+  StringView(const FixedString<SIZE> &other) noexcept : str(other.get()) {}
   constexpr StringView(const StringView &other) noexcept = default;
   constexpr StringView(StringView &&other) noexcept : str(other.str) {}
   auto operator==(const StringView &other) const noexcept -> bool {

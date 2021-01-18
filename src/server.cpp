@@ -14,13 +14,11 @@
 
 #include "static_string.hpp"
 
-// TODO(pc): make sure this captive portal can't be bypassed
+constexpr const uint64_t intervalTryFlashWifiCredentialsMillis =
+    60 * 60 * 1000; // 1 hour
 
-const uint64_t intervalTryFlashWifiCredentialsMillis = 600000; // 10 minutes
-
-const uint64_t intervalTryHardcodedWifiCredentialsMillis = 600000; // 10 minutes
-
-const uint64_t intervalTryHardcodedIopCredentialsMillis = 3600000; // 1 hour
+constexpr const uint64_t intervalTryHardcodedWifiCredentialsMillis =
+    60 * 60 * 1000; // 1 hour
 
 PROGMEM_STRING(pageHTMLStart,
                "<!DOCTYPE HTML>\r\n"
@@ -32,19 +30,46 @@ PROGMEM_STRING(pageHTMLStart,
                "<form style='margin: 0 auto; width: 500px;' action='/submit' "
                "method='POST'>\r\n");
 
+// TODO: add js to disable fields according to wifi and iop checkboxes?
 PROGMEM_STRING(
-    wifiHTML,
-    "<h3><center>Please provide your Wifi credentials, so we can connect to "
-    "it</center></h3>\r\n"
+    wifiOverwriteHTML,
+    "<h3><center>It seems you already have your wifi credentials set, if you "
+    "want to rewrite it, please set the checkbox below and fill the "
+    "fields. Otherwise they will be ignored</center></h3>\r\n"
+    "<div><input type='checkbox' name='wifi'><label "
+    "for='wifi'>Overwrite wifi credentials</label></div>"
     "<div><div><strong>Network name:</strong></div><input name='ssid' "
     "type='text' style='width:100%' /></div>\r\n"
     "<div><div><strong>Password:</strong></div><input name='password' "
     "type='password' style='width:100%' /></div>\r\n");
 
 PROGMEM_STRING(
+    wifiHTML,
+    "<h3><center>Please provide your Wifi credentials, so we can connect to "
+    "it.</center></h3>\r\n"
+    "<div><input type='hidden' value='true' name='wifi'></div>"
+    "<div><div><strong>Network name:</strong></div><input name='ssid' "
+    "type='text' style='width:100%' /></div>\r\n"
+    "<div><div><strong>Password:</strong></div><input name='password' "
+    "type='password' style='width:100%' /></div>\r\n");
+
+PROGMEM_STRING(
+    iopOverwriteHTML,
+    "<h3><center>It seems you already have your Iop credentials set, if you "
+    "want to rewrite it, please set the checkbox below and fill the "
+    "fields. Otherwise they will be ignored</center></h3>\r\n"
+    "<div><input type='checkbox' name='iop'><label "
+    "for='iop'>Overwrite Iop credentials</label></div>"
+    "<div><div><strong>Email:</strong></div><input name='iopEmail' type='text' "
+    "style='width:100%' /></div>\r\n"
+    "<div><div><strong>Password:</strong></div><input name='iopPassword' "
+    "type='password' style='width:100%' /></div>\r\n");
+
+PROGMEM_STRING(
     iopHTML,
     "<h3><center>Please provide your Iop credentials, so we can get an "
     "authentication token to use</center></h3>\r\n"
+    "<div><input type='hidden' value='true' name='iop'></div>"
     "<div><div><strong>Email:</strong></div><input name='iopEmail' type='text' "
     "style='width:100%' /></div>\r\n"
     "<div><div><strong>Password:</strong></div><input name='iopPassword' "
@@ -69,16 +94,20 @@ void CredentialsServer::makeRouter(ESP8266WebServer &server) const noexcept {
     const static Log logger(loggerLevel, F("SERVER_CALLBACK"), false);
     logger.debug(F("Received form with credentials"));
 
-    if (s->hasArg(F("ssid")) && s->hasArg(F("password"))) {
+    if (s->hasArg(F("wifi")) && s->hasArg(F("ssid")) &&
+        s->hasArg(F("password"))) {
       const auto ssid = s->arg(F("ssid"));
       const auto psk = s->arg(F("password"));
-      credentialsWifi = std::pair<String, String>(ssid, psk);
+      if (!ssid.isEmpty() && !psk.isEmpty())
+        credentialsWifi = std::pair<String, String>(ssid, psk);
     }
 
-    if (s->hasArg(F("iopEmail")) && s->hasArg(F("iopPassword"))) {
+    if (s->hasArg(F("iop")) && s->hasArg(F("iopEmail")) &&
+        s->hasArg(F("iopPassword"))) {
       const auto email = s->arg(F("iopEmail"));
       const auto password = s->arg(F("iopPassword"));
-      credentialsIop = std::pair<String, String>(email, password);
+      if (!email.isEmpty() && !password.isEmpty())
+        credentialsIop = std::pair<String, String>(email, password);
     }
 
     s->sendHeader(F("Location"), F("/"));
@@ -94,20 +123,34 @@ void CredentialsServer::makeRouter(ESP8266WebServer &server) const noexcept {
     const auto needsIopAuth = flash.readAuthToken().isNone();
 
     auto len = pageHTMLStart.length() + pageHTMLEnd.length();
-    if (mustConnect)
-      len += wifiHTML.length();
 
-    if (needsIopAuth)
+    if (mustConnect) {
+      len += wifiHTML.length();
+    } else {
+      len += wifiOverwriteHTML.length();
+    }
+
+    if (needsIopAuth) {
       len += iopHTML.length();
+    } else {
+      len += iopOverwriteHTML.length();
+    }
 
     s->setContentLength(len);
 
     s->send_P(HTTP_CODE_OK, PSTR("text/html"), pageHTMLStart.asCharPtr());
-    if (mustConnect)
-      s->sendContent_P(wifiHTML.asCharPtr());
 
-    if (needsIopAuth)
+    if (mustConnect) {
+      s->sendContent_P(wifiHTML.asCharPtr());
+    } else {
+      s->sendContent_P(wifiOverwriteHTML.asCharPtr());
+    }
+
+    if (needsIopAuth) {
       s->sendContent_P(iopHTML.asCharPtr());
+    } else {
+      s->sendContent_P(iopOverwriteHTML.asCharPtr());
+    }
 
     s->sendContent_P(pageHTMLEnd.asCharPtr());
   });
@@ -118,6 +161,7 @@ void CredentialsServer::start() noexcept {
     this->logger.info(F("Setting our own wifi access point"));
 
     WiFi.mode(WIFI_AP_STA);
+    delay(1);
 
     // TODO(pc): the password should be random (passed at compile time)
     // But also accessible externally (like a sticker in the hardware).
@@ -131,16 +175,10 @@ void CredentialsServer::start() noexcept {
     const auto hash = StringView(Api::macAddress()).hash();
     const auto ssid = std::string(PSTR("iop-")) + std::to_string(hash);
 
-    WiFi.setAutoReconnect(false);
-    ETS_UART_INTR_DISABLE(); // NOLINT hicpp-signed-bitwise
-    wifi_station_disconnect();
-    ETS_UART_INTR_ENABLE(); // NOLINT hicpp-signed-bitwise
-
     WiFi.softAP(ssid.c_str(), PSTR("le$memester#passwordz"), 2);
-    WiFi.setAutoReconnect(true);
-    WiFi.begin();
 
     constexpr const uint8_t serverPort = 80;
+    // TODO: we should use a global static that is reused
     auto s = try_make_unique<ESP8266WebServer>(serverPort);
     if (!s)
       panic_(F("ESP8266WebServer allocation failed"));
@@ -151,6 +189,7 @@ void CredentialsServer::start() noexcept {
 
     // Makes it a captive portal (redirects all wifi trafic to it)
     constexpr const uint8_t dnsPort = 53;
+    // TODO: we should use a global static that is reused
     auto dns = try_make_unique<DNSServer>();
     if (!dns)
       panic_(F("DNSServer allocation failed"));
@@ -168,6 +207,7 @@ void CredentialsServer::close() noexcept {
   if (this->server.isSome()) {
     UNWRAP(this->server)->close();
     WiFi.mode(WIFI_STA);
+    delay(1);
   }
 
   if (this->dnsServer.isSome()) {
@@ -197,46 +237,67 @@ auto CredentialsServer::statusToString(
 
 auto CredentialsServer::connect(const StringView ssid,
                                 const StringView password) const noexcept
-    -> station_status_t {
+    -> void {
   if (wifi_station_get_connect_status() == STATION_CONNECTING) {
     ETS_UART_INTR_DISABLE(); // NOLINT hicpp-signed-bitwise
     wifi_station_disconnect();
     ETS_UART_INTR_ENABLE(); // NOLINT hicpp-signed-bitwise
   }
 
+  // TODO: should we use WiFi.setPersistent(false) and save it to flash on our
+  // own when connection succeeds? It seems invalid credentials here still get
+  // stored to flash even if they fail
   WiFi.begin(ssid.get(), password.get(), 3);
 
   if (WiFi.waitForConnectResult() == -1) {
-    this->logger.warn(F("Wifi authentication timed out"));
-    return wifi_station_get_connect_status();
+    this->logger.error(F("Wifi authentication timed out"));
+    return;
   }
-  const auto status = wifi_station_get_connect_status();
+
   if (!Api::isConnected()) {
+    const auto status = wifi_station_get_connect_status();
     const auto maybeStatusStr = this->statusToString(status);
-    if (maybeStatusStr.isSome()) {
-      const auto statusStr = UNWRAP_REF(maybeStatusStr);
-      this->logger.warn(F("Invalid wifi credentials ("), statusStr, F("): "),
-                        ssid, F(", "), password);
-    }
+    if (maybeStatusStr.isNone())
+      return; // It already will be logged by statusToString;
+
+    const auto statusStr = UNWRAP_REF(maybeStatusStr);
+    this->logger.error(F("Invalid wifi credentials ("), statusStr, F("): "),
+                       ssid);
   }
-  return status;
 }
 
 /// Forbidden (403): invalid credentials
 auto CredentialsServer::authenticate(const StringView username,
                                      const StringView password,
                                      const Api &api) const noexcept
-    -> Result<AuthToken, ApiStatus> {
+    -> Option<AuthToken> {
+  // Unlike WiFi.mode(WIFI_AP), WiFi.mode(WIFI_AP_STA) allows us to stay
+  // connected to the AP we connected to in STA mode, at the same time as we can
+  // receive connections from users.
+  // We cannot send data to the AP in WIFI_AP_STA mode though, that requires
+  // WIFI_STA mode. Switching to STA mode will disconnect all stations connected
+  // to the node AP (though they can request a reconnect even while we are in
+  // STA mode).
+  //
+  // Extracted from ESP8266WiFiMesh.cpp
+  // https://github.com/esp8266/Arduino/blob/85ba53a24994db5ec2aff3b7adfa05330a637413/libraries/ESP8266WiFiMesh/src/ESP8266WiFiMesh.cpp#L395
+  WiFi.mode(WIFI_STA);
+  delay(1);
+
   auto authToken = api.authenticate(username, password);
+
+  WiFi.mode(WIFI_AP_STA);
+  delay(1);
+
   if (IS_ERR(authToken)) {
     const auto &status = UNWRAP_ERR_REF(authToken);
 
     switch (status) {
     case ApiStatus::FORBIDDEN:
-      this->logger.warn(F("Invalid IoP credentials ("),
-                        Network::apiStatusToString(status), F("): "), username,
-                        F(", "), password);
-      return status;
+      this->logger.error(F("Invalid IoP credentials ("),
+                         Network::apiStatusToString(status), F("): "),
+                         username);
+      return Option<AuthToken>();
 
     case ApiStatus::CLIENT_BUFFER_OVERFLOW:
       panic_(F("CredentialsServer::authenticate internal buffer overflow"));
@@ -244,100 +305,83 @@ auto CredentialsServer::authenticate(const StringView username,
     case ApiStatus::BROKEN_PIPE:
     case ApiStatus::TIMEOUT:
     case ApiStatus::NO_CONNECTION:
-      this->logger.warn(F("CredentialsServer::authenticate network error"));
-      return status;
+      this->logger.error(F("CredentialsServer::authenticate network error"));
+      return Option<AuthToken>();
 
     case ApiStatus::BROKEN_SERVER:
     case ApiStatus::NOT_FOUND:
-      this->logger.warn(F("CredentialsServer::authenticate server error"));
-      return status;
+      this->logger.error(F("CredentialsServer::authenticate server error"));
+      return Option<AuthToken>();
 
-    case ApiStatus::OK: // Cool beans
-      return status;
-
+    case ApiStatus::OK:
     case ApiStatus::MUST_UPGRADE:
-      interruptEvent = InterruptEvent::MUST_UPGRADE;
-      return status;
+      // On success those shouldn't be triggered
+      panic_(F("Unreachable"));
     }
 
     const auto str = Network::apiStatusToString(status);
-    this->logger.error(F("CredentialsServer::authenticate bad status "), str);
-    return status;
+    this->logger.crit(F("CredentialsServer::authenticate bad status: "), str);
+    return Option<AuthToken>();
   }
   return UNWRAP_OK(authToken);
 }
 
 auto CredentialsServer::serve(const Option<WifiCredentials> &storedWifi,
-                              const Option<AuthToken> &authToken,
-                              const Api &api) noexcept
-    -> Result<Option<AuthToken>, ServeError> {
+                              const Api &api) noexcept -> Option<AuthToken> {
   this->start();
+
+  const auto now = millis();
+
+  // The user provided those informations through the web form
+  // But we shouldn't act on it inside the server's callback, as callback should
+  // be rather simple, so we use globals. UNWRAP moves them out on use.
 
   if (credentialsWifi.isSome()) {
     const auto cred = UNWRAP(credentialsWifi);
     this->connect(cred.first, cred.second);
-  }
 
-  if (credentialsIop.isSome()) {
+  } else if (Api::isConnected() && credentialsIop.isSome()) {
     const auto cred = UNWRAP(credentialsIop);
-    auto result = this->authenticate(cred.first, cred.second, api);
-    if (IS_OK(result)) {
-      const auto token = UNWRAP_OK(result);
-      return Option<AuthToken>(token);
-    }
-  }
+    auto tok = this->authenticate(cred.first, cred.second, api);
+    if (tok.isSome())
+      return tok;
 
-  const auto now = millis();
-  if (!Api::isConnected() && storedWifi.isSome() &&
-      this->nextTryFlashWifiCredentials <= now) {
+    // WiFi Credentials stored in flash
+
+    // Wifi connection error is hard to debug
+    // (see countless open issues about it at esp8266/Arduino's github)
+    // One example citing others: https://github.com/esp8266/Arduino/issues/7432
+    //
+    // So we never delete a flash stored wifi credentials (outside of factory
+    // reset), we have a timer to avoid constantly retrying a bad credential.
+  } else if (!Api::isConnected() && storedWifi.isSome() &&
+             this->nextTryFlashWifiCredentials <= now) {
     this->nextTryFlashWifiCredentials =
         now + intervalTryFlashWifiCredentialsMillis;
 
     const auto &stored = UNWRAP_REF(storedWifi);
-    const auto status =
-        this->connect(stored.ssid.asString(), stored.password.asString());
-    if (status == STATION_WRONG_PASSWORD) {
-      this->nextTryHardcodedWifiCredentials = 0;
-      return ServeError::INVALID_WIFI_CONFIG;
-    }
-  }
+    this->logger.info(
+        F("Trying to connect to wifi with flash stored credentials"));
+    this->connect(stored.ssid.asString(), stored.password.asString());
 
-  if (!Api::isConnected() && wifiNetworkName.isSome() &&
-      wifiPassword.isSome() && this->nextTryHardcodedWifiCredentials <= now) {
+    // WiFi Credentials hardcoded at "configuration.h"
+    //
+    // Ideally it won't be wrong, but that's the price of hardcoding, if it's
+    // not updated it may just be. Since it can't be deleted we must retry, but
+    // with a bigish interval.
+  } else if (!Api::isConnected() && wifiNetworkName.isSome() &&
+             wifiPassword.isSome() &&
+             this->nextTryHardcodedWifiCredentials <= now) {
     this->nextTryHardcodedWifiCredentials =
         now + intervalTryHardcodedWifiCredentialsMillis;
     const auto &ssid = UNWRAP_REF(wifiNetworkName);
-    const auto &password = UNWRAP_REF(wifiPassword);
-    const auto status = this->connect(ssid, password);
-    if (status == STATION_GOT_IP) {
-      this->nextTryHardcodedWifiCredentials = 0;
-    } else if (status == STATION_WRONG_PASSWORD) {
-      constexpr const uint32_t oneDay = 24 * 3600 * 1000;
-      this->nextTryHardcodedWifiCredentials = now + oneDay;
-    }
+    const auto &psk = UNWRAP_REF(wifiPassword);
+    this->logger.info(
+        F("Trying to connect to wifi with hardcoded credentials"));
+    this->connect(ssid, psk);
   }
 
-  if (Api::isConnected() && authToken.isNone() &&
-      this->nextTryHardcodedIopCredentials <= now) {
-    this->nextTryHardcodedIopCredentials =
-        now + intervalTryHardcodedIopCredentialsMillis;
-    if (iopEmail.isSome() && iopPassword.isSome()) {
-      const auto &email = UNWRAP_REF(iopEmail);
-      const auto &password = UNWRAP_REF(iopPassword);
-      auto res = this->authenticate(email, password, api);
-
-      if (IS_OK(res)) {
-        this->nextTryHardcodedIopCredentials = 0;
-        return OK(res);
-      }
-
-      if (UNWRAP_ERR(res) == ApiStatus::FORBIDDEN) {
-        constexpr const uint32_t oneDay = 24 + 3600 + 1000;
-        this->nextTryHardcodedIopCredentials = now + oneDay;
-      }
-    }
-  }
-
+  // Give processing time to the servers
   UNWRAP_MUT(this->dnsServer)->processNextRequest();
   UNWRAP_MUT(this->server)->handleClient();
   return Option<AuthToken>();

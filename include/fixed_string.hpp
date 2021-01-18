@@ -35,10 +35,6 @@ public:
   }
   auto length() const noexcept -> size_t { return strlen(this->get()); }
   auto isEmpty() const noexcept -> bool { return this->length() == 0; }
-  // We should also have a constructor at string_view.hpp, but we get into a
-  // circular dependency hell
-  // TODO(pc): It would be poggers if someone could solve this. But is this
-  // solvable?
   auto operator*() const noexcept -> StringView { return this->str.asString(); }
   auto operator->() const noexcept -> StringView {
     return this->str.asString();

@@ -22,7 +22,7 @@ private:
 
 public:
   ~Api() = default;
-  Api(const StaticString &host, const LogLevel logLevel) noexcept
+  Api(const StaticString host, const LogLevel logLevel) noexcept
       : logger(logLevel, F("API")), network_(host, logLevel) {}
   Api(Api const &other) = delete;
   Api(Api &&other) = delete;
@@ -34,8 +34,8 @@ public:
   static auto isConnected() noexcept -> bool { return Network::isConnected(); }
   static auto macAddress() noexcept -> String { return Network::macAddress(); }
   static auto disconnect() noexcept -> void { Network::disconnect(); }
-  auto upgrade(const AuthToken &token, const MD5Hash &sketchHash) const noexcept
-      -> ApiStatus;
+  auto upgrade(const AuthToken &token, const Option<PlantId> &id,
+               const MD5Hash &sketchHash) const noexcept -> ApiStatus;
   auto reportPanic(const AuthToken &authToken, const Option<PlantId> &id,
                    const PanicData &event) const noexcept -> ApiStatus;
   auto registerEvent(const AuthToken &token, const Event &event) const noexcept
@@ -44,8 +44,6 @@ public:
       -> Result<PlantId, ApiStatus>;
   auto authenticate(StringView username, StringView password) const noexcept
       -> Result<AuthToken, ApiStatus>;
-  auto reportError(const AuthToken &authToken, const PlantId &id,
-                   StringView error) const noexcept -> ApiStatus;
   auto registerLog(const AuthToken &authToken, const Option<PlantId> &plantId,
                    StringView log) const noexcept -> ApiStatus;
   auto host() const noexcept -> StaticString { return this->network().host(); };

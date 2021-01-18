@@ -19,9 +19,6 @@
 
 #include "static_string.hpp"
 
-// TODO(pc):
-// https://github.com/maakbaas/esp8266-iot-framework/blob/master/src/timeSync.cpp
-
 class EventLoop {
 private:
   Sensors sensors;
@@ -33,6 +30,7 @@ private:
 
   esp_time nextTime;
   esp_time nextYieldLog;
+  esp_time nextHandleConnectionLost;
 
 public:
   void setup() noexcept {
@@ -63,21 +61,32 @@ public:
       this->credentialsServer.close();
     }
 
-    if (!Api::isConnected()) {
-      // No-op
-
-    } else if (authToken.isNone()) {
-      this->handleCredentials(authToken);
+    if (authToken.isNone()) {
+      this->handleCredentials();
 
     } else if (plantId.isNone()) {
       this->handlePlant(UNWRAP_REF(authToken));
 
+    } else if (!Api::isConnected()) {
+      // If connection is lost frequently we open the credentials server, to
+      // allow replacing the wifi credentials. Since we only remove it from
+      // flash if we are going to replace it for a new one (allows for more
+      // resiliency) - or during factory reset
+      if (this->nextHandleConnectionLost < millis()) {
+        constexpr const uint32_t oneMinute = 60 * 1000;
+        this->nextHandleConnectionLost = millis() + oneMinute;
+        this->handleCredentials();
+      } else {
+        // No-op, we must just wait
+      }
+
     } else if (this->nextTime <= now) {
+      this->nextTime = millis() + interval;
       this->handleMeasurements(UNWRAP_REF(authToken), UNWRAP_REF(plantId));
 
     } else if (this->nextYieldLog <= now) {
-      constexpr const uint16_t minute = 1000;
-      this->nextYieldLog = now + minute;
+      constexpr const uint16_t oneSecond = 1000;
+      this->nextYieldLog = now + oneSecond;
       this->logger.trace(F("Waiting"));
     }
   }
@@ -90,7 +99,8 @@ public:
                 airTempAndHumidityPin, dhtVersion),
         api(host, logLevel), credentialsServer(logLevel),
         logger(logLevel, F("LOOP")), flash(logLevel),
-        firmwareHash(hashSketch()), nextTime(0), nextYieldLog(0) {}
+        firmwareHash(hashSketch()), nextTime(0), nextYieldLog(0),
+        nextHandleConnectionLost(0) {}
   EventLoop(EventLoop const &other) = delete;
   EventLoop(EventLoop &&other) = delete;
 
@@ -114,16 +124,17 @@ private:
     case MUST_UPGRADE:
 #ifdef IOP_OTA
       const auto maybeToken = this->flash.readAuthToken();
+      const auto id = this->flash.readPlantId();
       if (maybeToken.isSome()) {
         const auto &token = UNWRAP_REF(maybeToken);
-        const auto status = this->api.upgrade(token, this->firmwareHash);
+        const auto status = this->api.upgrade(token, id, this->firmwareHash);
         switch (status) {
         case ApiStatus::FORBIDDEN:
           this->logger.warn(F("Invalid auth token, but keeping since at OTA"));
           return;
 
         case ApiStatus::NOT_FOUND:
-          this->logger.warn(F("Invalid plant id, but keeping since at OTA"));
+          // No update for this plant
           return;
 
         case ApiStatus::BROKEN_SERVER:
@@ -147,7 +158,8 @@ private:
         const auto str = this->api.network().apiStatusToString(status);
         this->logger.error(F("Bad status, EventLoop::handleInterrupt "), str);
       } else {
-        // TODO: this should never happen, how to ensure?
+        this->logger.warn(
+            F("Upgrade was expected, but no auth token was available"));
       }
 #endif
       break;
@@ -186,25 +198,12 @@ private:
     };
   }
 
-  void handleCredentials(const Option<AuthToken> &maybeToken) noexcept {
-    const auto wifiConfig = this->flash.readWifiConfig();
-    const auto result =
-        this->credentialsServer.serve(wifiConfig, maybeToken, this->api);
+  void handleCredentials() noexcept {
+    const auto wifi = this->flash.readWifiConfig();
+    const auto maybeToken = this->credentialsServer.serve(wifi, this->api);
 
-    if (IS_ERR(result)) {
-      switch (UNWRAP_ERR_REF(result)) {
-      case ServeError::INVALID_WIFI_CONFIG:
-        this->flash.removeWifiConfig();
-        break;
-      }
-
-    } else {
-      const auto &opt = UNWRAP_OK_REF(result);
-
-      if (opt.isSome()) {
-        this->flash.writeAuthToken(UNWRAP_REF(opt));
-      }
-    }
+    if (maybeToken.isSome())
+      this->flash.writeAuthToken(UNWRAP_REF(maybeToken));
   }
 
   void handlePlant(const AuthToken &token) const noexcept {
@@ -215,7 +214,7 @@ private:
 
       const auto &status = UNWRAP_ERR_REF(maybePlantId);
 
-      const uint32_t fiveMinutesUs = 5 * 60 * 1000 * 1000;
+      const uint32_t oneMinutesUs = 60 * 1000 * 1000;
       const uint32_t fiveSeconds = 5 * 1000;
 
       switch (status) {
@@ -226,33 +225,35 @@ private:
 
       case ApiStatus::CLIENT_BUFFER_OVERFLOW:
         panic_(F("Api::registerPlant internal buffer overflow"));
-        return;
+
+      case ApiStatus::NOT_FOUND:
+        this->logger.error(F("Api::registerPlant: 404, server is broken"));
 
       case ApiStatus::BROKEN_SERVER:
-      case ApiStatus::NOT_FOUND:
         // Server is broken. Nothing we can do besides waiting
-        this->logger.warn(F("EventLoop::handlePlant server error"));
-
-        ESP.deepSleep(fiveMinutesUs);
+        // Since this method is only called when nothing can be done without
+        // it, we sleep to avoid constant retries
+        ESP.deepSleep(oneMinutesUs);
         return;
 
       case ApiStatus::BROKEN_PIPE:
       case ApiStatus::TIMEOUT:
       case ApiStatus::NO_CONNECTION:
         // Nothing to be done besides retrying later
+        // Since this method is only called when nothing can be done without
+        // it, we sleep to avoid constant retries
         delay(fiveSeconds);
         return;
 
-      case ApiStatus::OK: // Cool beans
-        return;
-
+      case ApiStatus::OK:
       case ApiStatus::MUST_UPGRADE:
-        interruptEvent = InterruptEvent::MUST_UPGRADE;
+        // On success ApiStatus won't be returned
+        panic_(F("Unreachable"));
         return;
       }
 
       const auto s = Network::apiStatusToString(status);
-      this->logger.error(F("Unexpected status, EventLoop::handlePlant: "), s);
+      this->logger.error(F("Unexpected status, Api::registerPlants: "), s);
 
     } else {
       this->flash.writePlantId(UNWRAP_OK_REF(maybePlantId));
@@ -260,7 +261,6 @@ private:
   }
 
   void handleMeasurements(const AuthToken &token, const PlantId &id) noexcept {
-    this->nextTime = millis() + interval;
     this->logger.debug(F("Handle Measurements"));
 
     const auto measurements = sensors.measure(id, this->firmwareHash);
@@ -268,26 +268,34 @@ private:
 
     switch (status) {
     case ApiStatus::FORBIDDEN:
+      // TODO: is there a way to keep it around somewhere as a backup?
+      // In case it's a server bug, since it will force the user to join our AP
+      // again to retype the credentials. If so how can we reuse it and detect
+      // it started working again?
+      this->logger.error(F("Unable to send measurements"));
       this->logger.warn(F("Auth token was refused, deleting it"));
       this->flash.removeAuthToken();
       return;
 
     case ApiStatus::NOT_FOUND:
+      //  There is no problem removing it since we can just request for another
+      //  with our MAC ADDRESS, but may indeed cause problems with things like
+      //  error logging and panicking if it's removed (TODO), should we just
+      //  depend on mac address (and auth token)? Or maybe device id?
+      this->logger.error(F("Unable to send measurements"));
       this->logger.warn(F("Plant Id was not found, deleting it"));
       this->flash.removePlantId();
       return;
 
     case ApiStatus::CLIENT_BUFFER_OVERFLOW:
+      this->logger.error(F("Unable to send measurements"));
       panic_(F("Api::registerEvent internal buffer overflow"));
 
-    case ApiStatus::BROKEN_SERVER:
-      // Central server is broken. Nothing we can do besides waiting
-      // It doesn't make much sense to log events to flash
-
+    case ApiStatus::BROKEN_SERVER: // This already is logged at Network
     case ApiStatus::BROKEN_PIPE:
     case ApiStatus::TIMEOUT:
     case ApiStatus::NO_CONNECTION:
-      // Nothing to be done besides retrying later
+      this->logger.error(F("Unable to send measurements"));
 
     case ApiStatus::OK: // Cool beans
       return;
