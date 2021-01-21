@@ -85,12 +85,20 @@ PROGMEM_STRING(pageHTMLEnd, "<br>\r\n"
 static Option<std::pair<String, String>> credentialsWifi;
 static Option<std::pair<String, String>> credentialsIop;
 
-void CredentialsServer::makeRouter(ESP8266WebServer &server) const noexcept {
+constexpr const uint8_t serverPort = 80;
+static ESP8266WebServer server(serverPort); // NOLINT cert-err58-cpp
+
+constexpr const uint8_t dnsPort = 53;
+static DNSServer dnsServer; // NOLINT cert-err58-cpp
+
+void CredentialsServer::setup() const noexcept {
+  dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
+
   const auto loggerLevel = this->logger.level();
 
-  // Self reference, this is dangerous. UNSAFE: SELF_REF
+  // Self reference, but it's to a static
   auto *s = &server;
-  s->on(F("/submit"), [s, loggerLevel]() {
+  server.on(F("/submit"), [s, loggerLevel]() {
     const static Log logger(loggerLevel, F("SERVER_CALLBACK"), false);
     logger.debug(F("Received form with credentials"));
 
@@ -114,7 +122,7 @@ void CredentialsServer::makeRouter(ESP8266WebServer &server) const noexcept {
     s->send_P(HTTP_CODE_FOUND, PSTR("text/plain"), PSTR(""));
   });
 
-  s->onNotFound([s, loggerLevel]() {
+  server.onNotFound([s, loggerLevel]() {
     const static Log logger(loggerLevel, F("SERVER_CALLBACK"), false);
     const static Flash flash(loggerLevel);
     logger.debug(F("Serving captive portal HTML"));
@@ -157,46 +165,32 @@ void CredentialsServer::makeRouter(ESP8266WebServer &server) const noexcept {
 }
 
 void CredentialsServer::start() noexcept {
-  if (this->server.isNone()) {
+  if (!this->isServerOpen) {
+    this->isServerOpen = true;
     this->logger.info(F("Setting our own wifi access point"));
 
     WiFi.mode(WIFI_AP_STA);
     delay(1);
 
-    // TODO(pc): the password should be random (passed at compile time)
-    // But also accessible externally (like a sticker in the hardware).
-    // So not dynamic
     // NOLINTNEXTLINE *-avoid-magic-numbers
     const auto staticIp = IPAddress(192, 168, 1, 1);
-
     // NOLINTNEXTLINE *-avoid-magic-numbers
-    WiFi.softAPConfig(staticIp, staticIp, IPAddress(255, 255, 255, 0));
+    const auto mask = IPAddress(255, 255, 255, 0);
+
+    WiFi.softAPConfig(staticIp, staticIp, mask);
 
     const auto hash = StringView(Api::macAddress()).hash();
     const auto ssid = std::string(PSTR("iop-")) + std::to_string(hash);
 
+    // TODO(pc): the password should be random (passed at compile time)
+    // But also accessible externally (like a sticker in the hardware).
+    // So not dynamic
     WiFi.softAP(ssid.c_str(), PSTR("le$memester#passwordz"), 2);
 
-    constexpr const uint8_t serverPort = 80;
-    // TODO: we should use a global static that is reused
-    auto s = try_make_unique<ESP8266WebServer>(serverPort);
-    if (!s)
-      panic_(F("ESP8266WebServer allocation failed"));
-
-    this->makeRouter(*s);
-    s->begin();
-    this->server = std::move(s);
+    server.begin();
 
     // Makes it a captive portal (redirects all wifi trafic to it)
-    constexpr const uint8_t dnsPort = 53;
-    // TODO: we should use a global static that is reused
-    auto dns = try_make_unique<DNSServer>();
-    if (!dns)
-      panic_(F("DNSServer allocation failed"));
-
-    dns->setErrorReplyCode(DNSReplyCode::NoError);
-    dns->start(dnsPort, F("*"), WiFi.softAPIP());
-    this->dnsServer = std::move(dns);
+    dnsServer.start(dnsPort, F("*"), WiFi.softAPIP());
 
     const auto ip = WiFi.softAPIP().toString();
     this->logger.info(F("Opened captive portal: "), ip);
@@ -204,14 +198,13 @@ void CredentialsServer::start() noexcept {
 }
 
 void CredentialsServer::close() noexcept {
-  if (this->server.isSome()) {
-    UNWRAP(this->server)->close();
+  if (this->isServerOpen) {
+    this->isServerOpen = false;
+    dnsServer.stop();
+    server.close();
+
     WiFi.mode(WIFI_STA);
     delay(1);
-  }
-
-  if (this->dnsServer.isSome()) {
-    UNWRAP(this->dnsServer)->stop();
   }
 }
 
@@ -247,7 +240,7 @@ auto CredentialsServer::connect(const StringView ssid,
   // TODO: should we use WiFi.setPersistent(false) and save it to flash on our
   // own when connection succeeds? It seems invalid credentials here still get
   // stored to flash even if they fail
-  WiFi.begin(ssid.get(), password.get(), 3);
+  WiFi.begin(ssid.get(), password.get());
 
   if (WiFi.waitForConnectResult() == -1) {
     this->logger.error(F("Wifi authentication timed out"));
@@ -271,23 +264,8 @@ auto CredentialsServer::authenticate(const StringView username,
                                      const StringView password,
                                      const Api &api) const noexcept
     -> Option<AuthToken> {
-  // Unlike WiFi.mode(WIFI_AP), WiFi.mode(WIFI_AP_STA) allows us to stay
-  // connected to the AP we connected to in STA mode, at the same time as we can
-  // receive connections from users.
-  // We cannot send data to the AP in WIFI_AP_STA mode though, that requires
-  // WIFI_STA mode. Switching to STA mode will disconnect all stations connected
-  // to the node AP (though they can request a reconnect even while we are in
-  // STA mode).
-  //
-  // Extracted from ESP8266WiFiMesh.cpp
-  // https://github.com/esp8266/Arduino/blob/85ba53a24994db5ec2aff3b7adfa05330a637413/libraries/ESP8266WiFiMesh/src/ESP8266WiFiMesh.cpp#L395
-  WiFi.mode(WIFI_STA);
-  delay(1);
 
   auto authToken = api.authenticate(username, password);
-
-  WiFi.mode(WIFI_AP_STA);
-  delay(1);
 
   if (IS_ERR(authToken)) {
     const auto &status = UNWRAP_ERR_REF(authToken);
@@ -333,8 +311,8 @@ auto CredentialsServer::serve(const Option<WifiCredentials> &storedWifi,
   const auto now = millis();
 
   // The user provided those informations through the web form
-  // But we shouldn't act on it inside the server's callback, as callback should
-  // be rather simple, so we use globals. UNWRAP moves them out on use.
+  // But we shouldn't act on it inside the server's callback, as callback
+  // should be rather simple, so we use globals. UNWRAP moves them out on use.
 
   if (credentialsWifi.isSome()) {
     const auto cred = UNWRAP(credentialsWifi);
@@ -350,7 +328,8 @@ auto CredentialsServer::serve(const Option<WifiCredentials> &storedWifi,
 
     // Wifi connection error is hard to debug
     // (see countless open issues about it at esp8266/Arduino's github)
-    // One example citing others: https://github.com/esp8266/Arduino/issues/7432
+    // One example citing others:
+    // https://github.com/esp8266/Arduino/issues/7432
     //
     // So we never delete a flash stored wifi credentials (outside of factory
     // reset), we have a timer to avoid constantly retrying a bad credential.
@@ -367,8 +346,8 @@ auto CredentialsServer::serve(const Option<WifiCredentials> &storedWifi,
     // WiFi Credentials hardcoded at "configuration.h"
     //
     // Ideally it won't be wrong, but that's the price of hardcoding, if it's
-    // not updated it may just be. Since it can't be deleted we must retry, but
-    // with a bigish interval.
+    // not updated it may just be. Since it can't be deleted we must retry,
+    // but with a bigish interval.
   } else if (!Api::isConnected() && wifiNetworkName.isSome() &&
              wifiPassword.isSome() &&
              this->nextTryHardcodedWifiCredentials <= now) {
@@ -382,8 +361,8 @@ auto CredentialsServer::serve(const Option<WifiCredentials> &storedWifi,
   }
 
   // Give processing time to the servers
-  UNWRAP_MUT(this->dnsServer)->processNextRequest();
-  UNWRAP_MUT(this->server)->handleClient();
+  dnsServer.processNextRequest();
+  server.handleClient();
   return Option<AuthToken>();
 }
 #endif

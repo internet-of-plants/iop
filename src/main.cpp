@@ -41,6 +41,7 @@ public:
     this->sensors.setup();
     Flash::setup();
     Api::setup();
+    this->credentialsServer.setup();
   }
 
   void loop() noexcept {

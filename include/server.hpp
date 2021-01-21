@@ -27,14 +27,10 @@ enum ServeError { INVALID_WIFI_CONFIG };
 class CredentialsServer {
 private:
   Log logger;
-  Option<std::unique_ptr<ESP8266WebServer>> server;
-  Option<std::unique_ptr<DNSServer>> dnsServer;
 
   esp_time nextTryFlashWifiCredentials = 0;
   esp_time nextTryHardcodedWifiCredentials = 0;
-  esp_time nextTryHardcodedIopCredentials = 0;
-
-  void makeRouter(ESP8266WebServer &s) const noexcept;
+  bool isServerOpen = false;
 
 public:
   ~CredentialsServer() = default;
@@ -57,6 +53,7 @@ public:
       -> Option<AuthToken>;
   void close() noexcept;
   void start() noexcept;
+  void setup() const noexcept;
 
   auto statusToString(station_status_t status) const noexcept
       -> Option<StaticString>;
