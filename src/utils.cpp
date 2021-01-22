@@ -44,22 +44,28 @@ auto macAddress() noexcept -> MacAddress {
   if (mac.isSome())
     return UNWRAP_REF(mac);
 
-  uint8_t buff[6];
-  wifi_get_macaddr(STATION_IF, buff);
+  constexpr const uint8_t macSize = 6;
+  uint8_t buff[macSize];
+  wifi_get_macaddr(STATION_IF, buff); // NOLINT hicpp-no-array-decay
 
-  char macStr[18] = {0};
-  sprintf(macStr, "%02X:%02X:%02X:%02X:%02X:%02X", buff[0], buff[1], buff[2],
-          buff[3], buff[4], buff[5]);
-  // Let's unwrap to fail fast instead of running with a broken mac
+  constexpr const uint8_t macStrSize = 18;
+  char macStr[macStrSize] = {0};
+  PROGMEM_STRING(fmtStr, "%02X:%02X:%02X:%02X:%02X:%02X");
+  const auto *fmt = fmtStr.asCharPtr();
+  // NOLINTNEXTLINE *-avoid-magic-numbers *-pro-bounds-array-to-pointer-decay
+  sprintf_P(macStr, fmt, buff[0], buff[1], buff[2], buff[3], buff[4], buff[5]);
+
+  // Let's unwrap to fail fast instead of running with a bad mac
+  // NOLINTNEXTLINE hicpp-no-array-decay
   mac = UNWRAP_OK(MacAddress::fromString(UnsafeRawString(macStr)));
   return UNWRAP_REF(mac);
 }
 
 auto hashSketch() noexcept -> MD5Hash {
   static MD5Hash result = MD5Hash::empty();
-  if (result.asString().length() > 0) {
+  if (result.asString().length() > 0)
     return result;
-  }
+
   uint32_t lengthLeft = ESP.getSketchSize();
   constexpr const size_t bufSize = 512;
   FixedString<bufSize> buf = FixedString<bufSize>::empty();

@@ -32,8 +32,7 @@ auto Api::reportPanic(const AuthToken &authToken, const MacAddress &mac,
 
   const auto token = authToken.asString();
   const auto &json = UNWRAP_REF(maybeJson);
-  const auto maybeResp =
-      this->network().httpPost(token, F("/device-panic"), json);
+  const auto maybeResp = this->network().httpPost(token, F("/panic"), json);
 
 #ifndef IOP_MOCK_MONITOR
   if (IS_ERR(maybeResp)) {

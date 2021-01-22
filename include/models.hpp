@@ -19,7 +19,7 @@ TYPED_STORAGE(MacAddress, 17);
 namespace utils {
 auto hashSketch() noexcept -> MD5Hash;
 auto macAddress() noexcept -> MacAddress;
-void ICACHE_RAM_ATTR scheduleInterrupt(const InterruptEvent ev) noexcept;
+void ICACHE_RAM_ATTR scheduleInterrupt(InterruptEvent ev) noexcept;
 auto ICACHE_RAM_ATTR descheduleInterrupt() noexcept -> InterruptEvent;
 } // namespace utils
 

@@ -52,18 +52,19 @@ public:
                        ESP.getFreeSketchSpace());
 #endif
 
+    const auto authToken = this->flash.readAuthToken();
+
     // Handle all queued interrupts (only allows one of each kind concurrently)
     while (true) {
       auto ev = utils::descheduleInterrupt();
       if (ev == InterruptEvent::NONE)
         break;
 
-      this->handleInterrupt(ev);
+      this->handleInterrupt(ev, authToken);
       yield();
     }
 
     const auto now = millis();
-    const auto authToken = this->flash.readAuthToken();
 
     if (Api::isConnected() && authToken.isSome())
       this->credentialsServer.close();
@@ -119,7 +120,8 @@ public:
   EventLoop(EventLoop &&other) = delete;
 
 private:
-  void handleInterrupt(const InterruptEvent event) const noexcept {
+  void handleInterrupt(const InterruptEvent event,
+                       const Option<AuthToken> &maybeToken) const noexcept {
     switch (event) {
     case InterruptEvent::NONE:
       break;
@@ -133,7 +135,6 @@ private:
       break;
     case InterruptEvent::MUST_UPGRADE:
 #ifdef IOP_OTA
-      const auto maybeToken = this->flash.readAuthToken();
       if (maybeToken.isSome()) {
         const auto &token = UNWRAP_REF(maybeToken);
         const auto mac = this->macAddress;
@@ -145,7 +146,6 @@ private:
 
         case ApiStatus::NOT_FOUND:
           // No update for this plant
-          return;
 
         case ApiStatus::BROKEN_SERVER:
           // Central server is broken. Nothing we can do besides waiting
@@ -159,13 +159,12 @@ private:
         case ApiStatus::TIMEOUT:
         case ApiStatus::NO_CONNECTION:
           // Nothing to be done besides retrying later
-          return;
 
         case ApiStatus::OK: // Cool beans
           return;
         }
 
-        const auto str = this->api.network().apiStatusToString(status);
+        const auto str = Network::apiStatusToString(status);
         this->logger.error(F("Bad status, EventLoop::handleInterrupt "), str);
       } else {
         this->logger.error(
@@ -245,7 +244,7 @@ private:
     case ApiStatus::TIMEOUT:
     case ApiStatus::NO_CONNECTION:
       this->logger.error(F("Unable to send measurements: "),
-                         this->api.network().apiStatusToString(status));
+                         Network::apiStatusToString(status));
 
     case ApiStatus::OK: // Cool beans
       return;
