@@ -4,6 +4,7 @@
 #include "generated/certificates.h"
 #include "network.hpp"
 
+#include "models.hpp"
 #include "static_string.hpp"
 #include "string_view.hpp"
 
@@ -23,7 +24,7 @@ auto Network::setup() noexcept -> void {
 #ifdef IOP_ONLINE
   // Makes sure the event handlers are never dropped and only set once
   static const auto onCallback = [](const WiFiEventStationModeGotIP &ev) {
-    interruptEvent = ON_CONNECTION;
+    utils::scheduleInterrupt(InterruptEvent::ON_CONNECTION);
     (void)ev;
   };
   static const auto onHandler = WiFi.onStationModeGotIP(onCallback);
@@ -31,7 +32,7 @@ auto Network::setup() noexcept -> void {
   // Initialize the wifi configurations
 
   if (Network::isConnected())
-    interruptEvent = ON_CONNECTION;
+    utils::scheduleInterrupt(InterruptEvent::ON_CONNECTION);
 
   WiFi.persistent(true);
   WiFi.setAutoReconnect(true);

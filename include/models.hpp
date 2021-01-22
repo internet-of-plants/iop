@@ -11,14 +11,17 @@
 
 // Those are basically utils::Storage but typesafe
 TYPED_STORAGE(AuthToken, 64);
-TYPED_STORAGE(PlantId, 19);
 TYPED_STORAGE(NetworkName, 32);
 TYPED_STORAGE(NetworkPassword, 64);
 TYPED_STORAGE(MD5Hash, 32);
+TYPED_STORAGE(MacAddress, 17);
 
+namespace utils {
 auto hashSketch() noexcept -> MD5Hash;
-
-typedef uint16_t HttpCode;
+auto macAddress() noexcept -> MacAddress;
+void ICACHE_RAM_ATTR scheduleInterrupt(const InterruptEvent ev) noexcept;
+auto ICACHE_RAM_ATTR descheduleInterrupt() noexcept -> InterruptEvent;
+} // namespace utils
 
 using PanicData = struct panic_data_ {
   // TODO: this could have a StaticString alternative to be able to use `_P`
@@ -45,11 +48,11 @@ using EventStorage = struct eventStorage {
 class Event {
 public:
   EventStorage storage;
-  PlantId plantId;
+  MacAddress mac;
   MD5Hash firmwareHash;
   ~Event() = default;
-  Event(EventStorage storage, PlantId plantId, MD5Hash firmwareHash) noexcept
-      : storage(storage), plantId(std::move(plantId)),
+  Event(EventStorage storage, MacAddress mac, MD5Hash firmwareHash) noexcept
+      : storage(storage), mac(std::move(mac)),
         firmwareHash(std::move(firmwareHash)) {}
   Event(Event const &ev) = default;
   Event(Event &&ev) = default;

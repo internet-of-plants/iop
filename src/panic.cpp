@@ -26,8 +26,8 @@ void upgrade() noexcept {
     return;
 
   const auto &token = UNWRAP_REF(maybeToken);
-  const auto id = flash.readPlantId();
-  const auto status = api.upgrade(token, id, hashSketch());
+  const auto mac = utils::macAddress();
+  const auto status = api.upgrade(token, mac, utils::hashSketch());
 
   switch (status) {
   case ApiStatus::FORBIDDEN:
@@ -79,17 +79,14 @@ auto reportPanic(const StringView msg, const StaticString file,
       func,
   };
 
-  const auto status = api.reportPanic(token, flash.readPlantId(), panicData);
+  static auto mac = utils::macAddress();
+  const auto status = api.reportPanic(token, mac, panicData);
   // TODO(pc): We could broadcast panics to other devices in the same network
   // if Api::reportPanic fails
 
   switch (status) {
   case ApiStatus::FORBIDDEN:
     logger.warn(F("Invalid auth token, but keeping since at panic"));
-    return false;
-
-  case ApiStatus::NOT_FOUND:
-    logger.warn(F("Invalid plant id, but keeping since at panic"));
     return false;
 
   case ApiStatus::CLIENT_BUFFER_OVERFLOW:
@@ -99,6 +96,7 @@ auto reportPanic(const StringView msg, const StaticString file,
     logger.crit(F("Api::reportPanic client buffer overflow"));
     return false;
 
+  case ApiStatus::NOT_FOUND:
   case ApiStatus::BROKEN_SERVER:
     // Nothing we can do besides waiting.
     logger.crit(F("Api::reportPanic is broken"));

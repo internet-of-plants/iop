@@ -111,7 +111,6 @@ public:
   static auto apiStatusToString(ApiStatus status) noexcept -> StaticString;
   auto apiStatus(RawStatus raw) const noexcept -> Option<ApiStatus>;
 
-  static auto macAddress() noexcept -> String { return WiFi.macAddress(); }
   auto host() const noexcept -> StaticString { return this->host_; };
   static void disconnect() noexcept { WiFi.disconnect(); }
 };

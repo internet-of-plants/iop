@@ -30,7 +30,7 @@ public:
         soilTemperatureSensor(&soilTemperatureOneWireBus),
         airTempAndHumiditySensor(dhtPin, dhtVersion) {}
   void setup() noexcept;
-  auto measure(PlantId plantId, MD5Hash firmwareHash) noexcept -> Event;
+  auto measure(MacAddress mac, MD5Hash firmwareHash) noexcept -> Event;
 
   // Self-referential class, it must not be moved or copied. SELF_REF
   Sensors(Sensors const &other) = delete;

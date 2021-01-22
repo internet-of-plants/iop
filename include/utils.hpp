@@ -25,7 +25,7 @@
 #define IOP_FACTORY_RESET
 
 // (Un)Comment this line to toggle over the air updates (OTA) dependency
-//#define IOP_OTA
+#define IOP_OTA
 
 // (Un)Comment this line to toggle memory stats logging
 //#define LOG_MEMORY
@@ -39,9 +39,15 @@
 
 using esp_time = unsigned long; // NOLINT google-runtime-int
 
-enum InterruptEvent { NONE, FACTORY_RESET, ON_CONNECTION, MUST_UPGRADE };
-
-static volatile enum InterruptEvent interruptEvent = NONE;
+// If you change the number of interrupt types, please update interruptVariant's
+// to the correct size
+using InterruptEvent = enum class interruptEvent {
+  NONE,
+  FACTORY_RESET,
+  ON_CONNECTION,
+  MUST_UPGRADE
+};
+constexpr static const uint8_t interruptVariants = 4;
 
 #define MAYBE_PROGMEM_STRING_EMPTY(name) static const Option<StaticString> name;
 #define MAYBE_PROGMEM_STRING(name, msg)                                        \

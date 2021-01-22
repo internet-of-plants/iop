@@ -14,16 +14,12 @@ auto Api::loggerLevel() const noexcept -> LogLevel {
 /// Not Found (404): invalid plant id (if any) (is it owned by another account?)
 /// Bad request (400): the json didn't fit the local buffer, this bad
 /// No HttpCode and Internal Error (500): bad vibes at the wlan/server
-auto Api::reportPanic(const AuthToken &authToken, const Option<PlantId> &id,
+auto Api::reportPanic(const AuthToken &authToken, const MacAddress &mac,
                       const PanicData &event) const noexcept -> ApiStatus {
   this->logger.debug(F("Report panic:"), event.msg);
 
-  const auto make = [authToken, &id, event](JsonDocument &doc) {
-    if (id.isSome()) {
-      doc["plant_id"] = UNWRAP_REF(id).asString().get();
-    } else {
-      doc["plant_id"] = nullptr;
-    }
+  const auto make = [authToken, &mac, event](JsonDocument &doc) {
+    doc["mac"] = mac.asString().get();
     doc["file"] = event.file.get();
     doc["line"] = event.line;
     doc["func"] = event.func.get();
@@ -59,7 +55,7 @@ auto Api::reportPanic(const AuthToken &authToken, const Option<PlantId> &id,
 /// HttpCode and Internal Error (500): bad vibes at the wlan/server
 auto Api::registerEvent(const AuthToken &authToken,
                         const Event &event) const noexcept -> ApiStatus {
-  this->logger.debug(F("Send event: "), event.plantId.asString());
+  this->logger.debug(F("Send event: "), event.mac.asString());
 
   const auto make = [&event](JsonDocument &doc) {
     doc["air_temperature_celsius"] = event.storage.airTemperatureCelsius;
@@ -68,7 +64,7 @@ auto Api::registerEvent(const AuthToken &authToken,
     doc["soil_temperature_celsius"] = event.storage.soilTemperatureCelsius;
     doc["soil_resistivity_raw"] = event.storage.soilResistivityRaw;
     doc["firmware_hash"] = event.firmwareHash.asString().get();
-    doc["plant_id"] = event.plantId.asString().get();
+    doc["mac"] = event.mac.asString().get();
   };
   const auto maybeJson = this->makeJson<256>(F("Api::registerEvent"), make);
   if (maybeJson.isNone())
@@ -93,8 +89,8 @@ auto Api::registerEvent(const AuthToken &authToken,
 /// ApiStatus::NOT_FOUND: invalid credentials
 /// ApiStatus::CLIENT_BUFFER_OVERFLOW: json didn't fit. This bad
 /// ApiStatus::BROKEN_SERVER: Unexpected/broken response or too big
-auto Api::authenticate(const StringView username,
-                       const StringView password) const noexcept
+auto Api::authenticate(const StringView username, const StringView password,
+                       const MacAddress &mac) const noexcept
     -> Result<AuthToken, ApiStatus> {
   this->logger.debug(F("Authenticate IoP user: "), username);
 
@@ -103,9 +99,10 @@ auto Api::authenticate(const StringView username,
     return ApiStatus::FORBIDDEN;
   }
 
-  const auto make = [username, password](JsonDocument &doc) {
+  const auto make = [username, password, &mac](JsonDocument &doc) {
     doc["email"] = username.get();
     doc["password"] = password.get();
+    doc["mac"] = mac.asString().get();
   };
   const auto maybeJson = this->makeJson<256>(F("Api::authenticate"), make);
   if (maybeJson.isNone())
@@ -151,71 +148,15 @@ auto Api::authenticate(const StringView username,
 #endif
 }
 
-/// Forbidden (403): auth token is invalid
-/// Bad request (400): the json didn't fit the local buffer, this bad
-/// No HttpCode and Internal Error (500): bad vibes at the wlan/server
-auto Api::registerPlant(const AuthToken &authToken) const noexcept
-    -> Result<PlantId, ApiStatus> {
-  const auto token = authToken.asString();
-  const auto mac = Api::macAddress();
-  this->logger.debug(F("Register plant. Token: "), token, F(", MAC: "), mac);
-
-  const auto make = [this](JsonDocument &doc) {
-    doc["mac"] = Api::macAddress();
-  };
-  const auto maybeJson = this->makeJson<30>(F("Api::registerPlant"), make);
-  if (maybeJson.isNone())
-    return ApiStatus::CLIENT_BUFFER_OVERFLOW;
-
-  const auto &json = UNWRAP_REF(maybeJson);
-  auto maybeResp = this->network().httpPut(token, F("/plant"), json);
-
-#ifndef IOP_MOCK_MONITOR
-  if (IS_ERR(maybeResp)) {
-    const auto code = std::to_string(UNWRAP_ERR_REF(maybeResp));
-    this->logger.error(F("Unexpected response at Api::registerPlant: "), code);
-    return ApiStatus::BROKEN_SERVER;
-  }
-
-  auto resp = UNWRAP_OK(maybeResp);
-  if (resp.status != ApiStatus::OK && resp.status != ApiStatus::MUST_UPGRADE)
-    return resp.status;
-
-  if (resp.payload.isNone()) {
-    this->logger.error(F("Server answered OK, but payload is missing"));
-    return ApiStatus::BROKEN_SERVER;
-  }
-
-  const auto payload = UNWRAP(resp.payload);
-  auto result = PlantId::fromString(payload);
-  if (IS_ERR(result)) {
-    switch (UNWRAP_ERR(result)) {
-    case TOO_BIG:
-      const auto sizeStr = std::to_string(payload.length());
-      this->logger.error(F("Plant Id is too big: size = "), sizeStr);
-      break;
-    }
-    return ApiStatus::BROKEN_SERVER;
-  }
-  return UNWRAP_OK(result);
-#else
-  return PlantId::empty();
-#endif
-}
-
-auto Api::registerLog(const AuthToken &authToken,
-                      const Option<PlantId> &plantId,
+auto Api::registerLog(const AuthToken &authToken, const MacAddress &mac,
                       const StringView log) const noexcept -> ApiStatus {
   const auto token = authToken.asString();
   this->logger.debug(F("Register log. Token: "), token, F(". Log: "), log);
   // TODO(pc): dynamically generate the log string, instead of buffering it,
   // similar to a Stream but we choose when to write (using logger template
   // variadics)
-  String uri(F("/log"));
-  if (plantId.isSome()) {
-    uri += F("/");
-    uri += UNWRAP_REF(plantId).asString().get();
-  }
+  String uri(F("/log/"));
+  uri += mac.asString().get();
   auto maybeResp = this->network().httpPost(token, uri, log);
 
 #ifndef IOP_MOCK_MONITOR
@@ -234,7 +175,7 @@ auto Api::registerLog(const AuthToken &authToken,
 extern "C" uint32_t _FS_start;
 extern "C" uint32_t _FS_end;
 
-auto Api::upgrade(const AuthToken &token, const Option<PlantId> &id,
+auto Api::upgrade(const AuthToken &token, const MacAddress &mac,
                   const MD5Hash &sketchHash) const noexcept -> ApiStatus {
   this->logger.debug(F("Upgrading sketch"));
 
@@ -242,10 +183,8 @@ auto Api::upgrade(const AuthToken &token, const Option<PlantId> &id,
 
   String path(F("/update/"));
   path += tok.get();
-  if (id.isSome()) {
-    path += F("/");
-    path += UNWRAP_REF(id).asString().get();
-  }
+  path += F("/");
+  path += mac.asString().get();
 
   auto clientResult = this->network().wifiClient(path);
   if (IS_ERR(clientResult)) {
@@ -293,7 +232,6 @@ auto Api::upgrade(const AuthToken &token, const Option<PlantId> &id,
 void Api::setup() const { Network::setup(); }
 
 bool Api::isConnected() const noexcept { return true; }
-String Api::macAddress() const noexcept { return this->network().macAddress(); }
 void Api::disconnect() const noexcept {}
 LogLevel Api::loggerLevel() const noexcept { return this->logger.level(); }
 
@@ -312,10 +250,5 @@ Result<AuthToken, ApiStatus>
 Api::authenticate(const StringView username,
                   const StringView password) const noexcept {
   return AuthToken::empty();
-}
-
-Result<PlantId, ApiStatus>
-Api::registerPlant(const AuthToken &authToken) const noexcept {
-  return PlantId::empty();
 }
 #endif

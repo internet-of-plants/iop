@@ -32,19 +32,17 @@ public:
   static auto setup() noexcept -> void { Network::setup(); }
 
   static auto isConnected() noexcept -> bool { return Network::isConnected(); }
-  static auto macAddress() noexcept -> String { return Network::macAddress(); }
   static auto disconnect() noexcept -> void { Network::disconnect(); }
-  auto upgrade(const AuthToken &token, const Option<PlantId> &id,
+  auto upgrade(const AuthToken &token, const MacAddress &mac,
                const MD5Hash &sketchHash) const noexcept -> ApiStatus;
-  auto reportPanic(const AuthToken &authToken, const Option<PlantId> &id,
+  auto reportPanic(const AuthToken &authToken, const MacAddress &mac,
                    const PanicData &event) const noexcept -> ApiStatus;
   auto registerEvent(const AuthToken &token, const Event &event) const noexcept
       -> ApiStatus;
-  auto registerPlant(const AuthToken &token) const noexcept
-      -> Result<PlantId, ApiStatus>;
-  auto authenticate(StringView username, StringView password) const noexcept
+  auto authenticate(StringView username, StringView password,
+                    const MacAddress &mac) const noexcept
       -> Result<AuthToken, ApiStatus>;
-  auto registerLog(const AuthToken &authToken, const Option<PlantId> &plantId,
+  auto registerLog(const AuthToken &authToken, const MacAddress &mac,
                    StringView log) const noexcept -> ApiStatus;
   auto host() const noexcept -> StaticString { return this->network().host(); };
   auto loggerLevel() const noexcept -> LogLevel;

@@ -33,8 +33,8 @@
 #define IS_OK(res) res.isOk(F(#res), CUTE_FILE, CUTE_LINE, CUTE_FUNC)
 #define IS_ERR(res) res.isErr(F(#res), CUTE_FILE, CUTE_LINE, CUTE_FUNC)
 
-#define OK(res) res.ok(F(#res), CUTE_FILE, CUTE_LINE, CUTE_FUNC)
-#define ERR(res) res.err(F(#res), CUTE_FILE, CUTE_LINE, CUTE_FUNC)
+#define RESULT_OK(res) res.ok(F(#res), CUTE_FILE, CUTE_LINE, CUTE_FUNC)
+#define RESULT_ERR(res) res.err(F(#res), CUTE_FILE, CUTE_LINE, CUTE_FUNC)
 
 /// Result sumtype, may be ok and contain a T, or not be ok and contain an E
 /// This type can be moved out, so it _will_ be empty, it will panic if tried to

@@ -7,7 +7,6 @@
 // chosen by fair dice roll, garanteed to be random
 const uint8_t usedWifiConfigEEPROMFlag = 126;
 const uint8_t usedAuthTokenEEPROMFlag = 127;
-const uint8_t usedPlantIdEEPROMFlag = 128;
 
 constexpr const uint16_t EEPROM_SIZE = 512;
 // Indexes, so each function know where they can write to.
@@ -19,10 +18,7 @@ const uint8_t wifiConfigSize = 1 + NetworkName::size + NetworkPassword::size;
 const uint8_t authTokenIndex = wifiConfigIndex + wifiConfigSize;
 const uint8_t authTokenSize = 1 + AuthToken::size;
 
-const uint8_t plantIdIndex = authTokenIndex + authTokenSize;
-const uint8_t plantIdSize = 1 + PlantId::size;
-
-static_assert(plantIdIndex + plantIdSize < EEPROM_SIZE,
+static_assert(authTokenIndex + authTokenSize < EEPROM_SIZE,
               "EEPROM too small to store needed credentials");
 
 auto Flash::setup() noexcept -> void { EEPROM.begin(EEPROM_SIZE); }
@@ -30,35 +26,6 @@ auto Flash::setup() noexcept -> void { EEPROM.begin(EEPROM_SIZE); }
 static auto constPtr() noexcept -> const char * {
   // NOLINTNEXTLINE *-pro-type-reinterpret-cast
   return reinterpret_cast<const char *>(EEPROM.getConstDataPtr());
-}
-
-auto Flash::readPlantId() const noexcept -> Option<PlantId> {
-  this->logger.debug(F("Reading PlantId from Flash"));
-
-  if (EEPROM.read(plantIdIndex) != usedPlantIdEEPROMFlag)
-    return Option<PlantId>();
-
-  // NOLINTNEXTLINE *-pro-bounds-pointer-arithmetic
-  const auto ptr = constPtr() + plantIdIndex + 1;
-  const auto id = PlantId::fromStringTruncating(UnsafeRawString(ptr));
-  this->logger.debug(F("Plant id found: "), id.asString());
-  return Option<PlantId>(id);
-}
-
-void Flash::removePlantId() const noexcept {
-  this->logger.debug(F("Deleting stored plant id"));
-  if (EEPROM.read(plantIdIndex) == usedPlantIdEEPROMFlag) {
-    // NOLINTNEXTLINE *-pro-bounds-pointer-arithmetic
-    memset(EEPROM.getDataPtr() + plantIdIndex, 0, plantIdSize);
-    EEPROM.commit();
-  }
-}
-
-void Flash::writePlantId(const PlantId &id) const noexcept {
-  this->logger.debug(F("Writing plant id to storage: "), id.asString());
-  EEPROM.write(plantIdIndex, usedPlantIdEEPROMFlag);
-  EEPROM.put(plantIdIndex + 1, *id.asSharedArray());
-  EEPROM.commit();
 }
 
 auto Flash::readAuthToken() const noexcept -> Option<AuthToken> {
@@ -136,15 +103,6 @@ Option<AuthToken> Flash::readAuthToken() const noexcept {
 void Flash::removeAuthToken() const noexcept {}
 void Flash::writeAuthToken(const AuthToken &token) const noexcept {
   (void)token;
-}
-Option<PlantId> Flash::readPlantId() const noexcept { return PlantId::empty(); }
-void Flash::removePlantId() const noexcept {};
-void Flash::writePlantId(const PlantId &id) const noexcept { (void)id; }
-Option<struct WifiCredentials> Flash::readWifiConfig() const noexcept {
-  return (struct WifiCredentials){
-      .ssid = NetworkName(NetworkName::empty()),
-      .password = NetworkPassword(NetworkPassword::empty()),
-  };
 }
 void Flash::removeWifiConfig() const noexcept {}
 void Flash::writeWifiConfig(const struct WifiCredentials &id) const noexcept {

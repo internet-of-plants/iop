@@ -179,7 +179,7 @@ void CredentialsServer::start() noexcept {
 
     WiFi.softAPConfig(staticIp, staticIp, mask);
 
-    const auto hash = StringView(Api::macAddress()).hash();
+    const static auto hash = utils::macAddress().asString().hash();
     const auto ssid = std::string(PSTR("iop-")) + std::to_string(hash);
 
     // TODO(pc): the password should be random (passed at compile time)
@@ -262,10 +262,11 @@ auto CredentialsServer::connect(const StringView ssid,
 /// Forbidden (403): invalid credentials
 auto CredentialsServer::authenticate(const StringView username,
                                      const StringView password,
+                                     const MacAddress &mac,
                                      const Api &api) const noexcept
     -> Option<AuthToken> {
 
-  auto authToken = api.authenticate(username, password);
+  auto authToken = api.authenticate(username, password, mac);
 
   if (IS_ERR(authToken)) {
     const auto &status = UNWRAP_ERR_REF(authToken);
@@ -305,7 +306,8 @@ auto CredentialsServer::authenticate(const StringView username,
 }
 
 auto CredentialsServer::serve(const Option<WifiCredentials> &storedWifi,
-                              const Api &api) noexcept -> Option<AuthToken> {
+                              const MacAddress &mac, const Api &api) noexcept
+    -> Option<AuthToken> {
   this->start();
 
   const auto now = millis();
@@ -320,7 +322,7 @@ auto CredentialsServer::serve(const Option<WifiCredentials> &storedWifi,
 
   } else if (Api::isConnected() && credentialsIop.isSome()) {
     const auto cred = UNWRAP(credentialsIop);
-    auto tok = this->authenticate(cred.first, cred.second, api);
+    auto tok = this->authenticate(cred.first, cred.second, mac, api);
     if (tok.isSome())
       return tok;
 

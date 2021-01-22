@@ -4,7 +4,9 @@
 #include "Arduino.h"
 #include "configuration.h"
 #include "log.hpp"
+#include "models.hpp"
 #include "utils.hpp"
+
 
 PROGMEM_STRING(logTarget, "INTERRUPT");
 const static Log logger(logLevel, logTarget, false);
@@ -20,7 +22,7 @@ void ICACHE_RAM_ATTR buttonChanged() noexcept {
   } else {
     constexpr const uint32_t fifteenSeconds = 15000;
     if (resetStateTime + fifteenSeconds < millis()) {
-      interruptEvent = FACTORY_RESET;
+      utils::scheduleInterrupt(InterruptEvent::FACTORY_RESET);
       logger.info(
           F("Setted FACTORY_RESET flag, running it in the next loop run"));
     }

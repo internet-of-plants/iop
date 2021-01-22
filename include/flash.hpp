@@ -23,10 +23,6 @@ public:
   void removeAuthToken() const noexcept;
   void writeAuthToken(const AuthToken &token) const noexcept;
 
-  auto readPlantId() const noexcept -> Option<PlantId>;
-  void removePlantId() const noexcept;
-  void writePlantId(const PlantId &id) const noexcept;
-
   auto readWifiConfig() const noexcept -> Option<WifiCredentials>;
   void removeWifiConfig() const noexcept;
   void writeWifiConfig(const WifiCredentials &config) const noexcept;

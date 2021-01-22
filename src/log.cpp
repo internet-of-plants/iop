@@ -72,7 +72,8 @@ void Log::reportLog() noexcept {
     const auto oldLogNetwork = logNetwork;
     logNetwork = false;
 
-    api.registerLog(UNWRAP_REF(maybeToken), flash.readPlantId(), currentLog);
+    static auto mac = utils::macAddress();
+    api.registerLog(UNWRAP_REF(maybeToken), mac, currentLog);
 
     logNetwork = oldLogNetwork;
   }
