@@ -1,9 +1,9 @@
+#include "server.hpp"
+
 #include "IPAddress.h"
 #include "WiFiClient.h"
 
-#include "server.hpp"
-
-#ifndef SERVER_DISABLED
+#ifndef IOP_SERVER_DISABLED
 #include "api.hpp"
 #include "configuration.h"
 #include "utils.hpp"
@@ -13,6 +13,7 @@
 #include <string>
 
 #include "static_string.hpp"
+#include "string_view.hpp"
 
 constexpr const uint64_t intervalTryFlashWifiCredentialsMillis =
     60 * 60 * 1000; // 1 hour
@@ -92,6 +93,7 @@ constexpr const uint8_t dnsPort = 53;
 static DNSServer dnsServer; // NOLINT cert-err58-cpp
 
 void CredentialsServer::setup() const noexcept {
+  IOP_TRACE();
   dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
 
   const auto loggerLevel = this->logger.level();
@@ -99,6 +101,7 @@ void CredentialsServer::setup() const noexcept {
   // Self reference, but it's to a static
   auto *s = &server;
   server.on(F("/submit"), [s, loggerLevel]() {
+    IOP_TRACE();
     const static Log logger(loggerLevel, F("SERVER_CALLBACK"), false);
     logger.debug(F("Received form with credentials"));
 
@@ -123,11 +126,12 @@ void CredentialsServer::setup() const noexcept {
   });
 
   server.onNotFound([s, loggerLevel]() {
+    IOP_TRACE();
     const static Log logger(loggerLevel, F("SERVER_CALLBACK"), false);
     const static Flash flash(loggerLevel);
     logger.debug(F("Serving captive portal HTML"));
 
-    const auto mustConnect = !Api::isConnected();
+    const auto mustConnect = !Network::isConnected();
     const auto needsIopAuth = flash.readAuthToken().isNone();
 
     auto len = pageHTMLStart.length() + pageHTMLEnd.length();
@@ -165,6 +169,7 @@ void CredentialsServer::setup() const noexcept {
 }
 
 void CredentialsServer::start() noexcept {
+  IOP_TRACE();
   if (!this->isServerOpen) {
     this->isServerOpen = true;
     this->logger.info(F("Setting our own wifi access point"));
@@ -180,13 +185,15 @@ void CredentialsServer::start() noexcept {
     WiFi.softAPConfig(staticIp, staticIp, mask);
 
     const static auto hash = utils::macAddress().asString().hash();
-    const auto ssid = std::string(PSTR("iop-")) + std::to_string(hash);
+    const auto ssid = std::string("iop-") + std::to_string(hash);
 
     // TODO(pc): the password should be random (passed at compile time)
     // But also accessible externally (like a sticker in the hardware).
     // So not dynamic
-    WiFi.softAP(ssid.c_str(), PSTR("le$memester#passwordz"), 2);
-
+    //
+    // Using PSTR in the password crashes, because it internally calls
+    // strlen and it's a hardware fault reading byte by byte from flash
+    WiFi.softAP(ssid.c_str(), "le$memester#passwordz");
     server.begin();
 
     // Makes it a captive portal (redirects all wifi trafic to it)
@@ -198,7 +205,9 @@ void CredentialsServer::start() noexcept {
 }
 
 void CredentialsServer::close() noexcept {
+  IOP_TRACE();
   if (this->isServerOpen) {
+    this->logger.debug(F("Closing captive portal"));
     this->isServerOpen = false;
     dnsServer.stop();
     server.close();
@@ -210,6 +219,7 @@ void CredentialsServer::close() noexcept {
 
 auto CredentialsServer::statusToString(
     const station_status_t status) const noexcept -> Option<StaticString> {
+  IOP_TRACE();
   switch (status) {
   case STATION_IDLE:
     return StaticString(F("STATION_IDLE"));
@@ -231,6 +241,7 @@ auto CredentialsServer::statusToString(
 auto CredentialsServer::connect(const StringView ssid,
                                 const StringView password) const noexcept
     -> void {
+  IOP_TRACE();
   if (wifi_station_get_connect_status() == STATION_CONNECTING) {
     ETS_UART_INTR_DISABLE(); // NOLINT hicpp-signed-bitwise
     wifi_station_disconnect();
@@ -247,7 +258,7 @@ auto CredentialsServer::connect(const StringView ssid,
     return;
   }
 
-  if (!Api::isConnected()) {
+  if (!Network::isConnected()) {
     const auto status = wifi_station_get_connect_status();
     const auto maybeStatusStr = this->statusToString(status);
     if (maybeStatusStr.isNone())
@@ -265,8 +276,11 @@ auto CredentialsServer::authenticate(const StringView username,
                                      const MacAddress &mac,
                                      const Api &api) const noexcept
     -> Option<AuthToken> {
-
+  IOP_TRACE();
+  WiFi.mode(WIFI_STA);
   auto authToken = api.authenticate(username, password, mac);
+  WiFi.mode(WIFI_AP_STA);
+  this->logger.info(F("Tried to authenticate"));
 
   if (IS_ERR(authToken)) {
     const auto &status = UNWRAP_ERR_REF(authToken);
@@ -308,6 +322,7 @@ auto CredentialsServer::authenticate(const StringView username,
 auto CredentialsServer::serve(const Option<WifiCredentials> &storedWifi,
                               const MacAddress &mac, const Api &api) noexcept
     -> Option<AuthToken> {
+  IOP_TRACE();
   this->start();
 
   const auto now = millis();
@@ -320,7 +335,7 @@ auto CredentialsServer::serve(const Option<WifiCredentials> &storedWifi,
     const auto cred = UNWRAP(credentialsWifi);
     this->connect(cred.first, cred.second);
 
-  } else if (Api::isConnected() && credentialsIop.isSome()) {
+  } else if (Network::isConnected() && credentialsIop.isSome()) {
     const auto cred = UNWRAP(credentialsIop);
     auto tok = this->authenticate(cred.first, cred.second, mac, api);
     if (tok.isSome())
@@ -335,7 +350,7 @@ auto CredentialsServer::serve(const Option<WifiCredentials> &storedWifi,
     //
     // So we never delete a flash stored wifi credentials (outside of factory
     // reset), we have a timer to avoid constantly retrying a bad credential.
-  } else if (!Api::isConnected() && storedWifi.isSome() &&
+  } else if (!Network::isConnected() && storedWifi.isSome() &&
              this->nextTryFlashWifiCredentials <= now) {
     this->nextTryFlashWifiCredentials =
         now + intervalTryFlashWifiCredentialsMillis;
@@ -350,7 +365,7 @@ auto CredentialsServer::serve(const Option<WifiCredentials> &storedWifi,
     // Ideally it won't be wrong, but that's the price of hardcoding, if it's
     // not updated it may just be. Since it can't be deleted we must retry,
     // but with a bigish interval.
-  } else if (!Api::isConnected() && wifiNetworkName.isSome() &&
+  } else if (!Network::isConnected() && wifiNetworkName.isSome() &&
              wifiPassword.isSome() &&
              this->nextTryHardcodedWifiCredentials <= now) {
     this->nextTryHardcodedWifiCredentials =
@@ -359,7 +374,7 @@ auto CredentialsServer::serve(const Option<WifiCredentials> &storedWifi,
     const auto &psk = UNWRAP_REF(wifiPassword);
     this->logger.info(
         F("Trying to connect to wifi with hardcoded credentials"));
-    this->connect(ssid, psk);
+    this->connect(String(ssid.get()), String(psk.get()));
   }
 
   // Give processing time to the servers
@@ -367,18 +382,16 @@ auto CredentialsServer::serve(const Option<WifiCredentials> &storedWifi,
   server.handleClient();
   return Option<AuthToken>();
 }
-#endif
-
-#ifdef IOP_SERVER_DISABLED
-Result<Option<AuthToken>, ServeError>
-CredentialsServer::serve(const Option<WifiCredentials> &storedWifi,
-                         const Option<AuthToken> &authToken) noexcept {
+#else
+auto CredentialsServer::serve(const Option<WifiCredentials> &storedWifi,
+                              const MacAddress &mac, const Api &api) noexcept
+    -> Option<AuthToken> {
+  IOP_TRACE();
+  (void)mac;
   (void)storedWifi;
-  return Result<Option<AuthToken>, ServeError>(authToken.asRef().map<AuthToken>(
-      [](const std::reference_wrapper<const AuthToken> token) {
-        return token.get();
-      }));
+  return Option<AuthToken>();
 }
-void CredentialsServer::close() noexcept {}
-void CredentialsServer::start() noexcept {}
+void CredentialsServer::setup() const noexcept { IOP_TRACE(); }
+void CredentialsServer::close() noexcept { IOP_TRACE(); }
+void CredentialsServer::start() noexcept { IOP_TRACE(); }
 #endif

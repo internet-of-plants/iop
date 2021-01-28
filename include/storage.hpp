@@ -1,12 +1,19 @@
 #ifndef IOP_STORAGE_HPP
 #define IOP_STORAGE_HPP
 
-#include <cinttypes>
-#include <memory>
+#include "certificate_storage.hpp"
+
+#include "configuration.h"
 
 #include "result.hpp"
+#include "static_string.hpp"
 #include "string_view.hpp"
+#include "tracer.hpp"
+#include "unsafe_raw_string.hpp"
 #include "utils.hpp"
+
+#include <cinttypes>
+#include <memory>
 
 struct MovedOut {
   uint8_t dummy;
@@ -31,7 +38,7 @@ enum ParseError { TOO_BIG };
 template <uint16_t SIZE> class Storage {
 public:
   static constexpr const size_t size = SIZE;
-  typedef std::array<uint8_t, SIZE + 1> InnerStorage;
+  using InnerStorage = std::array<uint8_t, SIZE + 1>;
 
 private:
   std::shared_ptr<InnerStorage> val;
@@ -41,58 +48,83 @@ private:
   // efficient tryFrom
   explicit Storage<SIZE>(std::shared_ptr<InnerStorage> val) noexcept
       : val(std::move(val)) {
+    IOP_TRACE();
     *this->val->end() = 0;
   }
 
 public:
-  ~Storage<SIZE>() = default;
+  ~Storage<SIZE>() {
+    IOP_TRACE();
+    if (logLevel > LogLevel::TRACE)
+      return;
+    Serial.print(F("~Storage<"));
+    Serial.print(SIZE);
+    Serial.print(F(">["));
+    Serial.print(this->val.use_count());
+    Serial.print(F("]("));
+    Serial.print(reinterpret_cast<char *>(this->val->data()));
+    Serial.println(F(")"));
+    Serial.flush();
+  }
   explicit Storage<SIZE>(const InnerStorage val) noexcept
       : val(try_make_shared<InnerStorage>(val)) {
+    IOP_TRACE();
     if (!this->val)
       panic_(F("Unnable to allocate val"));
 
     *this->val->end() = 0;
   }
-  auto tryFrom(std::shared_ptr<InnerStorage> val) noexcept
-      -> Result<Storage<SIZE>, MovedOut> {
-    if (val.get() == nullptr)
-      return (MovedOut){.dummy = 0};
-    return Storage<SIZE>(std::move(val));
+  Storage<SIZE>(Storage<SIZE> const &other) noexcept : val(other.val) {
+    IOP_TRACE();
   }
-  constexpr Storage<SIZE>(Storage<SIZE> const &other) noexcept
-      : val(other.val) {}
-  constexpr Storage<SIZE>(Storage<SIZE> &&other) noexcept : val(other.val) {}
-  auto operator=(Storage<SIZE> const &other) noexcept
-      -> Storage<SIZE> & = default;
-  auto operator=(Storage<SIZE> &&other) noexcept -> Storage<SIZE> & {
+  Storage<SIZE>(Storage<SIZE> &&other) noexcept : val(other.val) {
+    IOP_TRACE();
+  }
+  auto operator=(Storage<SIZE> const &other) noexcept -> Storage<SIZE> & {
+    IOP_TRACE();
     this->val = other.val;
     return *this;
   }
-  constexpr auto constPtr() const noexcept -> const uint8_t * {
+  auto operator=(Storage<SIZE> &&other) noexcept -> Storage<SIZE> & {
+    IOP_TRACE();
+    this->val = other.val;
+    return *this;
+  }
+  auto constPtr() const noexcept -> const uint8_t * {
+    IOP_TRACE();
     return this->val->data();
   }
-  constexpr auto mutPtr() noexcept -> uint8_t * { return this->val->data(); }
+  auto mutPtr() noexcept -> uint8_t * {
+    IOP_TRACE();
+    return this->val->data();
+  }
   auto asString() const noexcept -> StringView {
+    IOP_TRACE();
     return UnsafeRawString((const char *)this->constPtr());
   }
   auto asSharedArray() const noexcept -> std::shared_ptr<InnerStorage> {
+    IOP_TRACE();
     return this->val;
   }
-  constexpr static auto empty() noexcept -> Storage<SIZE> {
+  static auto empty() noexcept -> Storage<SIZE> {
+    IOP_TRACE();
     return Storage<SIZE>((InnerStorage){0});
   }
 
   static auto fromStringTruncating(const StringView str) noexcept
       -> Storage<SIZE> {
+    IOP_TRACE();
     auto val = Storage<SIZE>::empty();
-    const auto len = str.length();
-    memcpy(val.mutPtr(), (const uint8_t *)str.get(), len < SIZE ? len : SIZE);
+    uint8_t len = 0;
+    while (len < SIZE && str.get()[len++] != 0) {
+    }
+    strncpy(reinterpret_cast<char *>(val.mutPtr()), str.get(), len);
     return val;
   }
 
   static auto fromString(const StringView str) noexcept
       -> Result<Storage<SIZE>, enum ParseError> {
-        if (str.length() > SIZE) return ParseError::TOO_BIG;
+        IOP_TRACE(); if (str.length() > SIZE) return ParseError::TOO_BIG;
         return Storage<SIZE>::fromStringTruncating(str);
       }
 };
@@ -104,45 +136,65 @@ public:
   class name##_class {                                                         \
   public:                                                                      \
     static constexpr const size_t size = size_;                                \
-    typedef Storage<size> InnerStorage;                                        \
+    using InnerStorage = Storage<size>;                                        \
                                                                                \
   private:                                                                     \
     InnerStorage val;                                                          \
                                                                                \
   public:                                                                      \
-    ~name##_class() = default;                                                 \
-    explicit name##_class(InnerStorage val) noexcept : val(std::move(val)) {}  \
-    name##_class(name##_class const &other) noexcept = default;                \
-    name##_class(name##_class &&other) noexcept = default;                     \
-    auto operator=(name##_class const &other) noexcept -> name                 \
-        ##_class & = default;                                                  \
-    auto operator=(name##_class &&other) noexcept -> name##_class & = default; \
+    ~name##_class() { IOP_TRACE(); };                                          \
+    explicit name##_class(InnerStorage val) noexcept : val(std::move(val)) {   \
+      IOP_TRACE();                                                             \
+    }                                                                          \
+    name##_class(name##_class const &other) noexcept : val(other.val) {        \
+      IOP_TRACE();                                                             \
+    }                                                                          \
+    name##_class(name##_class &&other) noexcept : val(other.val) {             \
+      IOP_TRACE();                                                             \
+    };                                                                         \
+    auto operator=(name##_class const &other) noexcept -> name##_class & {     \
+      IOP_TRACE();                                                             \
+      this->val = other.val;                                                   \
+      return *this;                                                            \
+    }                                                                          \
+    auto operator=(name##_class &&other) noexcept -> name##_class & {          \
+      IOP_TRACE();                                                             \
+      this->val = other.val;                                                   \
+      return *this;                                                            \
+    }                                                                          \
     auto constPtr() const noexcept -> const uint8_t * {                        \
+      IOP_TRACE();                                                             \
       return this->val.constPtr();                                             \
     }                                                                          \
-    auto mutPtr() noexcept -> uint8_t * { return this->val.mutPtr(); }         \
+    auto mutPtr() noexcept -> uint8_t * {                                      \
+      IOP_TRACE();                                                             \
+      return this->val.mutPtr();                                               \
+    }                                                                          \
     auto asString() const noexcept -> StringView {                             \
+      IOP_TRACE();                                                             \
       return this->val.asString();                                             \
     }                                                                          \
     static auto empty() noexcept -> name##_class {                             \
+      IOP_TRACE();                                                             \
       return name##_class(InnerStorage::empty());                              \
     }                                                                          \
     auto asSharedArray() const noexcept                                        \
         -> std::shared_ptr<InnerStorage::InnerStorage> {                       \
+      IOP_TRACE();                                                             \
       return this->val.asSharedArray();                                        \
     }                                                                          \
     static auto fromStringTruncating(const StringView str) noexcept -> name    \
         ##_class {                                                             \
+      IOP_TRACE();                                                             \
       return name##_class(InnerStorage::fromStringTruncating(str));            \
     }                                                                          \
     static auto fromString(const StringView str) noexcept                      \
         -> Result<name##_class, enum ParseError> {                             \
-          return RESULT_MAP_OK(InnerStorage::fromString(str), name##_class,    \
-                               [](InnerStorage storage) noexcept {             \
-                                 return name##_class(std::move(storage));      \
-                               });                                             \
+          IOP_TRACE(); auto inner = InnerStorage::fromString(str);             \
+          if (IS_OK(inner)) return name##_class(UNWRAP_OK(inner));             \
+          return UNWRAP_ERR(inner);                                            \
         }                                                                      \
   };                                                                           \
-  typedef name##_class name;
+  using name = name##_class;
 
 #endif

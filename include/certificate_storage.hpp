@@ -9,15 +9,13 @@
 #include "bearssl/bearssl.h"
 #include <memory>
 
-#include "utils.hpp"
-
 namespace BearSSL {
 
 /// This is a hack to overwrite CertStore defined at BearSSL so we can be called
 /// by ESP8266WebServer
 class CertStore {
 public:
-  CertStore() noexcept { certStoreOverrideWorked = true; };
+  CertStore() noexcept;
 
   // Installs the cert store into the X509 decoder (normally via static function
   // callbacks)

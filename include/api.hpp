@@ -1,6 +1,8 @@
 #ifndef IOP_API_HPP
 #define IOP_API_HPP
 
+#include "certificate_storage.hpp"
+
 #include "fixed_string.hpp"
 #include "log.hpp"
 #include "models.hpp"
@@ -10,6 +12,7 @@
 #include "static_string.hpp"
 #include "storage.hpp"
 #include "string_view.hpp"
+#include "tracer.hpp"
 
 #include "ArduinoJson.h"
 
@@ -21,18 +24,16 @@ private:
   Network network_;
 
 public:
-  ~Api() = default;
-  Api(const StaticString host, const LogLevel logLevel) noexcept
-      : logger(logLevel, F("API")), network_(host, logLevel) {}
-  Api(Api const &other) = delete;
+  ~Api();
+  Api(const StaticString host, const LogLevel logLevel) noexcept;
+
+  Api(Api const &other);
   Api(Api &&other) = delete;
-  auto operator=(Api const &other) -> Api & = delete;
+  auto operator=(Api const &other) -> Api &;
   auto operator=(Api &&other) -> Api & = delete;
 
-  static auto setup() noexcept -> void { Network::setup(); }
+  auto setup() const noexcept -> void;
 
-  static auto isConnected() noexcept -> bool { return Network::isConnected(); }
-  static auto disconnect() noexcept -> void { Network::disconnect(); }
   auto upgrade(const AuthToken &token, const MacAddress &mac,
                const MD5Hash &sketchHash) const noexcept -> ApiStatus;
   auto reportPanic(const AuthToken &authToken, const MacAddress &mac,
@@ -44,16 +45,17 @@ public:
       -> Result<AuthToken, ApiStatus>;
   auto registerLog(const AuthToken &authToken, const MacAddress &mac,
                    StringView log) const noexcept -> ApiStatus;
-  auto host() const noexcept -> StaticString { return this->network().host(); };
+
+  auto host() const noexcept -> StaticString;
   auto loggerLevel() const noexcept -> LogLevel;
+  auto network() const noexcept -> const Network &;
 
-  auto network() const noexcept -> const Network & { return this->network_; }
-
-private:
+  // private:
   using JsonCallback = std::function<void(JsonDocument &)>;
   template <uint16_t SIZE>
   auto makeJson(const StaticString name, const JsonCallback func) const noexcept
       -> Option<FixedString<SIZE>> {
+    IOP_TRACE();
     auto doc = try_make_unique<StaticJsonDocument<SIZE>>();
     if (!doc) {
       this->logger.error(F("Unable to allocate "), String(SIZE),
@@ -80,6 +82,10 @@ private:
 #undef IOP_MOCK_MONITOR
 #endif
 #ifndef IOP_MOCK_MONITOR
+#ifndef IOP_MONITOR
+#define IOP_API_DISABLED
+#endif
+#else
 #ifndef IOP_MONITOR
 #define IOP_API_DISABLED
 #endif

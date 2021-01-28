@@ -24,24 +24,37 @@ static_assert(authTokenIndex + authTokenSize < EEPROM_SIZE,
 auto Flash::setup() noexcept -> void { EEPROM.begin(EEPROM_SIZE); }
 
 static auto constPtr() noexcept -> const char * {
+  IOP_TRACE();
   // NOLINTNEXTLINE *-pro-type-reinterpret-cast
   return reinterpret_cast<const char *>(EEPROM.getConstDataPtr());
 }
 
+static Option<AuthToken> authToken;
+
 auto Flash::readAuthToken() const noexcept -> Option<AuthToken> {
-  this->logger.debug(F("Reading AuthToken from Flash"));
+  IOP_TRACE();
+  this->logger.trace(F("Reading AuthToken from Flash"));
+
+  if (authToken.isSome())
+    return UNWRAP_REF(authToken);
+
   if (EEPROM.read(authTokenIndex) != usedAuthTokenEEPROMFlag)
     return Option<AuthToken>();
 
   // NOLINTNEXTLINE *-pro-bounds-pointer-arithmetic
   const auto ptr = constPtr() + authTokenSize + 1;
   const auto token = AuthToken::fromStringTruncating(UnsafeRawString(ptr));
-  this->logger.debug(F("Auth token found: "), token.asString());
+  this->logger.trace(F("Auth token found: "), token.asString());
+
+  authToken = token;
   return Option<AuthToken>(token);
 }
 
 void Flash::removeAuthToken() const noexcept {
-  this->logger.debug(F("Deleting stored auth token"));
+  IOP_TRACE();
+  this->logger.info(F("Deleting stored auth token"));
+
+  (void)authToken.take();
   if (EEPROM.read(authTokenIndex) == usedAuthTokenEEPROMFlag) {
     // NOLINTNEXTLINE *-pro-bounds-pointer-arithmetic
     memset(EEPROM.getDataPtr() + authTokenIndex, 0, authTokenSize);
@@ -50,14 +63,35 @@ void Flash::removeAuthToken() const noexcept {
 }
 
 void Flash::writeAuthToken(const AuthToken &token) const noexcept {
-  this->logger.debug(F("Writing auth token to storage: "), token.asString());
+  IOP_TRACE();
+  // Avoids re-writing same data
+  const auto maybeCurrToken = this->readAuthToken();
+  if (maybeCurrToken.isSome()) {
+    const auto &currToken = UNWRAP_REF(maybeCurrToken);
+
+    if (token.asString() == currToken.asString()) {
+      this->logger.debug(F("Auth token already stored in flash"));
+      // No need to save token that already is stored
+      return;
+    }
+  }
+
+  this->logger.info(F("Writing auth token to storage: "), token.asString());
+  authToken = token;
+
   EEPROM.write(authTokenIndex, usedAuthTokenEEPROMFlag);
   EEPROM.put(authTokenSize + 1, *token.asSharedArray());
   EEPROM.commit();
 }
 
+static Option<WifiCredentials> wifiCredentials;
+
 auto Flash::readWifiConfig() const noexcept -> Option<WifiCredentials> {
-  this->logger.debug(F("Reading WifiCredentials from Flash"));
+  IOP_TRACE();
+  this->logger.trace(F("Reading WifiCredentials from Flash"));
+
+  if (wifiCredentials.isSome())
+    return UNWRAP_REF(wifiCredentials);
 
   if (EEPROM.read(wifiConfigIndex) != usedWifiConfigEEPROMFlag)
     return Option<WifiCredentials>();
@@ -70,12 +104,17 @@ auto Flash::readWifiConfig() const noexcept -> Option<WifiCredentials> {
   const auto pskRaw = UnsafeRawString(ptr + NetworkName::size);
   const auto psk = NetworkPassword::fromStringTruncating(pskRaw);
 
-  this->logger.debug(F("Found network credentials: "), ssid.asString());
-  return (WifiCredentials){.ssid = ssid, .password = psk};
+  this->logger.trace(F("Found network credentials: "), ssid.asString());
+  const auto creds = (WifiCredentials){.ssid = ssid, .password = psk};
+  wifiCredentials = creds;
+  return creds;
 }
 
 void Flash::removeWifiConfig() const noexcept {
-  this->logger.debug(F("Deleting stored wifi config"));
+  IOP_TRACE();
+  this->logger.info(F("Deleting stored wifi config"));
+
+  wifiCredentials.take();
   if (EEPROM.read(wifiConfigIndex) == usedWifiConfigEEPROMFlag) {
     // NOLINTNEXTLINE *-pro-bounds-pointer-arithmetic
     memset(EEPROM.getDataPtr() + wifiConfigIndex, 0, wifiConfigSize);
@@ -84,8 +123,26 @@ void Flash::removeWifiConfig() const noexcept {
 }
 
 void Flash::writeWifiConfig(const WifiCredentials &config) const noexcept {
+  IOP_TRACE();
   const auto ssidStr = config.ssid.asString();
-  this->logger.debug(F("Writing network credentials to storage: "), ssidStr);
+
+  // Avoids re-writing same data
+  const auto maybeCurrConfig = this->readWifiConfig();
+  if (maybeCurrConfig.isSome()) {
+    const auto &currConfig = UNWRAP_REF(maybeCurrConfig);
+
+    if (currConfig.ssid.asString() == config.ssid.asString() &&
+        currConfig.password.asString() == config.password.asString()) {
+      this->logger.debug(F("WiFi credentials already stored in flash"));
+      // No need to save credential that already are stored
+      return;
+    }
+  }
+
+  this->logger.info(F("Writing network credentials to storage: "), ssidStr);
+
+  wifiCredentials = config;
+
   const auto &psk = *config.password.asSharedArray();
 
   EEPROM.write(wifiConfigIndex, usedWifiConfigEEPROMFlag);
@@ -96,16 +153,24 @@ void Flash::writeWifiConfig(const WifiCredentials &config) const noexcept {
 #endif
 
 #ifdef IOP_FLASH_DISABLED
-void Flash::setup() const noexcept {}
+void Flash::setup() noexcept { IOP_TRACE(); }
 Option<AuthToken> Flash::readAuthToken() const noexcept {
+  IOP_TRACE();
   return AuthToken::empty();
 }
-void Flash::removeAuthToken() const noexcept {}
+void Flash::removeAuthToken() const noexcept { IOP_TRACE(); }
 void Flash::writeAuthToken(const AuthToken &token) const noexcept {
+  IOP_TRACE();
   (void)token;
 }
-void Flash::removeWifiConfig() const noexcept {}
-void Flash::writeWifiConfig(const struct WifiCredentials &id) const noexcept {
+void Flash::removeWifiConfig() const noexcept { IOP_TRACE(); }
+Option<WifiCredentials> Flash::readWifiConfig() const noexcept {
+  IOP_TRACE();
+  WifiCredentials cred = {NetworkName::empty(), NetworkPassword::empty()};
+  return cred;
+}
+void Flash::writeWifiConfig(const WifiCredentials &id) const noexcept {
+  IOP_TRACE();
   (void)id;
 }
 #endif

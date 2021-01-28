@@ -1,9 +1,7 @@
 #ifndef IOP_SERVER_HPP
 #define IOP_SERVER_HPP
 
-#include <DNSServer.h>
-#include <ESP8266WebServer.h>
-#include <memory>
+#include "certificate_storage.hpp"
 
 #include <api.hpp>
 #include <flash.hpp>
@@ -11,6 +9,10 @@
 #include <option.hpp>
 #include <result.hpp>
 #include <static_string.hpp>
+
+#include <DNSServer.h>
+#include <ESP8266WebServer.h>
+#include <memory>
 
 enum ServeError { INVALID_WIFI_CONFIG };
 
@@ -33,7 +35,7 @@ private:
   bool isServerOpen = false;
 
 public:
-  ~CredentialsServer() = default;
+  ~CredentialsServer() { IOP_TRACE(); }
 
   auto connect(StringView ssid, StringView password) const noexcept -> void;
   auto authenticate(StringView username, StringView password,
@@ -41,13 +43,15 @@ public:
       -> Option<AuthToken>;
 
   explicit CredentialsServer(const LogLevel logLevel) noexcept
-      : logger(logLevel, F("SERVER")) {}
+      : logger(logLevel, F("SERVER")) {
+    IOP_TRACE();
+  }
 
   // Self-referential class, it must not be moved or copied. SELF_REF
-  CredentialsServer(CredentialsServer const &other) = delete;
+  CredentialsServer(CredentialsServer const &other) = default;
   CredentialsServer(CredentialsServer &&other) = delete;
   auto operator=(CredentialsServer const &other)
-      -> CredentialsServer & = delete;
+      -> CredentialsServer & = default;
   auto operator=(CredentialsServer &&other) -> CredentialsServer & = delete;
 
   auto serve(const Option<WifiCredentials> &storedWifi, const MacAddress &mac,

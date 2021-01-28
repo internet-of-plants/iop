@@ -4,14 +4,17 @@
 // This hack sucks, hijackes CertStore before upstream updates
 #include "certificate_storage.hpp"
 
-#include "ESP8266HTTPClient.h"
-#include "ESP8266WiFi.h"
 #include "log.hpp"
 #include "option.hpp"
 #include "result.hpp"
 #include "static_string.hpp"
+#include "tracer.hpp"
+#include "unsafe_raw_string.hpp"
 
-typedef enum class apiStatus {
+#include "ESP8266HTTPClient.h"
+#include "ESP8266WiFi.h"
+
+enum class ApiStatus {
   NO_CONNECTION,
   BROKEN_SERVER,
   BROKEN_PIPE,
@@ -23,28 +26,22 @@ typedef enum class apiStatus {
   NOT_FOUND,
   FORBIDDEN,
   MUST_UPGRADE,
-} ApiStatus;
+};
 
 class Response {
 public:
   ApiStatus status;
   Option<String> payload;
-  ~Response() = default;
-  explicit Response(const ApiStatus status) noexcept : status(status) {}
-  Response(ApiStatus status, String payload) noexcept
-      : status(status), payload(std::move(payload)) {}
+  ~Response();
+  explicit Response(const ApiStatus status) noexcept;
+  Response(ApiStatus status, String payload) noexcept;
   Response(Response &resp) noexcept = delete;
-  Response(Response &&resp) noexcept
-      : status(resp.status), payload(std::move(resp.payload)) {}
+  Response(Response &&resp) noexcept;
   auto operator=(Response &resp) -> Response & = delete;
-  auto operator=(Response &&resp) noexcept -> Response & {
-    this->status = resp.status;
-    this->payload = std::move(resp.payload);
-    return *this;
-  }
+  auto operator=(Response &&resp) noexcept -> Response &;
 };
 
-using RawStatus = enum class rawStatus {
+enum class RawStatus {
   CONNECTION_FAILED = HTTPC_ERROR_CONNECTION_FAILED,
   SEND_FAILED = HTTPC_ERROR_SEND_PAYLOAD_FAILED,
   READ_FAILED = HTTPC_ERROR_STREAM_WRITE,
@@ -63,7 +60,7 @@ using RawStatus = enum class rawStatus {
   UNKNOWN = 999
 };
 
-enum HttpMethod {
+enum class HttpMethod {
   GET,
   HEAD,
   POST,
@@ -80,19 +77,24 @@ class Network {
   Log logger;
 
 public:
-  ~Network() = default;
+  ~Network() { IOP_TRACE(); }
   Network(const StaticString host, const LogLevel logLevel) noexcept
-      : host_(host), logger(logLevel, F("NETWORK")) {}
-  Network(Network const &other) = delete;
-  Network(Network &&other) = delete;
-  auto operator=(Network const &other) -> Network & = delete;
-  auto operator=(Network &&other) -> Network & = delete;
-  static auto setup() noexcept -> void;
-  static auto isConnected() noexcept -> bool {
-    return WiFi.status() == WL_CONNECTED;
+      : host_(host), logger(logLevel, F("NETWORK")) {
+    IOP_TRACE();
   }
-  auto wifiClient(StringView path) const noexcept
-      -> Result<std::reference_wrapper<WiFiClientSecure>, RawStatus>;
+  Network(Network const &other) : host_(other.host_), logger(other.logger) {
+    IOP_TRACE();
+  }
+  Network(Network &&other) = delete;
+  auto operator=(Network const &other) -> Network & {
+    IOP_TRACE();
+    this->host_ = other.host_;
+    this->logger = other.logger;
+    return *this;
+  }
+  auto operator=(Network &&other) -> Network & = delete;
+  auto setup() const noexcept -> void;
+  static auto isConnected() noexcept -> bool;
   auto httpPut(StringView token, StaticString path,
                StringView data) const noexcept -> Result<Response, int>;
   auto httpPost(StringView token, StringView path,
@@ -101,18 +103,23 @@ public:
                 StringView data) const noexcept -> Result<Response, int>;
   auto httpPost(StaticString path, StringView data) const noexcept
       -> Result<Response, int>;
-  auto httpRequest(HttpMethod method, Option<StringView> token, StringView path,
-                   Option<StringView> data) const noexcept
+  auto httpRequest(HttpMethod method, const Option<StringView> &token,
+                   StringView path,
+                   const Option<StringView> &data) const noexcept
       -> Result<Response, int>;
 
+  static auto wifiClient() noexcept -> WiFiClient &;
   static auto rawStatusToString(RawStatus status) noexcept -> StaticString;
   auto rawStatus(int code) const noexcept -> RawStatus;
 
   static auto apiStatusToString(ApiStatus status) noexcept -> StaticString;
   auto apiStatus(RawStatus raw) const noexcept -> Option<ApiStatus>;
 
-  auto host() const noexcept -> StaticString { return this->host_; };
-  static void disconnect() noexcept { WiFi.disconnect(); }
+  auto host() const noexcept -> StaticString {
+    IOP_TRACE();
+    return this->host_;
+  };
+  static void disconnect() noexcept;
 };
 
 #include "utils.hpp"

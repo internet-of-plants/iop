@@ -1,13 +1,15 @@
 #ifndef IOP_CONFIGURATION_H
 #define IOP_CONFIGURATION_H
 
+#include "certificate_storage.hpp"
+
 #include "log.hpp"
 #include "option.hpp"
 #include "static_string.hpp"
 #include <cstdint>
 
 /// Minimum log level to print a message (if serial is enabled)
-const enum LogLevel logLevel = INFO;
+const auto logLevel = LogLevel::INFO;
 
 const uint8_t soilTemperaturePin = D5;
 const uint8_t airTempAndHumidityPin = D6;
@@ -19,7 +21,7 @@ const uint8_t factoryResetButton = D1;
 const uint8_t dhtVersion = 22; // DHT22
 
 /// Time between measurements
-const unsigned long interval = 5 * 1000;
+const esp_time interval = 5 * 1000;
 
 /// Expands to:
 /// static const char * const host_storage_progmem_char =

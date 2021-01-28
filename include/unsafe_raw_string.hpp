@@ -1,7 +1,9 @@
 #ifndef IOP_UNSAFE_RAW_STRING_HPP
 #define IOP_UNSAFE_RAW_STRING_HPP
 
-class StringView;
+#include "certificate_storage.hpp"
+
+#include "string_view.hpp"
 
 /// Type-safe runtime string pointers, it's the user telling the system
 /// That they should be trusted and this UnsafeRawString will not contain a NULL
@@ -15,17 +17,13 @@ private:
   const char *str;
 
 public:
-  ~UnsafeRawString() = default;
-  constexpr explicit UnsafeRawString(const char *str) noexcept : str(str) {}
-  constexpr UnsafeRawString(const UnsafeRawString &str) noexcept = default;
-  constexpr UnsafeRawString(UnsafeRawString &&str) noexcept : str(str.str) {}
-  auto operator=(UnsafeRawString const &other) noexcept
-      -> UnsafeRawString & = default;
-  auto operator=(UnsafeRawString &&other) noexcept -> UnsafeRawString & {
-    this->str = other.str;
-    return *this;
-  }
-  constexpr auto get() const noexcept -> const char * { return this->str; }
+  ~UnsafeRawString();
+  explicit UnsafeRawString(const char *str) noexcept;
+  UnsafeRawString(const UnsafeRawString &str) noexcept;
+  UnsafeRawString(UnsafeRawString &&str) noexcept;
+  auto operator=(UnsafeRawString const &other) noexcept -> UnsafeRawString &;
+  auto operator=(UnsafeRawString &&other) noexcept -> UnsafeRawString &;
+  auto get() const noexcept -> const char *;
   auto operator*() const noexcept -> StringView;
   auto operator->() const noexcept -> StringView;
 };

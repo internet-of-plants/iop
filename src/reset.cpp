@@ -7,13 +7,13 @@
 #include "models.hpp"
 #include "utils.hpp"
 
-
 PROGMEM_STRING(logTarget, "INTERRUPT");
 const static Log logger(logLevel, logTarget, false);
 
 static volatile esp_time resetStateTime = 0;
 
 void ICACHE_RAM_ATTR buttonChanged() noexcept {
+  // IOP_TRACE();
   if (digitalRead(factoryResetButton) == HIGH) {
     resetStateTime = millis();
     logger.info(
@@ -31,6 +31,7 @@ void ICACHE_RAM_ATTR buttonChanged() noexcept {
 
 namespace reset {
 void setup() noexcept {
+  IOP_TRACE();
   pinMode(factoryResetButton, INPUT);
   attachInterrupt(digitalPinToInterrupt(factoryResetButton), buttonChanged,
                   CHANGE);
@@ -38,6 +39,6 @@ void setup() noexcept {
 } // namespace reset
 #else
 namespace reset {
-void setup() {}
+void setup() { IOP_TRACE(); }
 } // namespace reset
 #endif

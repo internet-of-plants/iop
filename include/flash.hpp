@@ -1,21 +1,34 @@
 #ifndef IOP_FLASH_HPP
 #define IOP_FLASH_HPP
 
-#include "ESP8266WiFi.h"
+#include "certificate_storage.hpp"
+
 #include "log.hpp"
 #include "models.hpp"
 #include "option.hpp"
+#include "static_string.hpp"
+#include "string_view.hpp"
+#include "tracer.hpp"
+#include "unsafe_raw_string.hpp"
+
+#include "ESP8266WiFi.h"
 
 /// Wraps flash memory to provide a API that satisfies our storage needs
 class Flash {
   Log logger;
 
 public:
-  ~Flash() = default;
-  explicit Flash(LogLevel logLevel) noexcept : logger(logLevel, F("FLASH")) {}
-  Flash(Flash const &other) noexcept = delete;
+  ~Flash() { IOP_TRACE(); }
+  explicit Flash(LogLevel logLevel) noexcept : logger(logLevel, F("FLASH")) {
+    IOP_TRACE();
+  }
+  Flash(Flash const &other) noexcept : logger(other.logger) { IOP_TRACE(); }
   Flash(Flash &&other) noexcept = delete;
-  auto operator=(Flash const &other) -> Flash & = delete;
+  auto operator=(Flash const &other) -> Flash & {
+    IOP_TRACE();
+    this->logger = other.logger;
+    return *this;
+  }
   auto operator=(Flash &&other) -> Flash & = delete;
   static auto setup() noexcept -> void;
 

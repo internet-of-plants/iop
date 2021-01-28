@@ -1,13 +1,20 @@
 #include "utils.hpp"
+
 #include "Esp.cpp"
 #include "fixed_string.hpp"
+#include "log.hpp"
 #include "models.hpp"
+#include "option.hpp"
+#include "static_string.hpp"
+#include "string_view.hpp"
+#include "tracer.hpp"
 
 static volatile std::array<InterruptEvent, interruptVariants> interruptEvents =
     {InterruptEvent::NONE};
 
 namespace utils {
 auto descheduleInterrupt() noexcept -> InterruptEvent {
+  IOP_TRACE();
   for (auto &el : interruptEvents._M_elems) {
     if (el != InterruptEvent::NONE) {
       const InterruptEvent tmp = el;
@@ -18,6 +25,7 @@ auto descheduleInterrupt() noexcept -> InterruptEvent {
   return InterruptEvent::NONE;
 }
 void scheduleInterrupt(const InterruptEvent ev) noexcept {
+  IOP_TRACE();
   Option<std::reference_wrapper<volatile InterruptEvent>> firstEmpty;
   for (auto &el : interruptEvents._M_elems) {
     if (el == InterruptEvent::NONE && firstEmpty.isNone())
@@ -40,28 +48,28 @@ void scheduleInterrupt(const InterruptEvent ev) noexcept {
 }
 
 auto macAddress() noexcept -> MacAddress {
+  IOP_TRACE();
   static Option<MacAddress> mac;
   if (mac.isSome())
     return UNWRAP_REF(mac);
 
   constexpr const uint8_t macSize = 6;
-  uint8_t buff[macSize];
-  wifi_get_macaddr(STATION_IF, buff); // NOLINT hicpp-no-array-decay
 
-  constexpr const uint8_t macStrSize = 18;
-  char macStr[macStrSize] = {0};
+  std::array<uint8_t, macSize> buff = {0};
+  wifi_get_macaddr(STATION_IF, buff.data()); // NOLINT hicpp-no-array-decay
+
+  auto mac_ = MacAddress::empty();
   PROGMEM_STRING(fmtStr, "%02X:%02X:%02X:%02X:%02X:%02X");
   const auto *fmt = fmtStr.asCharPtr();
-  // NOLINTNEXTLINE *-avoid-magic-numbers *-pro-bounds-array-to-pointer-decay
-  sprintf_P(macStr, fmt, buff[0], buff[1], buff[2], buff[3], buff[4], buff[5]);
-
-  // Let's unwrap to fail fast instead of running with a bad mac
-  // NOLINTNEXTLINE hicpp-no-array-decay
-  mac = UNWRAP_OK(MacAddress::fromString(UnsafeRawString(macStr)));
+  // NOLINTNEXTLINE *-pro-bounds-array-to-pointer-decay
+  sprintf_P(reinterpret_cast<char *>(mac_.mutPtr()), fmt, buff[0], buff[1],
+            buff[2], buff[3], buff[4], buff[5]);
+  mac = std::move(mac_);
   return UNWRAP_REF(mac);
 }
 
 auto hashSketch() noexcept -> MD5Hash {
+  IOP_TRACE();
   static MD5Hash result = MD5Hash::empty();
   if (result.asString().length() > 0)
     return result;
@@ -87,4 +95,11 @@ auto hashSketch() noexcept -> MD5Hash {
   md5.getChars(reinterpret_cast<char *>(result.mutPtr()));
   return result;
 }
+void logMemory(const Log &logger) noexcept {
+  IOP_TRACE();
+  logger.debug(F("Memory: "), String(ESP.getFreeHeap()), F(" "),
+               String(ESP.getFreeContStack()), F(" "),
+               String(ESP.getFreeSketchSpace()));
+}
+
 } // namespace utils

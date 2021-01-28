@@ -1,9 +1,11 @@
-#include "ESP8266HTTPClient.h"
-
-#include "certificate_storage.hpp"
-#include "generated/certificates.h"
 #include "network.hpp"
 
+#include "ESP8266HTTPClient.h"
+
+#include "generated/certificates.h"
+#include "tracer.hpp"
+
+#include "configuration.h"
 #include "models.hpp"
 #include "static_string.hpp"
 #include "string_view.hpp"
@@ -13,13 +15,68 @@
 
 #ifndef IOP_NETWORK_DISABLED
 
-static BearSSL::CertStore certStore; // NOLINT cert-err58-cpp
-static WiFiClientSecure client;      // NOLINT cert-err58-cpp
-static HTTPClient http;              // NOLINT cert-err58-cpp
+Response::Response(const ApiStatus status)
+    : status(status), payload(Option<String>()) {
+  IOP_TRACE();
+}
+Response::Response(ApiStatus status, String payload) noexcept
+    : status(status), payload(std::move(payload)) {
+  IOP_TRACE();
+}
+Response::Response(Response &&resp) noexcept
+    : status(resp.status), payload(Option<String>()) {
+  IOP_TRACE();
+  this->payload = std::move(resp.payload);
+}
+auto Response::operator=(Response &&resp) noexcept -> Response & {
+  IOP_TRACE();
+  this->status = resp.status;
+  this->payload = std::move(resp.payload);
+  return *this;
+}
 
-auto Network::setup() noexcept -> void {
-  assert_(certStoreOverrideWorked,
-          F("CertStore override is broken, fix it or HTTPS won't work"));
+Response::~Response() {
+  IOP_TRACE();
+  if (logLevel > LogLevel::TRACE)
+    return;
+  Serial.print(F("~Response("));
+  Serial.print(Network::apiStatusToString(status).get());
+  Serial.println(F(")"));
+  Serial.flush();
+};
+
+static BearSSL::CertStore certStore;     // NOLINT cert-err58-cpp
+static BearSSL::WiFiClientSecure client; // NOLINT cert-err58-cpp
+static HTTPClient http;                  // NOLINT cert-err58-cpp
+
+auto Network::isConnected() noexcept -> bool {
+  IOP_TRACE();
+  return WiFi.status() == WL_CONNECTED;
+}
+
+void Network::disconnect() noexcept {
+  IOP_TRACE();
+  WiFi.disconnect();
+}
+
+auto Network::setup() const noexcept -> void {
+  IOP_TRACE();
+  if (this->host().contains(F("https://"))) {
+    // assert_(certStoreOverrideWorked,
+    //        F("CertStore override is broken, fix it or HTTPS won't work"));
+  }
+
+  if (!this->host().contains(F(":"))) {
+    PROGMEM_STRING(error, "Host must contain protocol (http:// or https://): ");
+    panic_(String(error.get()) + this->host().get());
+  }
+
+  http.setReuse(false);
+  client.setNoDelay(false);
+  client.setSync(true);
+  // We should make sure our server supports Max Fragment Length Negotiation
+  // if (client.probeMaxFragmentLength(uri, port, 512))
+  //     client.setBufferSizes(512, 512);
 
 #ifdef IOP_ONLINE
   // Makes sure the event handlers are never dropped and only set once
@@ -28,7 +85,6 @@ auto Network::setup() noexcept -> void {
     (void)ev;
   };
   static const auto onHandler = WiFi.onStationModeGotIP(onCallback);
-
   // Initialize the wifi configurations
 
   if (Network::isConnected())
@@ -43,7 +99,7 @@ auto Network::setup() noexcept -> void {
 
   // station_config status = {0};
   // wifi_station_get_config_default(&status);
-  // if (status.ssid != NULL || !this->isConnected()) {
+  // if (status.ssid != NULL && !this->isConnected()) {
   //   WiFi.waitForConnectResult();
   // }
 #else
@@ -52,135 +108,85 @@ auto Network::setup() noexcept -> void {
 #endif
 }
 
-auto Network::httpPut(const StringView token, const StaticString path,
-                      const StringView data) const noexcept
-    -> Result<Response, int> {
-  return this->httpRequest(PUT, token, path, data);
-}
-
-auto Network::httpPost(const StringView token, const StaticString path,
-                       const StringView data) const noexcept
-    -> Result<Response, int> {
-  return this->httpRequest(POST, token, path, data);
-}
-
-auto Network::httpPost(const StringView token, const StringView path,
-                       const StringView data) const noexcept
-    -> Result<Response, int> {
-  return this->httpRequest(POST, token, path, data);
-}
-
-auto Network::httpPost(const StaticString path,
-                       const StringView data) const noexcept
-    -> Result<Response, int> {
-  return this->httpRequest(POST, Option<StringView>(), path, data);
-}
-
-static auto methodToString(const enum HttpMethod method) noexcept
+static auto methodToString(const HttpMethod method) noexcept
     -> Option<StaticString> {
+  IOP_TRACE();
   switch (method) {
-  case GET:
+  case HttpMethod::GET:
     return StaticString(F("GET"));
-  case HEAD:
+  case HttpMethod::HEAD:
     return StaticString(F("HEAD"));
-  case POST:
+  case HttpMethod::POST:
     return StaticString(F("POST"));
-  case PUT:
+  case HttpMethod::PUT:
     return StaticString(F("PUT"));
-  case PATCH:
+  case HttpMethod::PATCH:
     return StaticString(F("PATCH"));
-  case DELETE:
+  case HttpMethod::DELETE:
     return StaticString(F("DELETE"));
-  case CONNECT:
+  case HttpMethod::CONNECT:
     return StaticString(F("CONNECT"));
-  case OPTIONS:
+  case HttpMethod::OPTIONS:
     return StaticString(F("OPTIONS"));
   }
   return Option<StaticString>();
 }
 
-auto Network::wifiClient(const StringView path) const noexcept
-    -> Result<std::reference_wrapper<WiFiClientSecure>, RawStatus> {
-  if (!this->host_.contains(F(":"))) {
-    PROGMEM_STRING(error, "Host must contain protocol (http:// or https://): ");
-    panic_(String(error.get()) + this->host_.asCharPtr());
-  }
-  const auto uri = String(this->host_.get()) + path.get();
-  this->logger.debug(uri);
-  constexpr const auto port = 4001;
-
-  if (Network::isConnected()) {
-    // We should make sure our server supports Max Fragment Length Negotiation
-    // if (client.probeMaxFragmentLength(uri, port, 512)) {
-    //   client.setBufferSizes(512, 512);
-    // }
-    client.setNoDelay(false);
-    client.setSync(true);
-    client.setCertStore(&certStore);
-    // client.setInsecure();
-    if (client.connect(uri, port) <= 0) {
-      this->logger.warn(F("Failed to connect to "), uri);
-      return RawStatus::CONNECTION_FAILED;
-    }
-    client.disableKeepAlive();
-  } else {
-    return RawStatus::CONNECTION_LOST;
-  }
-  return std::ref(client);
+auto Network::wifiClient() noexcept -> WiFiClient & {
+  //  client.setCertStore(&certStore);
+  client.setInsecure();
+  return client;
 }
 
 // Returns Response if it can understand what the server sent, int is the raw
 // status code given by ESP8266HTTPClient
-auto Network::httpRequest(const enum HttpMethod method_,
-                          const Option<StringView> token, const StringView path,
-                          const Option<StringView> data) const noexcept
+auto Network::httpRequest(const HttpMethod method_,
+                          const Option<StringView> &token,
+                          const StringView path,
+                          const Option<StringView> &data) const noexcept
     -> Result<Response, int> {
-  const auto clientResult = this->wifiClient(path);
-  if (IS_ERR(clientResult)) {
-    const auto rawStatus = UNWRAP_ERR_REF(clientResult);
-    const auto apiStatus = this->apiStatus(rawStatus);
-    if (apiStatus.isSome())
-      return Response(UNWRAP_REF(apiStatus));
+  IOP_TRACE();
 
-    const auto s = Network::rawStatusToString(rawStatus);
-    this->logger.warn(F("Network::httpClient returned invalid RawStatus: "), s);
-    return static_cast<int>(rawStatus);
-  }
+  if (!Network::isConnected())
+    return Response(ApiStatus::NO_CONNECTION);
 
-  StringView data_(StaticString(F("")));
+  // StringSumHelper is inferred here if we don't set the type
+  const String uri = String(this->host_.get()); // + path.get();
+
+  StringView data_(emptyString);
   if (data.isSome())
     data_ = UNWRAP_REF(data);
 
   const auto method = UNWRAP(methodToString(method_));
 
   this->logger.info(F("["), method, F("] "), path,
-                    data.isSome() ? F("has payload") : F("no payload"));
+                    data.isSome() ? F(" has payload") : F(" no payload"));
+  if (token.isSome()) {
+    http.setAuthorization(UNWRAP_REF(token).get());
+  } else {
+    http.setAuthorization(emptyString.c_str());
+  }
 
-  const auto uri = String(this->host_.get()) + path.get();
-  if (!http.begin(client, uri)) {
+  if (!http.begin(Network::wifiClient(), uri)) {
     this->logger.warn(F("Failed to begin http connection to "), uri);
     return Response(ApiStatus::NO_CONNECTION);
   }
-  http.setReuse(false);
-
-  if (token.isSome())
-    http.setAuthorization(UNWRAP_REF(token).get());
 
   if (data.isSome())
     http.addHeader(F("Content-Type"), F("application/json"));
 
   const auto *const data__ = reinterpret_cast<const uint8_t *>(data_.get());
-  const auto *const mtd = method.asCharPtr();
-  const auto code = http.sendRequest(mtd, data__, data_.length());
-  const auto codeStr = std::to_string(code);
+  // We have to make method a String to avoid crashes
 
+  const auto code =
+      http.sendRequest(String(method.get()).c_str(), data__, data_.length());
   const auto rawStatus = this->rawStatus(code);
+  const auto codeStr = std::to_string(code);
   const auto rawStatusStr = Network::rawStatusToString(rawStatus);
-
   this->logger.info(F("Response code ("), codeStr, F("): "), rawStatusStr);
-
   constexpr const int32_t maxPayloadSizeAcceptable = 2048;
   if (http.getSize() > maxPayloadSizeAcceptable) {
+    http.end();
     const auto lengthStr = std::to_string(http.getSize());
     this->logger.error(F("Payload from server was too big: "), lengthStr);
     return Response(ApiStatus::BROKEN_SERVER);
@@ -188,14 +194,61 @@ auto Network::httpRequest(const enum HttpMethod method_,
 
   const auto maybeApiStatus = this->apiStatus(rawStatus);
   if (maybeApiStatus.isSome()) {
-    return Response(UNWRAP_REF(maybeApiStatus), http.getString());
+    auto payload = http.getString();
+    http.end();
+    return Response(UNWRAP_REF(maybeApiStatus), std::move(payload));
   }
+  http.end();
   return code;
+}
+#else
+void Network::setup() const noexcept { IOP_TRACE(); }
+void Network::disconnect() noexcept { IOP_TRACE(); }
+auto Network::isConnected() noexcept -> bool {
+  IOP_TRACE();
+  return true;
+}
+auto Network::httpRequest(HttpMethod method, Option<StringView> token,
+                          StringView path,
+                          Option<StringView> data) const noexcept
+    -> Result<Response, int> {
+  IOP_TRACE();
+  return Response(ApiStatus::OK);
 }
 #endif
 
+auto Network::httpPut(const StringView token, const StaticString path,
+                      const StringView data) const noexcept
+    -> Result<Response, int> {
+  IOP_TRACE();
+  return this->httpRequest(HttpMethod::PUT, token, String(path.get()), data);
+}
+
+auto Network::httpPost(const StringView token, const StaticString path,
+                       const StringView data) const noexcept
+    -> Result<Response, int> {
+  IOP_TRACE();
+  return this->httpRequest(HttpMethod::POST, token, String(path.get()), data);
+}
+
+auto Network::httpPost(const StringView token, const StringView path,
+                       const StringView data) const noexcept
+    -> Result<Response, int> {
+  IOP_TRACE();
+  return this->httpRequest(HttpMethod::POST, token, path, data);
+}
+
+auto Network::httpPost(const StaticString path,
+                       const StringView data) const noexcept
+    -> Result<Response, int> {
+  IOP_TRACE();
+  return this->httpRequest(HttpMethod::POST, Option<StringView>(),
+                           String(path.get()), data);
+}
+
 auto Network::rawStatusToString(const RawStatus status) noexcept
     -> StaticString {
+  IOP_TRACE();
   switch (status) {
   case RawStatus::CONNECTION_FAILED:
     return F("CONNECTION_FAILED");
@@ -230,6 +283,7 @@ auto Network::rawStatusToString(const RawStatus status) noexcept
 }
 
 auto Network::rawStatus(const int code) const noexcept -> RawStatus {
+  IOP_TRACE();
   switch (code) {
   case HTTP_CODE_OK:
     return RawStatus::OK;
@@ -272,6 +326,7 @@ auto Network::rawStatus(const int code) const noexcept -> RawStatus {
 
 auto Network::apiStatusToString(const ApiStatus status) noexcept
     -> StaticString {
+  IOP_TRACE();
   switch (status) {
   case ApiStatus::NO_CONNECTION:
     return F("NO_CONNECTION");
@@ -297,6 +352,7 @@ auto Network::apiStatusToString(const ApiStatus status) noexcept
 
 auto Network::apiStatus(const RawStatus raw) const noexcept
     -> Option<ApiStatus> {
+  IOP_TRACE();
   switch (raw) {
   case RawStatus::CONNECTION_FAILED:
   case RawStatus::CONNECTION_LOST:
@@ -337,32 +393,3 @@ auto Network::apiStatus(const RawStatus raw) const noexcept
   }
   return Option<ApiStatus>();
 }
-
-#ifdef IOP_NETWORK_DISABLED
-void Network::setup() const noexcept {}
-Option<Response> Network::httpPut(const StringView token,
-                                  const StaticString path,
-                                  const StringView data) const noexcept {
-  return this->httpRequest(PUT, token, path, data);
-}
-Option<Response> Network::httpPost(const StringView token,
-                                   const StaticString path,
-                                   const StringView data) const noexcept {
-  return this->httpRequest(POST, token, path, data);
-}
-Option<Response> Network::httpPost(const StaticString path,
-                                   const StringView data) const noexcept {
-  return this->httpRequest(POST, Option<StringView>(), path, data);
-}
-Option<Response> Network::httpRequest(const enum HttpMethod method,
-                                      const Option<StringView> token,
-                                      const StaticString path,
-                                      Option<StringView> data) const noexcept {
-  (void)method;
-  (void)token;
-  (void)path;
-  (void)data;
-  return Response(ApiStatus::OK, F(""));
-}
-void Network::disconnect() const noexcept {}
-#endif

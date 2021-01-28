@@ -1,6 +1,8 @@
 #ifndef IOP_STATIC_STRING_HPP
 #define IOP_STATIC_STRING_HPP
 
+#include "certificate_storage.hpp"
+
 #include "WString.h"
 
 class StringView;
@@ -19,24 +21,25 @@ private:
   const __FlashStringHelper *str;
 
 public:
-  ~StaticString() = default;
+  ~StaticString();
 
   // NOLINTNEXTLINE hicpp-explicit-conversions
-  constexpr StaticString(const __FlashStringHelper *str) noexcept : str(str) {}
-  constexpr StaticString(StaticString const &other) noexcept = default;
-  constexpr StaticString(StaticString &&other) noexcept : str(other.str) {}
-  auto operator=(StaticString const &other) noexcept
-      -> StaticString & = default;
-  auto operator=(StaticString &&other) noexcept -> StaticString & = default;
-  auto get() const noexcept -> const __FlashStringHelper * { return this->str; }
-  auto contains(StaticString needle) const noexcept -> bool;
-  auto contains(StringView needle) const noexcept -> bool;
-  auto length() const noexcept -> size_t { return strlen_P(this->asCharPtr()); }
-  auto isEmpty() const noexcept -> bool { return this->length() == 0; }
-  auto asCharPtr() const noexcept -> const char * {
-    // NOLINT *-pro-type-reinterpret-cast
-    return reinterpret_cast<const char *>(this->get());
-  }
+  StaticString(const __FlashStringHelper *str) noexcept;
+  StaticString(StaticString const &other) noexcept;
+  StaticString(StaticString &&other) noexcept;
+  auto operator=(StaticString const &other) noexcept -> StaticString &;
+  auto operator=(StaticString &&other) noexcept -> StaticString &;
+  auto get() const noexcept -> const __FlashStringHelper *;
+  auto contains(const StringView needle) const noexcept -> bool;
+  auto contains(const StaticString needle) const noexcept -> bool;
+  auto length() const noexcept -> size_t;
+  auto isEmpty() const noexcept -> bool;
+  // Be careful when calling this function, if you pass PGM_P to a function that
+  // expects a regular char* a hardware exception may happen, PROGMEM data needs
+  // to be read in 32 bits alignment, this has caused trouble in the past and
+  // may still do. It's why StringView doesn't have a constructor for
+  // StaticString
+  auto asCharPtr() const noexcept -> PGM_P;
 };
 
 #define PROGMEM_STRING(name, msg)                                              \

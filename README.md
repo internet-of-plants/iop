@@ -1,26 +1,28 @@
 # Internet of Plants - Embedded Software
 
+**Important: Read the Build bulletpoint carefully, it has a few quirks because of bugs upstream**
+
 Firmware for Internet of Plants embedded system. Made for ESP8266.
 
-It connects to an already existent wifi network, and through that connects to a hardcoded [host](https://github.com/internet-of-plants/server), authenticating itself. It provides air humidity, air temperature, soil temperature and soil humidity measurements to the server every minute.
+It connects to an already existent wifi network, and through it connects to a hardcoded [host](https://github.com/internet-of-plants/server), authenticating itself. It provides air humidity, air temperature, soil temperature and soil humidity measurements to the server every minute.
 
-Eventually the goal is to use this data, to generate reports and properly analyze what is going on and allow one day for a good automation system. But we don't believe a naive system without much data to be better than simple timers, that's why we don't allow automation before a big dataset. This is a plant monitor for now. If you want to automate your best bet is to buy a power plug with a timer.
+Eventually the goal is to use this data, to generate reports and properly analyze what is going on and allow one day for a good automation system. But we don't believe a naive system without much data to be better than simple timers, that's why we don't consider automation before providing a system to build a significant dataset. This is a plant monitor for now. If you want to automate your best bet for now is to buy a power plug with a timer.
 
 There also are plans to use this to track entire grow rooms instead of a single plant. But they are not a current priority.
 
 If there is no wifi credential or iop credentials stored, a captive portal will be open. The device will open its own wifi network, the password is hardcoded (this is a security vuln, we should generate it at compile time and save it externally, like a sticker, but we lack the infra to do it right now).
 
-After connecting to the captive portal you must provide to the form your wifi and iop credentials. If the wifi credential is correct it will login to the wifi network and then authenticate with the iop server.
+After connecting to the captive portal you must provide your wifi and iop credentials. If the wifi credential is correct it will login to the wifi network and then authenticate with the iop server.
 
-No server credential is stored in the device, it will use the credentials to generate an access token that is then stored (and can be revoked).
+No server credential is stored in the device, it will use the credentials to generate an access token for that device that is then stored (and can be revoked).
 
-When the device is online and authenticated to the server it will sign itself up in your account, creating a new plant (or using the already existent one for that MAC address), that will keep track of the event logs. There you also will be able to provide updates to each specific device (or some of them, or all of them). And monitor panics + logs for that device.
+When the device is online and authenticated to the server a new plant is automatically created on your account if it doesn't already exist. Now you are able to track your plant with the iop server. There you also will be able to provide updates to each specific device (or some of them, or all of them). And monitor panics + logs for those devices.
 
-The updates are automatic and happen over the air. Eventually the updates will need to be signed binaries.
+The updates are automatic and happen over the air. Eventually the updates will demand signed binaries.
 
-If some irrecoverable error happens the device will halt and constantly try to update it's binary. All errors are reported to the network (if available). So you must react to it and provide an update to fix it. Since our system is very small and event driven an irrecoverable error won't be solved by restarting since the error will just happen again almost immediately. Ideally panics shouldn't happen so easy recovery doesn't seem like a priority, but as the project evolves we can study a panic that restarts the system instead of halting + trying to update.
+If some irrecoverable error happens the device will halt and constantly try to update it's binary. All errors are reported to the network (if available). So you must react to it and provide an update to fix it. Since our system is very small and event driven an irrecoverable error won't be solved by restarting, since the error will just happen again almost immediately. Ideally panics shouldn't happen so easy recovery doesn't seem like a priority, but as the project evolves we can study a panic that restarts the system instead of halting + trying to update (or in addition to that).
 
-If there is no network available it will just halt forever and will need to be restarted physically (and maybe updated physically too)
+If there is no network available it will just halt forever and must be restarted/updated physically.
 
 The project has been designed and tested for the ESP8266-12F board (nodemcu), but it should be easily portable (and eventually part of our goal, but it's far away, right now we only commit to support ESP8266).
 
@@ -46,13 +48,11 @@ sudo usermod -a -G plugdev $USER
 
 # Build
 
-After cloning you must set the configurations. To do that run this command:
+You can just deploy the code to the nodemcu using platform-io.
 
-`cp include/configuration.h.example include/configuration.h`
+But be aware, while `esp8266/Arduino` is at version `2.7.4` our code will crash because of a bug in this version. So you will have to apply a patch to the local `PlatformIO` `esp8266/Arduino` code. Change `Arduino/cores/esp8266/WString.h` for [WString.h](https://github.com/esp8266/Arduino/blob/master/cores/esp8266/WString.h) and `Arduino/cores/esp8266/WString.cpp` for [WString.cpp](https://github.com/esp8266/Arduino/blob/master/cores/esp8266/WString.cpp)
 
-And fill all the constants with the appropriate value
-
-Then you can deploy the code to the nodemcu using platform-io.
+We are sorry for this inconvenience, but until upstream updates it's what we can do.
 
 # TODO
 
@@ -68,23 +68,25 @@ Most decisions are listed here. If you find some other questionable decision ple
 
 - Using too many static variables/too much heap allocation
 
-    We use a lot of static variables to store long-living objects (or very heavy ones), that are important to the core. Like ESP servers. That allows us to have only one instance ever, and avoid stack-overflows or allocation failures to store those heavy objects that are very important. We also avoid storing big things in the stack because we already have low memory available, but the continuation stack is even lower. Since there is a background wifi task running we have to share resources with. It's easier to heap allocate and deal with the allocation failure, than to have a stack-overflow reseting the board.
+    We use a lot of static variables to store long-living objects (or very heavy ones), that are important to the core. Like ESP servers. That allows us to have only one instance ever, and avoid stack-overflows or allocation failures to store those heavy objects that are very important. It helps us determining a range for the maximum memory used.
+
+    We also avoid storing big things in the stack because the stack is super small. It's easier to heap allocate and deal with the allocation failure, than to have a stack-overflow reseting the board.
 
     The only problem those heap allocations may cause is heap fragmentation, we have taken great care to avoid them, but we have been thinking about buffer re-usage and how to avoid them, or make them very early, so we aren't get by surprise by the lack of memory. Everything big in static memory means a simple static analyzer can catch memory problems.
 
-    This is a big problem in multi-core systems, as the statics have to actually be thread-locals (and we would need to dump schedulers for the FreeRTOS one). So be ware if trying to port it to ESP32 (or to systems with preemptive/time-slicing concurrency, like FreeRTOS SDK for ESP8266).
+    This is a big problem in multi-core systems, as the statics have to actually be thread-locals (or using preemptive/time-slicing schedulers). So be ware if trying to port it to ESP32 (or to ESP8266 FreeRTOS SDK).
     
     We tend to allocate most big things that can't be static (buffers). Always using smart-pointers (std::unique_ptr, std::shared_ptr, FixedString<SIZE>, Storage<SIZE>...).
 
-- Avoid moves
+- Avoiding moves
 
     Since cpp doesn't have destructive moves, it can leave our code in an invalid state. Either with a nulled `std::{unique_ptr, shared_ptr}`, or with an empty `Result<T, E>`, for example. And since those abstractions are heavily used throughout the code we don't want a human mistake to cause UB, panic or raise exceptions. Even a wrongly moved-out `Option<T>` can cause logical errors.
 
-    To avoid that we try not to move out, getting references when we can. For example using `UNWRAP(_OK,_ERR)(_REF,_MUT)`. But you have to be careful to make sure that the reference doesn't outlive it's storage (as always). Instead of `UNWRAP` and `UNWRAP_{OK,ERR}`, that move out, although they can be very useful, like moving-out to return the inner value.
+    To avoid that we try not to move out, getting references when we can. For example using `UNWRAP(_OK,_ERR)_{REF,MUT}`. But you have to be careful to make sure that the reference doesn't outlive its storage (as always). Instead of `UNWRAP(_OK,_ERR)`, that move out, although they can be very useful, like moving-out to return the inner value.
 
-    We also hijack moves when we can, to make them operate like copies. For example using the `TYPED_STORAGE(SIZE)`, `Storage<SIZE>` and `FixedString<SIZE>` types. That all wrap a `std::shared_ptr` and allow for a safe move (they copy) and a cheap copy.
+    We also hijack moves when we can, to make them operate like copies. For example using the `TYPED_STORAGE(SIZE)`, `Storage<SIZE>` and `FixedString<SIZE>` types. That all wrap a `std::shared_ptr` and foces moves to become copies and can make cheap copies.
 
-    For `Result<T, E>` you should not use `Result` methods, but only the macros defined in `result.hpp`, like `UNWRAP_{OK, ERR}(_REF, _MUT)`, `IS_{OK, ERR}`, `{OK, ERR}`, etc. All methods have a macro alternative, that checks for an emptied Result and properly reports the invalid access location. This avoid impossible to debugs errors caused by moved-out-from values.
+    For `Result<T, E>` you should not use `Result` methods, but only the macros defined in `result.hpp`, like `UNWRAP_{OK, ERR}(_REF, _MUT)`, `IS_{OK, ERR}`, `{RESULT_OK, RESULT_ERR}`, etc. All methods have a macro alternative, that checks for an emptied Result and properly reports the invalid access location. This makes impossible to debugs errors caused by moved-out-from values, into easily debuggable ones.
 
 - No exceptions, but we halt using the `panic_` macro
 

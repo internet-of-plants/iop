@@ -1,6 +1,8 @@
 #ifndef IOP_MEASUREMENT_HPP
 #define IOP_MEASUREMENT_HPP
 
+#include "certificate_storage.hpp"
+
 #include "DHT.h"
 #include "DallasTemperature.h"
 #include <cstdint>
@@ -14,7 +16,7 @@ auto soilResistivityRaw(uint8_t powerPin) noexcept -> uint16_t;
 } // namespace measurement
 
 #include "utils.hpp"
-#ifndef IOP_SERIAL
+#ifndef IOP_SENSORS
 #define IOP_MEASUREMENT_DISABLED
 #endif
 

@@ -17,7 +17,9 @@
 #include "static_string.hpp"
 #include "utils.hpp"
 
-#include "static_string.hpp"
+#include "string_view.hpp"
+
+// TODO: log restart reason Esp::getResetInfoPtr()
 
 class EventLoop {
 private:
@@ -25,8 +27,9 @@ private:
   Api api;
   CredentialsServer credentialsServer;
   Log logger;
+
   Flash flash;
-  MD5Hash firmwareHash;
+  MD5Hash firmwareHash = MD5Hash::empty();
   MacAddress macAddress;
 
   esp_time nextTime;
@@ -35,23 +38,21 @@ private:
 
 public:
   void setup() noexcept {
+    IOP_TRACE();
     pinMode(LED_BUILTIN, OUTPUT);
 
-    reset::setup();
-    this->logger.setup();
-    this->sensors.setup();
     Flash::setup();
-    Api::setup();
+    reset::setup();
+    this->sensors.setup();
+    this->api.setup();
     this->credentialsServer.setup();
   }
 
   void loop() noexcept {
+    IOP_TRACE();
 #ifdef LOG_MEMORY
-    this->logger.debug(F("Memory: "), String(ESP.getFreeHeap()), F(" "),
-                       String(ESP.getFreeContStack()), F(" "),
-                       ESP.getFreeSketchSpace());
+    utils::logMemory(this->logger);
 #endif
-
     const auto authToken = this->flash.readAuthToken();
 
     // Handle all queued interrupts (only allows one of each kind concurrently)
@@ -66,23 +67,25 @@ public:
 
     const auto now = millis();
 
-    if (Api::isConnected() && authToken.isSome())
+    if (Network::isConnected() && authToken.isSome())
       this->credentialsServer.close();
 
     if (authToken.isNone()) {
       this->handleCredentials();
 
-    } else if (!Api::isConnected()) {
+    } else if (!Network::isConnected()) {
       // If connection is lost frequently: we open the credentials server, to
-      // allow replacing the wifi credentials. Since we only remove it from
-      // flash if it's going to be replaced for a new one (allows for more
-      // resiliency) - or during factory reset
+      // allow replacing the wifi credentials. Since we only remove it
+      // from flash if it's going to be replaced for a new one (allows
+      // for more resiliency) - or during factory reset
       constexpr const uint32_t oneMinute = 60 * 1000;
 
       if (this->nextHandleConnectionLost == 0) {
         this->nextHandleConnectionLost = now + oneMinute;
 
       } else if (this->nextHandleConnectionLost < now) {
+        this->logger.debug(
+            F("Network credentials available, but no wifi, opening server"));
         this->nextHandleConnectionLost = now + oneMinute;
         this->handleCredentials();
 
@@ -97,7 +100,7 @@ public:
 
     } else if (this->nextYieldLog <= now) {
       this->nextHandleConnectionLost = 0;
-      constexpr const uint16_t tenSeconds = 1000;
+      constexpr const uint16_t tenSeconds = 10000;
       this->nextYieldLog = now + tenSeconds;
       this->logger.trace(F("Waiting"));
 
@@ -106,22 +109,68 @@ public:
     }
   }
 
-  auto operator=(EventLoop const &other) -> EventLoop & = delete;
-  auto operator=(EventLoop &&other) -> EventLoop & = delete;
-  ~EventLoop() = default;
+  auto operator=(EventLoop const &other) -> EventLoop & {
+    IOP_TRACE();
+    this->sensors = other.sensors;
+    this->api = other.api;
+    this->credentialsServer = other.credentialsServer;
+    this->logger = other.logger;
+    this->flash = other.flash;
+    this->firmwareHash = other.firmwareHash;
+    this->macAddress = other.macAddress;
+    this->nextTime = other.nextTime;
+    this->nextYieldLog = other.nextYieldLog;
+    this->nextHandleConnectionLost = other.nextHandleConnectionLost;
+    return *this;
+  };
+  auto operator=(EventLoop &&other) -> EventLoop & {
+    IOP_TRACE();
+    this->sensors = other.sensors;
+    this->api = other.api;
+    this->credentialsServer = other.credentialsServer;
+    this->logger = other.logger;
+    this->flash = other.flash;
+    this->firmwareHash = other.firmwareHash;
+    this->macAddress = other.macAddress;
+    this->nextTime = other.nextTime;
+    this->nextYieldLog = other.nextYieldLog;
+    this->nextHandleConnectionLost = other.nextHandleConnectionLost;
+    return *this;
+  }
+  ~EventLoop() { IOP_TRACE(); };
   explicit EventLoop(const StaticString host) noexcept
       : sensors(soilResistivityPowerPin, soilTemperaturePin,
                 airTempAndHumidityPin, dhtVersion),
         api(host, logLevel), credentialsServer(logLevel),
         logger(logLevel, F("LOOP")), flash(logLevel),
         firmwareHash(utils::hashSketch()), macAddress(utils::macAddress()),
-        nextTime(0), nextYieldLog(0), nextHandleConnectionLost(0) {}
-  EventLoop(EventLoop const &other) = delete;
-  EventLoop(EventLoop &&other) = delete;
+        nextTime(0), nextYieldLog(0), nextHandleConnectionLost(0) {
+    IOP_TRACE();
+  }
+  EventLoop(EventLoop const &other) noexcept
+      : sensors(other.sensors), api(other.api),
+        credentialsServer(other.credentialsServer), logger(other.logger),
+        flash(other.flash), firmwareHash(other.firmwareHash),
+        macAddress(other.macAddress), nextTime(other.nextTime),
+        nextYieldLog(other.nextYieldLog),
+        nextHandleConnectionLost(other.nextHandleConnectionLost) {
+    IOP_TRACE();
+  }
+  EventLoop(EventLoop &&other) noexcept
+      : sensors(other.sensors), api(other.api),
+        credentialsServer(other.credentialsServer), logger(other.logger),
+        flash(other.flash), firmwareHash(other.firmwareHash),
+        macAddress(other.macAddress), nextTime(other.nextTime),
+        nextYieldLog(other.nextYieldLog),
+        nextHandleConnectionLost(other.nextHandleConnectionLost) {
+    IOP_TRACE();
+  }
 
 private:
   void handleInterrupt(const InterruptEvent event,
                        const Option<AuthToken> &maybeToken) const noexcept {
+    IOP_TRACE();
+
     switch (event) {
     case InterruptEvent::NONE:
       break;
@@ -130,7 +179,7 @@ private:
       this->logger.warn(F("Factory Reset: deleting stored credentials"));
       this->flash.removeWifiConfig();
       this->flash.removeAuthToken();
-      Api::disconnect();
+      Network::disconnect();
 #endif
       break;
     case InterruptEvent::MUST_UPGRADE:
@@ -184,22 +233,11 @@ private:
       const auto rawSsid =
           UnsafeRawString(reinterpret_cast<char *>(config.ssid));
       const auto ssid = NetworkName::fromStringTruncating(rawSsid);
-      this->logger.info(F("Connected to network:"), ssid.asString());
+      this->logger.info(F("Connected to network: "), ssid.asString());
 
       const auto rawPsk =
           UnsafeRawString(reinterpret_cast<char *>(config.password));
       const auto psk = NetworkPassword::fromStringTruncating(rawPsk);
-
-      const auto maybeCurrConfig = this->flash.readWifiConfig();
-      if (maybeCurrConfig.isSome()) {
-        const auto &currConfig = UNWRAP_REF(maybeCurrConfig);
-
-        if (currConfig.ssid.asString() == ssid.asString() &&
-            currConfig.password.asString() == psk.asString()) {
-          // No need to save credential that already are stored
-          break;
-        }
-      }
 
       this->flash.writeWifiConfig({.ssid = ssid, .password = psk});
 #endif
@@ -208,6 +246,8 @@ private:
   }
 
   void handleCredentials() noexcept {
+    IOP_TRACE();
+
     const auto wifi = this->flash.readWifiConfig();
     const auto maybeToken =
         this->credentialsServer.serve(wifi, this->macAddress, this->api);
@@ -217,6 +257,8 @@ private:
   }
 
   void handleMeasurements(const AuthToken &token) noexcept {
+    IOP_TRACE();
+
     this->logger.debug(F("Handle Measurements"));
 
     const auto measurements =
@@ -227,8 +269,8 @@ private:
     case ApiStatus::FORBIDDEN:
       // TODO: is there a way to keep it around somewhere as a backup?
       // In case it's a server bug, since it will force the user to join our AP
-      // again to retype the credentials. If so how can we reuse it and detect
-      // it started working again?
+      // again to retype the credentials. If so how can we reuse it and
+      // detect it started working again?
       this->logger.error(F("Unable to send measurements"));
       this->logger.warn(F("Auth token was refused, deleting it"));
       this->flash.removeAuthToken();
@@ -259,8 +301,16 @@ private:
   }
 };
 
-PROGMEM_STRING(missingHost, "No host available");
-static EventLoop eventLoop(host.asRef().expect(missingHost));
+// Avoid static initialization being run before logging is setup
+static Option<EventLoop> eventLoop;
+void setup() {
+  Log::setup();
+  IOP_TRACE();
+  eventLoop = EventLoop(UNWRAP_REF(host));
+  UNWRAP_MUT(eventLoop).setup();
+}
 
-void setup() { eventLoop.setup(); }
-void loop() { eventLoop.loop(); }
+void loop() {
+  IOP_TRACE();
+  UNWRAP_MUT(eventLoop).loop();
+}

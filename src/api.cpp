@@ -1,11 +1,44 @@
-#include "ESP8266httpUpdate.h"
-
 #include "api.hpp"
+
+#include "ESP8266httpUpdate.h"
 #include "fixed_string.hpp"
 #include "utils.hpp"
 
+Api::~Api() { IOP_TRACE(); }
+
+Api::Api(const StaticString host, const LogLevel logLevel) noexcept
+    : logger(logLevel, F("API")), network_(host, logLevel) {
+  IOP_TRACE();
+}
+
+Api::Api(Api const &other) : logger(other.logger), network_(other.network_) {
+  IOP_TRACE();
+}
+
+auto Api::operator=(Api const &other) -> Api & {
+  IOP_TRACE();
+  this->logger = other.logger;
+  this->network_ = other.network_;
+  return *this;
+}
+
+auto Api::setup() const noexcept -> void {
+  IOP_TRACE();
+  this->network().setup();
+}
+auto Api::host() const noexcept -> StaticString {
+  IOP_TRACE();
+  return this->network().host();
+};
+
+auto Api::network() const noexcept -> const Network & {
+  IOP_TRACE();
+  return this->network_;
+}
+
 #ifndef IOP_API_DISABLED
 auto Api::loggerLevel() const noexcept -> LogLevel {
+  IOP_TRACE();
   return this->logger.level();
 }
 
@@ -16,6 +49,7 @@ auto Api::loggerLevel() const noexcept -> LogLevel {
 /// No HttpCode and Internal Error (500): bad vibes at the wlan/server
 auto Api::reportPanic(const AuthToken &authToken, const MacAddress &mac,
                       const PanicData &event) const noexcept -> ApiStatus {
+  IOP_TRACE();
   this->logger.debug(F("Report panic:"), event.msg);
 
   const auto make = [authToken, &mac, event](JsonDocument &doc) {
@@ -54,6 +88,7 @@ auto Api::reportPanic(const AuthToken &authToken, const MacAddress &mac,
 /// HttpCode and Internal Error (500): bad vibes at the wlan/server
 auto Api::registerEvent(const AuthToken &authToken,
                         const Event &event) const noexcept -> ApiStatus {
+  IOP_TRACE();
   this->logger.debug(F("Send event: "), event.mac.asString());
 
   const auto make = [&event](JsonDocument &doc) {
@@ -91,13 +126,14 @@ auto Api::registerEvent(const AuthToken &authToken,
 auto Api::authenticate(const StringView username, const StringView password,
                        const MacAddress &mac) const noexcept
     -> Result<AuthToken, ApiStatus> {
+  IOP_TRACE();
+
   this->logger.debug(F("Authenticate IoP user: "), username);
 
   if (username.isEmpty() || password.isEmpty()) {
     this->logger.debug(F("Empty username or password, at Api::authenticate"));
     return ApiStatus::FORBIDDEN;
   }
-
   const auto make = [username, password, &mac](JsonDocument &doc) {
     doc["email"] = username.get();
     doc["password"] = password.get();
@@ -106,8 +142,8 @@ auto Api::authenticate(const StringView username, const StringView password,
   const auto maybeJson = this->makeJson<256>(F("Api::authenticate"), make);
   if (maybeJson.isNone())
     return ApiStatus::CLIENT_BUFFER_OVERFLOW;
-
   const auto &json = UNWRAP_REF(maybeJson);
+
   auto maybeResp = this->network().httpPost(F("/user/login"), json);
 
 #ifndef IOP_MOCK_MONITOR
@@ -116,19 +152,20 @@ auto Api::authenticate(const StringView username, const StringView password,
     this->logger.error(F("Unexpected response at Api::authenticate: "), code);
     return ApiStatus::BROKEN_SERVER;
   }
-  auto resp = UNWRAP_OK(maybeResp);
 
-  if (resp.status != ApiStatus::OK && resp.status != ApiStatus::MUST_UPGRADE)
+  const auto resp = UNWRAP_OK(maybeResp);
+
+  if (resp.status != ApiStatus::OK && resp.status != ApiStatus::MUST_UPGRADE) {
     return resp.status;
+  }
 
   if (resp.payload.isNone()) {
     this->logger.error(F("Server answered OK, but payload is missing"));
     return ApiStatus::BROKEN_SERVER;
   }
 
-  const auto payload = UNWRAP(resp.payload);
+  const auto &payload = UNWRAP_REF(resp.payload);
   auto result = AuthToken::fromString(payload);
-
   if (IS_ERR(result)) {
     switch (UNWRAP_ERR(result)) {
     case TOO_BIG:
@@ -141,7 +178,6 @@ auto Api::authenticate(const StringView username, const StringView password,
   }
 
   return UNWRAP_OK(result);
-
 #else
   return AuthToken::empty();
 #endif
@@ -149,6 +185,7 @@ auto Api::authenticate(const StringView username, const StringView password,
 
 auto Api::registerLog(const AuthToken &authToken, const MacAddress &mac,
                       const StringView log) const noexcept -> ApiStatus {
+  IOP_TRACE();
   const auto token = authToken.asString();
   this->logger.debug(F("Register log. Token: "), token, F(". Log: "), log);
   // TODO(pc): dynamically generate the log string, instead of buffering it,
@@ -176,6 +213,7 @@ extern "C" uint32_t _FS_end;
 
 auto Api::upgrade(const AuthToken &token, const MacAddress &mac,
                   const MD5Hash &sketchHash) const noexcept -> ApiStatus {
+  IOP_TRACE();
   this->logger.debug(F("Upgrading sketch"));
 
   const auto tok = token.asString();
@@ -185,23 +223,12 @@ auto Api::upgrade(const AuthToken &token, const MacAddress &mac,
   path += F("/");
   path += mac.asString().get();
 
-  auto clientResult = this->network().wifiClient(path);
-  if (IS_ERR(clientResult)) {
-    const auto rawStatus = UNWRAP_ERR_REF(clientResult);
-    const auto apiStatus = this->network().apiStatus(rawStatus);
-    if (apiStatus.isSome())
-      return UNWRAP_REF(apiStatus);
-
-    const auto s = Network::rawStatusToString(rawStatus);
-    this->logger.warn(F("Api::upgrade returned invalid RawStatus: "), s);
-    return ApiStatus::BROKEN_SERVER;
-  }
-  auto &client = UNWRAP_OK_MUT(clientResult).get();
+  auto &client = Network::wifiClient();
 
   const auto *const version = sketchHash.asString().get();
   // TODO: upstream we already can use the setAuthorization header, but it's not
   // published
-  const auto uri = String(this->host().asCharPtr()) + path;
+  const auto uri = String(this->host().get()) + path;
 
   ESPhttpUpdate.closeConnectionsOnUpdate(true);
   ESPhttpUpdate.rebootOnUpdate(true);
@@ -225,29 +252,35 @@ auto Api::upgrade(const AuthToken &token, const MacAddress &mac,
     return ApiStatus::BROKEN_SERVER;
   }
 }
-#endif
-
-#ifdef IOP_API_DISABLED
-void Api::setup() const { Network::setup(); }
-
-bool Api::isConnected() const noexcept { return true; }
-void Api::disconnect() const noexcept {}
-LogLevel Api::loggerLevel() const noexcept { return this->logger.level(); }
-
-ApiStatus Api::upgrade(const AuthToken &token,
-                       const MD5Hash sketchHash) const noexcept {
-  (void)token;
-  (void)sketchHash;
-  return Option<HttpCode>(200);
+#else
+auto Api::loggerLevel() const noexcept -> LogLevel {
+  IOP_TRACE();
+  return this->logger.level();
 }
-ApiStatus Api::registerEvent(const AuthToken &authToken,
-                             const Event &event) const noexcept {
-  return Option<HttpCode>(200);
+auto Api::upgrade(const AuthToken &token, const MacAddress &mac,
+                  const MD5Hash &sketchHash) const noexcept -> ApiStatus {
+  IOP_TRACE();
+  return ApiStatus::OK;
 }
-
-Result<AuthToken, ApiStatus>
-Api::authenticate(const StringView username,
-                  const StringView password) const noexcept {
+auto Api::reportPanic(const AuthToken &authToken, const MacAddress &mac,
+                      const PanicData &event) const noexcept -> ApiStatus {
+  IOP_TRACE();
+  return ApiStatus::OK;
+}
+auto Api::registerEvent(const AuthToken &token,
+                        const Event &event) const noexcept -> ApiStatus {
+  IOP_TRACE();
+  return ApiStatus::OK;
+}
+auto Api::authenticate(StringView username, StringView password,
+                       const MacAddress &mac) const noexcept
+    -> Result<AuthToken, ApiStatus> {
+  IOP_TRACE();
   return AuthToken::empty();
+}
+auto Api::registerLog(const AuthToken &authToken, const MacAddress &mac,
+                      StringView log) const noexcept -> ApiStatus {
+  IOP_TRACE();
+  return ApiStatus::OK;
 }
 #endif

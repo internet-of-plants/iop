@@ -4,6 +4,9 @@
 #include "api.hpp"
 #include "configuration.h"
 #include "flash.hpp"
+#include "static_string.hpp"
+#include "string_view.hpp"
+#include "unsafe_raw_string.hpp"
 #include <Arduino.h>
 
 class ByteRate {
@@ -42,47 +45,51 @@ static String currentLog; // NOLINT cert-err58-cpp
 // the TCP connection to many
 
 PROGMEM_STRING(missingHost, "No host available");
-static Api api(host.asRef().expect(missingHost), WARN);
-static Flash flash(WARN);
+static Api api(host.asRef().expect(missingHost), LogLevel::WARN);
+static Flash flash(LogLevel::WARN);
+#ifdef IOP_NETWORK_LOGGING
 static bool logNetwork = true;
+#endif
 
-void Log::print(const StaticString str) noexcept {
-  Serial.print(str.get());
+void Log::print(const __FlashStringHelper *str) noexcept {
+  Serial.print(str);
+#ifdef IOP_NETWORK_LOGGING
   if (logNetwork) {
-    currentLog += str.get();
-    byteRate.addBytes(str.length());
+    currentLog += str;
+    byteRate.addBytes(strlen_P(reinterpret_cast<PGM_P>(str)));
   }
+#endif
 }
-void Log::print(const StringView str) noexcept {
-  Serial.print(str.get());
+void Log::print(const char *str) noexcept {
+  Serial.print(str);
+#ifdef IOP_NETWORK_LOGGING
   if (logNetwork) {
-    currentLog += str.get();
-    byteRate.addBytes(str.length());
+    currentLog += str;
+    byteRate.addBytes(strlen(str));
   }
+#endif
 }
 
 void Log::reportLog() noexcept {
-  if (!logNetwork) {
-    currentLog.clear();
+#ifdef IOP_NETWORK_LOGGING
+  if (!logNetwork)
     return;
-  }
 
   const auto maybeToken = flash.readAuthToken();
   if (maybeToken.isSome()) {
-    const auto oldLogNetwork = logNetwork;
     logNetwork = false;
-
-    static auto mac = utils::macAddress();
-    api.registerLog(UNWRAP_REF(maybeToken), mac, currentLog);
-
-    logNetwork = oldLogNetwork;
+    api.registerLog(UNWRAP_REF(maybeToken), utils::macAddress(), currentLog);
+    logNetwork = true;
   }
   currentLog.clear();
+#endif
 }
 
-void Log::setup() const noexcept {
-  constexpr const uint32_t BAUD_RATE = 9600;
+void Log::setup() noexcept {
+  constexpr const uint32_t BAUD_RATE = 115200;
   Serial.begin(BAUD_RATE);
+  if (logLevel <= LogLevel::TRACE)
+    Serial.setDebugOutput(true);
 
   constexpr const uint32_t thirtySec = 30 * 1000;
   const auto end = millis() + thirtySec;
@@ -90,49 +97,61 @@ void Log::setup() const noexcept {
   while (!Serial && millis() < end)
     yield();
 
-  this->info(F("Setup"));
+  Log(LogLevel::INFO, F("LOG")).info(F("Setup"));
 }
 
-void Log::printLogType(const enum LogType logType,
+void Log::printLogType(const LogType logType,
                        const LogLevel level) const noexcept {
+  if (logLevel_ == LogLevel::NO_LOG)
+    return;
+
   switch (logType) {
-  case CONTINUITY:
+  case LogType::CONTINUITY:
     break;
-  case START:
+
+  case LogType::START:
     this->print(F("["));
+
     switch (level) {
-    case TRACE:
+    case LogLevel::TRACE:
       this->print(F("TRACE"));
       break;
-    case DEBUG:
+
+    case LogLevel::DEBUG:
       this->print(F("DEBUG"));
       break;
-    case INFO:
+
+    case LogLevel::INFO:
       this->print(F("INFO"));
       break;
-    case WARN:
+
+    case LogLevel::WARN:
       this->print(F("WARN"));
       break;
-    case ERROR:
+
+    case LogLevel::ERROR:
       this->print(F("ERROR"));
       break;
-    case NO_LOG:
+
+    case LogLevel::NO_LOG:
       return;
-    case CRIT:
+
+    case LogLevel::CRIT:
     default:
       this->print(F("CRIT"));
       break;
     }
+
     this->print(F("] "));
-    this->print(this->targetLogger);
+    this->print(this->targetLogger.get());
     this->print(F(": "));
   };
 }
 
-void Log::log(const enum LogLevel level, const StaticString msg,
-              const enum LogType logType,
+void Log::log(const LogLevel level, const StaticString msg,
+              const LogType logType,
               const StaticString lineTermination) const noexcept {
-  if (this->logLevel > level)
+  if (this->logLevel_ > level)
     return;
 
   if (this->flush)
@@ -140,44 +159,42 @@ void Log::log(const enum LogLevel level, const StaticString msg,
 
   this->printLogType(logType, level);
 
-  this->print(msg);
-  this->print(lineTermination);
+  this->print(msg.get());
+  this->print(lineTermination.get());
   if (this->flush)
     Serial.flush();
 }
 
-void Log::log(const enum LogLevel level, const StringView msg,
-              const enum LogType logType,
+void Log::log(const LogLevel level, const StringView msg, const LogType logType,
               const StaticString lineTermination) const noexcept {
-  if (this->logLevel > level)
+  if (this->logLevel_ > level)
     return;
 
   if (this->flush)
     Serial.flush();
 
   this->printLogType(logType, level);
-  this->print(msg);
-  this->print(lineTermination);
+  this->print(msg.get());
+  this->print(lineTermination.get());
   if (this->flush)
     Serial.flush();
 }
 #else
-void Log::setup() const {}
-void Log::printLogType(const enum LogType logType,
+void Log::setup() noexcept {}
+void Log::printLogType(const LogType logType,
                        const LogLevel level) const noexcept {
   (void)logType;
   (void)level;
 }
-void Log::log(const enum LogLevel level, const StringView msg,
-              const enum LogType logType,
+void Log::log(const LogLevel level, const StringView msg, const LogType logType,
               const StaticString lineTermination) const noexcept {
   (void)level;
   (void)msg;
   (void)logType;
   (void)lineTermination;
 }
-void Log::log(const enum LogLevel level, const StaticString msg,
-              const enum LogType logType,
+void Log::log(const LogLevel level, const StaticString msg,
+              const LogType logType,
               const StaticString lineTermination) const noexcept {
   (void)level;
   (void)msg;

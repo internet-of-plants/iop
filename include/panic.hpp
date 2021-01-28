@@ -1,6 +1,8 @@
 #ifndef IOP_PANIC_HPP
 #define IOP_PANIC_HPP
 
+#include "certificate_storage.hpp"
+
 #include "WString.h"
 #include <cstdint>
 #include <string>

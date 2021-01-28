@@ -1,12 +1,16 @@
 #ifndef IOP_RESULT_HPP
 #define IOP_RESULT_HPP
 
+#include "certificate_storage.hpp"
+
 #include "option.hpp"
 #include "string_view.hpp"
-#include <functional>
 
 #include "panic.hpp"
 #include "static_string.hpp"
+#include "tracer.hpp"
+
+#include <functional>
 
 #define RESULT_MAP_OK(res, type, func)                                         \
   res.mapOk<type>(func, F(#res), CUTE_FILE, CUTE_LINE, CUTE_FUNC)
@@ -50,46 +54,57 @@
 /// Pwease no exception at T's or E's destructor
 template <typename T, typename E> class Result {
 private:
-  enum ResultKind { OK = 40, ERROR, EMPTY };
-  enum ResultKind kind_;
+  enum class ResultKind { EMPTY = 0, OK, ERROR };
+  ResultKind kind_;
   union {
     uint8_t dummy;
     T success;
     E error;
   };
 
-  auto isEmpty() const noexcept -> bool { return this->kind_ == EMPTY; }
+  auto isEmpty() const noexcept -> bool {
+    IOP_TRACE();
+    return this->kind_ == ResultKind::EMPTY;
+  }
   void reset() noexcept {
+    IOP_TRACE();
     switch (this->kind_) {
-    case EMPTY:
+    case ResultKind::EMPTY:
       return;
-    case OK:
+    case ResultKind::OK:
       this->success.~T();
       break;
-    case ERROR:
+    case ResultKind::ERROR:
       this->error.~E();
       break;
     }
+    this->dummy = 0;
+    this->kind_ = ResultKind::EMPTY;
   }
 
 public:
   // NOLINTNEXTLINE hicpp-explicit-conversions
-  Result(T v) noexcept : kind_(OK), success(std::move(v)) {}
+  Result(T v) noexcept : kind_(ResultKind::OK), success(std::move(v)) {
+    IOP_TRACE();
+  }
   // NOLINTNEXTLINE hicpp-explicit-conversions
-  Result(E e) noexcept : kind_(ERROR), error(std::move(e)) {}
+  Result(E e) noexcept : kind_(ResultKind::ERROR), error(std::move(e)) {
+    IOP_TRACE();
+  }
   Result(Result<T, E> &other) = delete;
   auto operator=(Result<T, E> &other) -> Result<T, E> & = delete;
   auto operator=(Result<T, E> &&other) noexcept -> Result<T, E> & {
+    IOP_TRACE();
     this->reset();
     this->kind_ = other.kind_;
     switch (this->kind_) {
-    case OK:
+    case ResultKind::OK:
       this->success = std::move(other.success);
       break;
-    case ERROR:
+    case ResultKind::ERROR:
       this->error = std::move(other.error);
       break;
-    case EMPTY:
+    case ResultKind::EMPTY:
       panic_(F("Result is empty"));
       break;
     }
@@ -97,146 +112,33 @@ public:
     return *this;
   }
   Result(Result<T, E> &&other) noexcept {
+    IOP_TRACE();
     this->reset();
     this->kind_ = other.kind_;
     switch (this->kind_) {
-    case OK:
+    case ResultKind::OK:
       this->success = std::move(other.success);
       break;
-    case ERROR:
+    case ResultKind::ERROR:
       this->error = std::move(other.error);
       break;
-    case EMPTY:
+    case ResultKind::EMPTY:
       panic_(F("Result is empty"));
       break;
     }
     other.reset();
   }
-  ~Result() noexcept { this->reset(); }
-  auto isOk() const noexcept -> bool {
-    switch (this->kind_) {
-    case OK:
-      return true;
-    case ERROR:
-      return false;
-    case EMPTY:
-    default:
-      panic_(F("Result is empty"));
-    }
-  }
-  auto isErr() const noexcept -> bool {
-    switch (this->kind_) {
-    case OK:
-      return true;
-    case ERROR:
-      return false;
-    case EMPTY:
-    default:
-      panic_(F("Result is empty"));
-    }
-  }
-  auto expectOk(const StringView msg) noexcept -> T {
-    if (IS_ERR(*this))
-      panic_(msg);
-
-    T value = std::move(this->success);
+  ~Result() noexcept {
+    IOP_TRACE();
     this->reset();
-    return value;
-  }
-  auto expectOk(const StaticString msg) noexcept -> T {
-    if (IS_ERR(*this))
-      panic_(msg);
-
-    T value = std::move(this->success);
-    this->reset();
-    return value;
-  }
-  auto unwrapOkOr(const T or_) noexcept -> T {
-    if (IS_ERR(*this))
-      return or_;
-
-    const auto val = std::move(this->success);
-    this->reset();
-    return val;
-  }
-  auto expectErr(const StringView msg) noexcept -> E {
-    if (IS_OK(*this))
-      panic_(msg);
-
-    const E value = std::move(this->error);
-    this->reset();
-    return value;
-  }
-  auto expectErr(const StaticString msg) noexcept -> E {
-    if (IS_OK(*this))
-      panic_(msg);
-
-    E value = std::move(this->error);
-    this->reset();
-    return value;
-  }
-  auto unwrapErrOr(const E or_) noexcept -> E {
-    if (IS_OK(*this))
-      return or_;
-
-    const auto val = std::move(this->err);
-    this->reset();
-    return val;
   }
 
-  auto asMut() noexcept
-      -> Result<std::reference_wrapper<T>, std::reference_wrapper<E>> {
-    if (IS_OK(*this)) {
-      return std::reference_wrapper<T>(this->success);
-    } else {
-      return std::reference_wrapper<E>(this->error);
-    }
-  }
-
-  auto asRef() const noexcept -> Result<std::reference_wrapper<const T>,
-                                        std::reference_wrapper<const E>> {
-    if (IS_OK(*this)) {
-      return std::reference_wrapper<const T>(this->success);
-    } else {
-      return std::reference_wrapper<const E>(this->error);
-    }
-  }
-
-  template <typename U>
-  auto mapOk(std::function<U(const T)> f) noexcept -> Result<U, E> {
-    if (IS_OK(*this)) {
-      auto val = f(std::move(this->success));
-      this->reset();
-      return std::move(val);
-    } else {
-      auto val = std::move(this->error);
-      this->reset();
-      return std::move(val);
-    }
-  }
-
-  auto ok() noexcept -> Option<T> {
-    if (IS_ERR(*this))
-      return Option<T>();
-
-    auto val = std::move(this->success);
-    this->reset();
-    return std::move(val);
-  }
-
-  auto err() noexcept -> Option<T> {
-    if (IS_OK(*this))
-      return Option<T>();
-
-    auto val = std::move(this->error);
-    this->reset();
-    return std::move(val);
-  }
-
-  // Allows more detailed panics, used by UNWRAP(_OK, _ERR)(_REF, _MUT) macros
+  // Use the macros, not this methods directly
+  // Allows more detailed panics, used by UNWRAP(_OK,_ERR)(_REF,_MUT) macros
   auto asMut(const StaticString varName, const StaticString file,
              const uint32_t line, const StringView func) noexcept
       -> Result<std::reference_wrapper<T>, std::reference_wrapper<E>> {
+    IOP_TRACE();
     if (this->isOk(varName, file, line, func)) {
       return std::reference_wrapper<T>(this->success);
     } else {
@@ -248,42 +150,25 @@ public:
              const uint32_t line, const StringView func) const noexcept
       -> Result<std::reference_wrapper<const T>,
                 std::reference_wrapper<const E>> {
+    IOP_TRACE();
     if (this->isOk(varName, file, line, func)) {
       return std::reference_wrapper<const T>(this->success);
     } else {
       return std::reference_wrapper<const E>(this->error);
     }
   }
-
-  auto expectOk(const StringView msg, const StaticString file,
-                const uint32_t line, const StringView func) noexcept -> T {
-    if (this->isErr(msg, file, line, func))
-      panic__(msg, file, line, func);
-
-    T value = std::move(this->success);
-    this->reset();
-    return value;
-  }
   auto expectOk(const StaticString msg, const StaticString file,
                 const uint32_t line, const StringView func) noexcept -> T {
+    IOP_TRACE();
     if (this->isErr(msg, file, line, func))
       panic__(msg, file, line, func);
-
     T value = std::move(this->success);
-    this->reset();
-    return value;
-  }
-  auto expectErr(const StringView msg, const StaticString file,
-                 const uint32_t line, const StringView func) noexcept -> E {
-    if (this->isOk(msg, file, line, func))
-      panic__(msg, file, line, func);
-
-    T value = std::move(this->error);
     this->reset();
     return value;
   }
   auto expectErr(const StaticString msg, const StaticString file,
                  const uint32_t line, const StringView func) noexcept -> E {
+    IOP_TRACE();
     if (this->isOk(msg, file, line, func))
       panic__(msg, file, line, func);
 
@@ -293,6 +178,7 @@ public:
   }
   auto ok(const StaticString varName, const StaticString file,
           const uint32_t line, const StringView func) noexcept -> Option<T> {
+    IOP_TRACE();
     if (this->isErr(varName, file, line, func))
       return Option<T>();
 
@@ -303,6 +189,7 @@ public:
 
   auto err(const StaticString varName, const StaticString file,
            const uint32_t line, const StringView func) noexcept -> Option<T> {
+    IOP_TRACE();
     if (this->isOk(varName, file, line, func))
       return Option<T>();
 
@@ -315,6 +202,7 @@ public:
   auto mapOk(std::function<U(const T)> f, const StaticString varName,
              const StaticString file, const uint32_t line,
              const StringView func) noexcept -> Result<U, E> {
+    IOP_TRACE();
     if (this->isOk(varName, file, line, func)) {
       const auto val = f(std::move(this->success));
       this->reset();
@@ -329,6 +217,7 @@ public:
   auto unwrapOkOr(const T or_, const StaticString varName,
                   const StaticString file, const uint32_t line,
                   const StringView func) noexcept -> T {
+    IOP_TRACE();
     if (this->isErr(varName, file, line, func))
       return or_;
 
@@ -339,6 +228,7 @@ public:
   auto unwrapErrOr(const E or_, const StaticString varName,
                    const StaticString file, const uint32_t line,
                    const StringView func) noexcept -> E {
+    IOP_TRACE();
     if (this->isOk(varName, file, line, func))
       return or_;
 
@@ -348,12 +238,13 @@ public:
   }
   auto isOk(const StaticString varName, const StaticString file,
             const uint32_t line, const StringView func) const noexcept -> bool {
+    IOP_TRACE();
     switch (this->kind_) {
-    case OK:
+    case ResultKind::OK:
       return true;
-    case ERROR:
+    case ResultKind::ERROR:
       return false;
-    case EMPTY:
+    case ResultKind::EMPTY:
     default:
       panic__(String(F("Empty Result: ")) + varName.get(), file, line, func);
     }
@@ -361,6 +252,7 @@ public:
   auto isErr(const StaticString varName, const StaticString file,
              const uint32_t line, const StringView func) const noexcept
       -> bool {
+    IOP_TRACE();
     return !this->isOk(varName, file, line, func);
   }
 };
