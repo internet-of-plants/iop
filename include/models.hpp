@@ -40,9 +40,20 @@ struct PanicData {
   StringView func;
 };
 
-struct WifiCredentials {
+class WifiCredentials {
+public:
   NetworkName ssid;
   NetworkPassword password;
+
+  ~WifiCredentials() noexcept = default;
+  WifiCredentials(NetworkName ssid, NetworkPassword pass) noexcept
+      : ssid(std::move(ssid)), password(std::move(pass)) {}
+  WifiCredentials(const WifiCredentials &cred) noexcept = default;
+  WifiCredentials(WifiCredentials &&cred) noexcept = default;
+  auto operator=(const WifiCredentials &cred) noexcept
+      -> WifiCredentials & = default;
+  auto operator=(WifiCredentials &&cred) noexcept
+      -> WifiCredentials & = default;
 };
 
 struct EventStorage {
@@ -58,23 +69,25 @@ public:
   EventStorage storage;
   MacAddress mac;
   MD5Hash firmwareHash;
-  ~Event() { IOP_TRACE(); }
+  ~Event() noexcept { IOP_TRACE(); }
   Event(EventStorage storage, MacAddress mac, MD5Hash firmwareHash) noexcept
       : storage(storage), mac(std::move(mac)),
         firmwareHash(std::move(firmwareHash)) {
     IOP_TRACE();
   }
-  Event(Event const &ev)
+  Event(Event const &ev) noexcept
       : storage(ev.storage), mac(ev.mac), firmwareHash(ev.firmwareHash) {
     IOP_TRACE();
   }
-  Event(Event &&ev)
-      : storage(std::move(ev.storage)), mac(std::move(ev.mac)),
+  Event(Event &&ev) noexcept
+      : storage(ev.storage), mac(std::move(ev.mac)),
         firmwareHash(std::move(ev.firmwareHash)) {
     IOP_TRACE();
   }
-  auto operator=(Event const &ev) -> Event & {
+  auto operator=(Event const &ev) noexcept -> Event & {
     IOP_TRACE();
+    if (this == &ev)
+      return *this;
     this->storage = ev.storage;
     this->mac = ev.mac;
     this->firmwareHash = ev.firmwareHash;
@@ -82,7 +95,7 @@ public:
   }
   auto operator=(Event &&ev) noexcept -> Event & {
     IOP_TRACE();
-    this->storage = std::move(ev.storage);
+    this->storage = ev.storage;
     this->mac = std::move(ev.mac);
     this->firmwareHash = std::move(ev.firmwareHash);
     return *this;

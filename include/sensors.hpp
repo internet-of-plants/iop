@@ -32,7 +32,7 @@ public:
           const uint8_t dhtVersion) noexcept
       : soilResistivityPowerPin(soilResistivityPowerPin),
         soilTemperatureOneWireBus(try_make_shared<OneWire>(soilTemperaturePin)),
-        // SELF_REF: this is dangerous, although allocation helps a lot.
+        /* SELF_REF: this is dangerous, although allocation helps a lot. */
         soilTemperatureSensor(soilTemperatureOneWireBus.get()),
         airTempAndHumiditySensor(dhtPin, dhtVersion) {
     IOP_TRACE();
@@ -53,6 +53,9 @@ public:
   Sensors(Sensors &&other) = delete;
   auto operator=(Sensors const &other) -> Sensors & {
     IOP_TRACE();
+    if (this == &other)
+      return *this;
+
     this->soilResistivityPowerPin = other.soilResistivityPowerPin;
     this->soilTemperatureOneWireBus = other.soilTemperatureOneWireBus;
     this->soilTemperatureSensor = other.soilTemperatureSensor;

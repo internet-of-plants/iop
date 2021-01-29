@@ -77,16 +77,25 @@ public:
   Storage<SIZE>(Storage<SIZE> const &other) noexcept : val(other.val) {
     IOP_TRACE();
   }
+  // NOLINTNEXTLINE cert-oop11-cpp
   Storage<SIZE>(Storage<SIZE> &&other) noexcept : val(other.val) {
     IOP_TRACE();
   }
+  // NOLINTNEXTLINE cert-oop54-cpp
   auto operator=(Storage<SIZE> const &other) noexcept -> Storage<SIZE> & {
+    if (this == &other)
+      return *this;
+
     IOP_TRACE();
     this->val = other.val;
     return *this;
   }
+  // NOLINTNEXTLINE cert-oop11-cpp
   auto operator=(Storage<SIZE> &&other) noexcept -> Storage<SIZE> & {
     IOP_TRACE();
+    if (this == &other)
+      return *this;
+
     this->val = other.val;
     return *this;
   }
@@ -111,6 +120,7 @@ public:
     return Storage<SIZE>((InnerStorage){0});
   }
 
+  // NOLINTNEXTLINE performance-unnecessary-value-param
   static auto fromStringTruncating(const StringView str) noexcept
       -> Storage<SIZE> {
     IOP_TRACE();
@@ -121,7 +131,7 @@ public:
     strncpy(reinterpret_cast<char *>(val.mutPtr()), str.get(), len);
     return val;
   }
-
+  // NOLINTNEXTLINE performance-unnecessary-value-param
   static auto fromString(const StringView str) noexcept
       -> Result<Storage<SIZE>, enum ParseError> {
         IOP_TRACE(); if (str.length() > SIZE) return ParseError::TOO_BIG;
@@ -149,17 +159,21 @@ public:
     name##_class(name##_class const &other) noexcept : val(other.val) {        \
       IOP_TRACE();                                                             \
     }                                                                          \
-    name##_class(name##_class &&other) noexcept : val(other.val) {             \
+    name##_class(name##_class &&other) noexcept : val(std::move(other.val)) {  \
       IOP_TRACE();                                                             \
     };                                                                         \
     auto operator=(name##_class const &other) noexcept -> name##_class & {     \
       IOP_TRACE();                                                             \
+      if (this == &other)                                                      \
+        return *this;                                                          \
       this->val = other.val;                                                   \
       return *this;                                                            \
     }                                                                          \
     auto operator=(name##_class &&other) noexcept -> name##_class & {          \
       IOP_TRACE();                                                             \
-      this->val = other.val;                                                   \
+      if (this == &other)                                                      \
+        return *this;                                                          \
+      this->val = std::move(other.val);                                        \
       return *this;                                                            \
     }                                                                          \
     auto constPtr() const noexcept -> const uint8_t * {                        \
@@ -183,18 +197,18 @@ public:
       IOP_TRACE();                                                             \
       return this->val.asSharedArray();                                        \
     }                                                                          \
-    static auto fromStringTruncating(const StringView str) noexcept -> name    \
+    static auto fromStringTruncating(StringView str) noexcept -> name          \
         ##_class {                                                             \
       IOP_TRACE();                                                             \
-      return name##_class(InnerStorage::fromStringTruncating(str));            \
+      return name##_class(InnerStorage::fromStringTruncating(std::move(str))); \
     }                                                                          \
-    static auto fromString(const StringView str) noexcept                      \
+    static auto fromString(StringView str) noexcept                            \
         -> Result<name##_class, enum ParseError> {                             \
-          IOP_TRACE(); auto inner = InnerStorage::fromString(str);             \
+          IOP_TRACE(); auto inner = InnerStorage::fromString(std::move(str));  \
           if (IS_OK(inner)) return name##_class(UNWRAP_OK(inner));             \
           return UNWRAP_ERR(inner);                                            \
         }                                                                      \
   };                                                                           \
-  using name = name##_class;
+  using name = name##_class; // NOLINT bugprone-macro-parentheses
 
 #endif

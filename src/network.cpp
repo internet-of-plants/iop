@@ -15,11 +15,11 @@
 
 #ifndef IOP_NETWORK_DISABLED
 
-Response::Response(const ApiStatus status)
+Response::Response(const ApiStatus &status) noexcept
     : status(status), payload(Option<String>()) {
   IOP_TRACE();
 }
-Response::Response(ApiStatus status, String payload) noexcept
+Response::Response(const ApiStatus &status, String payload) noexcept
     : status(status), payload(std::move(payload)) {
   IOP_TRACE();
 }
@@ -35,7 +35,7 @@ auto Response::operator=(Response &&resp) noexcept -> Response & {
   return *this;
 }
 
-Response::~Response() {
+Response::~Response() noexcept {
   IOP_TRACE();
   if (logLevel > LogLevel::TRACE)
     return;
@@ -108,7 +108,7 @@ auto Network::setup() const noexcept -> void {
 #endif
 }
 
-static auto methodToString(const HttpMethod method) noexcept
+static auto methodToString(const HttpMethod &method) noexcept
     -> Option<StaticString> {
   IOP_TRACE();
   switch (method) {
@@ -140,11 +140,10 @@ auto Network::wifiClient() noexcept -> WiFiClient & {
 
 // Returns Response if it can understand what the server sent, int is the raw
 // status code given by ESP8266HTTPClient
-auto Network::httpRequest(const HttpMethod method_,
-                          const Option<StringView> &token,
-                          const StringView path,
-                          const Option<StringView> &data) const noexcept
-    -> Result<Response, int> {
+auto Network::httpRequest(
+    const HttpMethod method_, const Option<StringView> &token,
+    const StringView path, // NOLINT performance-unnecessary-value-param
+    const Option<StringView> &data) const noexcept -> Result<Response, int> {
   IOP_TRACE();
 
   if (!Network::isConnected())
@@ -202,51 +201,66 @@ auto Network::httpRequest(const HttpMethod method_,
   return code;
 }
 #else
-void Network::setup() const noexcept { IOP_TRACE(); }
+void Network::setup() const noexcept {
+  (void)*this;
+  IOP_TRACE();
+}
 void Network::disconnect() noexcept { IOP_TRACE(); }
 auto Network::isConnected() noexcept -> bool {
   IOP_TRACE();
   return true;
 }
-auto Network::httpRequest(HttpMethod method, Option<StringView> token,
-                          StringView path,
-                          Option<StringView> data) const noexcept
-    -> Result<Response, int> {
+auto Network::httpRequest(
+    const HttpMethod method, const Option<StringView> &token,
+    const StringView path, // NOLINT performance-unnecessary-value-param
+    const Option<StringView> &data) const noexcept -> Result<Response, int> {
+  (void)*this;
+  (void)token;
+  (void)method;
+  (void)path;
+  (void)data;
   IOP_TRACE();
   return Response(ApiStatus::OK);
 }
 #endif
 
-auto Network::httpPut(const StringView token, const StaticString path,
-                      const StringView data) const noexcept
-    -> Result<Response, int> {
+auto Network::httpPut(
+    const StringView token,  // NOLINT performance-unnecessary-value-param
+    const StaticString path, // NOLINT performance-unnecessary-value-param
+    const StringView data    // NOLINT performance-unnecessary-value-param
+) const noexcept -> Result<Response, int> {
   IOP_TRACE();
   return this->httpRequest(HttpMethod::PUT, token, String(path.get()), data);
 }
 
-auto Network::httpPost(const StringView token, const StaticString path,
-                       const StringView data) const noexcept
-    -> Result<Response, int> {
+auto Network::httpPost(
+    const StringView token,  // NOLINT performance-unnecessary-value-param
+    const StaticString path, // NOLINT performance-unnecessary-value-param
+    const StringView data    // NOLINT performance-unnecessary-value-param
+) const noexcept -> Result<Response, int> {
   IOP_TRACE();
   return this->httpRequest(HttpMethod::POST, token, String(path.get()), data);
 }
 
-auto Network::httpPost(const StringView token, const StringView path,
-                       const StringView data) const noexcept
-    -> Result<Response, int> {
+auto Network::httpPost(
+    const StringView token, // NOLINT performance-unnecessary-value-param
+    const StringView path,  // NOLINT performance-unnecessary-value-param
+    const StringView data   // NOLINT performance-unnecessary-value-param
+) const noexcept -> Result<Response, int> {
   IOP_TRACE();
   return this->httpRequest(HttpMethod::POST, token, path, data);
 }
 
-auto Network::httpPost(const StaticString path,
-                       const StringView data) const noexcept
-    -> Result<Response, int> {
+auto Network::httpPost(
+    const StaticString path, // NOLINT performance-unnecessary-value-param
+    const StringView data    // NOLINT performance-unnecessary-value-param
+) const noexcept -> Result<Response, int> {
   IOP_TRACE();
   return this->httpRequest(HttpMethod::POST, Option<StringView>(),
                            String(path.get()), data);
 }
 
-auto Network::rawStatusToString(const RawStatus status) noexcept
+auto Network::rawStatusToString(const RawStatus &status) noexcept
     -> StaticString {
   IOP_TRACE();
   switch (status) {
@@ -324,7 +338,7 @@ auto Network::rawStatus(const int code) const noexcept -> RawStatus {
   return RawStatus::UNKNOWN;
 }
 
-auto Network::apiStatusToString(const ApiStatus status) noexcept
+auto Network::apiStatusToString(const ApiStatus &status) noexcept
     -> StaticString {
   IOP_TRACE();
   switch (status) {
@@ -350,7 +364,7 @@ auto Network::apiStatusToString(const ApiStatus status) noexcept
   return F("UNKNOWN");
 }
 
-auto Network::apiStatus(const RawStatus raw) const noexcept
+auto Network::apiStatus(const RawStatus &raw) const noexcept
     -> Option<ApiStatus> {
   IOP_TRACE();
   switch (raw) {

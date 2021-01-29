@@ -27,6 +27,7 @@ public:
       : str(std::move(other.str)) {
     IOP_TRACE();
   }
+  // NOLINTNEXTLINE cert-oop54-cpp
   auto operator=(FixedString<SIZE> const &other) -> FixedString<SIZE> & {
     IOP_TRACE();
     this->str = other.str;
@@ -34,7 +35,9 @@ public:
   }
   auto operator=(FixedString<SIZE> &&other) noexcept -> FixedString<SIZE> & {
     IOP_TRACE();
-    this->str = other.asStorage();
+    if (this == &other)
+      return *this;
+    this->str = std::move(other.str);
     return *this;
   }
   constexpr auto get() const noexcept -> const char * {
@@ -69,10 +72,12 @@ public:
     IOP_TRACE();
     return this->str.asString();
   }
+  // NOLINTNEXTLINE performance-unnecessary-value-param
   static auto fromString(const StringView str) noexcept
       -> Result<FixedString<SIZE>, enum ParseError> {
         IOP_TRACE(); return FixedString<SIZE>(Storage<SIZE>::fromString(str));
       }
+  // NOLINTNEXTLINE performance-unnecessary-value-param
   static auto fromStringTruncating(const StringView str) noexcept
       -> FixedString<SIZE> {
     IOP_TRACE();

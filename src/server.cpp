@@ -238,9 +238,10 @@ auto CredentialsServer::statusToString(
   return Option<StaticString>();
 }
 
-auto CredentialsServer::connect(const StringView ssid,
-                                const StringView password) const noexcept
-    -> void {
+auto CredentialsServer::connect(
+    const StringView ssid,    // NOLINT performance-unnecessary-value-param
+    const StringView password // NOLINT performance-unnecessary-value-param
+) const noexcept -> void {
   IOP_TRACE();
   if (wifi_station_get_connect_status() == STATION_CONNECTING) {
     ETS_UART_INTR_DISABLE(); // NOLINT hicpp-signed-bitwise
@@ -271,11 +272,10 @@ auto CredentialsServer::connect(const StringView ssid,
 }
 
 /// Forbidden (403): invalid credentials
-auto CredentialsServer::authenticate(const StringView username,
-                                     const StringView password,
-                                     const MacAddress &mac,
-                                     const Api &api) const noexcept
-    -> Option<AuthToken> {
+auto CredentialsServer::authenticate(
+    const StringView username, // NOLINT performance-unnecessary-value-param
+    const StringView password, // NOLINT performance-unnecessary-value-param
+    const MacAddress &mac, const Api &api) const noexcept -> Option<AuthToken> {
   IOP_TRACE();
   WiFi.mode(WIFI_STA);
   auto authToken = api.authenticate(username, password, mac);
@@ -387,11 +387,22 @@ auto CredentialsServer::serve(const Option<WifiCredentials> &storedWifi,
                               const MacAddress &mac, const Api &api) noexcept
     -> Option<AuthToken> {
   IOP_TRACE();
+  (void)*this;
+  (void)api;
   (void)mac;
   (void)storedWifi;
   return Option<AuthToken>();
 }
-void CredentialsServer::setup() const noexcept { IOP_TRACE(); }
-void CredentialsServer::close() noexcept { IOP_TRACE(); }
-void CredentialsServer::start() noexcept { IOP_TRACE(); }
+void CredentialsServer::setup() const noexcept {
+  (void)*this;
+  IOP_TRACE();
+}
+void CredentialsServer::close() noexcept {
+  (void)*this;
+  IOP_TRACE();
+}
+void CredentialsServer::start() noexcept {
+  (void)*this;
+  IOP_TRACE();
+}
 #endif

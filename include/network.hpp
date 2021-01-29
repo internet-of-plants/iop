@@ -32,12 +32,12 @@ class Response {
 public:
   ApiStatus status;
   Option<String> payload;
-  ~Response();
-  explicit Response(const ApiStatus status) noexcept;
-  Response(ApiStatus status, String payload) noexcept;
+  ~Response() noexcept;
+  explicit Response(const ApiStatus &status) noexcept;
+  Response(const ApiStatus &status, String payload) noexcept;
   Response(Response &resp) noexcept = delete;
   Response(Response &&resp) noexcept;
-  auto operator=(Response &resp) -> Response & = delete;
+  auto operator=(Response &resp) noexcept -> Response & = delete;
   auto operator=(Response &&resp) noexcept -> Response &;
 };
 
@@ -78,7 +78,8 @@ class Network {
 
 public:
   ~Network() { IOP_TRACE(); }
-  Network(const StaticString host, const LogLevel logLevel) noexcept
+  // NOLINTNEXTLINE performance-unnecessary-value-param
+  Network(const StaticString host, const LogLevel &logLevel) noexcept
       : host_(host), logger(logLevel, F("NETWORK")) {
     IOP_TRACE();
   }
@@ -88,6 +89,8 @@ public:
   Network(Network &&other) = delete;
   auto operator=(Network const &other) -> Network & {
     IOP_TRACE();
+    if (this == &other)
+      return *this;
     this->host_ = other.host_;
     this->logger = other.logger;
     return *this;
@@ -109,11 +112,13 @@ public:
       -> Result<Response, int>;
 
   static auto wifiClient() noexcept -> WiFiClient &;
-  static auto rawStatusToString(RawStatus status) noexcept -> StaticString;
+  static auto rawStatusToString(const RawStatus &status) noexcept
+      -> StaticString;
   auto rawStatus(int code) const noexcept -> RawStatus;
 
-  static auto apiStatusToString(ApiStatus status) noexcept -> StaticString;
-  auto apiStatus(RawStatus raw) const noexcept -> Option<ApiStatus>;
+  static auto apiStatusToString(const ApiStatus &status) noexcept
+      -> StaticString;
+  auto apiStatus(const RawStatus &raw) const noexcept -> Option<ApiStatus>;
 
   auto host() const noexcept -> StaticString {
     IOP_TRACE();

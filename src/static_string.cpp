@@ -25,32 +25,16 @@ StaticString::StaticString(const __FlashStringHelper *str) noexcept : str(str) {
   Serial.println(F(")"));
   Serial.flush();
 }
-StaticString::StaticString(StaticString const &other) noexcept
-    : str(other.str) {
-  // IOP_TRACE();
-}
-StaticString::StaticString(StaticString &&other) noexcept : str(other.str) {
-  // IOP_TRACE();
-}
-auto StaticString::operator=(StaticString const &other) noexcept
-    -> StaticString & {
-  // IOP_TRACE();
-  this->str = other.str;
-  return *this;
-}
-auto StaticString::operator=(StaticString &&other) noexcept -> StaticString & {
-  // IOP_TRACE();
-  this->str = other.str;
-  return *this;
-}
 auto StaticString::get() const noexcept -> const __FlashStringHelper * {
   // IOP_TRACE();
   return this->str;
 }
+// NOLINTNEXTLINE performance-unnecessary-value-param
 auto StaticString::contains(const StringView needle) const noexcept -> bool {
   IOP_TRACE();
   return strstr(String(this->get()).c_str(), needle.get()) != nullptr;
 }
+// NOLINTNEXTLINE performance-unnecessary-value-param
 auto StaticString::contains(const StaticString needle) const noexcept -> bool {
   IOP_TRACE();
   return strstr_P(this->asCharPtr(), needle.asCharPtr()) != nullptr;

@@ -105,7 +105,7 @@ auto Flash::readWifiConfig() const noexcept -> Option<WifiCredentials> {
   const auto psk = NetworkPassword::fromStringTruncating(pskRaw);
 
   this->logger.trace(F("Found network credentials: "), ssid.asString());
-  const auto creds = (WifiCredentials){.ssid = ssid, .password = psk};
+  const WifiCredentials creds(ssid, psk);
   wifiCredentials = creds;
   return creds;
 }
@@ -154,23 +154,32 @@ void Flash::writeWifiConfig(const WifiCredentials &config) const noexcept {
 
 #ifdef IOP_FLASH_DISABLED
 void Flash::setup() noexcept { IOP_TRACE(); }
-Option<AuthToken> Flash::readAuthToken() const noexcept {
+auto Flash::readAuthToken() const noexcept -> Option<AuthToken> {
+  (void)*this;
   IOP_TRACE();
   return AuthToken::empty();
 }
-void Flash::removeAuthToken() const noexcept { IOP_TRACE(); }
+void Flash::removeAuthToken() const noexcept {
+  (void)*this;
+  IOP_TRACE();
+}
 void Flash::writeAuthToken(const AuthToken &token) const noexcept {
+  (void)*this;
   IOP_TRACE();
   (void)token;
 }
-void Flash::removeWifiConfig() const noexcept { IOP_TRACE(); }
-Option<WifiCredentials> Flash::readWifiConfig() const noexcept {
+void Flash::removeWifiConfig() const noexcept {
+  (void)*this;
   IOP_TRACE();
-  WifiCredentials cred = {NetworkName::empty(), NetworkPassword::empty()};
-  return cred;
 }
-void Flash::writeWifiConfig(const WifiCredentials &id) const noexcept {
+auto Flash::readWifiConfig() const noexcept -> Option<WifiCredentials> {
+  (void)*this;
   IOP_TRACE();
-  (void)id;
+  return WifiCredentials(NetworkName::empty(), NetworkPassword::empty());
+}
+void Flash::writeWifiConfig(const WifiCredentials &config) const noexcept {
+  (void)*this;
+  IOP_TRACE();
+  (void)config;
 }
 #endif

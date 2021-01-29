@@ -29,7 +29,7 @@ private:
 public:
   ~StringView();
   // NOLINTNEXTLINE hicpp-explicit-conversions
-  StringView(const UnsafeRawString str);
+  StringView(const UnsafeRawString &str) noexcept;
   // NOLINTNEXTLINE hicpp-explicit-conversions
   StringView(const std::string &str) noexcept;
   // NOLINTNEXTLINE hicpp-explicit-conversions
@@ -39,16 +39,18 @@ public:
   StringView(const FixedString<SIZE> &other) noexcept : str(other.get()) {
     // IOP_TRACER();
   }
-  StringView(const StringView &other) noexcept;
-  StringView(StringView &&other) noexcept;
+  StringView(const StringView &other) noexcept = default;
+  StringView(StringView &&other) noexcept = default;
   auto operator==(const StringView &other) const noexcept -> bool;
   auto operator==(const StaticString &other) const noexcept -> bool;
-  auto operator=(StringView const &other) noexcept -> StringView &;
-  auto operator=(StringView &&other) noexcept -> StringView &;
+  auto operator=(StringView const &other) noexcept -> StringView & = default;
+  auto operator=(StringView &&other) noexcept -> StringView & = default;
   auto get() const noexcept -> const char *;
   auto length() const noexcept -> size_t;
   auto isEmpty() const noexcept -> bool;
+  // NOLINTNEXTLINE performance-unnecessary-value-param
   auto contains(const StringView needle) const noexcept -> bool;
+  // NOLINTNEXTLINE performance-unnecessary-value-param
   auto contains(const StaticString needle) const noexcept -> bool;
   auto hash() const noexcept -> uint64_t; // FNV hash
 };

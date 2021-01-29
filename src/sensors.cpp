@@ -28,9 +28,14 @@ auto Sensors::measure(MacAddress mac, MD5Hash firmwareHash) noexcept -> Event {
       std::move(mac), std::move(firmwareHash));
 }
 #else
-void Sensors::setup() noexcept { IOP_TRACE(); }
-Event Sensors::measure(MacAddress macAddress, MD5Hash firmwareHash) noexcept {
+void Sensors::setup() noexcept {
   IOP_TRACE();
+  (void)*this;
+}
+auto Sensors::measure(MacAddress macAddress, MD5Hash firmwareHash) noexcept
+    -> Event {
+  IOP_TRACE();
+  (void)*this;
   return Event((EventStorage){0}, std::move(macAddress),
                std::move(firmwareHash));
 }

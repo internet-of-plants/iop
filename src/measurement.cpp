@@ -45,24 +45,29 @@ auto soilResistivityRaw(const uint8_t powerPin) noexcept -> uint16_t {
   return value;
 }
 #else
-float soilTemperatureCelsius(DallasTemperature &sensor) noexcept {
+auto soilTemperatureCelsius(DallasTemperature &sensor) noexcept -> float {
   IOP_TRACE();
+  (void)sensor;
   return 0.;
 }
-float airTemperatureCelsius(DHT &dht) noexcept {
+auto airTemperatureCelsius(DHT &dht) noexcept -> float {
   IOP_TRACE();
+  (void)dht;
   return 0.;
 }
-float airHumidityPercentage(DHT &dht) noexcept {
+auto airHumidityPercentage(DHT &dht) noexcept -> float {
   IOP_TRACE();
+  (void)dht;
   return 0.;
 }
-float airHeatIndexCelsius(DHT &dht) noexcept {
+auto airHeatIndexCelsius(DHT &dht) noexcept -> float {
   IOP_TRACE();
+  (void)dht;
   return 0.;
 }
-uint16_t soilResistivityRaw(const uint8_t powerPin) noexcept {
+auto soilResistivityRaw(const uint8_t powerPin) noexcept -> uint16_t {
   IOP_TRACE();
+  (void)powerPin;
   return 0.;
 }
 #endif

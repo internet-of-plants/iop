@@ -6,6 +6,7 @@
 
 Api::~Api() { IOP_TRACE(); }
 
+// NOLINTNEXTLINE performance-unnecessary-value-param
 Api::Api(const StaticString host, const LogLevel logLevel) noexcept
     : logger(logLevel, F("API")), network_(host, logLevel) {
   IOP_TRACE();
@@ -17,6 +18,8 @@ Api::Api(Api const &other) : logger(other.logger), network_(other.network_) {
 
 auto Api::operator=(Api const &other) -> Api & {
   IOP_TRACE();
+  if (this == &other)
+    return *this;
   this->logger = other.logger;
   this->network_ = other.network_;
   return *this;
@@ -123,6 +126,7 @@ auto Api::registerEvent(const AuthToken &authToken,
 /// ApiStatus::NOT_FOUND: invalid credentials
 /// ApiStatus::CLIENT_BUFFER_OVERFLOW: json didn't fit. This bad
 /// ApiStatus::BROKEN_SERVER: Unexpected/broken response or too big
+// NOLINTNEXTLINE performance-unnecessary-value-param
 auto Api::authenticate(const StringView username, const StringView password,
                        const MacAddress &mac) const noexcept
     -> Result<AuthToken, ApiStatus> {
@@ -183,8 +187,11 @@ auto Api::authenticate(const StringView username, const StringView password,
 #endif
 }
 
-auto Api::registerLog(const AuthToken &authToken, const MacAddress &mac,
-                      const StringView log) const noexcept -> ApiStatus {
+// NOLINTNEXTLINE performance-unnecessary-value-param
+auto Api::registerLog(
+    const AuthToken &authToken, const MacAddress &mac,
+    const StringView log // NOLINT performance-unnecessary-value-param
+) const noexcept -> ApiStatus {
   IOP_TRACE();
   const auto token = authToken.asString();
   this->logger.debug(F("Register log. Token: "), token, F(". Log: "), log);
@@ -259,27 +266,49 @@ auto Api::loggerLevel() const noexcept -> LogLevel {
 }
 auto Api::upgrade(const AuthToken &token, const MacAddress &mac,
                   const MD5Hash &sketchHash) const noexcept -> ApiStatus {
+  (void)*this;
+  (void)token;
+  (void)mac;
+  (void)sketchHash;
   IOP_TRACE();
   return ApiStatus::OK;
 }
 auto Api::reportPanic(const AuthToken &authToken, const MacAddress &mac,
                       const PanicData &event) const noexcept -> ApiStatus {
+  (void)*this;
+  (void)authToken;
+  (void)mac;
+  (void)event;
   IOP_TRACE();
   return ApiStatus::OK;
 }
 auto Api::registerEvent(const AuthToken &token,
                         const Event &event) const noexcept -> ApiStatus {
+  (void)*this;
+  (void)token;
+  (void)event;
   IOP_TRACE();
   return ApiStatus::OK;
 }
+// NOLINTNEXTLINE performance-unnecessary-value-param
 auto Api::authenticate(StringView username, StringView password,
                        const MacAddress &mac) const noexcept
     -> Result<AuthToken, ApiStatus> {
+  (void)*this;
+  (void)username;
+  (void)password;
+  (void)mac;
   IOP_TRACE();
   return AuthToken::empty();
 }
-auto Api::registerLog(const AuthToken &authToken, const MacAddress &mac,
-                      StringView log) const noexcept -> ApiStatus {
+auto Api::registerLog(
+    const AuthToken &authToken, const MacAddress &mac,
+    StringView log // NOLINT performance-unnecessary-value-param
+) const noexcept -> ApiStatus {
+  (void)*this;
+  (void)authToken;
+  (void)mac;
+  (void)log;
   IOP_TRACE();
   return ApiStatus::OK;
 }

@@ -61,9 +61,10 @@ auto macAddress() noexcept -> MacAddress {
   auto mac_ = MacAddress::empty();
   PROGMEM_STRING(fmtStr, "%02X:%02X:%02X:%02X:%02X:%02X");
   const auto *fmt = fmtStr.asCharPtr();
-  // NOLINTNEXTLINE *-pro-bounds-array-to-pointer-decay
+  // NOLINTNEXTLINE *-magic-numbers *-pro-bounds-array-to-pointer-decay
   sprintf_P(reinterpret_cast<char *>(mac_.mutPtr()), fmt, buff[0], buff[1],
-            buff[2], buff[3], buff[4], buff[5]);
+            buff[2], buff[3], buff[4], buff[5]); // NOLINT *-magic-numbers
+
   mac = std::move(mac_);
   return UNWRAP_REF(mac);
 }

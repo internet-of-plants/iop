@@ -27,12 +27,14 @@ private:
   StaticString targetLogger;
   bool flush = true;
 
-  void printLogType(LogType logType, LogLevel level) const noexcept;
+  void printLogType(const LogType &logType,
+                    const LogLevel &level) const noexcept;
 
-  void log(LogLevel level, StaticString msg, LogType logType,
-           StaticString lineTermination) const noexcept;
-  void log(LogLevel level, StringView msg, LogType logType,
-           StaticString lineTermination) const noexcept;
+  void log(const LogLevel &level, const StaticString &msg,
+           const LogType &logType,
+           const StaticString &lineTermination) const noexcept;
+  void log(const LogLevel &level, const StringView &msg, const LogType &logType,
+           const StaticString &lineTermination) const noexcept;
 
   static void print(const __FlashStringHelper *str) noexcept;
   static void print(const char *str) noexcept;
@@ -40,12 +42,12 @@ private:
 
 public:
   ~Log() = default;
-  Log(LogLevel level, StaticString target) noexcept
+  Log(const LogLevel &level, StaticString target) noexcept
       : logLevel_{level}, targetLogger(std::move(target)) {}
-  Log(LogLevel level, StaticString target, bool flush) noexcept
+  Log(const LogLevel &level, StaticString target, bool flush) noexcept
       : logLevel_{level}, targetLogger(std::move(target)), flush{flush} {}
-  Log(Log const &other) = default;
-  Log(Log &&other) = default;
+  Log(Log const &other) noexcept = default;
+  Log(Log &&other) noexcept = default;
   auto operator=(Log const &other) noexcept -> Log & = default;
   auto operator=(Log &&other) noexcept -> Log & = default;
   auto level() const noexcept -> LogLevel { return this->logLevel_; }
@@ -73,7 +75,7 @@ public:
 
   // "Recursive" variadic function
   template <typename... Args>
-  void log_recursive(const LogLevel level, const bool first,
+  void log_recursive(const LogLevel &level, const bool first,
                      const StaticString msg,
                      const Args &...args) const noexcept {
     if (first) {
@@ -86,7 +88,7 @@ public:
 
   // Terminator
   template <typename... Args>
-  void log_recursive(const LogLevel level, const bool first,
+  void log_recursive(const LogLevel &level, const bool first,
                      const StaticString msg) const noexcept {
     if (first) {
       this->log(level, msg, LogType::START, defaultLineTermination);
@@ -98,7 +100,7 @@ public:
 
   // "Recursive" variadic function
   template <typename... Args>
-  void log_recursive(const LogLevel level, const bool first,
+  void log_recursive(const LogLevel &level, const bool first,
                      const StringView msg, const Args &...args) const noexcept {
     if (first) {
       this->log(level, msg, LogType::START, emptyStaticString);
@@ -110,7 +112,7 @@ public:
 
   // Terminator
   template <typename... Args>
-  void log_recursive(const LogLevel level, const bool first,
+  void log_recursive(const LogLevel &level, const bool first,
                      const StringView msg) const noexcept {
     if (first) {
       this->log(level, msg, LogType::START, defaultLineTermination);

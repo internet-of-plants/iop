@@ -4,7 +4,8 @@
 #include "static_string.hpp"
 #include "unsafe_raw_string.hpp"
 
-Tracer::Tracer(const __FlashStringHelper *file, uint32_t line, const char *func)
+Tracer::Tracer(const __FlashStringHelper *file, uint32_t line,
+               const char *func) noexcept
     : file(file), line(line), func(func), scope(nullptr) {
   if (logLevel > LogLevel::TRACE)
     return;
@@ -22,7 +23,7 @@ Tracer::Tracer(const __FlashStringHelper *file, uint32_t line, const char *func)
   Serial.flush();
 }
 Tracer::Tracer(const __FlashStringHelper *file, uint32_t line, const char *func,
-               const __FlashStringHelper *scope)
+               const __FlashStringHelper *scope) noexcept
     : file(file), line(line), func(func), scope(scope) {
   if (logLevel > LogLevel::TRACE)
     return;
@@ -37,7 +38,7 @@ Tracer::Tracer(const __FlashStringHelper *file, uint32_t line, const char *func,
   Serial.println(file);
   Serial.flush();
 }
-Tracer::~Tracer() {
+Tracer::~Tracer() noexcept {
   if (logLevel > LogLevel::TRACE)
     return;
 

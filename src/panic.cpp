@@ -64,8 +64,8 @@ void upgrade() noexcept {
 // TODO(pc): save unique panics to flash
 // TODO(pc): dump stackstrace on panic
 // https://github.com/sticilface/ESPmanager/blob/dce7fc06806a90c179a40eb2d74f4278fffad5b4/src/SaveStack.cpp
-auto reportPanic(const StringView msg, const StaticString file,
-                 const uint32_t line, const StringView func) -> bool {
+auto reportPanic(const StringView &msg, const StaticString &file,
+                 const uint32_t line, const StringView &func) -> bool {
   IOP_TRACE();
 
   const auto maybeToken = flash.readAuthToken();
@@ -124,8 +124,8 @@ auto reportPanic(const StringView msg, const StaticString file,
   return false;
 }
 
-void entry(const StringView msg, const StaticString file, const uint32_t line,
-           const StringView func) {
+void entry(const StringView &msg, const StaticString &file, const uint32_t line,
+           const StringView &func) {
   IOP_TRACE();
   if (panicking) {
     logger.crit(F("PANICK REENTRY: Line "), std::to_string(line),
@@ -139,11 +139,11 @@ void entry(const StringView msg, const StaticString file, const uint32_t line,
   delay(oneSecond);
 }
 
-void halt(StringView msg, StaticString file, uint32_t line, StringView func)
-    __attribute__((noreturn));
+void halt(const StringView &msg, const StaticString &file, uint32_t line,
+          const StringView &func) __attribute__((noreturn));
 
-void halt(const StringView msg, const StaticString file, const uint32_t line,
-          const StringView func) {
+void halt(const StringView &msg, const StaticString &file, const uint32_t line,
+          const StringView &func) {
   IOP_TRACE();
   auto reportedPanic = false;
 
@@ -190,8 +190,9 @@ void halt(const StringView msg, const StaticString file, const uint32_t line,
   __panic_func(file.asCharPtr(), line, func.get());
 }
 
-void panic__(const StringView msg, const StaticString file, const uint32_t line,
-             const StringView func) {
+// NOLINTNEXTLINE performance-unnecessary-value-param
+void panic__(const StringView msg, const StaticString &file,
+             const uint32_t line, const StringView &func) {
   IOP_TRACE();
   entry(msg, file, line, func);
   logger.crit(F("Line "), std::to_string(line), F(" of file "), file,
@@ -199,29 +200,31 @@ void panic__(const StringView msg, const StaticString file, const uint32_t line,
   halt(msg, file, line, func);
 }
 
-void panic__(const StaticString msg, const StaticString file,
-             const uint32_t line, const StringView func) {
+// NOLINTNEXTLINE performance-unnecessary-value-param
+void panic__(const StaticString msg, const StaticString &file,
+             const uint32_t line, const StringView &func) {
   IOP_TRACE();
-  entry(String(msg.get()), file, line, func);
+  String msg_(msg.get());
+  entry(msg_, file, line, func);
   logger.crit(F("Line "), std::to_string(line), F(" of file "), file,
               F(" inside "), func, F(": "), msg);
-  halt(String(msg.get()), file, line, func);
+  halt(msg_, file, line, func);
 }
 
-void panic__(const String &msg, const StaticString file, const uint32_t line,
-             const StringView func) {
+void panic__(const String &msg, const StaticString &file, const uint32_t line,
+             const StringView &func) {
   IOP_TRACE();
   panic__(StringView(msg), file, line, func);
 }
 
-void panic__(const std::string &msg, const StaticString file,
-             const uint32_t line, const StringView func) {
+void panic__(const std::string &msg, const StaticString &file,
+             const uint32_t &line, const StringView &func) {
   IOP_TRACE();
   panic__(StringView(msg), file, line, func);
 }
 
-void panic__(const __FlashStringHelper *msg, const StaticString file,
-             const uint32_t line, const StringView func) {
+void panic__(const __FlashStringHelper *msg, const StaticString &file,
+             const uint32_t line, const StringView &func) {
   IOP_TRACE();
   panic__(StaticString(msg), file, line, func);
 }

@@ -37,12 +37,14 @@ private:
 public:
   ~CredentialsServer() { IOP_TRACE(); }
 
+  // NOLINTNEXTLINE performance-unnecessary-value-param
   auto connect(StringView ssid, StringView password) const noexcept -> void;
+  // NOLINTNEXTLINE performance-unnecessary-value-param
   auto authenticate(StringView username, StringView password,
                     const MacAddress &mac, const Api &api) const noexcept
       -> Option<AuthToken>;
 
-  explicit CredentialsServer(const LogLevel logLevel) noexcept
+  explicit CredentialsServer(const LogLevel &logLevel) noexcept
       : logger(logLevel, F("SERVER")) {
     IOP_TRACE();
   }

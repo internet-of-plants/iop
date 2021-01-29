@@ -23,17 +23,17 @@ class UnsafeRawString;
 // For some reason we can't depend on implicit conversions to
 // StaticString/StringView here, probably related to forward class
 // declaration?
-void panic__(StringView msg, StaticString file, uint32_t line, StringView func)
-    __attribute__((noreturn));
-void panic__(StaticString msg, StaticString file, uint32_t line,
-             StringView func) __attribute__((noreturn));
-void panic__(const __FlashStringHelper *msg, StaticString file, uint32_t line,
-             StringView func) __attribute__((noreturn));
-void panic__(const String &msg, StaticString file, uint32_t line,
-             StringView func) __attribute__((noreturn));
-void panic__(UnsafeRawString msg, StaticString file, uint32_t line,
-             StringView func) __attribute__((noreturn));
-void panic__(const std::string &msg, StaticString file, uint32_t line,
-             StringView func) __attribute__((noreturn));
+void panic__(StringView msg, const StaticString &file, uint32_t line,
+             const StringView &func) __attribute__((noreturn));
+void panic__(StaticString msg, const StaticString &file, uint32_t line,
+             const StringView &func) __attribute__((noreturn));
+void panic__(const __FlashStringHelper *msg, const StaticString &file,
+             uint32_t line, const StringView &func) __attribute__((noreturn));
+void panic__(const String &msg, const StaticString &file, uint32_t line,
+             const StringView &func) __attribute__((noreturn));
+void panic__(UnsafeRawString msg, const StaticString &file, uint32_t line,
+             const StringView &func) __attribute__((noreturn));
+void panic__(const std::string &msg, const StaticString &file, uint32_t line,
+             const StringView &func) __attribute__((noreturn));
 
 #endif

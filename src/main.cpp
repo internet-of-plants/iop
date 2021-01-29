@@ -109,8 +109,11 @@ public:
     }
   }
 
-  auto operator=(EventLoop const &other) -> EventLoop & {
+  auto operator=(EventLoop const &other) noexcept -> EventLoop & {
     IOP_TRACE();
+    if (this == &other)
+      return *this;
+
     this->sensors = other.sensors;
     this->api = other.api;
     this->credentialsServer = other.credentialsServer;
@@ -123,7 +126,7 @@ public:
     this->nextHandleConnectionLost = other.nextHandleConnectionLost;
     return *this;
   };
-  auto operator=(EventLoop &&other) -> EventLoop & {
+  auto operator=(EventLoop &&other) noexcept -> EventLoop & {
     IOP_TRACE();
     this->sensors = other.sensors;
     this->api = other.api;
@@ -137,8 +140,11 @@ public:
     this->nextHandleConnectionLost = other.nextHandleConnectionLost;
     return *this;
   }
-  ~EventLoop() { IOP_TRACE(); };
-  explicit EventLoop(const StaticString host) noexcept
+  ~EventLoop() noexcept { IOP_TRACE(); };
+  explicit EventLoop(
+      const StaticString host // NOLINT performance-unnecessary-value-param
+      ) noexcept
+
       : sensors(soilResistivityPowerPin, soilTemperaturePin,
                 airTempAndHumidityPin, dhtVersion),
         api(host, logLevel), credentialsServer(logLevel),
@@ -169,6 +175,11 @@ public:
 private:
   void handleInterrupt(const InterruptEvent event,
                        const Option<AuthToken> &maybeToken) const noexcept {
+    // Satisfies linter when all interrupt features are disabled
+    (void)*this;
+    (void)event;
+    (void)maybeToken;
+
     IOP_TRACE();
 
     switch (event) {
@@ -181,6 +192,7 @@ private:
       this->flash.removeAuthToken();
       Network::disconnect();
 #endif
+      (void)0; // Satisfies linter
       break;
     case InterruptEvent::MUST_UPGRADE:
 #ifdef IOP_OTA
@@ -220,6 +232,7 @@ private:
             F("Upgrade was expected, but no auth token was available"));
       }
 #endif
+      (void)1; // Satisfies linter
       break;
     case InterruptEvent::ON_CONNECTION:
 #ifdef IOP_ONLINE
@@ -241,6 +254,7 @@ private:
 
       this->flash.writeWifiConfig({.ssid = ssid, .password = psk});
 #endif
+      (void)2; // Satisfies linter
       break;
     };
   }

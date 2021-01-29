@@ -25,7 +25,7 @@ private:
 
 public:
   ~Api();
-  Api(const StaticString host, const LogLevel logLevel) noexcept;
+  Api(StaticString host, LogLevel logLevel) noexcept;
 
   Api(Api const &other);
   Api(Api &&other) = delete;

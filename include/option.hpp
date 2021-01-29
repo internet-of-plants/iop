@@ -51,6 +51,9 @@ public:
   auto operator=(Option<T> &&other) noexcept -> Option<T> & {
     IOP_TRACE();
 
+    if (this == &other)
+      return *this;
+
     this->reset();
     this->filled = other.filled;
     if (other.filled) {

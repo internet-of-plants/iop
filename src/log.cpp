@@ -100,8 +100,8 @@ void Log::setup() noexcept {
   Log(LogLevel::INFO, F("LOG")).info(F("Setup"));
 }
 
-void Log::printLogType(const LogType logType,
-                       const LogLevel level) const noexcept {
+void Log::printLogType(const LogType &logType,
+                       const LogLevel &level) const noexcept {
   if (logLevel_ == LogLevel::NO_LOG)
     return;
 
@@ -148,9 +148,9 @@ void Log::printLogType(const LogType logType,
   };
 }
 
-void Log::log(const LogLevel level, const StaticString msg,
-              const LogType logType,
-              const StaticString lineTermination) const noexcept {
+void Log::log(const LogLevel &level, const StaticString &msg,
+              const LogType &logType,
+              const StaticString &lineTermination) const noexcept {
   if (this->logLevel_ > level)
     return;
 
@@ -165,8 +165,9 @@ void Log::log(const LogLevel level, const StaticString msg,
     Serial.flush();
 }
 
-void Log::log(const LogLevel level, const StringView msg, const LogType logType,
-              const StaticString lineTermination) const noexcept {
+void Log::log(const LogLevel &level, const StringView &msg,
+              const LogType &logType,
+              const StaticString &lineTermination) const noexcept {
   if (this->logLevel_ > level)
     return;
 
@@ -181,21 +182,26 @@ void Log::log(const LogLevel level, const StringView msg, const LogType logType,
 }
 #else
 void Log::setup() noexcept {}
-void Log::printLogType(const LogType logType,
-                       const LogLevel level) const noexcept {
+void Log::reportLog() noexcept {}
+void Log::printLogType(const LogType &logType,
+                       const LogLevel &reportLogLevel) const noexcept {
+  (void)*this;
   (void)logType;
-  (void)level;
+  (void)reportLogLevel;
 }
-void Log::log(const LogLevel level, const StringView msg, const LogType logType,
-              const StaticString lineTermination) const noexcept {
+void Log::log(const LogLevel &level, const StringView &msg,
+              const LogType &logType,
+              const StaticString &lineTermination) const noexcept {
+  (void)*this;
   (void)level;
   (void)msg;
   (void)logType;
   (void)lineTermination;
 }
-void Log::log(const LogLevel level, const StaticString msg,
-              const LogType logType,
-              const StaticString lineTermination) const noexcept {
+void Log::log(const LogLevel &level, const StaticString &msg,
+              const LogType &logType,
+              const StaticString &lineTermination) const noexcept {
+  (void)*this;
   (void)level;
   (void)msg;
   (void)logType;

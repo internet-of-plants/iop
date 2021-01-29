@@ -50,7 +50,7 @@ auto CertStore::findHashedTA(void *ctx, void *hashed_dn, size_t len)
       if (!cs->_x509)
         return nullptr;
 
-      auto *taTmp = cs->_x509->getTrustAnchors();
+      const auto *taTmp = cs->_x509->getTrustAnchors();
       // _x509 is heap allocated so it's mutable
       // NOLINTNEXTLINE cppcoreguidelines-pro-type-const-cast
       auto *ta = const_cast<br_x509_trust_anchor *>(taTmp);

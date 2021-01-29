@@ -25,6 +25,8 @@ public:
   Flash(Flash const &other) noexcept : logger(other.logger) { IOP_TRACE(); }
   Flash(Flash &&other) noexcept = delete;
   auto operator=(Flash const &other) -> Flash & {
+    if (this == &other)
+      return *this;
     IOP_TRACE();
     this->logger = other.logger;
     return *this;

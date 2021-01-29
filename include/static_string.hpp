@@ -25,12 +25,15 @@ public:
 
   // NOLINTNEXTLINE hicpp-explicit-conversions
   StaticString(const __FlashStringHelper *str) noexcept;
-  StaticString(StaticString const &other) noexcept;
-  StaticString(StaticString &&other) noexcept;
-  auto operator=(StaticString const &other) noexcept -> StaticString &;
-  auto operator=(StaticString &&other) noexcept -> StaticString &;
+  StaticString(StaticString const &other) noexcept = default;
+  StaticString(StaticString &&other) noexcept = default;
+  auto operator=(StaticString const &other) noexcept
+      -> StaticString & = default;
+  auto operator=(StaticString &&other) noexcept -> StaticString & = default;
   auto get() const noexcept -> const __FlashStringHelper *;
+  // NOLINTNEXTLINE performance-unnecessary-value-param
   auto contains(const StringView needle) const noexcept -> bool;
+  // NOLINTNEXTLINE performance-unnecessary-value-param
   auto contains(const StaticString needle) const noexcept -> bool;
   auto length() const noexcept -> size_t;
   auto isEmpty() const noexcept -> bool;

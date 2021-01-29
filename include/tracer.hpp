@@ -22,14 +22,15 @@ class Tracer {
   const __FlashStringHelper *scope;
 
 public:
-  Tracer(const __FlashStringHelper *file, uint32_t line, const char *func);
+  Tracer(const __FlashStringHelper *file, uint32_t line,
+         const char *func) noexcept;
   Tracer(const __FlashStringHelper *file, uint32_t line, const char *func,
-         const __FlashStringHelper *scope);
-  ~Tracer();
-  Tracer(const Tracer &other) = default;
-  Tracer(Tracer &&other) = delete;
-  Tracer &operator=(const Tracer &other) = default;
-  Tracer &operator=(Tracer &&other) = delete;
+         const __FlashStringHelper *scope) noexcept;
+  ~Tracer() noexcept;
+  Tracer(const Tracer &other) noexcept = delete;
+  Tracer(Tracer &&other) noexcept = delete;
+  auto operator=(const Tracer &other) noexcept -> Tracer & = delete;
+  auto operator=(Tracer &&other) noexcept -> Tracer & = delete;
 };
 
 #endif

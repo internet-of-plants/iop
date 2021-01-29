@@ -95,6 +95,9 @@ public:
   auto operator=(Result<T, E> &other) -> Result<T, E> & = delete;
   auto operator=(Result<T, E> &&other) noexcept -> Result<T, E> & {
     IOP_TRACE();
+    if (this == &other)
+      return *this;
+
     this->reset();
     this->kind_ = other.kind_;
     switch (this->kind_) {

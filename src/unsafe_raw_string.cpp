@@ -24,7 +24,7 @@ UnsafeRawString::~UnsafeRawString() {
   Serial.flush();
 }
 
-UnsafeRawString::UnsafeRawString(const char *str) : str(str) {
+UnsafeRawString::UnsafeRawString(const char *str) noexcept : str(str) {
   IOP_TRACE();
   if (logLevel > LogLevel::TRACE)
     return;
@@ -43,6 +43,7 @@ UnsafeRawString::UnsafeRawString(UnsafeRawString &&str) noexcept
     : str(str.str) {
   IOP_TRACE();
 }
+// NOLINTNEXTLINE cert-oop54-cpp
 auto UnsafeRawString::operator=(UnsafeRawString const &other) noexcept
     -> UnsafeRawString & {
   IOP_TRACE();

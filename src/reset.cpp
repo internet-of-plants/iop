@@ -39,6 +39,6 @@ void setup() noexcept {
 } // namespace reset
 #else
 namespace reset {
-void setup() { IOP_TRACE(); }
+void setup() noexcept { IOP_TRACE(); }
 } // namespace reset
 #endif

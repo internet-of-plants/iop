@@ -12,7 +12,7 @@ StringView::~StringView() {
   Serial.println(F(")"));
   Serial.flush();
 }
-StringView::StringView(const UnsafeRawString str) noexcept : str(str.get()) {}
+StringView::StringView(const UnsafeRawString &str) noexcept : str(str.get()) {}
 
 // NOLINTNEXTLINE hicpp-explicit-conversions
 StringView::StringView(const std::string &str) noexcept : str(str.c_str()) {
@@ -22,12 +22,6 @@ StringView::StringView(const std::string &str) noexcept : str(str.c_str()) {
 StringView::StringView(const String &other) noexcept : str(other.c_str()) {
   IOP_TRACE();
 }
-StringView::StringView(const StringView &other) noexcept : str(other.str) {
-  // IOP_TRACE();
-}
-StringView::StringView(StringView &&other) noexcept : str(other.str) {
-  // IOP_TRACE();
-}
 auto StringView::operator==(const StringView &other) const noexcept -> bool {
   IOP_TRACE();
   return strcmp(this->str, other.str) == 0;
@@ -35,16 +29,6 @@ auto StringView::operator==(const StringView &other) const noexcept -> bool {
 auto StringView::operator==(const StaticString &other) const noexcept -> bool {
   IOP_TRACE();
   return strcmp_P(this->str, other.asCharPtr()) == 0;
-}
-auto StringView::operator=(StringView const &other) noexcept -> StringView & {
-  // IOP_TRACE();
-  this->str = other.str;
-  return *this;
-}
-auto StringView::operator=(StringView &&other) noexcept -> StringView & {
-  // IOP_TRACE();
-  this->str = other.str;
-  return *this;
 }
 auto StringView::get() const noexcept -> const char * {
   // IOP_TRACE();
@@ -59,11 +43,12 @@ auto StringView::isEmpty() const noexcept -> bool {
   return this->length() == 0;
 }
 
+// NOLINTNEXTLINE performance-unnecessary-value-param
 auto StringView::contains(const StringView needle) const noexcept -> bool {
   IOP_TRACE();
   return strstr(this->get(), needle.get()) != nullptr;
 }
-
+// NOLINTNEXTLINE performance-unnecessary-value-param
 auto StringView::contains(const StaticString needle) const noexcept -> bool {
   IOP_TRACE();
   return strstr_P(this->get(), needle.asCharPtr()) != nullptr;
