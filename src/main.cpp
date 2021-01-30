@@ -142,12 +142,12 @@ public:
   }
   ~EventLoop() noexcept { IOP_TRACE(); };
   explicit EventLoop(
-      const StaticString host // NOLINT performance-unnecessary-value-param
+      const StaticString uri // NOLINT performance-unnecessary-value-param
       ) noexcept
 
       : sensors(soilResistivityPowerPin, soilTemperaturePin,
                 airTempAndHumidityPin, dhtVersion),
-        api(host, logLevel), credentialsServer(logLevel),
+        api(uri, logLevel), credentialsServer(logLevel),
         logger(logLevel, F("LOOP")), flash(logLevel),
         firmwareHash(utils::hashSketch()), macAddress(utils::macAddress()),
         nextTime(0), nextYieldLog(0), nextHandleConnectionLost(0) {
@@ -320,7 +320,7 @@ static Option<EventLoop> eventLoop;
 void setup() {
   Log::setup();
   IOP_TRACE();
-  eventLoop = EventLoop(UNWRAP_REF(host));
+  eventLoop = EventLoop(UNWRAP_REF(uri));
   UNWRAP_MUT(eventLoop).setup();
 }
 

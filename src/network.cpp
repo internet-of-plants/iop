@@ -45,9 +45,13 @@ Response::~Response() noexcept {
   Serial.flush();
 };
 
+#ifdef IOP_NOSSL
+static WiFiClient client;
+#else
 static BearSSL::CertStore certStore;     // NOLINT cert-err58-cpp
 static BearSSL::WiFiClientSecure client; // NOLINT cert-err58-cpp
-static HTTPClient http;                  // NOLINT cert-err58-cpp
+#endif
+static HTTPClient http; // NOLINT cert-err58-cpp
 
 auto Network::isConnected() noexcept -> bool {
   IOP_TRACE();
@@ -61,22 +65,28 @@ void Network::disconnect() noexcept {
 
 auto Network::setup() const noexcept -> void {
   IOP_TRACE();
+#ifndef IOP_NOSSL
   if (this->host().contains(F("https://"))) {
-    // assert_(certStoreOverrideWorked,
-    //        F("CertStore override is broken, fix it or HTTPS won't work"));
+    assert_(certStoreOverrideWorked,
+            F("CertStore override is broken, fix it or HTTPS won't work"));
   }
+#endif
 
-  if (!this->host().contains(F(":"))) {
+  if (!this->uri().contains(F(":"))) {
     PROGMEM_STRING(error, "Host must contain protocol (http:// or https://): ");
-    panic_(String(error.get()) + this->host().get());
+    panic_(String(error.get()) + F(" ") + this->uri().get());
   }
 
   http.setReuse(false);
   client.setNoDelay(false);
   client.setSync(true);
+#ifndef IOP_NOSSL
+  //  client.setCertStore(&certStore);
+  client.setInsecure();
   // We should make sure our server supports Max Fragment Length Negotiation
   // if (client.probeMaxFragmentLength(uri, port, 512))
   //     client.setBufferSizes(512, 512);
+#endif
 
 #ifdef IOP_ONLINE
   // Makes sure the event handlers are never dropped and only set once
@@ -132,11 +142,7 @@ static auto methodToString(const HttpMethod &method) noexcept
   return Option<StaticString>();
 }
 
-auto Network::wifiClient() noexcept -> WiFiClient & {
-  //  client.setCertStore(&certStore);
-  client.setInsecure();
-  return client;
-}
+auto Network::wifiClient() noexcept -> WiFiClient & { return client; }
 
 // Returns Response if it can understand what the server sent, int is the raw
 // status code given by ESP8266HTTPClient
@@ -150,7 +156,7 @@ auto Network::httpRequest(
     return Response(ApiStatus::NO_CONNECTION);
 
   // StringSumHelper is inferred here if we don't set the type
-  const String uri = String(this->host_.get()); // + path.get();
+  const String uri = String(this->uri().get()) + path.get();
 
   StringView data_(emptyString);
   if (data.isSome())
@@ -170,6 +176,9 @@ auto Network::httpRequest(
     this->logger.warn(F("Failed to begin http connection to "), uri);
     return Response(ApiStatus::NO_CONNECTION);
   }
+
+  constexpr uint32_t oneMinuteMs = 60 * 1000;
+  http.setTimeout(oneMinuteMs);
 
   if (data.isSome())
     http.addHeader(F("Content-Type"), F("application/json"));

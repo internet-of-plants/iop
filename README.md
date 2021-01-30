@@ -4,7 +4,7 @@
 
 Firmware for Internet of Plants embedded system. Made for ESP8266.
 
-It connects to an already existent wifi network, and through it connects to a hardcoded [host](https://github.com/internet-of-plants/server), authenticating itself. It provides air humidity, air temperature, soil temperature and soil humidity measurements to the server every minute.
+It connects to an already existent wifi network, and through it connects to a hardcoded [host](https://github.com/internet-of-plants/server), authenticating itself. It provides air humidity, air temperature, soil temperature and soil humidity measurements to the server every few minutes.
 
 Eventually the goal is to use this data, to generate reports and properly analyze what is going on and allow one day for a good automation system. But we don't believe a naive system without much data to be better than simple timers, that's why we don't consider automation before providing a system to build a significant dataset. This is a plant monitor for now. If you want to automate your best bet for now is to buy a power plug with a timer.
 
@@ -20,11 +20,11 @@ When the device is online and authenticated to the server a new plant is automat
 
 The updates are automatic and happen over the air. Eventually the updates will demand signed binaries.
 
-If some irrecoverable error happens the device will halt and constantly try to update it's binary. All errors are reported to the network (if available). So you must react to it and provide an update to fix it. Since our system is very small and event driven an irrecoverable error won't be solved by restarting, since the error will just happen again almost immediately. Ideally panics shouldn't happen so easy recovery doesn't seem like a priority, but as the project evolves we can study a panic that restarts the system instead of halting + trying to update (or in addition to that).
+If some irrecoverable error happens the device will halt and constantly try to update it's binary. All errors are reported to the network (if available). So you must react to it and provide an update to fix it. Since our system is very small and event driven an irrecoverable error won't be solved by restarting, since the error will just happen again almost immediately. Ideally panics shouldn't happen, so easy recovery doesn't seem like a priority, but as the project evolves we can study a panic that restarts the system instead of halting + trying to update (or in addition to that).
 
 If there is no network available it will just halt forever and must be restarted/updated physically.
 
-The project has been designed and tested for the ESP8266-12F board (nodemcu), but it should be easily portable (and eventually part of our goal, but it's far away, right now we only commit to support ESP8266).
+The project has been designed and tested for the ESP8266-12F board (nodemcu), but it should be easily portable (and eventually part of our goal, but it's far away, right now we only commit to supporting ESP8266).
 
 Datasheet: https://www.electrodragon.com/w/ESP-12F_ESP8266_Wifi_Board
 
@@ -37,7 +37,7 @@ Needs OpenSSL in PATH, clang-format and clang-tidy (install LLVM to get it). Be 
 - https://wiki.openssl.org/index.php/Binaries
 - https://releases.llvm.org/download.html
 
-On linux you have to handle configs and permissions to deploy to serial port
+On linux you have to permissions to deploy to a serial port
 
 ```
 curl -fsSL https://raw.githubusercontent.com/platformio/platformio-core/master/scripts/99-platformio-udev.rules | sudo tee /etc/udev/rules.d/99-platformio-udev.rules
@@ -68,47 +68,47 @@ Most decisions are listed here. If you find some other questionable decision ple
 
 - Using too many static variables/too much heap allocation
 
-    We use a lot of static variables to store long-living objects (or very heavy ones), that are important to the core. Like ESP servers. That allows us to have only one instance ever, and avoid stack-overflows or allocation failures to store those heavy objects that are very important. It helps us determining a range for the maximum memory used.
+    We use a lot of static variables to store long-living objects (or very heavy ones), that are important to the core. Like ESP servers and clients. That allows us to have only one instance ever, and avoid stack-overflows or allocation failures to store those heavy objects that are very important. It also helps us determining a rough number for the minimum memory needed.
 
     We also avoid storing big things in the stack because the stack is super small. It's easier to heap allocate and deal with the allocation failure, than to have a stack-overflow reseting the board.
 
-    The only problem those heap allocations may cause is heap fragmentation, we have taken great care to avoid them, but we have been thinking about buffer re-usage and how to avoid them, or make them very early, so we aren't get by surprise by the lack of memory. Everything big in static memory means a simple static analyzer can catch memory problems.
+    The only problem those heap allocations may cause is heap fragmentation, we have taken great care to avoid it, but we have been thinking about buffer re-usage and how to reuse allocations. Also making them early, so we aren't get by surprise by the lack of memory. Everything big in static memory means a simple static analyzer can catch memory problems.
 
-    This is a big problem in multi-core systems, as the statics have to actually be thread-locals (or using preemptive/time-slicing schedulers). So be ware if trying to port it to ESP32 (or to ESP8266 FreeRTOS SDK).
+    This is a big problem in multi-core systems, as the statics have to actually be thread-locals (or when using preemptive/time-slicing schedulers). So be ware if trying to port it to ESP32 (or to ESP8266 FreeRTOS SDK).
     
-    We tend to allocate most big things that can't be static (buffers). Always using smart-pointers (std::unique_ptr, std::shared_ptr, FixedString<SIZE>, Storage<SIZE>...).
+    We tend to allocate most big things that can't be static, instead of putting it on the stack. Always using smart-pointers (std::unique_ptr, std::shared_ptr, FixedString<SIZE>, Storage<SIZE>...).
 
 - Avoiding moves
 
     Since cpp doesn't have destructive moves, it can leave our code in an invalid state. Either with a nulled `std::{unique_ptr, shared_ptr}`, or with an empty `Result<T, E>`, for example. And since those abstractions are heavily used throughout the code we don't want a human mistake to cause UB, panic or raise exceptions. Even a wrongly moved-out `Option<T>` can cause logical errors.
 
-    To avoid that we try not to move out, getting references when we can. For example using `UNWRAP(_OK,_ERR)_{REF,MUT}`. But you have to be careful to make sure that the reference doesn't outlive its storage (as always). Instead of `UNWRAP(_OK,_ERR)`, that move out, although they can be very useful, like moving-out to return the inner value.
+    To avoid that we try not to move out, getting references when we can. For example using `UNWRAP(_OK,_ERR)_{REF,MUT}`. But you have to be careful to make sure that the reference doesn't outlive its storage (as always). Instead of `UNWRAP_{OK,ERR}`, that move out, although they can be very useful, like moving-out to return the inner value.
 
-    We also hijack moves when we can, to make them operate like copies. For example using the `TYPED_STORAGE(SIZE)`, `Storage<SIZE>` and `FixedString<SIZE>` types. That all wrap a `std::shared_ptr` and foces moves to become copies and can make cheap copies.
+    We also hijack moves when we can, to make them operate like copies. For example using the `TYPED_STORAGE(SIZE)`, `Storage<SIZE>` and `FixedString<SIZE>` types. They all wrap a `std::shared_ptr` and moving actually copies, a very cheap copy.
 
-    For `Result<T, E>` you should not use `Result` methods, but only the macros defined in `result.hpp`, like `UNWRAP_{OK, ERR}(_REF, _MUT)`, `IS_{OK, ERR}`, `{RESULT_OK, RESULT_ERR}`, etc. All methods have a macro alternative, that checks for an emptied Result and properly reports the invalid access location. This makes impossible to debugs errors caused by moved-out-from values, into easily debuggable ones.
+    For `Result<T, E>` you should not use its methods, but only the macros defined in `result.hpp`, like `UNWRAP_{OK,ERR}(_REF,_MUT)`, `IS_{OK,ERR}`, `RESULT_{OK,ERR}`, etc. All methods have a macro alternative, that checks for an emptied Result and properly reports the invalid access location. This makes impossible to debugs errors caused by moved-out-from values, into easily debuggable ones.
 
 - No exceptions, but we halt using the `panic_` macro
 
     Most errors should be propagated with `Result<T, E>` or even an `Option<T>`. Exceptions should not happen. And critical errors, that can't be recovered, working as the last stand between us and UB should panic with the `panic_(F("Explanation of what went wrong..."))` macro.
 
-    We don't like exceptions. It may be a naive decision, but we do want a way to fail hard. So we create a function to panic on our own way. It doesn't use any compiler/esp8266 panic internals, so maybe panic is a bad name. But it basically logs the critical error, reports it through the network if we can (to the server, but we could report to nearby devices that we own too, so they can help)  and keep asking the server for updates.
+    We don't like exceptions. We don't want to pay the runtime price for them. We don't use them for regular control flow, or any control flow at all. But we do want a way to fail hard. So we have a function to panic in a way integrated with the platform. It doesn't use any compiler/esp8266 panic internals, so maybe panic is a bad name. But it basically logs the critical error, reports it through the network if it can (to the server, but we could report to nearby devices that we own too, so they can help). And it keeps asking the server for updates.
 
-    We have future plans to improve this, but we should never panic. Panics should be a way to avoid UB when everything went wrong, and quickly fixed when reported.
+    We have future plans to improve this, but we should never panic. Panics should be a way to avoid UB when everything went wrong, and quickly fix when detected.
 
-    Our system is fairly small and a panic is probably going to be recurrent if no updates happen, so for now halting and allowing external updates to fix it seems the way to go. All errors are reported to the network, if available.
+    The embedded code is fairly small and a panic is probably going to be recurrent if no updates happen, so for now halting and allowing external updates to fix it seems the way to go. All errors are reported to the network, if available.
 
-    Panics before having network access have a very small surface to happen, but are critical. They should not happen, but we have no way to statically garantee their branches are unreachable.
+    Panics before having network access + authentication with the central server have a very small code surface to cause. They should be very rare, hopefully impossible. But they are critical bugs if they happens. In this case the device will halt until manually restarted, and they will only be debuggable manually. Those panics are theoretically possible because we have no way to statically garantee their branches are unreachable, but they should be.
 
     Some hardware exceptions may still happen, we don't handle them, but it's a TODO. Panics also still don't support stack-dumps, but it's planned.
 
 - Redundant runtime checks
 
-    There are a few situations where we check for the same runtime problem multiple times. That happens to improve logging. So we can know exactly where the problem happened.
+    There are a few situations where we check for the same runtime problem multiple times. In some places that happens to improve logging. So we can know exactly where the problem happened.
     
-    It happens mostly in `Result<T, E>` and `Option<T>`, because we have to check their state (with `.isSome()`, `IS_OK(res)`, ...) and then unwrap them to extract the inner value (which also checks, panicking if the wanted value is not there).
+    It also happens a lot with `Result<T, E>` and `Option<T>`, because we have to check their state (with `.isSome()`, `IS_OK(res)`, ...) and then unwrap them to move out the inner value (which also checks, panicking if the wanted value is not there).
     
-    That's because cpp forces our hand by not having proper sum types with proper pattern matching. The mainstream solutions just return null and force the check onto the user (at the cost of UB if the user makes a mistake), check like we do and throw an exception or just plainly cause UB if you try to get a value that's not there. Since UB is considered unnaccetable by us we check by default, panicking in case of a problem. Theoretically we could make zero-runtime-overhead `unsafe_` prefixed alternatives to signal the programmer took extra care, but you would have to convince the community that it will cause significant performance improvements. And that this improvement is important. Since performance is hardly this project's bottleneck we wish you good luck (or fork).
+    That's because cpp forces our hand by not having proper sum types with proper pattern matching. The mainstream solutions just a borrowing pointer, that is null if not available. And force the check onto the user (at the cost of UB if the user makes a mistake), or they check like we do and throw an exception or just plainly cause UB if you try to get a value that's not there. Since UB is considered unnaccetable by us we check by default, panicking in case of a problem. Theoretically we could make zero-runtime-overhead `unsafe_` prefixed alternatives to signal the programmer took extra care, but you would have to convince the community that it will cause significant performance improvements. And that this improvement is important. Since performance is hardly this project's bottleneck we wish you good luck (or fork).
 
     `std::variant` uses `get_if` returning `nullptr` if empty, we could mimick it's api with something like
 

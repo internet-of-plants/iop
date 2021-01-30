@@ -21,14 +21,20 @@ const uint8_t factoryResetButton = D1;
 const uint8_t dhtVersion = 22; // DHT22
 
 /// Time between measurements
-const esp_time interval = 5 * 1000;
+const esp_time interval = 180 * 1000;
 
 /// Expands to:
-/// static const char * const host_storage_progmem_char =
-/// "https://iop-monitor-server.tk:4001"; static const StaticString
-/// host_storage(host_storage_progmem_char); static const Option<StaticString>
-/// host(host_storage)
-MAYBE_PROGMEM_STRING(host, "https://iop-monitor-server.tk:4001");
+/// static const char * const uri_storage_progmem_char = <url>;
+/// static const StaticString uri_storage(uri_storage_progmem_char);
+/// static const Option<StaticString> uri(uri_storage)
+///
+/// It should be prefixed with https in production
+/// But if using plain http, define IOP_NOSSL below, otherwise it won't work
+MAYBE_PROGMEM_STRING(uri, "https://iop-monitor-server.tk:4001");
+
+// This should be commented out in production, but it's here to allow debugging
+// in a local network using http
+// #define IOP_NOSSL
 
 /// You don't need to fill the fields below, they may actually be
 /// counter-productive Replace the MAYBE_PROGMEM_STRING_EMPTY(name) with

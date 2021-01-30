@@ -16,8 +16,8 @@ PROGMEM_STRING(logTarget, "PANIC")
 static const Log logger(LogLevel::TRACE, logTarget);
 static bool panicking = false;
 
-PROGMEM_STRING(missingHost, "No host available");
-static const Api api(host.asRef().expect(missingHost), LogLevel::TRACE);
+PROGMEM_STRING(missingUri, "No uri available");
+static const Api api(uri.asRef().expect(missingUri), LogLevel::TRACE);
 
 static const Flash flash(LogLevel::TRACE);
 

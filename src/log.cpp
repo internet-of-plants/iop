@@ -44,8 +44,8 @@ static String currentLog; // NOLINT cert-err58-cpp
 // TODO(pc): use ByteRate to allow grouping messages before sending, or reuse
 // the TCP connection to many
 
-PROGMEM_STRING(missingHost, "No host available");
-static Api api(host.asRef().expect(missingHost), LogLevel::WARN);
+PROGMEM_STRING(missingUri, "No uri available");
+static Api api(uri.asRef().expect(missingUri), LogLevel::WARN);
 static Flash flash(LogLevel::WARN);
 #ifdef IOP_NETWORK_LOGGING
 static bool logNetwork = true;

@@ -12,11 +12,11 @@ constexpr const uint16_t EEPROM_SIZE = 512;
 // Indexes, so each function know where they can write to.
 // It's kinda bad, but for now it works (TODO: maybe use FS.h?)
 // There is always 1 bit used for the 'isWritten' flag
-const uint8_t wifiConfigIndex = 0;
-const uint8_t wifiConfigSize = 1 + NetworkName::size + NetworkPassword::size;
+const uint16_t wifiConfigIndex = 0;
+const uint16_t wifiConfigSize = 1 + NetworkName::size + NetworkPassword::size;
 
-const uint8_t authTokenIndex = wifiConfigIndex + wifiConfigSize;
-const uint8_t authTokenSize = 1 + AuthToken::size;
+const uint16_t authTokenIndex = wifiConfigIndex + wifiConfigSize;
+const uint16_t authTokenSize = 1 + AuthToken::size;
 
 static_assert(authTokenIndex + authTokenSize < EEPROM_SIZE,
               "EEPROM too small to store needed credentials");
@@ -80,7 +80,7 @@ void Flash::writeAuthToken(const AuthToken &token) const noexcept {
   authToken = token;
 
   EEPROM.write(authTokenIndex, usedAuthTokenEEPROMFlag);
-  EEPROM.put(authTokenSize + 1, *token.asSharedArray());
+  EEPROM.put(authTokenIndex + 1, *token.asSharedArray());
   EEPROM.commit();
 }
 
@@ -114,7 +114,7 @@ void Flash::removeWifiConfig() const noexcept {
   IOP_TRACE();
   this->logger.info(F("Deleting stored wifi config"));
 
-  wifiCredentials.take();
+  (void)wifiCredentials.take();
   if (EEPROM.read(wifiConfigIndex) == usedWifiConfigEEPROMFlag) {
     // NOLINTNEXTLINE *-pro-bounds-pointer-arithmetic
     memset(EEPROM.getDataPtr() + wifiConfigIndex, 0, wifiConfigSize);

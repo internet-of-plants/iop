@@ -7,8 +7,8 @@
 Api::~Api() { IOP_TRACE(); }
 
 // NOLINTNEXTLINE performance-unnecessary-value-param
-Api::Api(const StaticString host, const LogLevel logLevel) noexcept
-    : logger(logLevel, F("API")), network_(host, logLevel) {
+Api::Api(const StaticString uri, const LogLevel logLevel) noexcept
+    : logger(logLevel, F("API")), network_(uri, logLevel) {
   IOP_TRACE();
 }
 
@@ -29,9 +29,8 @@ auto Api::setup() const noexcept -> void {
   IOP_TRACE();
   this->network().setup();
 }
-auto Api::host() const noexcept -> StaticString {
-  IOP_TRACE();
-  return this->network().host();
+auto Api::uri() const noexcept -> StaticString {
+  return this->network().uri();
 };
 
 auto Api::network() const noexcept -> const Network & {
@@ -235,7 +234,7 @@ auto Api::upgrade(const AuthToken &token, const MacAddress &mac,
   const auto *const version = sketchHash.asString().get();
   // TODO: upstream we already can use the setAuthorization header, but it's not
   // published
-  const auto uri = String(this->host().get()) + path;
+  const auto uri = String(this->uri().get()) + path;
 
   ESPhttpUpdate.closeConnectionsOnUpdate(true);
   ESPhttpUpdate.rebootOnUpdate(true);

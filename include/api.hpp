@@ -25,7 +25,7 @@ private:
 
 public:
   ~Api();
-  Api(StaticString host, LogLevel logLevel) noexcept;
+  Api(StaticString uri, LogLevel logLevel) noexcept;
 
   Api(Api const &other);
   Api(Api &&other) = delete;
@@ -46,7 +46,7 @@ public:
   auto registerLog(const AuthToken &authToken, const MacAddress &mac,
                    StringView log) const noexcept -> ApiStatus;
 
-  auto host() const noexcept -> StaticString;
+  auto uri() const noexcept -> StaticString;
   auto loggerLevel() const noexcept -> LogLevel;
   auto network() const noexcept -> const Network &;
 

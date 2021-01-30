@@ -73,17 +73,17 @@ enum class HttpMethod {
 
 /// Try to make the ESP8266 network API more pallatable for our needs
 class Network {
-  StaticString host_;
+  StaticString uri_;
   Log logger;
 
 public:
   ~Network() { IOP_TRACE(); }
   // NOLINTNEXTLINE performance-unnecessary-value-param
-  Network(const StaticString host, const LogLevel &logLevel) noexcept
-      : host_(host), logger(logLevel, F("NETWORK")) {
+  Network(const StaticString uri, const LogLevel &logLevel) noexcept
+      : uri_(uri), logger(logLevel, F("NETWORK")) {
     IOP_TRACE();
   }
-  Network(Network const &other) : host_(other.host_), logger(other.logger) {
+  Network(Network const &other) : uri_(other.uri_), logger(other.logger) {
     IOP_TRACE();
   }
   Network(Network &&other) = delete;
@@ -91,7 +91,7 @@ public:
     IOP_TRACE();
     if (this == &other)
       return *this;
-    this->host_ = other.host_;
+    this->uri_ = other.uri_;
     this->logger = other.logger;
     return *this;
   }
@@ -120,10 +120,7 @@ public:
       -> StaticString;
   auto apiStatus(const RawStatus &raw) const noexcept -> Option<ApiStatus>;
 
-  auto host() const noexcept -> StaticString {
-    IOP_TRACE();
-    return this->host_;
-  };
+  auto uri() const noexcept -> StaticString { return this->uri_; };
   static void disconnect() noexcept;
 };
 
