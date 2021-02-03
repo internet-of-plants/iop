@@ -1,6 +1,6 @@
 # 3 - Soil temperature
 
-TODO: [error values](https://github.com/openenergymonitor/learn/master/view/electricity-monitoring/temperature/DS18B20-temperature-sensing.md#software), [network design](https://github.com/openenergymonitor/learn/master/view/electricity-monitoring/temperature/DS18B20-temperature-sensing.md#notes-and-further-reading)
+TODO: [error values](https://github.com/openenergymonitor/learn/blob/master/view/electricity-monitoring/temperature/DS18B20-temperature-sensing.md#software), [network design](https://github.com/openenergymonitor/learn/blob/master/view/electricity-monitoring/temperature/DS18B20-temperature-sensing.md#notes-and-further-reading)
 
 - DS18B20 [*datasheet*](/docs/datasheets/DS18B20.pdf)
 - DS18S20 [*datasheet*](/docs/datasheets/DS18S20.pdf)
