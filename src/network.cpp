@@ -39,8 +39,9 @@ Response::~Response() noexcept {
   IOP_TRACE();
   if (logLevel > LogLevel::TRACE)
     return;
+  const auto str = Network::apiStatusToString(status);
   Serial.print(F("~Response("));
-  Serial.print(Network::apiStatusToString(status).get());
+  Serial.print(str.get());
   Serial.println(F(")"));
   Serial.flush();
 };
@@ -166,8 +167,13 @@ auto Network::httpRequest(
 
   this->logger.info(F("["), method, F("] "), path,
                     data.isSome() ? F(" has payload") : F(" no payload"));
+  if (data.isSome())
+    this->logger.debug(UNWRAP_REF(data));
+
   if (token.isSome()) {
-    http.setAuthorization(UNWRAP_REF(token).get());
+    const auto tok = UNWRAP_REF(token);
+    this->logger.debug(F("Token: "), tok);
+    http.setAuthorization(tok.get());
   } else {
     http.setAuthorization(emptyString.c_str());
   }
@@ -176,6 +182,7 @@ auto Network::httpRequest(
     this->logger.warn(F("Failed to begin http connection to "), uri);
     return Response(ApiStatus::NO_CONNECTION);
   }
+  this->logger.trace(F("Began HTTP connection"));
 
   constexpr uint32_t oneMinuteMs = 60 * 1000;
   http.setTimeout(oneMinuteMs);
@@ -184,10 +191,11 @@ auto Network::httpRequest(
     http.addHeader(F("Content-Type"), F("application/json"));
 
   const auto *const data__ = reinterpret_cast<const uint8_t *>(data_.get());
-  // We have to make method a String to avoid crashes
 
+  this->logger.trace(F("Making HTTP request"));
   const auto code =
       http.sendRequest(String(method.get()).c_str(), data__, data_.length());
+  this->logger.trace(F("Made HTTP request"));
   const auto rawStatus = this->rawStatus(code);
   const auto codeStr = std::to_string(code);
   const auto rawStatusStr = Network::rawStatusToString(rawStatus);

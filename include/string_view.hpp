@@ -53,6 +53,7 @@ public:
   // NOLINTNEXTLINE performance-unnecessary-value-param
   auto contains(const StaticString needle) const noexcept -> bool;
   auto hash() const noexcept -> uint64_t; // FNV hash
+  auto isAllPrintable() const noexcept -> bool;
 };
 
 #endif

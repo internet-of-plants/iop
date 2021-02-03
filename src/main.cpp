@@ -49,11 +49,12 @@ public:
   }
 
   void loop() noexcept {
+    this->logger.trace(F("\n\n\n\n\n\n"));
     IOP_TRACE();
 #ifdef LOG_MEMORY
     utils::logMemory(this->logger);
 #endif
-    const auto authToken = this->flash.readAuthToken();
+    const auto &authToken = this->flash.readAuthToken();
 
     // Handle all queued interrupts (only allows one of each kind concurrently)
     while (true) {
@@ -67,13 +68,15 @@ public:
 
     const auto now = millis();
 
-    if (Network::isConnected() && authToken.isSome())
+    const auto isConnected = Network::isConnected();
+    const auto hasAuthToken = authToken.isSome();
+    if (isConnected && hasAuthToken)
       this->credentialsServer.close();
 
-    if (authToken.isNone()) {
+    if (!hasAuthToken) {
       this->handleCredentials();
 
-    } else if (!Network::isConnected()) {
+    } else if (!isConnected) {
       // If connection is lost frequently: we open the credentials server, to
       // allow replacing the wifi credentials. Since we only remove it
       // from flash if it's going to be replaced for a new one (allows
@@ -84,8 +87,7 @@ public:
         this->nextHandleConnectionLost = now + oneMinute;
 
       } else if (this->nextHandleConnectionLost < now) {
-        this->logger.debug(
-            F("Network credentials available, but no wifi, opening server"));
+        this->logger.debug(F("Has creds, but no signal, opening server"));
         this->nextHandleConnectionLost = now + oneMinute;
         this->handleCredentials();
 
@@ -140,7 +142,7 @@ public:
     this->nextHandleConnectionLost = other.nextHandleConnectionLost;
     return *this;
   }
-  ~EventLoop() noexcept { IOP_TRACE(); };
+  ~EventLoop() noexcept { IOP_TRACE(); }
   explicit EventLoop(
       const StaticString uri // NOLINT performance-unnecessary-value-param
       ) noexcept
@@ -243,14 +245,31 @@ private:
       struct station_config config = {0};
       wifi_station_get_config(&config);
 
-      const auto rawSsid =
-          UnsafeRawString(reinterpret_cast<char *>(config.ssid));
-      const auto ssid = NetworkName::fromStringTruncating(rawSsid);
-      this->logger.info(F("Connected to network: "), ssid.asString());
+      uint8_t len = 0;
+      while (len < sizeof(config.ssid) && config.ssid[len++] != 0) {
+      }
+      const auto ssid =
+          NetworkName::fromBytesTruncatingUnsafe(config.ssid, len);
+      if (ssid.asString().isAllPrintable()) {
+        this->logger.info(F("Connected to network: "), ssid.asString());
+      } else {
+        String s;
+        for (const uint8_t byte : *ssid.asSharedArray()) {
+          const auto ch = static_cast<char>(byte);
+          if (utils::isPrintable(ch)) {
+            s += ch;
+          } else {
+            s += F("<\\");
+            s += String(byte);
+            s += F(">");
+          }
+        }
+      }
 
-      const auto rawPsk =
-          UnsafeRawString(reinterpret_cast<char *>(config.password));
-      const auto psk = NetworkPassword::fromStringTruncating(rawPsk);
+      while (len < sizeof(config.password) && config.password[len++] != 0) {
+      }
+      const auto psk =
+          NetworkPassword::fromBytesTruncatingUnsafe(config.password, len);
 
       this->flash.writeWifiConfig({.ssid = ssid, .password = psk});
 #endif
@@ -262,7 +281,7 @@ private:
   void handleCredentials() noexcept {
     IOP_TRACE();
 
-    const auto wifi = this->flash.readWifiConfig();
+    const auto &wifi = this->flash.readWifiConfig();
     const auto maybeToken =
         this->credentialsServer.serve(wifi, this->macAddress, this->api);
 
@@ -277,13 +296,17 @@ private:
 
     const auto measurements =
         sensors.measure(this->macAddress, this->firmwareHash);
+    // TODO: have another cont thread to monitor for problems and report/restart
+    // the system
+    // TODO: register min and max heap usage, stack usage, a counter of times
+    // loop was called since the last event...
     const auto status = this->api.registerEvent(token, measurements);
 
     switch (status) {
     case ApiStatus::FORBIDDEN:
       // TODO: is there a way to keep it around somewhere as a backup?
-      // In case it's a server bug, since it will force the user to join our AP
-      // again to retype the credentials. If so how can we reuse it and
+      // In case it's a server bug, since it will force the user to join our
+      // AP again to retype the credentials. If so how can we reuse it and
       // detect it started working again?
       this->logger.error(F("Unable to send measurements"));
       this->logger.warn(F("Auth token was refused, deleting it"));

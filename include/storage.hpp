@@ -19,7 +19,12 @@ struct MovedOut {
   uint8_t dummy;
 };
 
-enum ParseError { TOO_BIG };
+enum class ParseTruncatedError { NON_PRINTABLE };
+enum class ParseError { TOO_BIG, NON_PRINTABLE };
+
+namespace utils {
+auto isPrintable(char c) noexcept -> bool;
+}
 
 /// Fixed size storage. Heap allocated (std::shared_ptr) std::array that has an
 /// extra zeroed byte (perfect to also abstract strings) We heap allocate to
@@ -52,19 +57,32 @@ private:
     *this->val->end() = 0;
   }
 
-public:
-  ~Storage<SIZE>() {
-    IOP_TRACE();
+  void printTrace() const noexcept {
     if (logLevel > LogLevel::TRACE)
       return;
-    Serial.print(F("~Storage<"));
+    Serial.print(F("Storage<"));
     Serial.print(SIZE);
     Serial.print(F(">["));
     Serial.print(this->val.use_count());
     Serial.print(F("]("));
-    Serial.print(reinterpret_cast<char *>(this->val->data()));
+    for (const uint8_t byte : *this->val) {
+      const auto ch = static_cast<char>(byte);
+      if (utils::isPrintable(ch)) {
+        Serial.print(ch);
+      } else {
+        Serial.print(F("<\\"));
+        Serial.print(byte);
+        Serial.print(F(">"));
+      }
+    }
     Serial.println(F(")"));
     Serial.flush();
+  }
+
+public:
+  ~Storage<SIZE>() {
+    IOP_TRACE();
+    this->printTrace();
   }
   explicit Storage<SIZE>(const InnerStorage val) noexcept
       : val(try_make_shared<InnerStorage>(val)) {
@@ -73,13 +91,17 @@ public:
       panic_(F("Unnable to allocate val"));
 
     *this->val->end() = 0;
+
+    this->printTrace();
   }
   Storage<SIZE>(Storage<SIZE> const &other) noexcept : val(other.val) {
     IOP_TRACE();
+    this->printTrace();
   }
   // NOLINTNEXTLINE cert-oop11-cpp
   Storage<SIZE>(Storage<SIZE> &&other) noexcept : val(other.val) {
     IOP_TRACE();
+    this->printTrace();
   }
   // NOLINTNEXTLINE cert-oop54-cpp
   auto operator=(Storage<SIZE> const &other) noexcept -> Storage<SIZE> & {
@@ -87,7 +109,9 @@ public:
       return *this;
 
     IOP_TRACE();
+    this->printTrace();
     this->val = other.val;
+    this->printTrace();
     return *this;
   }
   // NOLINTNEXTLINE cert-oop11-cpp
@@ -96,23 +120,29 @@ public:
     if (this == &other)
       return *this;
 
+    this->printTrace();
     this->val = other.val;
+    this->printTrace();
     return *this;
   }
   auto constPtr() const noexcept -> const uint8_t * {
     IOP_TRACE();
+    this->printTrace();
     return this->val->data();
   }
   auto mutPtr() noexcept -> uint8_t * {
     IOP_TRACE();
+    this->printTrace();
     return this->val->data();
   }
   auto asString() const noexcept -> StringView {
     IOP_TRACE();
-    return UnsafeRawString((const char *)this->constPtr());
+    this->printTrace();
+    return UnsafeRawString(reinterpret_cast<const char *>(this->val->data()));
   }
   auto asSharedArray() const noexcept -> std::shared_ptr<InnerStorage> {
     IOP_TRACE();
+    this->printTrace();
     return this->val;
   }
   static auto empty() noexcept -> Storage<SIZE> {
@@ -120,23 +150,67 @@ public:
     return Storage<SIZE>((InnerStorage){0});
   }
 
+  static auto fromBytesTruncatingUnsafe(const uint8_t *const b,
+                                        const size_t len) noexcept
+      -> Storage<SIZE> {
+    IOP_TRACE();
+    auto val = Storage<SIZE>::empty();
+    memcpy(val.mutPtr(), b, len);
+    val.printTrace();
+
+    return val;
+  }
   // NOLINTNEXTLINE performance-unnecessary-value-param
   static auto fromStringTruncating(const StringView str) noexcept
-      -> Storage<SIZE> {
+      -> Result<Storage<SIZE>, ParseTruncatedError> {
     IOP_TRACE();
     auto val = Storage<SIZE>::empty();
     uint8_t len = 0;
     while (len < SIZE && str.get()[len++] != 0) {
     }
     strncpy(reinterpret_cast<char *>(val.mutPtr()), str.get(), len);
+    val.printTrace();
+    for (uint8_t index = 0; index < str.length(); ++index) {
+      const auto ch = str.get()[index];
+      if (index == str.length() - 1)
+        continue;
+      if (!utils::isPrintable(ch)) {
+        String s;
+        for (uint8_t index2 = 0; index2 < str.length(); ++index2) {
+          const auto ch2 = str.get()[index2];
+          if (utils::isPrintable(ch2)) {
+            s += ch2;
+          } else {
+            s += F("<\\");
+            s += String(static_cast<uint8_t>(ch2));
+            s += F(">");
+          }
+          Log(logLevel, F("Storage"))
+              .error(F("Unprintable character found in: "), s);
+          return ParseTruncatedError::NON_PRINTABLE;
+        }
+      }
+    }
+
     return val;
   }
   // NOLINTNEXTLINE performance-unnecessary-value-param
   static auto fromString(const StringView str) noexcept
-      -> Result<Storage<SIZE>, enum ParseError> {
-        IOP_TRACE(); if (str.length() > SIZE) return ParseError::TOO_BIG;
-        return Storage<SIZE>::fromStringTruncating(str);
-      }
+      -> Result<Storage<SIZE>, ParseError> {
+    IOP_TRACE();
+
+    uint8_t len = 0;
+    while (len < SIZE && str.get()[len++] != 0) {
+    }
+
+    if (len > SIZE)
+      return ParseError::TOO_BIG;
+
+    auto val = Storage<SIZE>::fromStringTruncating(str);
+    if (IS_ERR(val))
+      return ParseError::NON_PRINTABLE;
+    return UNWRAP_OK(val);
+  }
 };
 
 /// Creates a typed Storage<size_>, check it's documentation and definition for
@@ -197,16 +271,24 @@ public:
       IOP_TRACE();                                                             \
       return this->val.asSharedArray();                                        \
     }                                                                          \
-    static auto fromStringTruncating(StringView str) noexcept -> name          \
-        ##_class {                                                             \
+    static auto fromStringTruncating(StringView str) noexcept                  \
+        -> Result<name##_class, ParseTruncatedError> {                         \
       IOP_TRACE();                                                             \
-      return name##_class(InnerStorage::fromStringTruncating(std::move(str))); \
+      auto val = InnerStorage::fromStringTruncating(std::move(str));           \
+      if (IS_OK(val))                                                          \
+        return name##_class(UNWRAP_OK(val));                                   \
+      return UNWRAP_ERR(val);                                                  \
+    }                                                                          \
+    static auto fromBytesTruncatingUnsafe(const uint8_t *const b,              \
+                                          const size_t len) noexcept -> name   \
+        ##_class {                                                             \
+      return name##_class(InnerStorage::fromBytesTruncatingUnsafe(b, len));    \
     }                                                                          \
     static auto fromString(StringView str) noexcept                            \
         -> Result<name##_class, enum ParseError> {                             \
-          IOP_TRACE(); auto inner = InnerStorage::fromString(std::move(str));  \
-          if (IS_OK(inner)) return name##_class(UNWRAP_OK(inner));             \
-          return UNWRAP_ERR(inner);                                            \
+          IOP_TRACE(); auto val = InnerStorage::fromString(std::move(str));    \
+          if (IS_OK(val)) return name##_class(UNWRAP_OK(val));                 \
+          return UNWRAP_ERR(val);                                              \
         }                                                                      \
   };                                                                           \
   using name = name##_class; // NOLINT bugprone-macro-parentheses

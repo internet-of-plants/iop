@@ -6,6 +6,7 @@
 #include "unsafe_raw_string.hpp"
 
 StaticString::~StaticString() {
+  /*
   IOP_TRACE();
   if (logLevel > LogLevel::TRACE)
     return;
@@ -13,10 +14,12 @@ StaticString::~StaticString() {
   Serial.print(this->get());
   Serial.println(F(")"));
   Serial.flush();
+  */
 }
 
 // NOLINTNEXTLINE hicpp-explicit-conversions
 StaticString::StaticString(const __FlashStringHelper *str) noexcept : str(str) {
+  /*
   IOP_TRACE();
   if (logLevel > LogLevel::TRACE)
     return;
@@ -24,6 +27,7 @@ StaticString::StaticString(const __FlashStringHelper *str) noexcept : str(str) {
   Serial.print(this->get());
   Serial.println(F(")"));
   Serial.flush();
+  */
 }
 auto StaticString::get() const noexcept -> const __FlashStringHelper * {
   // IOP_TRACE();
@@ -32,11 +36,25 @@ auto StaticString::get() const noexcept -> const __FlashStringHelper * {
 // NOLINTNEXTLINE performance-unnecessary-value-param
 auto StaticString::contains(const StringView needle) const noexcept -> bool {
   IOP_TRACE();
+  if (logLevel <= LogLevel::TRACE) {
+    Serial.print(F("StaticString(\""));
+    Serial.print(this->get());
+    Serial.print(F("\").contains(\""));
+    Serial.print(needle.get());
+    Serial.print(F("\")"));
+  }
   return strstr(String(this->get()).c_str(), needle.get()) != nullptr;
 }
 // NOLINTNEXTLINE performance-unnecessary-value-param
 auto StaticString::contains(const StaticString needle) const noexcept -> bool {
   IOP_TRACE();
+  if (logLevel <= LogLevel::TRACE) {
+    Serial.print(F("StaticString(\""));
+    Serial.print(this->get());
+    Serial.print(F("\").contains(StaticString(\""));
+    Serial.print(needle.get());
+    Serial.print(F("\"))"));
+  }
   return strstr_P(this->asCharPtr(), needle.asCharPtr()) != nullptr;
 }
 auto StaticString::length() const noexcept -> size_t {

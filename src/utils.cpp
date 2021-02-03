@@ -71,30 +71,13 @@ auto macAddress() noexcept -> MacAddress {
 
 auto hashSketch() noexcept -> MD5Hash {
   IOP_TRACE();
-  static MD5Hash result = MD5Hash::empty();
-  if (result.asString().length() > 0)
-    return result;
+  static Option<MD5Hash> result;
+  if (result.isSome())
+    return UNWRAP_REF(result);
 
-  uint32_t lengthLeft = ESP.getSketchSize();
-  constexpr const size_t bufSize = 512;
-  FixedString<bufSize> buf = FixedString<bufSize>::empty();
-  uint32_t offset = 0;
-  MD5Builder md5 = {};
-  md5.begin();
-  while (lengthLeft > 0) {
-    size_t readBytes = (lengthLeft < bufSize) ? lengthLeft : bufSize;
-    // NOLINTNEXTLINE *-pro-type-reinterpret-cast
-    if (!ESP.flashRead(offset, reinterpret_cast<uint32_t *>(buf.asMut()),
-                       (readBytes + 3) & ~3)) { // NOLINT hicpp-signed-bitwise
-      return result;
-    }
-    md5.add(buf.asStorage().constPtr(), readBytes);
-    lengthLeft -= readBytes;
-    offset += readBytes;
-  }
-  md5.calculate();
-  md5.getChars(reinterpret_cast<char *>(result.mutPtr()));
-  return result;
+  const auto hash = ESP.getSketchMD5();
+  result = UNWRAP_OK(MD5Hash::fromString(UnsafeRawString(hash.c_str())));
+  return UNWRAP_REF(result);
 }
 void logMemory(const Log &logger) noexcept {
   IOP_TRACE();
@@ -102,5 +85,7 @@ void logMemory(const Log &logger) noexcept {
                String(ESP.getFreeContStack()), F(" "),
                String(ESP.getFreeSketchSpace()));
 }
-
+auto isPrintable(const char ch) noexcept -> bool {
+  return ch >= 32 && ch <= 126;
+}
 } // namespace utils

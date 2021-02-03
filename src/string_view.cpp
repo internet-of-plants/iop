@@ -1,33 +1,36 @@
 #include "string_view.hpp"
 
 #include "configuration.h"
+#include "models.hpp"
 #include "tracer.hpp"
 #include "unsafe_raw_string.hpp"
 
 StringView::~StringView() {
+  /*
   if (logLevel > LogLevel::TRACE)
     return;
   Serial.print(F("~StringView("));
   Serial.print(this->get());
   Serial.println(F(")"));
   Serial.flush();
+  */
 }
 StringView::StringView(const UnsafeRawString &str) noexcept : str(str.get()) {}
 
 // NOLINTNEXTLINE hicpp-explicit-conversions
 StringView::StringView(const std::string &str) noexcept : str(str.c_str()) {
-  IOP_TRACE();
+  // IOP_TRACE();
 }
 // NOLINTNEXTLINE hicpp-explicit-conversions
 StringView::StringView(const String &other) noexcept : str(other.c_str()) {
-  IOP_TRACE();
+  // IOP_TRACE();
 }
 auto StringView::operator==(const StringView &other) const noexcept -> bool {
-  IOP_TRACE();
+  // IOP_TRACE();
   return strcmp(this->str, other.str) == 0;
 }
 auto StringView::operator==(const StaticString &other) const noexcept -> bool {
-  IOP_TRACE();
+  // IOP_TRACE();
   return strcmp_P(this->str, other.asCharPtr()) == 0;
 }
 auto StringView::get() const noexcept -> const char * {
@@ -46,11 +49,25 @@ auto StringView::isEmpty() const noexcept -> bool {
 // NOLINTNEXTLINE performance-unnecessary-value-param
 auto StringView::contains(const StringView needle) const noexcept -> bool {
   IOP_TRACE();
+  if (logLevel <= LogLevel::TRACE) {
+    Serial.print(F("StringView(\""));
+    Serial.print(this->get());
+    Serial.print(F("\").contains(\""));
+    Serial.print(needle.get());
+    Serial.print(F("\")"));
+  }
   return strstr(this->get(), needle.get()) != nullptr;
 }
 // NOLINTNEXTLINE performance-unnecessary-value-param
 auto StringView::contains(const StaticString needle) const noexcept -> bool {
   IOP_TRACE();
+  if (logLevel <= LogLevel::TRACE) {
+    Serial.print(F("StringView(\""));
+    Serial.print(this->get());
+    Serial.print(F("\").contains(\""));
+    Serial.print(needle.get());
+    Serial.print(F("\")"));
+  }
   return strstr_P(this->get(), needle.asCharPtr()) != nullptr;
 }
 
@@ -74,4 +91,29 @@ auto StringView::hash() const noexcept -> uint64_t {
   hash += hash << 5;  // NOLINT cppcoreguidelines-avoid-magic-numbers
 
   return hash;
+}
+
+auto StringView::isAllPrintable() const noexcept -> bool {
+  const auto len = this->length();
+  for (uint8_t index = 0; index < len; ++index) {
+    const auto ch = this->str[index];
+
+    if (!utils::isPrintable(ch)) {
+      String s;
+      for (uint8_t index = 0; index < len; ++index) {
+        const auto ch2 = this->str[index];
+        if (utils::isPrintable(ch2)) {
+          s += ch2;
+        } else {
+          s += F("<\\");
+          s += String(static_cast<uint8_t>(ch2));
+          s += F(">");
+        }
+        Log(logLevel, F("FixedString"))
+            .error(F("Unprintable character found in: "), s);
+        return false;
+      }
+    }
+  }
+  return true;
 }

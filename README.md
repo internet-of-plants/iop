@@ -30,14 +30,14 @@ Datasheet: https://www.electrodragon.com/w/ESP-12F_ESP8266_Wifi_Board
 
 # Dependencies
 
-PlatformIO (nodemcu + arduino framework)
+PlatformIO (nodemcu2 + arduino framework)
 
 Needs OpenSSL in PATH, clang-format and clang-tidy (install LLVM to get it). Be nice to our codebase :).
 
 - https://wiki.openssl.org/index.php/Binaries
 - https://releases.llvm.org/download.html
 
-On linux you have to permissions to deploy to a serial port
+On linux you have to change permissions to be able to deploy to a serial port
 
 ```
 curl -fsSL https://raw.githubusercontent.com/platformio/platformio-core/master/scripts/99-platformio-udev.rules | sudo tee /etc/udev/rules.d/99-platformio-udev.rules
@@ -48,11 +48,11 @@ sudo usermod -a -G plugdev $USER
 
 # Build
 
-You can just deploy the code to the nodemcu using platform-io.
+You can just deploy the code to the nodemcu using PlatformIO. Choose `env:release` to deploy to production. After the first deploy you can use the update server.
 
-But be aware, while `esp8266/Arduino` is at version `2.7.4` our code will crash because of a bug in this version. So you will have to apply a patch to the local `PlatformIO` `esp8266/Arduino` code. Change `Arduino/cores/esp8266/WString.h` for [WString.h](https://github.com/esp8266/Arduino/blob/master/cores/esp8266/WString.h) and `Arduino/cores/esp8266/WString.cpp` for [WString.cpp](https://github.com/esp8266/Arduino/blob/master/cores/esp8266/WString.cpp)
+Be aware, while `esp8266/Arduino` is at version `2.7.4` our code will crash because of a bug in this version. So you will have to apply a patch to the local `PlatformIO` `esp8266/Arduino` code. Change `Arduino/cores/esp8266/WString.h` for [WString.h](https://github.com/esp8266/Arduino/blob/master/cores/esp8266/WString.h) and `Arduino/cores/esp8266/WString.cpp` for [WString.cpp](https://github.com/esp8266/Arduino/blob/master/cores/esp8266/WString.cpp)
 
-We are sorry for this inconvenience, but until upstream updates it's what we can do.
+We are sorry for this inconvenience, but until upstream updates it's the best approach.
 
 # TODO
 
@@ -60,7 +60,7 @@ Grep for "TODO"'s to find the known missing pieces
 
 # Decisions
 
-There have been a few inneficient decisions we took through this code. This was thinking about safety, to prevent programmer screw-ups from causing big problems. Performance isn't our bottleneck, since we don't do much in the embedded system, so safety becomes the prime issue. We want a stable system that can run without intervention for long times.
+There have been a few possibly questionable decisions we took through this code. This was thinking about safety, to prevent programmer screw-ups from causing big problems. Performance isn't our bottleneck, since we don't do much in the embedded system, so safety becomes the prime issue. We want a stable system that can run without intervention for long times.
 
 Ideally we would use zero-runtime-cost abstractions, but cpp doesn't help us make them UB proof, so we have to add runtime overhead to deal with it in a way that allows us to sleep at night.
 
@@ -68,11 +68,11 @@ Most decisions are listed here. If you find some other questionable decision ple
 
 - Using too many static variables/too much heap allocation
 
-    We use a lot of static variables to store long-living objects (or very heavy ones), that are important to the core. Like ESP servers and clients. That allows us to have only one instance ever, and avoid stack-overflows or allocation failures to store those heavy objects that are very important. It also helps us determining a rough number for the minimum memory needed.
+    We use a lot of static variables to store long-living objects (or very heavy ones), that are important to the core. Like ESP servers and clients. That allows us to have only one instance ever, and avoid stack-overflows or allocation failures to store those heavy objects that are very important. It also helps us determining a rough number for the minimum memory needed for the entire toolset.
 
     We also avoid storing big things in the stack because the stack is super small. It's easier to heap allocate and deal with the allocation failure, than to have a stack-overflow reseting the board.
 
-    The only problem those heap allocations may cause is heap fragmentation, we have taken great care to avoid it, but we have been thinking about buffer re-usage and how to reuse allocations. Also making them early, so we aren't get by surprise by the lack of memory. Everything big in static memory means a simple static analyzer can catch memory problems.
+    The only problem those heap allocations may cause is heap fragmentation, we have taken great care to avoid it, but we have been thinking about buffer re-usage and how to remove allocations. Also making them early, so we aren't get by surprise by the lack of memory. Everything big in static memory means a simple static analyzer can catch memory problems.
 
     This is a big problem in multi-core systems, as the statics have to actually be thread-locals (or when using preemptive/time-slicing schedulers). So be ware if trying to port it to ESP32 (or to ESP8266 FreeRTOS SDK).
     
@@ -92,7 +92,7 @@ Most decisions are listed here. If you find some other questionable decision ple
 
     Most errors should be propagated with `Result<T, E>` or even an `Option<T>`. Exceptions should not happen. And critical errors, that can't be recovered, working as the last stand between us and UB should panic with the `panic_(F("Explanation of what went wrong..."))` macro.
 
-    We don't like exceptions. We don't want to pay the runtime price for them. We don't use them for regular control flow, or any control flow at all. But we do want a way to fail hard. So we have a function to panic in a way integrated with the platform. It doesn't use any compiler/esp8266 panic internals, so maybe panic is a bad name. But it basically logs the critical error, reports it through the network if it can (to the server, but we could report to nearby devices that we own too, so they can help). And it keeps asking the server for updates.
+    We don't like exceptions. We don't want to pay the runtime price for them (they are disabled by default). We don't use them for regular control flow, or any control flow at all. But we do want a way to fail hard. So we have a function to panic in a way integrated with the platform. It doesn't use any compiler/esp8266 panic internals, so maybe panic is a bad name. But it basically logs the critical error, reports it through the network if it can (to the server, but we could report to nearby devices that we own too, so they can help). And it keeps asking the server for updates.
 
     We have future plans to improve this, but we should never panic. Panics should be a way to avoid UB when everything went wrong, and quickly fix when detected.
 
@@ -100,7 +100,7 @@ Most decisions are listed here. If you find some other questionable decision ple
 
     Panics before having network access + authentication with the central server have a very small code surface to cause. They should be very rare, hopefully impossible. But they are critical bugs if they happens. In this case the device will halt until manually restarted, and they will only be debuggable manually. Those panics are theoretically possible because we have no way to statically garantee their branches are unreachable, but they should be.
 
-    Some hardware exceptions may still happen, we don't handle them, but it's a TODO. Panics also still don't support stack-dumps, but it's planned.
+    Some software and hardware exceptions may still happen, we don't handle them, but it's a TODO. Panics also still don't support stack-dumps, but it's planned.
 
 - Redundant runtime checks
 
@@ -108,9 +108,9 @@ Most decisions are listed here. If you find some other questionable decision ple
     
     It also happens a lot with `Result<T, E>` and `Option<T>`, because we have to check their state (with `.isSome()`, `IS_OK(res)`, ...) and then unwrap them to move out the inner value (which also checks, panicking if the wanted value is not there).
     
-    That's because cpp forces our hand by not having proper sum types with proper pattern matching. The mainstream solutions just a borrowing pointer, that is null if not available. And force the check onto the user (at the cost of UB if the user makes a mistake), or they check like we do and throw an exception or just plainly cause UB if you try to get a value that's not there. Since UB is considered unnaccetable by us we check by default, panicking in case of a problem. Theoretically we could make zero-runtime-overhead `unsafe_` prefixed alternatives to signal the programmer took extra care, but you would have to convince the community that it will cause significant performance improvements. And that this improvement is important. Since performance is hardly this project's bottleneck we wish you good luck (or fork).
+    That's because cpp forces our hand by not having proper sum types with proper pattern matching. The mainstream solutions is just borrowing a pointer, that is null if not available. And force the check onto the user (at the cost of UB if the user makes a mistake), or they check like we do and throw an exception or just plainly cause UB if you try to get a value that's not there. Since UB is considered unnaccetable by us we check by default, panicking in case of a problem. Theoretically we could make zero-runtime-overhead `unsafe_` prefixed alternatives to signal the programmer took extra care, but you would have to convince the community that it will cause significant performance improvements. And that this improvement is important. Since performance is hardly this project's bottleneck: we wish you good luck (or fork).
 
-    `std::variant` uses `get_if` returning `nullptr` if empty, we could mimick it's api with something like
+    `std::variant` uses `get_if` returning `nullptr` if empty, we could mimick its api with something like
 
     `if (auto *value = result.get_if_ok())`
 

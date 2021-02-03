@@ -256,7 +256,15 @@ public:
              const uint32_t line, const StringView func) const noexcept
       -> bool {
     IOP_TRACE();
-    return !this->isOk(varName, file, line, func);
+    switch (this->kind_) {
+    case ResultKind::OK:
+      return false;
+    case ResultKind::ERROR:
+      return true;
+    case ResultKind::EMPTY:
+    default:
+      panic__(String(F("Empty Result: ")) + varName.get(), file, line, func);
+    }
   }
 };
 

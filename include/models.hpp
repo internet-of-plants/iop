@@ -29,6 +29,7 @@ auto macAddress() noexcept -> MacAddress;
 void ICACHE_RAM_ATTR scheduleInterrupt(InterruptEvent ev) noexcept;
 auto ICACHE_RAM_ATTR descheduleInterrupt() noexcept -> InterruptEvent;
 void logMemory(const Log &logger) noexcept;
+auto isPrintable(char ch) noexcept -> bool;
 } // namespace utils
 
 struct PanicData {

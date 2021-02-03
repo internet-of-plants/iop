@@ -88,7 +88,7 @@ void Log::reportLog() noexcept {
 void Log::setup() noexcept {
   constexpr const uint32_t BAUD_RATE = 115200;
   Serial.begin(BAUD_RATE);
-  if (logLevel <= LogLevel::TRACE)
+  if (logLevel <= LogLevel::DEBUG)
     Serial.setDebugOutput(true);
 
   constexpr const uint32_t thirtySec = 30 * 1000;

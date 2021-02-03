@@ -13,13 +13,12 @@ template <uint16_t SIZE> class FixedString {
 private:
   Storage<SIZE> str;
 
+  explicit FixedString<SIZE>(Storage<SIZE> other) : str(std::move(other)) {}
+
 public:
   constexpr const static uint16_t size = SIZE;
 
   ~FixedString<SIZE>() { IOP_TRACE(); }
-  explicit FixedString<SIZE>(Storage<SIZE> other) noexcept : str(other) {
-    IOP_TRACE();
-  }
   FixedString<SIZE>(FixedString<SIZE> const &other) noexcept : str(other.str) {
     IOP_TRACE();
   }
@@ -44,10 +43,14 @@ public:
     IOP_TRACE();
     return this->str.asString().get();
   }
+  // TODO: You can accidentally store a non-printable character that will go
+  // unnotice using this
   auto asMut() noexcept -> char * {
     IOP_TRACE();
     return reinterpret_cast<char *>(this->str.mutPtr());
   }
+  // TODO: You can accidentally store a non-printable character that will go
+  // unnotice using this
   auto asStorage() const noexcept -> Storage<SIZE> {
     IOP_TRACE();
     return this->str;
@@ -72,16 +75,32 @@ public:
     IOP_TRACE();
     return this->str.asString();
   }
+  static auto fromStorage(Storage<SIZE> other) noexcept
+      -> Result<FixedString<SIZE>, ParseTruncatedError> {
+    IOP_TRACE();
+
+    auto val = FixedString<SIZE>(other);
+    if (!val.isAllPrintable())
+      return ParseTruncatedError::NON_PRINTABLE;
+    return val;
+  }
   // NOLINTNEXTLINE performance-unnecessary-value-param
   static auto fromString(const StringView str) noexcept
-      -> Result<FixedString<SIZE>, enum ParseError> {
-        IOP_TRACE(); return FixedString<SIZE>(Storage<SIZE>::fromString(str));
-      }
+      -> Result<FixedString<SIZE>, ParseError> {
+    IOP_TRACE();
+    auto val = Storage<SIZE>::fromString(str);
+    if (IS_OK(val))
+      return FixedString<SIZE>(UNWRAP_OK(val));
+    return UNWRAP_ERR(val);
+  }
   // NOLINTNEXTLINE performance-unnecessary-value-param
   static auto fromStringTruncating(const StringView str) noexcept
-      -> FixedString<SIZE> {
+      -> Result<FixedString<SIZE>, ParseTruncatedError> {
     IOP_TRACE();
-    return FixedString<SIZE>(Storage<SIZE>::fromStringTruncating(str));
+    auto val = Storage<SIZE>::fromStringTruncating(str);
+    if (IS_OK(val))
+      return FixedString<SIZE>(UNWRAP_OK(val));
+    return UNWRAP_ERR(val);
   }
   auto intoInner() const noexcept -> Storage<SIZE> {
     IOP_TRACE();

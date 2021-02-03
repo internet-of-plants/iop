@@ -34,11 +34,11 @@ public:
   auto operator=(Flash &&other) -> Flash & = delete;
   static auto setup() noexcept -> void;
 
-  auto readAuthToken() const noexcept -> Option<AuthToken>;
+  auto readAuthToken() const noexcept -> const Option<AuthToken> &;
   void removeAuthToken() const noexcept;
   void writeAuthToken(const AuthToken &token) const noexcept;
 
-  auto readWifiConfig() const noexcept -> Option<WifiCredentials>;
+  auto readWifiConfig() const noexcept -> const Option<WifiCredentials> &;
   void removeWifiConfig() const noexcept;
   void writeWifiConfig(const WifiCredentials &config) const noexcept;
 };

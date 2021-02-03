@@ -23,7 +23,7 @@ static const Flash flash(LogLevel::TRACE);
 
 void upgrade() noexcept {
   IOP_TRACE();
-  const auto maybeToken = flash.readAuthToken();
+  const auto &maybeToken = flash.readAuthToken();
   if (maybeToken.isNone())
     return;
 
@@ -68,7 +68,7 @@ auto reportPanic(const StringView &msg, const StaticString &file,
                  const uint32_t line, const StringView &func) -> bool {
   IOP_TRACE();
 
-  const auto maybeToken = flash.readAuthToken();
+  const auto &maybeToken = flash.readAuthToken();
   if (maybeToken.isNone()) {
     logger.crit(F("No auth token, unable to report panic"));
     return false;

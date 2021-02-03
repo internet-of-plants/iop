@@ -170,10 +170,14 @@ auto Api::authenticate(const StringView username, const StringView password,
   const auto &payload = UNWRAP_REF(resp.payload);
   auto result = AuthToken::fromString(payload);
   if (IS_ERR(result)) {
+    const auto lengthStr = std::to_string(payload.length());
+
     switch (UNWRAP_ERR(result)) {
-    case TOO_BIG:
-      const auto lengthStr = std::to_string(payload.length());
+    case ParseError::TOO_BIG:
       this->logger.error(F("Auth token is too big: size = "), lengthStr);
+      break;
+    case ParseError::NON_PRINTABLE:
+      this->logger.error(F("Payload is non-printable, this is not supported"));
       break;
     }
 

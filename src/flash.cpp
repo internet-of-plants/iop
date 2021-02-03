@@ -31,23 +31,26 @@ static auto constPtr() noexcept -> const char * {
 
 static Option<AuthToken> authToken;
 
-auto Flash::readAuthToken() const noexcept -> Option<AuthToken> {
+auto Flash::readAuthToken() const noexcept -> const Option<AuthToken> & {
   IOP_TRACE();
-  this->logger.trace(F("Reading AuthToken from Flash"));
 
   if (authToken.isSome())
-    return UNWRAP_REF(authToken);
+    return authToken;
 
   if (EEPROM.read(authTokenIndex) != usedAuthTokenEEPROMFlag)
-    return Option<AuthToken>();
+    return authToken;
 
   // NOLINTNEXTLINE *-pro-bounds-pointer-arithmetic
-  const auto ptr = constPtr() + authTokenSize + 1;
-  const auto token = AuthToken::fromStringTruncating(UnsafeRawString(ptr));
-  this->logger.trace(F("Auth token found: "), token.asString());
+  const auto ptr = constPtr() + authTokenIndex + 1;
+  const auto tokenRes = AuthToken::fromStringTruncating(UnsafeRawString(ptr));
+  if (IS_ERR(tokenRes))
+    return authToken;
+
+  const auto &token = UNWRAP_OK_REF(tokenRes);
+  this->logger.trace(F("Found Auth token: "), token.asString());
 
   authToken = token;
-  return Option<AuthToken>(token);
+  return authToken;
 }
 
 void Flash::removeAuthToken() const noexcept {
@@ -65,7 +68,7 @@ void Flash::removeAuthToken() const noexcept {
 void Flash::writeAuthToken(const AuthToken &token) const noexcept {
   IOP_TRACE();
   // Avoids re-writing same data
-  const auto maybeCurrToken = this->readAuthToken();
+  const auto &maybeCurrToken = this->readAuthToken();
   if (maybeCurrToken.isSome()) {
     const auto &currToken = UNWRAP_REF(maybeCurrToken);
 
@@ -86,28 +89,32 @@ void Flash::writeAuthToken(const AuthToken &token) const noexcept {
 
 static Option<WifiCredentials> wifiCredentials;
 
-auto Flash::readWifiConfig() const noexcept -> Option<WifiCredentials> {
+auto Flash::readWifiConfig() const noexcept -> const Option<WifiCredentials> & {
   IOP_TRACE();
-  this->logger.trace(F("Reading WifiCredentials from Flash"));
 
   if (wifiCredentials.isSome())
-    return UNWRAP_REF(wifiCredentials);
+    return wifiCredentials;
 
   if (EEPROM.read(wifiConfigIndex) != usedWifiConfigEEPROMFlag)
-    return Option<WifiCredentials>();
+    return wifiCredentials;
 
   // NOLINTNEXTLINE *-pro-bounds-pointer-arithmetic
   const auto ptr = constPtr() + wifiConfigIndex + 1;
-  const auto ssid = NetworkName::fromStringTruncating(UnsafeRawString(ptr));
+  const auto ssidRes = NetworkName::fromStringTruncating(UnsafeRawString(ptr));
+  if (IS_ERR(ssidRes))
+    return wifiCredentials;
+  const auto &ssid = UNWRAP_OK_REF(ssidRes);
 
   // NOLINTNEXTLINE *-pro-bounds-pointer-arithmetic
   const auto pskRaw = UnsafeRawString(ptr + NetworkName::size);
-  const auto psk = NetworkPassword::fromStringTruncating(pskRaw);
+  const auto pskRes = NetworkPassword::fromStringTruncating(pskRaw);
+  if (IS_ERR(pskRes))
+    return wifiCredentials;
+  const auto &psk = UNWRAP_OK_REF(pskRes);
 
   this->logger.trace(F("Found network credentials: "), ssid.asString());
-  const WifiCredentials creds(ssid, psk);
-  wifiCredentials = creds;
-  return creds;
+  wifiCredentials = WifiCredentials(ssid, psk);
+  return wifiCredentials;
 }
 
 void Flash::removeWifiConfig() const noexcept {
@@ -127,7 +134,7 @@ void Flash::writeWifiConfig(const WifiCredentials &config) const noexcept {
   const auto ssidStr = config.ssid.asString();
 
   // Avoids re-writing same data
-  const auto maybeCurrConfig = this->readWifiConfig();
+  const auto &maybeCurrConfig = this->readWifiConfig();
   if (maybeCurrConfig.isSome()) {
     const auto &currConfig = UNWRAP_REF(maybeCurrConfig);
 
