@@ -1,12 +1,12 @@
 #ifndef IOP_MEASUREMENT_HPP
 #define IOP_MEASUREMENT_HPP
 
-#include "certificate_storage.hpp"
-
 #include "DHT.h"
 #include "DallasTemperature.h"
+
 #include <cstdint>
 
+/// Handles low level access to hardware connected devices
 namespace measurement {
 auto soilTemperatureCelsius(DallasTemperature &sensor) noexcept -> float;
 auto airTemperatureCelsius(DHT &dht) noexcept -> float;

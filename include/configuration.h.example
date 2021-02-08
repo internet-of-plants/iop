@@ -1,11 +1,12 @@
 #ifndef IOP_CONFIGURATION_H
 #define IOP_CONFIGURATION_H
 
-#include "certificate_storage.hpp"
-
 #include "log.hpp"
 #include "option.hpp"
 #include "static_string.hpp"
+
+#include "Arduino.h"
+
 #include <cstdint>
 
 /// Minimum log level to print a message (if serial is enabled)
@@ -24,26 +25,28 @@ const uint8_t dhtVersion = 22; // DHT22
 const esp_time interval = 180 * 1000;
 
 /// Expands to:
-/// static const char * const uri_storage_progmem_char = <url>;
-/// static const StaticString uri_storage(uri_storage_progmem_char);
-/// static const Option<StaticString> uri(uri_storage)
+/// static const char * const PROGMEM uri_progmem_char = <uri>;
+/// static const StaticString uri(uri_progmem_char);
 ///
-/// It should be prefixed with https in production
+/// It should be prefixed with https in production. Do not use plain http in
+/// production!
+///
 /// But if using plain http, define IOP_NOSSL below, otherwise it won't work
-MAYBE_PROGMEM_STRING(uri, "https://iop-monitor-server.tk:4001");
+PROGMEM_STRING(uri, "https://iop-monitor-server.tk:4001/v1");
 
-// This should be commented out in production, but it's here to allow debugging
-// in a local network using http
+/// Plain http doesn't work if IOP_NOSSL is not set
 // #define IOP_NOSSL
 
-/// You don't need to fill the fields below, they may actually be
-/// counter-productive Replace the MAYBE_PROGMEM_STRING_EMPTY(name) with
-/// MAYBE_PROGMEM_STRING(name, value)
+/// The fields bellow should be empty. Filling them will be counter productive
+/// It's only here to speedup some debugging
+///
+/// If you really want to, replace the definitions with
+/// MAYBE_PROGMEM_STRING(variableName, variableValue), like the variables above
 
-MAYBE_PROGMEM_STRING_EMPTY(wifiNetworkName);
-MAYBE_PROGMEM_STRING_EMPTY(wifiPassword);
+static const Option<StaticString> wifiNetworkName;
+static const Option<StaticString> wifiPassword;
 
-MAYBE_PROGMEM_STRING_EMPTY(iopEmail);
-MAYBE_PROGMEM_STRING_EMPTY(iopPassword);
+static const Option<StaticString> iopEmail;
+static const Option<StaticString> iopPassword;
 
 #endif

@@ -1,30 +1,26 @@
 #include "string_view.hpp"
 
 #include "configuration.h"
+#include "copy_on_write.hpp"
 #include "models.hpp"
 #include "tracer.hpp"
 #include "unsafe_raw_string.hpp"
 
-StringView::~StringView() {
-  /*
+/*
+StringView::~StringView() noexcept {
   if (logLevel > LogLevel::TRACE)
     return;
   Serial.print(F("~StringView("));
   Serial.print(this->get());
   Serial.println(F(")"));
   Serial.flush();
-  */
 }
+*/
 StringView::StringView(const UnsafeRawString &str) noexcept : str(str.get()) {}
-
-// NOLINTNEXTLINE hicpp-explicit-conversions
-StringView::StringView(const std::string &str) noexcept : str(str.c_str()) {
-  // IOP_TRACE();
-}
-// NOLINTNEXTLINE hicpp-explicit-conversions
-StringView::StringView(const String &other) noexcept : str(other.c_str()) {
-  // IOP_TRACE();
-}
+StringView::StringView(const std::string &str) noexcept : str(str.c_str()) {}
+StringView::StringView(const String &other) noexcept : str(other.c_str()) {}
+StringView::StringView(const CowString &other) noexcept
+    : str(other.borrow().get()) {}
 auto StringView::operator==(const StringView &other) const noexcept -> bool {
   // IOP_TRACE();
   return strcmp(this->str, other.str) == 0;
@@ -46,8 +42,7 @@ auto StringView::isEmpty() const noexcept -> bool {
   return this->length() == 0;
 }
 
-// NOLINTNEXTLINE performance-unnecessary-value-param
-auto StringView::contains(const StringView needle) const noexcept -> bool {
+auto StringView::contains(StringView needle) const noexcept -> bool {
   IOP_TRACE();
   if (logLevel <= LogLevel::TRACE) {
     Serial.print(F("StringView(\""));
@@ -56,10 +51,9 @@ auto StringView::contains(const StringView needle) const noexcept -> bool {
     Serial.print(needle.get());
     Serial.print(F("\")"));
   }
-  return strstr(this->get(), needle.get()) != nullptr;
+  return strstr(this->get(), std::move(needle).get()) != nullptr;
 }
-// NOLINTNEXTLINE performance-unnecessary-value-param
-auto StringView::contains(const StaticString needle) const noexcept -> bool {
+auto StringView::contains(StaticString needle) const noexcept -> bool {
   IOP_TRACE();
   if (logLevel <= LogLevel::TRACE) {
     Serial.print(F("StringView(\""));
@@ -68,7 +62,7 @@ auto StringView::contains(const StaticString needle) const noexcept -> bool {
     Serial.print(needle.get());
     Serial.print(F("\")"));
   }
-  return strstr_P(this->get(), needle.asCharPtr()) != nullptr;
+  return strstr_P(this->get(), std::move(needle).asCharPtr()) != nullptr;
 }
 
 // FNV hash
@@ -96,24 +90,10 @@ auto StringView::hash() const noexcept -> uint64_t {
 auto StringView::isAllPrintable() const noexcept -> bool {
   const auto len = this->length();
   for (uint8_t index = 0; index < len; ++index) {
-    const auto ch = this->str[index];
+    const auto ch = this->str[index]; // NOLINT *-pro-bounds-pointer-arithmetic
 
-    if (!utils::isPrintable(ch)) {
-      String s;
-      for (uint8_t index = 0; index < len; ++index) {
-        const auto ch2 = this->str[index];
-        if (utils::isPrintable(ch2)) {
-          s += ch2;
-        } else {
-          s += F("<\\");
-          s += String(static_cast<uint8_t>(ch2));
-          s += F(">");
-        }
-        Log(logLevel, F("FixedString"))
-            .error(F("Unprintable character found in: "), s);
-        return false;
-      }
-    }
+    if (!utils::isPrintable(ch))
+      return false;
   }
   return true;
 }

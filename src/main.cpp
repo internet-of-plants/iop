@@ -1,14 +1,6 @@
-// Those are here so we can hijack BearlSSL::CertStore
-#include "certificate_storage.hpp"
-
-#include "Arduino.h"
-
-#include "static_string.hpp"
-
-// Now actual includes can start
-
 #include "api.hpp"
 #include "configuration.h"
+#include "copy_on_write.hpp"
 #include "flash.hpp"
 #include "log.hpp"
 #include "reset.hpp"
@@ -29,8 +21,6 @@ private:
   Log logger;
 
   Flash flash;
-  MD5Hash firmwareHash = MD5Hash::empty();
-  MacAddress macAddress;
 
   esp_time nextTime;
   esp_time nextYieldLog;
@@ -38,6 +28,7 @@ private:
 
 public:
   void setup() noexcept {
+    this->logger.info(F("Start Setup"));
     IOP_TRACE();
     pinMode(LED_BUILTIN, OUTPUT);
 
@@ -46,6 +37,7 @@ public:
     this->sensors.setup();
     this->api.setup();
     this->credentialsServer.setup();
+    this->logger.info(F("Setup finished"));
   }
 
   void loop() noexcept {
@@ -54,6 +46,7 @@ public:
 #ifdef LOG_MEMORY
     utils::logMemory(this->logger);
 #endif
+
     const auto &authToken = this->flash.readAuthToken();
 
     // Handle all queued interrupts (only allows one of each kind concurrently)
@@ -77,9 +70,9 @@ public:
       this->handleCredentials();
 
     } else if (!isConnected) {
-      // If connection is lost frequently: we open the credentials server, to
+      // If connection is lost frequently we open the credentials server, to
       // allow replacing the wifi credentials. Since we only remove it
-      // from flash if it's going to be replaced for a new one (allows
+      // from flash if it's going to be replaced by a new one (allows
       // for more resiliency) - or during factory reset
       constexpr const uint32_t oneMinute = 60 * 1000;
 
@@ -99,6 +92,7 @@ public:
       this->nextHandleConnectionLost = 0;
       this->nextTime = now + interval;
       this->handleMeasurements(UNWRAP_REF(authToken));
+      this->logger.info(String(ESP.getVcc())); // TODO: remove this
 
     } else if (this->nextYieldLog <= now) {
       this->nextHandleConnectionLost = 0;
@@ -109,69 +103,6 @@ public:
     } else {
       this->nextHandleConnectionLost = 0;
     }
-  }
-
-  auto operator=(EventLoop const &other) noexcept -> EventLoop & {
-    IOP_TRACE();
-    if (this == &other)
-      return *this;
-
-    this->sensors = other.sensors;
-    this->api = other.api;
-    this->credentialsServer = other.credentialsServer;
-    this->logger = other.logger;
-    this->flash = other.flash;
-    this->firmwareHash = other.firmwareHash;
-    this->macAddress = other.macAddress;
-    this->nextTime = other.nextTime;
-    this->nextYieldLog = other.nextYieldLog;
-    this->nextHandleConnectionLost = other.nextHandleConnectionLost;
-    return *this;
-  };
-  auto operator=(EventLoop &&other) noexcept -> EventLoop & {
-    IOP_TRACE();
-    this->sensors = other.sensors;
-    this->api = other.api;
-    this->credentialsServer = other.credentialsServer;
-    this->logger = other.logger;
-    this->flash = other.flash;
-    this->firmwareHash = other.firmwareHash;
-    this->macAddress = other.macAddress;
-    this->nextTime = other.nextTime;
-    this->nextYieldLog = other.nextYieldLog;
-    this->nextHandleConnectionLost = other.nextHandleConnectionLost;
-    return *this;
-  }
-  ~EventLoop() noexcept { IOP_TRACE(); }
-  explicit EventLoop(
-      const StaticString uri // NOLINT performance-unnecessary-value-param
-      ) noexcept
-
-      : sensors(soilResistivityPowerPin, soilTemperaturePin,
-                airTempAndHumidityPin, dhtVersion),
-        api(uri, logLevel), credentialsServer(logLevel),
-        logger(logLevel, F("LOOP")), flash(logLevel),
-        firmwareHash(utils::hashSketch()), macAddress(utils::macAddress()),
-        nextTime(0), nextYieldLog(0), nextHandleConnectionLost(0) {
-    IOP_TRACE();
-  }
-  EventLoop(EventLoop const &other) noexcept
-      : sensors(other.sensors), api(other.api),
-        credentialsServer(other.credentialsServer), logger(other.logger),
-        flash(other.flash), firmwareHash(other.firmwareHash),
-        macAddress(other.macAddress), nextTime(other.nextTime),
-        nextYieldLog(other.nextYieldLog),
-        nextHandleConnectionLost(other.nextHandleConnectionLost) {
-    IOP_TRACE();
-  }
-  EventLoop(EventLoop &&other) noexcept
-      : sensors(other.sensors), api(other.api),
-        credentialsServer(other.credentialsServer), logger(other.logger),
-        flash(other.flash), firmwareHash(other.firmwareHash),
-        macAddress(other.macAddress), nextTime(other.nextTime),
-        nextYieldLog(other.nextYieldLog),
-        nextHandleConnectionLost(other.nextHandleConnectionLost) {
-    IOP_TRACE();
   }
 
 private:
@@ -200,27 +131,19 @@ private:
 #ifdef IOP_OTA
       if (maybeToken.isSome()) {
         const auto &token = UNWRAP_REF(maybeToken);
-        const auto mac = this->macAddress;
-        const auto status = this->api.upgrade(token, mac, this->firmwareHash);
+        const auto &mac = utils::macAddress();
+        const auto status = this->api.upgrade(token, mac, utils::hashSketch());
         switch (status) {
         case ApiStatus::FORBIDDEN:
           this->logger.warn(F("Invalid auth token, but keeping since at OTA"));
           return;
 
-        case ApiStatus::NOT_FOUND:
-          // No update for this plant
-
-        case ApiStatus::BROKEN_SERVER:
-          // Central server is broken. Nothing we can do besides waiting
-          return;
-
         case ApiStatus::CLIENT_BUFFER_OVERFLOW:
           panic_(F("Api::upgrade internal buffer overflow"));
 
-        case ApiStatus::MUST_UPGRADE: // Bruh
-        case ApiStatus::BROKEN_PIPE:
-        case ApiStatus::TIMEOUT:
-        case ApiStatus::NO_CONNECTION:
+        // Already logged at the network level
+        case ApiStatus::CONNECTION_ISSUES:
+        case ApiStatus::BROKEN_SERVER:
           // Nothing to be done besides retrying later
 
         case ApiStatus::OK: // Cool beans
@@ -245,31 +168,18 @@ private:
       struct station_config config = {0};
       wifi_station_get_config(&config);
 
-      uint8_t len = 0;
-      while (len < sizeof(config.ssid) && config.ssid[len++] != 0) {
-      }
-      const auto ssid =
-          NetworkName::fromBytesTruncatingUnsafe(config.ssid, len);
-      if (ssid.asString().isAllPrintable()) {
-        this->logger.info(F("Connected to network: "), ssid.asString());
-      } else {
-        String s;
-        for (const uint8_t byte : *ssid.asSharedArray()) {
-          const auto ch = static_cast<char>(byte);
-          if (utils::isPrintable(ch)) {
-            s += ch;
-          } else {
-            s += F("<\\");
-            s += String(byte);
-            s += F(">");
-          }
-        }
-      }
+      // We treat wifi credentials as a blob instead of worrying about encoding
 
-      while (len < sizeof(config.password) && config.password[len++] != 0) {
-      }
-      const auto psk =
-          NetworkPassword::fromBytesTruncatingUnsafe(config.password, len);
+      size_t len = sizeof(config.ssid);
+      const auto *ptr = static_cast<uint8_t *>(config.ssid);
+      const auto ssid = NetworkName::fromBytesUnsafe(ptr, len);
+
+      const auto ssidStr = utils::scapeNonPrintable(ssid.asString());
+      this->logger.info(F("Connected to network: "), ssidStr);
+
+      len = sizeof(config.password);
+      ptr = static_cast<uint8_t *>(config.password);
+      const auto psk = NetworkPassword::fromBytesUnsafe(ptr, len);
 
       this->flash.writeWifiConfig({.ssid = ssid, .password = psk});
 #endif
@@ -282,8 +192,7 @@ private:
     IOP_TRACE();
 
     const auto &wifi = this->flash.readWifiConfig();
-    const auto maybeToken =
-        this->credentialsServer.serve(wifi, this->macAddress, this->api);
+    const auto maybeToken = this->credentialsServer.serve(wifi, this->api);
 
     if (maybeToken.isSome())
       this->flash.writeAuthToken(UNWRAP_REF(maybeToken));
@@ -294,10 +203,9 @@ private:
 
     this->logger.debug(F("Handle Measurements"));
 
-    const auto measurements =
-        sensors.measure(this->macAddress, this->firmwareHash);
-    // TODO: have another cont thread to monitor for problems and report/restart
-    // the system
+    const auto measurements = sensors.measure();
+    // TODO: have another cont thread to monitor for problems and
+    // report/restart the system
     // TODO: register min and max heap usage, stack usage, a counter of times
     // loop was called since the last event...
     const auto status = this->api.registerEvent(token, measurements);
@@ -317,24 +225,72 @@ private:
       this->logger.error(F("Unable to send measurements"));
       panic_(F("Api::registerEvent internal buffer overflow"));
 
-    case ApiStatus::BROKEN_SERVER: // This already is logged at Network
-    case ApiStatus::NOT_FOUND:     // Should never happen
-    case ApiStatus::BROKEN_PIPE:
-    case ApiStatus::TIMEOUT:
-    case ApiStatus::NO_CONNECTION:
-      this->logger.error(F("Unable to send measurements: "),
-                         Network::apiStatusToString(status));
+    // Already logged at the Network level
+    case ApiStatus::BROKEN_SERVER: // TODO: have an API to log this
+    case ApiStatus::CONNECTION_ISSUES:
+      // Nothing to be done besides retrying later
 
     case ApiStatus::OK: // Cool beans
-      return;
-
-    case ApiStatus::MUST_UPGRADE:
-      utils::scheduleInterrupt(InterruptEvent::MUST_UPGRADE);
       return;
     }
 
     this->logger.error(F("Unexpected status, EventLoop::handleMeasurements: "),
                        Network::apiStatusToString(status));
+  }
+
+public:
+  auto operator=(EventLoop const &other) noexcept -> EventLoop & {
+    IOP_TRACE();
+    if (this == &other)
+      return *this;
+
+    this->sensors = other.sensors;
+    this->api = other.api;
+    this->credentialsServer = other.credentialsServer;
+    this->logger = other.logger;
+    this->flash = other.flash;
+    this->nextTime = other.nextTime;
+    this->nextYieldLog = other.nextYieldLog;
+    this->nextHandleConnectionLost = other.nextHandleConnectionLost;
+    return *this;
+  };
+  auto operator=(EventLoop &&other) noexcept -> EventLoop & {
+    IOP_TRACE();
+    this->sensors = other.sensors;
+    this->api = other.api;
+    this->credentialsServer = other.credentialsServer;
+    this->logger = other.logger;
+    this->flash = other.flash;
+    this->nextTime = other.nextTime;
+    this->nextYieldLog = other.nextYieldLog;
+    this->nextHandleConnectionLost = other.nextHandleConnectionLost;
+    return *this;
+  }
+  ~EventLoop() noexcept { IOP_TRACE(); }
+  explicit EventLoop(StaticString uri) noexcept
+
+      : sensors(soilResistivityPowerPin, soilTemperaturePin,
+                airTempAndHumidityPin, dhtVersion),
+        api(std::move(uri), logLevel), credentialsServer(logLevel),
+        logger(logLevel, F("LOOP")), flash(logLevel), nextTime(0),
+        nextYieldLog(0), nextHandleConnectionLost(0) {
+    IOP_TRACE();
+  }
+  EventLoop(EventLoop const &other) noexcept
+      : sensors(other.sensors), api(other.api),
+        credentialsServer(other.credentialsServer), logger(other.logger),
+        flash(other.flash), nextTime(other.nextTime),
+        nextYieldLog(other.nextYieldLog),
+        nextHandleConnectionLost(other.nextHandleConnectionLost) {
+    IOP_TRACE();
+  }
+  EventLoop(EventLoop &&other) noexcept
+      : sensors(other.sensors), api(other.api),
+        credentialsServer(other.credentialsServer), logger(other.logger),
+        flash(other.flash), nextTime(other.nextTime),
+        nextYieldLog(other.nextYieldLog),
+        nextHandleConnectionLost(other.nextHandleConnectionLost) {
+    IOP_TRACE();
   }
 };
 
@@ -343,7 +299,7 @@ static Option<EventLoop> eventLoop;
 void setup() {
   Log::setup();
   IOP_TRACE();
-  eventLoop = EventLoop(UNWRAP_REF(uri));
+  eventLoop = EventLoop(uri);
   UNWRAP_MUT(eventLoop).setup();
 }
 

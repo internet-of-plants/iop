@@ -1,18 +1,10 @@
 #ifndef IOP_MODELS_HPP
 #define IOP_MODELS_HPP
 
-#include "certificate_storage.hpp"
-
-#include "result.hpp"
-#include "static_string.hpp"
 #include "storage.hpp"
-#include "string_view.hpp"
 #include "tracer.hpp"
-#include "unsafe_raw_string.hpp"
 
-#include <array>
 #include <cstdint>
-#include <memory>
 
 // Those are basically utils::Storage but typesafe
 TYPED_STORAGE(AuthToken, 64);
@@ -22,14 +14,16 @@ TYPED_STORAGE(MD5Hash, 32);
 TYPED_STORAGE(MacAddress, 17);
 
 class Log;
+class CowString;
 
+// TODO: move this
 namespace utils {
-auto hashSketch() noexcept -> MD5Hash;
-auto macAddress() noexcept -> MacAddress;
+auto hashSketch() noexcept -> const MD5Hash &;
+auto macAddress() noexcept -> const MacAddress &;
 void ICACHE_RAM_ATTR scheduleInterrupt(InterruptEvent ev) noexcept;
 auto ICACHE_RAM_ATTR descheduleInterrupt() noexcept -> InterruptEvent;
 void logMemory(const Log &logger) noexcept;
-auto isPrintable(char ch) noexcept -> bool;
+auto scapeNonPrintable(StringView msg) noexcept -> CowString;
 } // namespace utils
 
 struct PanicData {
@@ -65,40 +59,26 @@ struct EventStorage {
   float soilTemperatureCelsius;
 };
 
+// TODO: Remove this and use EventStorage directly
 class Event {
 public:
   EventStorage storage;
-  MacAddress mac;
-  MD5Hash firmwareHash;
   ~Event() noexcept { IOP_TRACE(); }
-  Event(EventStorage storage, MacAddress mac, MD5Hash firmwareHash) noexcept
-      : storage(storage), mac(std::move(mac)),
-        firmwareHash(std::move(firmwareHash)) {
+  explicit Event(EventStorage storage) noexcept : storage(storage) {
     IOP_TRACE();
   }
-  Event(Event const &ev) noexcept
-      : storage(ev.storage), mac(ev.mac), firmwareHash(ev.firmwareHash) {
-    IOP_TRACE();
-  }
-  Event(Event &&ev) noexcept
-      : storage(ev.storage), mac(std::move(ev.mac)),
-        firmwareHash(std::move(ev.firmwareHash)) {
-    IOP_TRACE();
-  }
+  Event(Event const &ev) noexcept : storage(ev.storage) { IOP_TRACE(); }
+  Event(Event &&ev) noexcept : storage(ev.storage) { IOP_TRACE(); }
   auto operator=(Event const &ev) noexcept -> Event & {
     IOP_TRACE();
     if (this == &ev)
       return *this;
     this->storage = ev.storage;
-    this->mac = ev.mac;
-    this->firmwareHash = ev.firmwareHash;
     return *this;
   }
   auto operator=(Event &&ev) noexcept -> Event & {
     IOP_TRACE();
     this->storage = ev.storage;
-    this->mac = std::move(ev.mac);
-    this->firmwareHash = std::move(ev.firmwareHash);
     return *this;
   }
 };

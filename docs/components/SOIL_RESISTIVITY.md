@@ -1,8 +1,8 @@
 # Soil resistivity
 
-- FC28 *Analog Sensor* + LM393 [*datasheet*](/docs/datasheets/LM393.pdf)
+- FC28 *Analog Sensor* + LM393 [*datasheet*](/docs/components/datasheets/LM393.pdf)
 
-![Image of FC28 with LM393](/docs/images/models/FC28+LM393.png)
+![Image of FC28 with LM393](/docs/components/images/models/FC28+LM393.png)
 
 ## Ports
 

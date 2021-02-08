@@ -1,37 +1,19 @@
 #ifndef IOP_FLASH_HPP
 #define IOP_FLASH_HPP
 
-#include "certificate_storage.hpp"
-
 #include "log.hpp"
 #include "models.hpp"
-#include "option.hpp"
-#include "static_string.hpp"
-#include "string_view.hpp"
-#include "tracer.hpp"
-#include "unsafe_raw_string.hpp"
 
 #include "ESP8266WiFi.h"
 
-/// Wraps flash memory to provide a API that satisfies our storage needs
+/// Wraps flash memory to provide a safe and ergonomic API
 class Flash {
   Log logger;
 
 public:
-  ~Flash() { IOP_TRACE(); }
   explicit Flash(LogLevel logLevel) noexcept : logger(logLevel, F("FLASH")) {
     IOP_TRACE();
   }
-  Flash(Flash const &other) noexcept : logger(other.logger) { IOP_TRACE(); }
-  Flash(Flash &&other) noexcept = delete;
-  auto operator=(Flash const &other) -> Flash & {
-    if (this == &other)
-      return *this;
-    IOP_TRACE();
-    this->logger = other.logger;
-    return *this;
-  }
-  auto operator=(Flash &&other) -> Flash & = delete;
   static auto setup() noexcept -> void;
 
   auto readAuthToken() const noexcept -> const Option<AuthToken> &;
@@ -41,6 +23,12 @@ public:
   auto readWifiConfig() const noexcept -> const Option<WifiCredentials> &;
   void removeWifiConfig() const noexcept;
   void writeWifiConfig(const WifiCredentials &config) const noexcept;
+
+  ~Flash() { IOP_TRACE(); }
+  Flash(Flash const &other) noexcept = default;
+  Flash(Flash &&other) noexcept = default;
+  auto operator=(Flash const &other) -> Flash & = default;
+  auto operator=(Flash &&other) -> Flash & = default;
 };
 
 #include "utils.hpp"

@@ -1,9 +1,8 @@
 #ifndef IOP_TRACER_HPP
 #define IOP_TRACER_HPP
 
-#include "certificate_storage.hpp"
-
 #include "WString.h"
+
 #include <cstdint>
 
 #define IOP_TRACE() IOP_TRACE_INNER(__COUNTER__)
@@ -14,18 +13,22 @@
   const Tracer iop_tracer_##x(FPSTR(__FILE__), (uint32_t)__LINE__,             \
                               (const char *)__PRETTY_FUNCTION__);
 
+/// Tracer objects, that signifies scoping changes. Helps with post-mortemns
+/// analysis
+///
+/// Doesn't use the official logging system because it's supposed to be used
+/// only when physically debugging very specific bugs, and is unfit for network
+/// logging.
 class Tracer {
-  // We use raw pointers to avoid circular dependency
+  // We use raw pointers to avoid circular dependency, as Tracer is virtually
+  // used everywhere
   const __FlashStringHelper *file;
   const uint32_t line;
   const char *func;
-  const __FlashStringHelper *scope;
 
 public:
   Tracer(const __FlashStringHelper *file, uint32_t line,
          const char *func) noexcept;
-  Tracer(const __FlashStringHelper *file, uint32_t line, const char *func,
-         const __FlashStringHelper *scope) noexcept;
   ~Tracer() noexcept;
   Tracer(const Tracer &other) noexcept = delete;
   Tracer(Tracer &&other) noexcept = delete;

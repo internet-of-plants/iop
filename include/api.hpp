@@ -1,8 +1,6 @@
 #ifndef IOP_API_HPP
 #define IOP_API_HPP
 
-#include "certificate_storage.hpp"
-
 #include "fixed_string.hpp"
 #include "log.hpp"
 #include "models.hpp"
@@ -10,48 +8,105 @@
 #include "option.hpp"
 #include "result.hpp"
 #include "static_string.hpp"
-#include "storage.hpp"
 #include "string_view.hpp"
 #include "tracer.hpp"
 
 #include "ArduinoJson.h"
 
-/// Abstracts Internet of Plants API to avoid mistakes and properly report
-/// errors
+/// High level client, that abstracts IoP API access in a safe and ergonomic way
+///
+/// Handles all the network internals.
+///
+/// If some method returns `ApiStatus::CLIENT_BUFFER_OVERFLOW` the method is
+/// broken. We don't panic because some method's are called during panic. So the
+/// user is responsible for dealing with it however they like.
 class Api {
 private:
   Log logger;
   Network network_;
 
 public:
-  ~Api();
   Api(StaticString uri, LogLevel logLevel) noexcept;
 
-  Api(Api const &other);
-  Api(Api &&other) = delete;
-  auto operator=(Api const &other) -> Api &;
-  auto operator=(Api &&other) -> Api & = delete;
-
   auto setup() const noexcept -> void;
-
-  auto upgrade(const AuthToken &token, const MacAddress &mac,
-               const MD5Hash &sketchHash) const noexcept -> ApiStatus;
-  auto reportPanic(const AuthToken &authToken, const MacAddress &mac,
-                   const PanicData &event) const noexcept -> ApiStatus;
-  auto registerEvent(const AuthToken &token, const Event &event) const noexcept
-      -> ApiStatus;
-  auto authenticate(StringView username, StringView password,
-                    const MacAddress &mac) const noexcept
-      -> Result<AuthToken, ApiStatus>;
-  auto registerLog(const AuthToken &authToken, const MacAddress &mac,
-                   StringView log) const noexcept -> ApiStatus;
-
   auto uri() const noexcept -> StaticString;
   auto loggerLevel() const noexcept -> LogLevel;
   auto network() const noexcept -> const Network &;
 
-  // private:
+  /// Sends a log message through the network, currently needs a buffer.
+  /// Streaming is a TODO.
+  ///
+  /// OK: success, this won't be triggered because success returns AuthToken
+  /// FORBIDDEN: auth token is invalid
+  /// CONNECTION_ISSUES: problems with connection, retry later?
+  /// CLIENT_BUFFER_OVERFLOW: this route shouldn't trigger this, ever
+  /// BROKEN_SERVER: just wait until server is fixed
+  auto reportPanic(const AuthToken &authToken,
+                   const PanicData &event) const noexcept -> ApiStatus;
+
+  /// Register frequent event to server, with measurements and device
+  /// information
+  ///
+  /// Possible responses:
+  ///
+  /// OK: success
+  /// FORBIDDEN: auth token is invalid
+  /// CONNECTION_ISSUES: problems with the connection, retry later?
+  /// CLIENT_BUFFER_OVERFLOW: something is very broken with this methods's code
+  /// MUST_UPGRADE: Well, upgrade your code
+  /// BROKEN_SERVER: Must wait until server is fixed
+  auto registerEvent(const AuthToken &token, const Event &event) const noexcept
+      -> ApiStatus;
+
+  /// Tries to authenticate with the server getting AuthToken if succeeded
+  ///
+  /// OK: success, this won't be triggered because success returns AuthToken
+  /// FORBIDDEN: auth token is invalid
+  /// CONNECTION_ISSUES: problems with connection, retry later?
+  /// CLIENT_BUFFER_OVERFLOW: something is very broken with this method's code
+  /// BROKEN_SERVER: just wait until server is fixed
+  auto authenticate(StringView username, StringView password) const noexcept
+      -> Result<AuthToken, ApiStatus>;
+
+  /// Reports panic message to server. Possible responses:
+  ///
+  /// OK: panic successfully reported
+  /// FORBIDDEN: auth token is invalid
+  /// CONNECTION_ISSUES: problems with connection, retry later?
+  /// CLIENT_BUFFER_OVERFLOW: something is very broken with this method's code
+  /// BROKEN_SERVER: must wait until server is fixeds
+  auto registerLog(const AuthToken &authToken, StringView log) const noexcept
+      -> ApiStatus;
+
+  /// Tries to update. Restarts on success. Returns OK if no updates are
+  /// available
+  ///
+  /// No updates being available may mean there simply isn't newer code. Or that
+  /// this device was excluded from the update (it's useful to group similar
+  /// devices to have the same code).
+  ///
+  /// TODO: In the future this will accept signed binaries.
+  ///
+  /// This uses an internal Update API, so we don't have much control over the
+  /// return values. The server has to adapt to its quirkiness
+  ///
+  /// OK: success, this won't be triggered because success returns AuthToken
+  /// FORBIDDEN: auth token is invalid
+  /// CONNECTION_ISSUES: problems with connection, retry later?
+  /// CLIENT_BUFFER_OVERFLOW: this route shouldn't trigger this, ever
+  /// BROKEN_SERVER: just wait until server is fixed
+  auto upgrade(const AuthToken &token, const MacAddress &mac,
+               const MD5Hash &sketchHash) const noexcept -> ApiStatus;
+
+private:
   using JsonCallback = std::function<void(JsonDocument &)>;
+
+  /// Abstracs safe json serialization. Returns None on overflow
+  ///
+  /// Overflows will mean the json couldn't be generated fitting the SIZE
+  /// provided. This is a critical error and probably will break the system
+  ///
+  /// Gets a name for logging. And a callback that actually fills the json
   template <uint16_t SIZE>
   auto makeJson(const StaticString name, const JsonCallback func) const noexcept
       -> Option<FixedString<SIZE>> {
@@ -75,6 +130,13 @@ public:
     this->logger.debug(F("Json: "), *fixed);
     return Option<FixedString<SIZE>>(fixed);
   }
+
+public:
+  ~Api() noexcept;
+  Api(Api const &other);
+  Api(Api &&other) = delete;
+  auto operator=(Api const &other) -> Api &;
+  auto operator=(Api &&other) -> Api & = delete;
 };
 
 #include "utils.hpp"

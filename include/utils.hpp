@@ -1,10 +1,10 @@
 #ifndef IOP_UTILS_HPP
 #define IOP_UTILS_HPP
 
-#include "certificate_storage.hpp"
-
 #include "tracer.hpp"
+
 #include <cstdint>
+#include <memory>
 
 // (Un)Comment this line to toggle wifi dependency
 #define IOP_ONLINE
@@ -57,10 +57,6 @@ constexpr static const uint8_t interruptVariants = 4;
 #define MAYBE_PROGMEM_STRING(name, msg)                                        \
   PROGMEM_STRING(name_##storage, msg);                                         \
   static const Option<StaticString> name(name_##storage);
-
-// This is a sanity check, we override CertStore by hijacking the header guard
-// That means if someone breaks the include order HTTPS will break silently
-static volatile auto certStoreOverrideWorked = false;
 
 #include <memory>
 

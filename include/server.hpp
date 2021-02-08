@@ -1,31 +1,32 @@
 #ifndef IOP_SERVER_HPP
 #define IOP_SERVER_HPP
 
-#include "certificate_storage.hpp"
-
 #include <api.hpp>
-#include <flash.hpp>
-#include <log.hpp>
-#include <option.hpp>
-#include <result.hpp>
-#include <static_string.hpp>
 
 #include <DNSServer.h>
 #include <ESP8266WebServer.h>
+
 #include <memory>
 
 enum ServeError { INVALID_WIFI_CONFIG };
 
 /// Server to safely acquire wifi and Internet of Plants credentials
 ///
-/// It provides a access point with a captive portal.
-/// The captive portal will provide a form with dynamic fields
-/// Two fields (network ssid and psk) for the wifi credentials, if you are not
-/// authenticated Two fields (email and password) for IoP credentials, if you
-/// don't have a authentication token stored
+/// It provides an access point with a captive portal.
+/// The captive portal will provide a form: two fields (network ssid and psk)
+/// for the wifi credentials na dtwo fields (email and password) for IoP
+/// credentials.
 ///
-/// It opens itself at `serve`, but it should be manually closed `close` when
-/// wifi + IoP are authenticated
+/// Internet of Plants credentials don't persist anywhere, they are simply used
+/// to generate an authentication token for this device.
+///
+/// It opens itself at `serve`, but it should be manually closed with `close`
+/// when wifi + IoP are retrieved
+///
+/// Doesn't actually returns wifi credentials. It connects to WiFi directly. So
+/// you need a callback to detect when that happens.
+////
+/// Tip: call Network::isConnected() to check if connected
 class CredentialsServer {
 private:
   Log logger;
@@ -34,36 +35,33 @@ private:
   esp_time nextTryHardcodedWifiCredentials = 0;
   bool isServerOpen = false;
 
-public:
-  ~CredentialsServer() { IOP_TRACE(); }
-
-  // NOLINTNEXTLINE performance-unnecessary-value-param
+  void start() noexcept;
+  /// Connects to WiFi
   auto connect(StringView ssid, StringView password) const noexcept -> void;
-  // NOLINTNEXTLINE performance-unnecessary-value-param
+  /// Uses IoP credentials to generate an authentication token for the device
   auto authenticate(StringView username, StringView password,
-                    const MacAddress &mac, const Api &api) const noexcept
-      -> Option<AuthToken>;
+                    const Api &api) const noexcept -> Option<AuthToken>;
 
+public:
   explicit CredentialsServer(const LogLevel &logLevel) noexcept
       : logger(logLevel, F("SERVER")) {
     IOP_TRACE();
   }
 
-  // Self-referential class, it must not be moved or copied. SELF_REF
+  void setup() const noexcept;
+  auto serve(const Option<WifiCredentials> &storedWifi, const Api &api) noexcept
+      -> Option<AuthToken>;
+  void close() noexcept;
+
+  auto statusToString(station_status_t status) const noexcept
+      -> Option<StaticString>;
+
+  ~CredentialsServer() noexcept { IOP_TRACE(); }
   CredentialsServer(CredentialsServer const &other) = default;
   CredentialsServer(CredentialsServer &&other) = delete;
   auto operator=(CredentialsServer const &other)
       -> CredentialsServer & = default;
   auto operator=(CredentialsServer &&other) -> CredentialsServer & = delete;
-
-  auto serve(const Option<WifiCredentials> &storedWifi, const MacAddress &mac,
-             const Api &api) noexcept -> Option<AuthToken>;
-  void close() noexcept;
-  void start() noexcept;
-  void setup() const noexcept;
-
-  auto statusToString(station_status_t status) const noexcept
-      -> Option<StaticString>;
 };
 
 #include "utils.hpp"

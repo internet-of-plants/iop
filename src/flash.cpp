@@ -2,63 +2,76 @@
 
 #ifndef IOP_FLASH_DISABLED
 #include "EEPROM.h"
+#include "copy_on_write.hpp"
 
-// Flags to check if information is written to flash
-// chosen by fair dice roll, garanteed to be random
+constexpr const uint16_t EEPROM_SIZE = 512;
+
+// If another type is to be written to flash be carefull not to mess with what
+// already is there and update the static_assert below. Same deal for removing
+// types.
+
+// Magic bytes. Flags to check if information is written to flash.
+// Chosen by fair dice roll, garanteed to be random
 const uint8_t usedWifiConfigEEPROMFlag = 126;
 const uint8_t usedAuthTokenEEPROMFlag = 127;
 
-constexpr const uint16_t EEPROM_SIZE = 512;
-// Indexes, so each function know where they can write to.
-// It's kinda bad, but for now it works (TODO: maybe use FS.h?)
-// There is always 1 bit used for the 'isWritten' flag
-const uint16_t wifiConfigIndex = 0;
+// One byte is reserved for the magic byte ('isWritten' flag)
+const uint16_t authTokenSize = 1 + AuthToken::size;
 const uint16_t wifiConfigSize = 1 + NetworkName::size + NetworkPassword::size;
 
+// Allows each method to know where to write
+const uint16_t wifiConfigIndex = 0;
 const uint16_t authTokenIndex = wifiConfigIndex + wifiConfigSize;
-const uint16_t authTokenSize = 1 + AuthToken::size;
 
 static_assert(authTokenIndex + authTokenSize < EEPROM_SIZE,
               "EEPROM too small to store needed credentials");
 
 auto Flash::setup() noexcept -> void { EEPROM.begin(EEPROM_SIZE); }
 
-static auto constPtr() noexcept -> const char * {
-  IOP_TRACE();
-  // NOLINTNEXTLINE *-pro-type-reinterpret-cast
-  return reinterpret_cast<const char *>(EEPROM.getConstDataPtr());
-}
-
 static Option<AuthToken> authToken;
+// Token cache
 
 auto Flash::readAuthToken() const noexcept -> const Option<AuthToken> & {
   IOP_TRACE();
 
+  // Checks if value is cached
   if (authToken.isSome())
     return authToken;
 
+  // Check if magic byte is set in flash (as in, something is stored)
   if (EEPROM.read(authTokenIndex) != usedAuthTokenEEPROMFlag)
     return authToken;
 
   // NOLINTNEXTLINE *-pro-bounds-pointer-arithmetic
-  const auto ptr = constPtr() + authTokenIndex + 1;
-  const auto tokenRes = AuthToken::fromStringTruncating(UnsafeRawString(ptr));
-  if (IS_ERR(tokenRes))
-    return authToken;
+  const auto ptr = EEPROM.getConstDataPtr() + authTokenIndex + 1;
 
-  const auto &token = UNWRAP_OK_REF(tokenRes);
+  auto token = AuthToken::fromBytesUnsafe(ptr, AuthToken::size);
+
+  // AuthToken must be printable US-ASCII (to be stored in HTTP headers))
+  if (!token.asString().isAllPrintable()) {
+    const auto tok = utils::scapeNonPrintable(token.asString());
+    this->logger.error(F("Auth token was non printable: "), tok);
+    this->removeAuthToken();
+    return authToken;
+  }
+
   this->logger.trace(F("Found Auth token: "), token.asString());
 
-  authToken = token;
+  // Updates cache
+  authToken = std::move(token);
   return authToken;
 }
 
 void Flash::removeAuthToken() const noexcept {
   IOP_TRACE();
-  this->logger.info(F("Deleting stored auth token"));
 
+  // Clears cache, if any
   (void)authToken.take();
+
+  // Checks if it's written to flash first, avoids wasting writes
   if (EEPROM.read(authTokenIndex) == usedAuthTokenEEPROMFlag) {
+    this->logger.info(F("Deleting stored auth token"));
+
     // NOLINTNEXTLINE *-pro-bounds-pointer-arithmetic
     memset(EEPROM.getDataPtr() + authTokenIndex, 0, authTokenSize);
     EEPROM.commit();
@@ -67,19 +80,21 @@ void Flash::removeAuthToken() const noexcept {
 
 void Flash::writeAuthToken(const AuthToken &token) const noexcept {
   IOP_TRACE();
-  // Avoids re-writing same data
+
+  // Avoids re-writing the same data
   const auto &maybeCurrToken = this->readAuthToken();
   if (maybeCurrToken.isSome()) {
     const auto &currToken = UNWRAP_REF(maybeCurrToken);
 
     if (token.asString() == currToken.asString()) {
       this->logger.debug(F("Auth token already stored in flash"));
-      // No need to save token that already is stored
       return;
     }
   }
 
   this->logger.info(F("Writing auth token to storage: "), token.asString());
+
+  // Updates cache
   authToken = token;
 
   EEPROM.write(authTokenIndex, usedAuthTokenEEPROMFlag);
@@ -87,33 +102,33 @@ void Flash::writeAuthToken(const AuthToken &token) const noexcept {
   EEPROM.commit();
 }
 
+// Credentials cache
 static Option<WifiCredentials> wifiCredentials;
 
 auto Flash::readWifiConfig() const noexcept -> const Option<WifiCredentials> & {
   IOP_TRACE();
 
+  // Check if value is in cache
   if (wifiCredentials.isSome())
     return wifiCredentials;
 
+  // Check if magic byte is set in flash (as in, something is stored)
   if (EEPROM.read(wifiConfigIndex) != usedWifiConfigEEPROMFlag)
     return wifiCredentials;
 
   // NOLINTNEXTLINE *-pro-bounds-pointer-arithmetic
-  const auto ptr = constPtr() + wifiConfigIndex + 1;
-  const auto ssidRes = NetworkName::fromStringTruncating(UnsafeRawString(ptr));
-  if (IS_ERR(ssidRes))
-    return wifiCredentials;
-  const auto &ssid = UNWRAP_OK_REF(ssidRes);
+  const auto *ptr = EEPROM.getConstDataPtr() + wifiConfigIndex + 1;
 
-  // NOLINTNEXTLINE *-pro-bounds-pointer-arithmetic
-  const auto pskRaw = UnsafeRawString(ptr + NetworkName::size);
-  const auto pskRes = NetworkPassword::fromStringTruncating(pskRaw);
-  if (IS_ERR(pskRes))
-    return wifiCredentials;
-  const auto &psk = UNWRAP_OK_REF(pskRes);
+  // We treat wifi credentials as a blob instead of worrying about encoding
 
-  this->logger.trace(F("Found network credentials: "), ssid.asString());
-  wifiCredentials = WifiCredentials(ssid, psk);
+  const auto ssid = NetworkName::fromBytesUnsafe(ptr, NetworkName::size);
+  const auto psk = NetworkPassword::fromBytesUnsafe(ptr, NetworkPassword::size);
+
+  const auto ssidStr = utils::scapeNonPrintable(ssid.asString());
+  this->logger.trace(F("Found network credentials: "), ssidStr);
+
+  // Updates cache
+  wifiCredentials = std::move(WifiCredentials(ssid, psk));
   return wifiCredentials;
 }
 
@@ -121,7 +136,10 @@ void Flash::removeWifiConfig() const noexcept {
   IOP_TRACE();
   this->logger.info(F("Deleting stored wifi config"));
 
+  // Clears cache, if any
   (void)wifiCredentials.take();
+
+  // Checks if it's written to flash first, avoids wasting writes
   if (EEPROM.read(wifiConfigIndex) == usedWifiConfigEEPROMFlag) {
     // NOLINTNEXTLINE *-pro-bounds-pointer-arithmetic
     memset(EEPROM.getDataPtr() + wifiConfigIndex, 0, wifiConfigSize);
@@ -131,7 +149,6 @@ void Flash::removeWifiConfig() const noexcept {
 
 void Flash::writeWifiConfig(const WifiCredentials &config) const noexcept {
   IOP_TRACE();
-  const auto ssidStr = config.ssid.asString();
 
   // Avoids re-writing same data
   const auto &maybeCurrConfig = this->readWifiConfig();
@@ -146,12 +163,13 @@ void Flash::writeWifiConfig(const WifiCredentials &config) const noexcept {
     }
   }
 
-  this->logger.info(F("Writing network credentials to storage: "), ssidStr);
+  this->logger.info(F("Writing network credentials to storage: "),
+                    config.ssid.asString());
 
+  // Updates cache
   wifiCredentials = config;
 
   const auto &psk = *config.password.asSharedArray();
-
   EEPROM.write(wifiConfigIndex, usedWifiConfigEEPROMFlag);
   EEPROM.put(wifiConfigIndex + 1, *config.ssid.asSharedArray());
   EEPROM.put(wifiConfigIndex + 1 + NetworkName::size, psk);

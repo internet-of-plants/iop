@@ -6,6 +6,7 @@
 #ifndef IOP_SERVER_DISABLED
 #include "api.hpp"
 #include "configuration.h"
+#include "flash.hpp"
 #include "utils.hpp"
 
 #include "bits/basic_string.h"
@@ -87,10 +88,10 @@ static Option<std::pair<String, String>> credentialsWifi;
 static Option<std::pair<String, String>> credentialsIop;
 
 constexpr const uint8_t serverPort = 80;
-static ESP8266WebServer server(serverPort); // NOLINT cert-err58-cpp
+static ESP8266WebServer server(serverPort);
 
 constexpr const uint8_t dnsPort = 53;
-static DNSServer dnsServer; // NOLINT cert-err58-cpp
+static DNSServer dnsServer;
 
 void CredentialsServer::setup() const noexcept {
   IOP_TRACE();
@@ -102,8 +103,9 @@ void CredentialsServer::setup() const noexcept {
   auto *s = &server;
   server.on(F("/submit"), [s, loggerLevel]() {
     IOP_TRACE();
-    const static Log logger(loggerLevel, F("SERVER_CALLBACK"), false);
-    logger.debug(F("Received form with credentials"));
+    // TODO: show in log that it doesn't use default logging (network log off)
+    if (loggerLevel >= LogLevel::DEBUG)
+      Serial.println(F("[DEBUG] SERVER_CALLBACK: Received credentials form"));
 
     if (s->hasArg(F("wifi")) && s->hasArg(F("ssid")) &&
         s->hasArg(F("password"))) {
@@ -127,9 +129,9 @@ void CredentialsServer::setup() const noexcept {
 
   server.onNotFound([s, loggerLevel]() {
     IOP_TRACE();
-    const static Log logger(loggerLevel, F("SERVER_CALLBACK"), false);
     const static Flash flash(loggerLevel);
-    logger.debug(F("Serving captive portal HTML"));
+    if (loggerLevel >= LogLevel::DEBUG)
+      Serial.println(F("[DEBUG] SERVER_CALLBACK: Serving captive portal HTML"));
 
     const auto mustConnect = !Network::isConnected();
     const auto needsIopAuth = flash.readAuthToken().isNone();
@@ -238,10 +240,8 @@ auto CredentialsServer::statusToString(
   return Option<StaticString>();
 }
 
-auto CredentialsServer::connect(
-    const StringView ssid,    // NOLINT performance-unnecessary-value-param
-    const StringView password // NOLINT performance-unnecessary-value-param
-) const noexcept -> void {
+auto CredentialsServer::connect(StringView ssid,
+                                StringView password) const noexcept -> void {
   IOP_TRACE();
   if (wifi_station_get_connect_status() == STATION_CONNECTING) {
     ETS_UART_INTR_DISABLE(); // NOLINT hicpp-signed-bitwise
@@ -252,7 +252,7 @@ auto CredentialsServer::connect(
   // TODO: should we use WiFi.setPersistent(false) and save it to flash on our
   // own when connection succeeds? It seems invalid credentials here still get
   // stored to flash even if they fail
-  WiFi.begin(ssid.get(), password.get());
+  WiFi.begin(ssid.get(), std::move(password).get());
 
   if (WiFi.waitForConnectResult() == -1) {
     this->logger.error(F("Wifi authentication timed out"));
@@ -267,18 +267,16 @@ auto CredentialsServer::connect(
 
     const auto statusStr = UNWRAP_REF(maybeStatusStr);
     this->logger.error(F("Invalid wifi credentials ("), statusStr, F("): "),
-                       ssid);
+                       std::move(ssid));
   }
 }
 
-/// Forbidden (403): invalid credentials
-auto CredentialsServer::authenticate(
-    const StringView username, // NOLINT performance-unnecessary-value-param
-    const StringView password, // NOLINT performance-unnecessary-value-param
-    const MacAddress &mac, const Api &api) const noexcept -> Option<AuthToken> {
+auto CredentialsServer::authenticate(StringView username, StringView password,
+                                     const Api &api) const noexcept
+    -> Option<AuthToken> {
   IOP_TRACE();
   WiFi.mode(WIFI_STA);
-  auto authToken = api.authenticate(username, password, mac);
+  auto authToken = api.authenticate(username, std::move(password));
   WiFi.mode(WIFI_AP_STA);
   this->logger.info(F("Tried to authenticate"));
 
@@ -289,25 +287,19 @@ auto CredentialsServer::authenticate(
     case ApiStatus::FORBIDDEN:
       this->logger.error(F("Invalid IoP credentials ("),
                          Network::apiStatusToString(status), F("): "),
-                         username);
+                         std::move(username));
       return Option<AuthToken>();
 
     case ApiStatus::CLIENT_BUFFER_OVERFLOW:
       panic_(F("CredentialsServer::authenticate internal buffer overflow"));
 
-    case ApiStatus::BROKEN_PIPE:
-    case ApiStatus::TIMEOUT:
-    case ApiStatus::NO_CONNECTION:
-      this->logger.error(F("CredentialsServer::authenticate network error"));
-      return Option<AuthToken>();
-
+    // Already logged at the Network level
+    case ApiStatus::CONNECTION_ISSUES:
     case ApiStatus::BROKEN_SERVER:
-    case ApiStatus::NOT_FOUND:
-      this->logger.error(F("CredentialsServer::authenticate server error"));
+      // Nothing to be done besides retrying later
       return Option<AuthToken>();
 
     case ApiStatus::OK:
-    case ApiStatus::MUST_UPGRADE:
       // On success those shouldn't be triggered
       panic_(F("Unreachable"));
     }
@@ -320,8 +312,7 @@ auto CredentialsServer::authenticate(
 }
 
 auto CredentialsServer::serve(const Option<WifiCredentials> &storedWifi,
-                              const MacAddress &mac, const Api &api) noexcept
-    -> Option<AuthToken> {
+                              const Api &api) noexcept -> Option<AuthToken> {
   IOP_TRACE();
   this->start();
 
@@ -337,7 +328,7 @@ auto CredentialsServer::serve(const Option<WifiCredentials> &storedWifi,
 
   } else if (Network::isConnected() && credentialsIop.isSome()) {
     const auto cred = UNWRAP(credentialsIop);
-    auto tok = this->authenticate(cred.first, cred.second, mac, api);
+    auto tok = this->authenticate(cred.first, cred.second, api);
     if (tok.isSome())
       return tok;
 

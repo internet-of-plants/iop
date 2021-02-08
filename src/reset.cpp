@@ -7,24 +7,24 @@
 #include "models.hpp"
 #include "utils.hpp"
 
-PROGMEM_STRING(logTarget, "INTERRUPT");
-const static Log logger(logLevel, logTarget, false);
-
 static volatile esp_time resetStateTime = 0;
 
 void ICACHE_RAM_ATTR buttonChanged() noexcept {
   // IOP_TRACE();
   if (digitalRead(factoryResetButton) == HIGH) {
     resetStateTime = millis();
-    logger.info(
-        F("Pressed FACTORY_RESET button. Keep it pressed for at least 15 "
-          "seconds to factory reset your device"));
+    if (logLevel >= LogLevel::INFO)
+      Serial.println(F("[INFO] RESET: Pressed FACTORY_RESET button. Keep it "
+                       "pressed for at least 15 "
+                       "seconds to factory reset your device"));
   } else {
     constexpr const uint32_t fifteenSeconds = 15000;
     if (resetStateTime + fifteenSeconds < millis()) {
       utils::scheduleInterrupt(InterruptEvent::FACTORY_RESET);
-      logger.info(
-          F("Setted FACTORY_RESET flag, running it in the next loop run"));
+      if (logLevel >= LogLevel::INFO)
+        Serial.println(
+            F("[INFO] RESET: Setted FACTORY_RESET flag, running it in "
+              "the next loop run"));
     }
   }
 }

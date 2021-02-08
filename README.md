@@ -50,7 +50,17 @@ sudo usermod -a -G plugdev $USER
 
 You can just deploy the code to the nodemcu using PlatformIO. Choose `env:release` to deploy to production. After the first deploy you can use the update server.
 
-Be aware, while `esp8266/Arduino` is at version `2.7.4` our code will crash because of a bug in this version. So you will have to apply a patch to the local `PlatformIO` `esp8266/Arduino` code. Change `Arduino/cores/esp8266/WString.h` for [WString.h](https://github.com/esp8266/Arduino/blob/master/cores/esp8266/WString.h) and `Arduino/cores/esp8266/WString.cpp` for [WString.cpp](https://github.com/esp8266/Arduino/blob/master/cores/esp8266/WString.cpp)
+You must apply the following patches to the local `esp8266/Arduino`. This is a necessary inconvenience while upstream is at `2.7.4` version. They froze version `2`, and `3` is a breaking change. So we live in a unsupported grey area for now. It works and we could make a fork, but this is a highly temporary situation.
+
+The `String` problem is that if a `String` is moved twice it causes a nullptr-deref, and we do that do signify ownership passing. The other thing is that in `3.0` you can inherit from `CertStoreBase` and make your own `CertStore`. Until now people have been hijacking the header guard (which we did), and it's a horrible approach.
+
+**Replace** `Arduino/cores/esp8266/WString.h` **for** [WString.h](https://github.com/esp8266/Arduino/blob/master/cores/esp8266/WString.h)
+
+**Replace** `Arduino/cores/esp8266/WString.cpp` **for** [WString.cpp](https://github.com/esp8266/Arduino/blob/master/cores/esp8266/WString.cpp)
+
+**Replace** `Arduino/libraries/ESP8266WiFi/src/CertStoreBearSSL.h` **for** [CertStoreBearSSL.h](https://github.com/esp8266/Arduino/blob/master/libraries/ESP8266WiFi/src/CertStoreBearSSL.h)
+
+**Replace** `Arduino/libraries/ESP8266WiFi/src/CertStoreBearSSL.cpp` **for** [CertStoreBearSSL.cpp](https://github.com/esp8266/Arduino/blob/master/libraries/ESP8266WiFi/src/CertStoreBearSSL.cpp)
 
 We are sorry for this inconvenience, but until upstream updates it's the best approach.
 
@@ -80,7 +90,7 @@ Most decisions are listed here. If you find some other questionable decision ple
 
 - Avoiding moves
 
-    Since cpp doesn't have destructive moves, it can leave our code in an invalid state. Either with a nulled `std::{unique_ptr, shared_ptr}`, or with an empty `Result<T, E>`, for example. And since those abstractions are heavily used throughout the code we don't want a human mistake to cause UB, panic or raise exceptions. Even a wrongly moved-out `Option<T>` can cause logical errors.
+    Since cpp doesn't have destructive moves, it can leave our code in an invalid state. Either with a nulled `std::{unique,shared}_ptr`, or with an empty `Result<T, E>`, for example. And since those abstractions are heavily used throughout the code we don't want a human mistake to cause UB, panic or raise exceptions. Even a wrongly moved-out `Option<T>` can cause logical errors.
 
     To avoid that we try not to move out, getting references when we can. For example using `UNWRAP(_OK,_ERR)_{REF,MUT}`. But you have to be careful to make sure that the reference doesn't outlive its storage (as always). Instead of `UNWRAP_{OK,ERR}`, that move out, although they can be very useful, like moving-out to return the inner value.
 

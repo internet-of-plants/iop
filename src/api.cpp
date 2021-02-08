@@ -1,78 +1,39 @@
 #include "api.hpp"
-
-#include "ESP8266httpUpdate.h"
+#include "copy_on_write.hpp"
 #include "fixed_string.hpp"
+#include "storage.hpp"
 #include "utils.hpp"
 
-Api::~Api() { IOP_TRACE(); }
+#include "ESP8266httpUpdate.h"
 
-// NOLINTNEXTLINE performance-unnecessary-value-param
-Api::Api(const StaticString uri, const LogLevel logLevel) noexcept
-    : logger(logLevel, F("API")), network_(uri, logLevel) {
-  IOP_TRACE();
-}
-
-Api::Api(Api const &other) : logger(other.logger), network_(other.network_) {
-  IOP_TRACE();
-}
-
-auto Api::operator=(Api const &other) -> Api & {
-  IOP_TRACE();
-  if (this == &other)
-    return *this;
-  this->logger = other.logger;
-  this->network_ = other.network_;
-  return *this;
-}
-
-auto Api::setup() const noexcept -> void {
-  IOP_TRACE();
-  this->network().setup();
-}
-auto Api::uri() const noexcept -> StaticString {
-  return this->network().uri();
-};
-
-auto Api::network() const noexcept -> const Network & {
-  IOP_TRACE();
-  return this->network_;
-}
+// TODO: have an endpoint to report non 200 response
+// TODO: have an endpoint to report CLIENT_BUFFER_OVERFLOWS
 
 #ifndef IOP_API_DISABLED
-auto Api::loggerLevel() const noexcept -> LogLevel {
-  IOP_TRACE();
-  return this->logger.level();
-}
 
-/// Ok (200): success
-/// Forbidden (403): auth token is invalid
-/// Not Found (404): invalid plant id (if any) (is it owned by another account?)
-/// Bad request (400): the json didn't fit the local buffer, this bad
-/// No HttpCode and Internal Error (500): bad vibes at the wlan/server
-auto Api::reportPanic(const AuthToken &authToken, const MacAddress &mac,
+auto Api::reportPanic(const AuthToken &authToken,
                       const PanicData &event) const noexcept -> ApiStatus {
   IOP_TRACE();
   this->logger.debug(F("Report panic:"), event.msg);
 
-  const auto make = [authToken, &mac, event](JsonDocument &doc) {
-    doc["mac"] = mac.asString().get();
+  const auto make = [event](JsonDocument &doc) {
     doc["file"] = event.file.get();
     doc["line"] = event.line;
     doc["func"] = event.func.get();
     doc["msg"] = event.msg.get();
   };
-
+  // TODO: does every panic possible fit into 2048 bytes?
   const auto maybeJson = this->makeJson<2048>(F("Api::reportPanic"), make);
   if (maybeJson.isNone())
     return ApiStatus::CLIENT_BUFFER_OVERFLOW;
+  const auto &json = UNWRAP_REF(maybeJson);
 
   const auto token = authToken.asString();
-  const auto &json = UNWRAP_REF(maybeJson);
   const auto maybeResp = this->network().httpPost(token, F("/panic"), json);
 
 #ifndef IOP_MOCK_MONITOR
   if (IS_ERR(maybeResp)) {
-    const auto code = std::to_string(UNWRAP_ERR_REF(maybeResp));
+    const auto code = String(UNWRAP_ERR_REF(maybeResp));
     this->logger.error(F("Unexpected response at Api::reportPanic: "), code);
     return ApiStatus::BROKEN_SERVER;
   }
@@ -82,16 +43,10 @@ auto Api::reportPanic(const AuthToken &authToken, const MacAddress &mac,
 #endif
 }
 
-/// Ok (200): success
-/// Forbidden (403): auth token is invalid
-/// Not Found (404): plant id is invalid (maybe it's owned by another account?)
-/// Must Upgrade (412): event saved, but firmware is outdated, must upgrade it
-/// Bad request (400): the json didn't fit the local buffer, this bad No
-/// HttpCode and Internal Error (500): bad vibes at the wlan/server
 auto Api::registerEvent(const AuthToken &authToken,
                         const Event &event) const noexcept -> ApiStatus {
   IOP_TRACE();
-  this->logger.debug(F("Send event: "), event.mac.asString());
+  this->logger.debug(F("Send event"));
 
   const auto make = [&event](JsonDocument &doc) {
     doc["air_temperature_celsius"] = event.storage.airTemperatureCelsius;
@@ -99,20 +54,19 @@ auto Api::registerEvent(const AuthToken &authToken,
     doc["air_heat_index_celsius"] = event.storage.airHeatIndexCelsius;
     doc["soil_temperature_celsius"] = event.storage.soilTemperatureCelsius;
     doc["soil_resistivity_raw"] = event.storage.soilResistivityRaw;
-    doc["firmware_hash"] = event.firmwareHash.asString().get();
-    doc["mac"] = event.mac.asString().get();
   };
+  // 256 bytes is more than enough (we checked, it doesn't get to 200 bytes)
   const auto maybeJson = this->makeJson<256>(F("Api::registerEvent"), make);
   if (maybeJson.isNone())
     return ApiStatus::CLIENT_BUFFER_OVERFLOW;
+  const auto &json = UNWRAP_REF(maybeJson);
 
   const auto token = authToken.asString();
-  const auto &json = UNWRAP_REF(maybeJson);
   const auto maybeResp = this->network().httpPost(token, F("/event"), json);
 
 #ifndef IOP_MOCK_MONITOR
   if (IS_ERR(maybeResp)) {
-    const auto code = std::to_string(UNWRAP_ERR_REF(maybeResp));
+    const auto code = String(UNWRAP_ERR_REF(maybeResp));
     this->logger.error(F("Unexpected response at Api::registerEvent: "), code);
     return ApiStatus::BROKEN_SERVER;
   }
@@ -122,12 +76,7 @@ auto Api::registerEvent(const AuthToken &authToken,
 #endif
 }
 
-/// ApiStatus::NOT_FOUND: invalid credentials
-/// ApiStatus::CLIENT_BUFFER_OVERFLOW: json didn't fit. This bad
-/// ApiStatus::BROKEN_SERVER: Unexpected/broken response or too big
-// NOLINTNEXTLINE performance-unnecessary-value-param
-auto Api::authenticate(const StringView username, const StringView password,
-                       const MacAddress &mac) const noexcept
+auto Api::authenticate(StringView username, StringView password) const noexcept
     -> Result<AuthToken, ApiStatus> {
   IOP_TRACE();
 
@@ -137,10 +86,9 @@ auto Api::authenticate(const StringView username, const StringView password,
     this->logger.debug(F("Empty username or password, at Api::authenticate"));
     return ApiStatus::FORBIDDEN;
   }
-  const auto make = [username, password, &mac](JsonDocument &doc) {
-    doc["email"] = username.get();
-    doc["password"] = password.get();
-    doc["mac"] = mac.asString().get();
+  const auto make = [username, password](JsonDocument &doc) {
+    doc["email"] = std::move(username).get();
+    doc["password"] = std::move(password).get();
   };
   const auto maybeJson = this->makeJson<256>(F("Api::authenticate"), make);
   if (maybeJson.isNone())
@@ -158,7 +106,7 @@ auto Api::authenticate(const StringView username, const StringView password,
 
   const auto resp = UNWRAP_OK(maybeResp);
 
-  if (resp.status != ApiStatus::OK && resp.status != ApiStatus::MUST_UPGRADE) {
+  if (resp.status != ApiStatus::OK) {
     return resp.status;
   }
 
@@ -172,15 +120,18 @@ auto Api::authenticate(const StringView username, const StringView password,
   if (IS_ERR(result)) {
     const auto lengthStr = std::to_string(payload.length());
 
-    switch (UNWRAP_ERR(result)) {
+    PROGMEM_STRING(parseErr, "Unprintable payload, this isn't supported: ");
+    const auto &ref = UNWRAP_ERR(result);
+    switch (ref) {
     case ParseError::TOO_BIG:
       this->logger.error(F("Auth token is too big: size = "), lengthStr);
-      break;
+      return ApiStatus::BROKEN_SERVER;
     case ParseError::NON_PRINTABLE:
-      this->logger.error(F("Payload is non-printable, this is not supported"));
-      break;
+      this->logger.error(parseErr, utils::scapeNonPrintable(payload));
+      return ApiStatus::BROKEN_SERVER;
     }
-
+    this->logger.error(F("Unexpected ParseError: "),
+                       String(static_cast<uint8_t>(ref)));
     return ApiStatus::BROKEN_SERVER;
   }
 
@@ -190,20 +141,18 @@ auto Api::authenticate(const StringView username, const StringView password,
 #endif
 }
 
-// NOLINTNEXTLINE performance-unnecessary-value-param
-auto Api::registerLog(
-    const AuthToken &authToken, const MacAddress &mac,
-    const StringView log // NOLINT performance-unnecessary-value-param
-) const noexcept -> ApiStatus {
+auto Api::registerLog(const AuthToken &authToken, StringView log) const noexcept
+    -> ApiStatus {
   IOP_TRACE();
   const auto token = authToken.asString();
   this->logger.debug(F("Register log. Token: "), token, F(". Log: "), log);
   // TODO(pc): dynamically generate the log string, instead of buffering it,
   // similar to a Stream but we choose when to write (using logger template
   // variadics)
-  String uri(F("/log/"));
-  uri += mac.asString().get();
-  auto maybeResp = this->network().httpPost(token, uri, log);
+  //
+  // Network::httpPost sets `Content-Type` to `application/json` is there is a
+  // payload
+  auto maybeResp = this->network().httpPost(token, F("/log"), std::move(log));
 
 #ifndef IOP_MOCK_MONITOR
   if (IS_ERR(maybeResp)) {
@@ -251,36 +200,36 @@ auto Api::upgrade(const AuthToken &token, const MacAddress &mac,
 
   switch (updateResult) {
   case HTTP_UPDATE_NO_UPDATES:
-    return ApiStatus::NOT_FOUND;
   case HTTP_UPDATE_OK:
     return ApiStatus::OK;
   case HTTP_UPDATE_FAILED:
-  default:
     // TODO(pc): properly handle ESPhttpUpdate.getLastError()
     this->logger.error(F("Update failed: "),
                        ESPhttpUpdate.getLastErrorString());
     return ApiStatus::BROKEN_SERVER;
   }
+  // TODO(pc): properly handle ESPhttpUpdate.getLastError()
+  this->logger.error(F("Update failed (UNKNOWN): "),
+                     ESPhttpUpdate.getLastErrorString());
+  return ApiStatus::BROKEN_SERVER;
 }
 #else
 auto Api::loggerLevel() const noexcept -> LogLevel {
   IOP_TRACE();
   return this->logger.level();
 }
-auto Api::upgrade(const AuthToken &token, const MacAddress &mac,
+auto Api::upgrade(const AuthToken &token,
                   const MD5Hash &sketchHash) const noexcept -> ApiStatus {
   (void)*this;
   (void)token;
-  (void)mac;
   (void)sketchHash;
   IOP_TRACE();
   return ApiStatus::OK;
 }
-auto Api::reportPanic(const AuthToken &authToken, const MacAddress &mac,
+auto Api::reportPanic(const AuthToken &authToken,
                       const PanicData &event) const noexcept -> ApiStatus {
   (void)*this;
   (void)authToken;
-  (void)mac;
   (void)event;
   IOP_TRACE();
   return ApiStatus::OK;
@@ -293,26 +242,59 @@ auto Api::registerEvent(const AuthToken &token,
   IOP_TRACE();
   return ApiStatus::OK;
 }
-// NOLINTNEXTLINE performance-unnecessary-value-param
-auto Api::authenticate(StringView username, StringView password,
-                       const MacAddress &mac) const noexcept
+auto Api::authenticate(StringView username, StringView password) const noexcept
     -> Result<AuthToken, ApiStatus> {
   (void)*this;
-  (void)username;
-  (void)password;
-  (void)mac;
+  (void)std::move(username);
+  (void)std::move(password);
   IOP_TRACE();
   return AuthToken::empty();
 }
-auto Api::registerLog(
-    const AuthToken &authToken, const MacAddress &mac,
-    StringView log // NOLINT performance-unnecessary-value-param
-) const noexcept -> ApiStatus {
+auto Api::registerLog(const AuthToken &authToken, StringView log) const noexcept
+    -> ApiStatus {
   (void)*this;
   (void)authToken;
-  (void)mac;
-  (void)log;
+  (void)std::move(log);
   IOP_TRACE();
   return ApiStatus::OK;
 }
 #endif
+
+auto Api::setup() const noexcept -> void {
+  IOP_TRACE();
+  this->network().setup();
+}
+
+Api::~Api() noexcept { IOP_TRACE(); }
+
+Api::Api(StaticString uri, const LogLevel logLevel) noexcept
+    : logger(logLevel, F("API")), network_(std::move(uri), logLevel) {
+  IOP_TRACE();
+}
+
+Api::Api(Api const &other) : logger(other.logger), network_(other.network_) {
+  IOP_TRACE();
+}
+
+auto Api::operator=(Api const &other) -> Api & {
+  IOP_TRACE();
+  if (this == &other)
+    return *this;
+  this->logger = other.logger;
+  this->network_ = other.network_;
+  return *this;
+}
+
+auto Api::uri() const noexcept -> StaticString {
+  return this->network().uri();
+};
+
+auto Api::network() const noexcept -> const Network & {
+  IOP_TRACE();
+  return this->network_;
+}
+
+auto Api::loggerLevel() const noexcept -> LogLevel {
+  IOP_TRACE();
+  return this->logger.level();
+}

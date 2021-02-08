@@ -10,7 +10,7 @@ void Sensors::setup() noexcept {
   this->soilTemperatureSensor.begin();
 }
 
-auto Sensors::measure(MacAddress mac, MD5Hash firmwareHash) noexcept -> Event {
+auto Sensors::measure() noexcept -> Event {
   IOP_TRACE();
   return Event(
       (EventStorage){
@@ -25,18 +25,15 @@ auto Sensors::measure(MacAddress mac, MD5Hash firmwareHash) noexcept -> Event {
           .soilTemperatureCelsius =
               measurement::soilTemperatureCelsius(this->soilTemperatureSensor),
       },
-      std::move(mac), std::move(firmwareHash));
 }
 #else
 void Sensors::setup() noexcept {
   IOP_TRACE();
   (void)*this;
 }
-auto Sensors::measure(MacAddress macAddress, MD5Hash firmwareHash) noexcept
-    -> Event {
+auto Sensors::measure() noexcept -> Event {
   IOP_TRACE();
   (void)*this;
-  return Event((EventStorage){0}, std::move(macAddress),
-               std::move(firmwareHash));
+  return Event((EventStorage){0});
 }
 #endif

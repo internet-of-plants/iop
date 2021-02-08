@@ -36,7 +36,7 @@ public:
 };
 
 static ByteRate byteRate;
-static String currentLog; // NOLINT cert-err58-cpp
+static String currentLog;
 
 // TODO(pc): allow gradually sending bytes wifiClient->write(...) instead of
 // buffering the log before sending We can use the already in place system of
@@ -44,9 +44,9 @@ static String currentLog; // NOLINT cert-err58-cpp
 // TODO(pc): use ByteRate to allow grouping messages before sending, or reuse
 // the TCP connection to many
 
-PROGMEM_STRING(missingUri, "No uri available");
-static Api api(uri.asRef().expect(missingUri), LogLevel::WARN);
+static Api api(uri, LogLevel::WARN);
 static Flash flash(LogLevel::WARN);
+
 #ifdef IOP_NETWORK_LOGGING
 static bool logNetwork = true;
 #endif
@@ -96,8 +96,6 @@ void Log::setup() noexcept {
 
   while (!Serial && millis() < end)
     yield();
-
-  Log(LogLevel::INFO, F("LOG")).info(F("Setup"));
 }
 
 void Log::printLogType(const LogType &logType,

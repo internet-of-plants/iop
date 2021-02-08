@@ -1,28 +1,28 @@
 # Air temperature and humidity
 
-- DHT11 [*datasheet*](/docs/datasheets/DHT11.pdf)
+- DHT11 [*datasheet*](/docs/components/datasheets/DHT11.pdf)
 
    Humidity: 20% to 90%, accuracy +-4% (max +-5%)
 
    Temperature: 0ºC to 50ºC, accuracy +-2ºC
 
-- DHT21 [*datasheet*](/docs/datasheets/DHT21%20(HM2301).pdf) ([*AM2301*](/docs/datasheets/AM2301.pdf))
+- DHT21 [*datasheet*](/docs/components/datasheets/DHT21%20(HM2301).pdf) ([*AM2301*](/docs/components/datasheets/AM2301.pdf))
 
    Humidity: 0% to 100%, accuracy +-3% (max +-5%)
 
    Temperature: -40ºC to 80ºC, accuracy +-1ºC
 
-- DHT22 [*datasheet*](/docs/datasheets/DHT22%20(AM2303).pdf) ([*AM2302*](/docs/datasheets/AM2302.pdf))
+- DHT22 [*datasheet*](/docs/components/datasheets/DHT22%20(AM2303).pdf) ([*AM2302*](/docs/components/datasheets/AM2302.pdf))
 
    Humidity: 0% to 100%, accuracy +-2% (max +-5%)
 
    Temperature: -40ºC to 125ºC, accuracy +-0.2ºC
 
-![Images of the DHT11, DHT21 and DHT22](/docs/images/models/DHT11_DHT21_DHT22.png)
+![Images of the DHT11, DHT21 and DHT22](/docs/components/images/models/DHT11_DHT21_DHT22.png)
 
 Other resources:
 
-- [DHT.h lib docs](/docs/libs/DHT_FAMILY.md)
+- [DHT.h lib docs](/docs/components/libs/DHT_FAMILY.md)
 - https://playground.arduino.cc/Main/DHTLib
 
 ## Ports
@@ -43,13 +43,13 @@ Other resources:
 
 4. Ground (GND)
 
-**Some models don't follow this pin order, check the datasheet, we have one, but it has the order printed in it ([photo](/docs/images/wiring/DHT%20alternative.png))**
+**Some models don't follow this pin order, check the datasheet, we have one, but it has the order printed in it ([photo](/docs/components/images/wiring/DHT%20alternative.png))**
 
 ## Wiring
 
 *Arduino*
 
-![DHT wiring](/docs/images/wiring/DHT.png)
+![DHT wiring](/docs/components/images/wiring/DHT.png)
 
 ## Information
 

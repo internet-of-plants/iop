@@ -1,16 +1,16 @@
 #ifndef IOP_STRING_VIEW_HPP
 #define IOP_STRING_VIEW_HPP
 
-#include "certificate_storage.hpp"
-
-#include "static_string.hpp"
 #include "tracer.hpp"
-#include <string>
 
 #include "WString.h"
 
+#include <string>
+
 class UnsafeRawString;
+class StaticString;
 template <uint16_t SIZE> class FixedString;
+class CowString;
 
 /// Readonly non-owning reference to string abstractions,
 /// treating them all as one.
@@ -27,13 +27,15 @@ private:
   const char *str;
 
 public:
-  ~StringView();
+  ~StringView() noexcept = default;
   // NOLINTNEXTLINE hicpp-explicit-conversions
   StringView(const UnsafeRawString &str) noexcept;
   // NOLINTNEXTLINE hicpp-explicit-conversions
   StringView(const std::string &str) noexcept;
   // NOLINTNEXTLINE hicpp-explicit-conversions
-  StringView(const String &other) noexcept;
+  StringView(const String &str) noexcept;
+  // NOLINTNEXTLINE hicpp-explicit-conversions
+  StringView(const CowString &str) noexcept;
   template <uint16_t SIZE>
   // NOLINTNEXTLINE hicpp-explicit-conversions
   StringView(const FixedString<SIZE> &other) noexcept : str(other.get()) {
@@ -48,12 +50,12 @@ public:
   auto get() const noexcept -> const char *;
   auto length() const noexcept -> size_t;
   auto isEmpty() const noexcept -> bool;
-  // NOLINTNEXTLINE performance-unnecessary-value-param
-  auto contains(const StringView needle) const noexcept -> bool;
-  // NOLINTNEXTLINE performance-unnecessary-value-param
-  auto contains(const StaticString needle) const noexcept -> bool;
+  auto contains(StringView needle) const noexcept -> bool;
+  auto contains(StaticString needle) const noexcept -> bool;
   auto hash() const noexcept -> uint64_t; // FNV hash
   auto isAllPrintable() const noexcept -> bool;
 };
+
+static const StringView emptyStringView = String();
 
 #endif

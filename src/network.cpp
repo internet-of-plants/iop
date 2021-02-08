@@ -5,6 +5,7 @@
 #include "generated/certificates.h"
 #include "tracer.hpp"
 
+#include "certificate_storage.hpp"
 #include "configuration.h"
 #include "models.hpp"
 #include "static_string.hpp"
@@ -15,44 +16,13 @@
 
 #ifndef IOP_NETWORK_DISABLED
 
-Response::Response(const ApiStatus &status) noexcept
-    : status(status), payload(Option<String>()) {
-  IOP_TRACE();
-}
-Response::Response(const ApiStatus &status, String payload) noexcept
-    : status(status), payload(std::move(payload)) {
-  IOP_TRACE();
-}
-Response::Response(Response &&resp) noexcept
-    : status(resp.status), payload(Option<String>()) {
-  IOP_TRACE();
-  this->payload = std::move(resp.payload);
-}
-auto Response::operator=(Response &&resp) noexcept -> Response & {
-  IOP_TRACE();
-  this->status = resp.status;
-  this->payload = std::move(resp.payload);
-  return *this;
-}
-
-Response::~Response() noexcept {
-  IOP_TRACE();
-  if (logLevel > LogLevel::TRACE)
-    return;
-  const auto str = Network::apiStatusToString(status);
-  Serial.print(F("~Response("));
-  Serial.print(str.get());
-  Serial.println(F(")"));
-  Serial.flush();
-};
-
 #ifdef IOP_NOSSL
 static WiFiClient client;
 #else
-static BearSSL::CertStore certStore;     // NOLINT cert-err58-cpp
-static BearSSL::WiFiClientSecure client; // NOLINT cert-err58-cpp
+static IopCertStore certStore;
+static BearSSL::WiFiClientSecure client;
 #endif
-static HTTPClient http; // NOLINT cert-err58-cpp
+static HTTPClient http;
 
 auto Network::isConnected() noexcept -> bool {
   IOP_TRACE();
@@ -66,12 +36,6 @@ void Network::disconnect() noexcept {
 
 auto Network::setup() const noexcept -> void {
   IOP_TRACE();
-#ifndef IOP_NOSSL
-  if (this->host().contains(F("https://"))) {
-    assert_(certStoreOverrideWorked,
-            F("CertStore override is broken, fix it or HTTPS won't work"));
-  }
-#endif
 
   if (!this->uri().contains(F(":"))) {
     PROGMEM_STRING(error, "Host must contain protocol (http:// or https://): ");
@@ -79,6 +43,11 @@ auto Network::setup() const noexcept -> void {
   }
 
   http.setReuse(false);
+
+  static const char *headers[] = {PSTR("LATEST_VERSION")};
+  // NOLINTNEXTLINE *-pro-bounds-array-to-pointer-decay hicpp-no-array-decay
+  http.collectHeaders(headers, 1);
+
   client.setNoDelay(false);
   client.setSync(true);
 #ifndef IOP_NOSSL
@@ -146,27 +115,28 @@ static auto methodToString(const HttpMethod &method) noexcept
 auto Network::wifiClient() noexcept -> WiFiClient & { return client; }
 
 // Returns Response if it can understand what the server sent, int is the raw
-// status code given by ESP8266HTTPClient
-auto Network::httpRequest(
-    const HttpMethod method_, const Option<StringView> &token,
-    const StringView path, // NOLINT performance-unnecessary-value-param
-    const Option<StringView> &data) const noexcept -> Result<Response, int> {
+// response given by ESP8266HTTPClient
+auto Network::httpRequest(const HttpMethod method_,
+                          const Option<StringView> &token, StringView path,
+                          const Option<StringView> &data) const noexcept
+    -> Result<Response, int> {
   IOP_TRACE();
 
   if (!Network::isConnected())
-    return Response(ApiStatus::NO_CONNECTION);
+    return Response(ApiStatus::CONNECTION_ISSUES);
 
-  // StringSumHelper is inferred here if we don't set the type
   const String uri = String(this->uri().get()) + path.get();
+  const auto method = UNWRAP(methodToString(method_));
 
   StringView data_(emptyString);
   if (data.isSome())
     data_ = UNWRAP_REF(data);
 
-  const auto method = UNWRAP(methodToString(method_));
-
-  this->logger.info(F("["), method, F("] "), path,
+  this->logger.info(F("["), method, F("] "), std::move(path),
                     data.isSome() ? F(" has payload") : F(" no payload"));
+
+  // TODO: this may log sensitive information, network logging is currently
+  // capped at info because of that, right
   if (data.isSome())
     this->logger.debug(UNWRAP_REF(data));
 
@@ -175,20 +145,33 @@ auto Network::httpRequest(
     this->logger.debug(F("Token: "), tok);
     http.setAuthorization(tok.get());
   } else {
+    // We have to clear the authorization, it persists between requests
     http.setAuthorization(emptyString.c_str());
   }
 
-  if (!http.begin(Network::wifiClient(), uri)) {
-    this->logger.warn(F("Failed to begin http connection to "), uri);
-    return Response(ApiStatus::NO_CONNECTION);
-  }
-  this->logger.trace(F("Began HTTP connection"));
-
+  // We can afford bigger timeouts since we shouldn't make frequent requests
   constexpr uint32_t oneMinuteMs = 60 * 1000;
   http.setTimeout(oneMinuteMs);
 
+  // Currently only JSON is supported
   if (data.isSome())
     http.addHeader(F("Content-Type"), F("application/json"));
+
+  // Authentication headers, identifies device and detects updates, perf
+  // monitoring
+  http.addHeader(F("MAC_ADDRESS"), utils::macAddress().asString().get());
+  http.addHeader(F("VERSION"), utils::hashSketch().asString().get());
+
+  http.addHeader(F("FREE_STACK"), String(ESP.getFreeContStack()));
+  http.addHeader(F("FREE_HEAP"), String(ESP.getFreeHeap()));
+  http.addHeader(F("HEAP_FRAGMENTATION"), String(ESP.getHeapFragmentation()));
+  http.addHeader(F("BIGGEST_FREE_BLOCK"), String(ESP.getMaxFreeBlockSize()));
+
+  if (!http.begin(Network::wifiClient(), uri)) {
+    this->logger.warn(F("Failed to begin http connection to "), uri);
+    return Response(ApiStatus::CONNECTION_ISSUES);
+  }
+  this->logger.trace(F("Began HTTP connection"));
 
   const auto *const data__ = reinterpret_cast<const uint8_t *>(data_.get());
 
@@ -196,10 +179,20 @@ auto Network::httpRequest(
   const auto code =
       http.sendRequest(String(method.get()).c_str(), data__, data_.length());
   this->logger.trace(F("Made HTTP request"));
+
+  // Handle system upgrade request
+  const auto upgrade = http.header(PSTR("LATEST_VERSION"));
+  if (upgrade.length() > 0) {
+    this->logger.info(F("Scheduled upgrade"));
+    utils::scheduleInterrupt(InterruptEvent::MUST_UPGRADE);
+  }
+
+  // A few bureaucracies to log and report errors
   const auto rawStatus = this->rawStatus(code);
   const auto codeStr = std::to_string(code);
   const auto rawStatusStr = Network::rawStatusToString(rawStatus);
   this->logger.info(F("Response code ("), codeStr, F("): "), rawStatusStr);
+
   constexpr const int32_t maxPayloadSizeAcceptable = 2048;
   if (http.getSize() > maxPayloadSizeAcceptable) {
     http.end();
@@ -208,10 +201,14 @@ auto Network::httpRequest(
     return Response(ApiStatus::BROKEN_SERVER);
   }
 
+  // We have to simplify the errors reported by this API (but they are logged)
   const auto maybeApiStatus = this->apiStatus(rawStatus);
   if (maybeApiStatus.isSome()) {
+    // The payload is always downloaded, since we check for its size and the
+    // origin is trusted. If it's there it's supposed to be there.
     auto payload = http.getString();
     http.end();
+    this->logger.debug(F("Payload: "), payload);
     return Response(UNWRAP_REF(maybeApiStatus), std::move(payload));
   }
   http.end();
@@ -227,54 +224,49 @@ auto Network::isConnected() noexcept -> bool {
   IOP_TRACE();
   return true;
 }
-auto Network::httpRequest(
-    const HttpMethod method, const Option<StringView> &token,
-    const StringView path, // NOLINT performance-unnecessary-value-param
-    const Option<StringView> &data) const noexcept -> Result<Response, int> {
+auto Network::httpRequest(const HttpMethod method,
+                          const Option<StringView> &token, StringView path,
+                          const Option<StringView> &data) const noexcept
+    -> Result<Response, int> {
   (void)*this;
   (void)token;
   (void)method;
-  (void)path;
+  (void)std::move(path);
   (void)data;
   IOP_TRACE();
   return Response(ApiStatus::OK);
 }
 #endif
 
-auto Network::httpPut(
-    const StringView token,  // NOLINT performance-unnecessary-value-param
-    const StaticString path, // NOLINT performance-unnecessary-value-param
-    const StringView data    // NOLINT performance-unnecessary-value-param
-) const noexcept -> Result<Response, int> {
+auto Network::httpPut(StringView token, StaticString path,
+                      StringView data) const noexcept -> Result<Response, int> {
   IOP_TRACE();
-  return this->httpRequest(HttpMethod::PUT, token, String(path.get()), data);
+  return this->httpRequest(HttpMethod::PUT, std::move(token),
+                           String(std::move(path).get()), std::move(data));
 }
 
-auto Network::httpPost(
-    const StringView token,  // NOLINT performance-unnecessary-value-param
-    const StaticString path, // NOLINT performance-unnecessary-value-param
-    const StringView data    // NOLINT performance-unnecessary-value-param
-) const noexcept -> Result<Response, int> {
+auto Network::httpPost(const StringView token, const StaticString path,
+                       const StringView data) const noexcept
+    -> Result<Response, int> {
   IOP_TRACE();
-  return this->httpRequest(HttpMethod::POST, token, String(path.get()), data);
+  return this->httpRequest(HttpMethod::POST, std::move(token),
+                           String(std::move(path).get()), std::move(data));
 }
 
-auto Network::httpPost(
-    const StringView token, // NOLINT performance-unnecessary-value-param
-    const StringView path,  // NOLINT performance-unnecessary-value-param
-    const StringView data   // NOLINT performance-unnecessary-value-param
-) const noexcept -> Result<Response, int> {
+auto Network::httpPost(const StringView token, const StringView path,
+                       const StringView data) const noexcept
+    -> Result<Response, int> {
   IOP_TRACE();
-  return this->httpRequest(HttpMethod::POST, token, path, data);
+  return this->httpRequest(HttpMethod::POST, std::move(token), std::move(path),
+                           std::move(data));
 }
 
-auto Network::httpPost(
-    const StaticString path, // NOLINT performance-unnecessary-value-param
-    const StringView data    // NOLINT performance-unnecessary-value-param
-) const noexcept -> Result<Response, int> {
+auto Network::httpPost(const StaticString path,
+                       const StringView data) const noexcept
+    -> Result<Response, int> {
   IOP_TRACE();
   return this->httpRequest(HttpMethod::POST, Option<StringView>(),
-                           String(path.get()), data);
+                           String(std::move(path).get()), std::move(data));
 }
 
 auto Network::rawStatusToString(const RawStatus &status) noexcept
@@ -297,20 +289,14 @@ auto Network::rawStatusToString(const RawStatus &status) noexcept
     return F("CONNECTION_LOST");
   case RawStatus::OK:
     return F("OK");
-  case RawStatus::NOT_FOUND:
-    return F("NOT_FOUND");
   case RawStatus::SERVER_ERROR:
     return F("SERVER_ERROR");
   case RawStatus::FORBIDDEN:
     return F("FORBIDDEN");
-  case RawStatus::BAD_REQUEST:
-    return F("BAD_REQUEST");
-  case RawStatus::MUST_UPGRADE:
-    return F("MUST_UPGRADE");
   case RawStatus::UNKNOWN:
     return F("UNKNOWN");
   }
-  return F("UNKNOWN");
+  return F("UNKNOWN-undefocumented");
 }
 
 auto Network::rawStatus(const int code) const noexcept -> RawStatus {
@@ -318,16 +304,10 @@ auto Network::rawStatus(const int code) const noexcept -> RawStatus {
   switch (code) {
   case HTTP_CODE_OK:
     return RawStatus::OK;
-  case HTTP_CODE_NOT_FOUND:
-    return RawStatus::NOT_FOUND;
   case HTTP_CODE_INTERNAL_SERVER_ERROR:
     return RawStatus::SERVER_ERROR;
   case HTTP_CODE_FORBIDDEN:
     return RawStatus::FORBIDDEN;
-  case HTTP_CODE_BAD_REQUEST:
-    return RawStatus::BAD_REQUEST;
-  case HTTP_CODE_PRECONDITION_FAILED:
-    return RawStatus::MUST_UPGRADE;
   case HTTPC_ERROR_CONNECTION_FAILED:
     return RawStatus::CONNECTION_FAILED;
   case HTTPC_ERROR_SEND_HEADER_FAILED:
@@ -347,36 +327,28 @@ auto Network::rawStatus(const int code) const noexcept -> RawStatus {
     return RawStatus::READ_FAILED;
   case HTTPC_ERROR_READ_TIMEOUT:
     return RawStatus::READ_TIMEOUT;
+
+  // We generally don't use default, but this is a switch on a int, so...
   default:
+    this->logger.warn(F("Unknown response code: "), std::to_string(code));
     return RawStatus::UNKNOWN;
   }
-
-  this->logger.warn(F("Unknown response code: "), std::to_string(code));
-  return RawStatus::UNKNOWN;
 }
 
 auto Network::apiStatusToString(const ApiStatus &status) noexcept
     -> StaticString {
   IOP_TRACE();
   switch (status) {
-  case ApiStatus::NO_CONNECTION:
-    return F("NO_CONNECTION");
+  case ApiStatus::CONNECTION_ISSUES:
+    return F("CONNECTION_ISSUES");
   case ApiStatus::CLIENT_BUFFER_OVERFLOW:
     return F("CLIENT_BUFFER_OVERFLOW");
-  case ApiStatus::BROKEN_PIPE:
-    return F("BROKEN_PIPE");
   case ApiStatus::BROKEN_SERVER:
     return F("BROKEN_SERVER");
-  case ApiStatus::TIMEOUT:
-    return F("TIMEOUT");
   case ApiStatus::OK:
     return F("OK");
-  case ApiStatus::NOT_FOUND:
-    return F("NOT_FOUND");
   case ApiStatus::FORBIDDEN:
     return F("FORBIDDEN");
-  case ApiStatus::MUST_UPGRADE:
-    return F("MUST_UPGRADE");
   }
   return F("UNKNOWN");
 }
@@ -389,13 +361,13 @@ auto Network::apiStatus(const RawStatus &raw) const noexcept
   case RawStatus::CONNECTION_LOST:
     this->logger.warn(F("Connection failed. Code: "),
                       std::to_string(static_cast<int>(raw)));
-    return ApiStatus::NO_CONNECTION;
+    return ApiStatus::CONNECTION_ISSUES;
 
   case RawStatus::SEND_FAILED:
   case RawStatus::READ_FAILED:
     this->logger.warn(F("Pipe is broken. Code: "),
                       std::to_string(static_cast<int>(raw)));
-    return ApiStatus::BROKEN_PIPE;
+    return ApiStatus::CONNECTION_ISSUES;
 
   case RawStatus::ENCODING_NOT_SUPPORTED:
   case RawStatus::NO_SERVER:
@@ -406,21 +378,46 @@ auto Network::apiStatus(const RawStatus &raw) const noexcept
 
   case RawStatus::READ_TIMEOUT:
     this->logger.warn(F("Network timeout triggered"));
-    return ApiStatus::TIMEOUT;
+    return ApiStatus::CONNECTION_ISSUES;
 
   case RawStatus::OK:
     return ApiStatus::OK;
-  case RawStatus::NOT_FOUND:
-    return ApiStatus::NOT_FOUND;
   case RawStatus::FORBIDDEN:
     return ApiStatus::FORBIDDEN;
-  case RawStatus::BAD_REQUEST:
-    return ApiStatus::BROKEN_SERVER;
-  case RawStatus::MUST_UPGRADE:
-    return ApiStatus::MUST_UPGRADE;
 
   case RawStatus::UNKNOWN:
     break;
   }
   return Option<ApiStatus>();
+}
+
+Response::Response(const ApiStatus &status) noexcept
+    : status(status), payload(Option<String>()) {
+  IOP_TRACE();
+}
+Response::Response(const ApiStatus &status, String payload) noexcept
+    : status(status), payload(std::move(payload)) {
+  IOP_TRACE();
+}
+Response::Response(Response &&resp) noexcept
+    : status(resp.status), payload(Option<String>()) {
+  IOP_TRACE();
+  this->payload = std::move(resp.payload);
+}
+auto Response::operator=(Response &&resp) noexcept -> Response & {
+  IOP_TRACE();
+  this->status = resp.status;
+  this->payload = std::move(resp.payload);
+  return *this;
+}
+
+Response::~Response() noexcept {
+  IOP_TRACE();
+  if (logLevel > LogLevel::TRACE)
+    return;
+  const auto str = Network::apiStatusToString(status);
+  Serial.print(F("~Response("));
+  Serial.print(str.get());
+  Serial.println(F(")"));
+  Serial.flush();
 }

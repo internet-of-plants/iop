@@ -1,23 +1,25 @@
 #include "utils.hpp"
 
 #include "Esp.cpp"
+#include "copy_on_write.hpp"
 #include "fixed_string.hpp"
 #include "log.hpp"
 #include "models.hpp"
 #include "option.hpp"
+#include "panic.hpp"
 #include "static_string.hpp"
 #include "string_view.hpp"
 #include "tracer.hpp"
 
-static volatile std::array<InterruptEvent, interruptVariants> interruptEvents =
-    {InterruptEvent::NONE};
+static volatile InterruptEvent interruptEvents[interruptVariants] = {
+    InterruptEvent::NONE};
 
 namespace utils {
 auto descheduleInterrupt() noexcept -> InterruptEvent {
   IOP_TRACE();
-  for (auto &el : interruptEvents._M_elems) {
+  for (volatile auto &el : interruptEvents) {
     if (el != InterruptEvent::NONE) {
-      const InterruptEvent tmp = el;
+      const auto tmp = el;
       el = InterruptEvent::NONE;
       return tmp;
     }
@@ -27,7 +29,7 @@ auto descheduleInterrupt() noexcept -> InterruptEvent {
 void scheduleInterrupt(const InterruptEvent ev) noexcept {
   IOP_TRACE();
   Option<std::reference_wrapper<volatile InterruptEvent>> firstEmpty;
-  for (auto &el : interruptEvents._M_elems) {
+  for (volatile auto &el : interruptEvents) {
     if (el == InterruptEvent::NONE && firstEmpty.isNone())
       firstEmpty = std::ref(el);
 
@@ -47,7 +49,7 @@ void scheduleInterrupt(const InterruptEvent ev) noexcept {
   }
 }
 
-auto macAddress() noexcept -> MacAddress {
+auto macAddress() noexcept -> const MacAddress & {
   IOP_TRACE();
   static Option<MacAddress> mac;
   if (mac.isSome())
@@ -69,15 +71,31 @@ auto macAddress() noexcept -> MacAddress {
   return UNWRAP_REF(mac);
 }
 
-auto hashSketch() noexcept -> MD5Hash {
+auto hashSketch() noexcept -> const MD5Hash & {
   IOP_TRACE();
-  static Option<MD5Hash> result;
-  if (result.isSome())
-    return UNWRAP_REF(result);
+  static Option<MD5Hash> hash;
+  if (hash.isSome())
+    return UNWRAP_REF(hash);
 
-  const auto hash = ESP.getSketchMD5();
-  result = UNWRAP_OK(MD5Hash::fromString(UnsafeRawString(hash.c_str())));
-  return UNWRAP_REF(result);
+  const auto hashed = ESP.getSketchMD5();
+  auto res = MD5Hash::fromString(UnsafeRawString(hashed.c_str()));
+  if (IS_ERR(res)) {
+    const auto &ref = UNWRAP_ERR_REF(res);
+    PROGMEM_STRING(sizeErr, "MD5 hex is too big, this is critical: ");
+    PROGMEM_STRING(printErr, "Unprintable char in MD5 hex, this is critical: ");
+    const String size(MD5Hash::size);
+
+    const auto printable = utils::scapeNonPrintable(hashed);
+    switch (ref) {
+    case ParseError::TOO_BIG:
+      panic_(String(sizeErr.get()) + hashed + F(", expected size: ") + size);
+    case ParseError::NON_PRINTABLE:
+      panic_(String(printErr.get()) + printable.borrow().get());
+    }
+    panic_(String(F("Unexpected ParseError: ")) + static_cast<uint8_t>(ref));
+  }
+  hash = UNWRAP_OK(res);
+  return UNWRAP_REF(hash);
 }
 void logMemory(const Log &logger) noexcept {
   IOP_TRACE();
@@ -85,7 +103,30 @@ void logMemory(const Log &logger) noexcept {
                String(ESP.getFreeContStack()), F(" "),
                String(ESP.getFreeSketchSpace()));
 }
+
 auto isPrintable(const char ch) noexcept -> bool {
-  return ch >= 32 && ch <= 126;
+  return ch >= 32 && ch <= 126; // NOLINT cppcoreguidelines-avoid-magic-numbers
+}
+
+auto scapeNonPrintable(StringView msg) noexcept -> CowString {
+  if (msg.isAllPrintable())
+    return CowString(msg);
+
+  String s;
+  // Scaped characters may use more, but avoids the bulk of reallocs
+  s.reserve(msg.length());
+  const size_t len = msg.length();
+  for (uint8_t index = 0; index < len; ++index) {
+    // NOLINTNEXTLINE cppcoreguidelines-pro-bounds-pointer-arithmetic
+    const auto ch = std::move(msg).get()[index];
+    if (utils::isPrintable(ch)) {
+      s += ch;
+    } else {
+      s += F("<\\");
+      s += String(static_cast<uint8_t>(ch));
+      s += F(">");
+    }
+  }
+  return CowString(s);
 }
 } // namespace utils

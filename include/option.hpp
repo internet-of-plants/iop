@@ -1,15 +1,9 @@
 #ifndef IOP_OPTION_HPP
 #define IOP_OPTION_HPP
 
-#include "certificate_storage.hpp"
-
-#include "string_view.hpp"
-
 #include "panic.hpp"
-
 #include "static_string.hpp"
 #include "string_view.hpp"
-#include "tracer.hpp"
 
 #include <functional>
 
@@ -18,13 +12,14 @@
 #define UNWRAP_REF(opt) UNWRAP((opt).asRef()).get()
 #define UNWRAP_MUT(opt) UNWRAP((opt).asMut()).get()
 
-/// Optional sum-type, may be filled and contain a T, or not be filled and
-/// unable to access it methods panic instead of causing undefined behavior
+/// Optional sum-type, may be filled and contain a T, or not be filled.
 ///
-/// Most methods move out by default. You probably want to call `.asRef()`
-/// before moving it out.
+/// Trying to access data that is not there triggers `panic_`. Check before
 ///
-/// Pwease no exception at T's destructor
+/// Most methods move out by default. You probably want to call `.asRef()` or
+/// `.asMut()` before calling those methods. Or use `UNWRAP_{REF,MUT}`
+///
+/// Exceptions in T's destructor will trigger abort
 template <typename T> class Option {
 private:
   bool filled;
@@ -44,38 +39,8 @@ private:
 
 public:
   Option() noexcept : filled(false), dummy(0) { IOP_TRACE(); }
-  // NOLINTNEXTLINE hicpp-explicit-conversions *-member-init
+  // NOLINTNEXTLINE hicpp-explicit-conversions
   Option(T v) noexcept : filled(true), value(std::move(v)) { IOP_TRACE(); }
-  Option(Option<T> const &other) = delete;
-  auto operator=(Option<T> const &other) -> Option<T> & = delete;
-  auto operator=(Option<T> &&other) noexcept -> Option<T> & {
-    IOP_TRACE();
-
-    if (this == &other)
-      return *this;
-
-    this->reset();
-    this->filled = other.filled;
-    if (other.filled) {
-      this->value = std::move(other.value);
-    } else {
-      this->dummy = 0;
-    }
-    other.reset();
-    return *this;
-  }
-
-  Option(Option<T> &&other) noexcept {
-    IOP_TRACE();
-    this->reset();
-    this->filled = other.filled;
-    if (other.filled) {
-      this->value = std::move(other.value);
-    } else {
-      this->dummy = 0;
-    }
-    other.reset();
-  }
 
   auto asMut() noexcept -> Option<std::reference_wrapper<T>> {
     IOP_TRACE();
@@ -93,11 +58,6 @@ public:
     return Option<std::reference_wrapper<const T>>();
   }
 
-  ~Option() noexcept {
-    IOP_TRACE();
-    this->reset();
-  }
-
   auto isSome() const noexcept -> bool {
     IOP_TRACE();
     return filled;
@@ -106,6 +66,7 @@ public:
     IOP_TRACE();
     return !filled;
   }
+
   auto take() noexcept -> Option<T> {
     IOP_TRACE();
     Option<T> other;
@@ -119,28 +80,10 @@ public:
     return other;
   }
 
-  auto expect(const StringView msg) noexcept -> T {
-    IOP_TRACE();
-    if (this->isNone())
-      panic_(msg);
-
-    const T value = std::move(this->value);
-    this->reset();
-    return value;
-  }
-  auto expect(const StaticString msg) noexcept -> T {
-    IOP_TRACE();
-    if (this->isNone())
-      panic_(msg);
-
-    T value = std::move(this->value);
-    this->reset();
-    return value;
-  }
   auto unwrapOr(T or_) noexcept -> T {
     IOP_TRACE();
     if (this->isSome())
-      return this->expect(F("unwrapOr is broken"));
+      return UNWRAP(*this);
     return or_;
   }
 
@@ -148,7 +91,7 @@ public:
   auto andThen(std::function<Option<U>(const T)> f) noexcept -> Option<U> {
     IOP_TRACE();
     if (this->isSome())
-      return f(this->expect(F("Option::map, is none but shouldn't")));
+      return f(UNWRAP(*this));
     return Option<U>();
   }
 
@@ -156,7 +99,7 @@ public:
   auto map(std::function<U(const T)> f) noexcept -> Option<U> {
     IOP_TRACE();
     if (this->isSome())
-      return f(this->expect(F("Option::map, is none but shouldn't")));
+      return f(UNWRAP(*this));
     return Option<U>();
   }
 
@@ -172,6 +115,41 @@ public:
     if (this->isSome())
       return std::move(this);
     return v();
+  }
+
+  ~Option() noexcept {
+    IOP_TRACE();
+    this->reset();
+  }
+
+  Option(Option<T> const &other) = delete;
+  Option(Option<T> &&other) noexcept {
+    IOP_TRACE();
+    this->reset();
+    this->filled = other.filled;
+    if (other.filled) {
+      this->value = std::move(other.value);
+    } else {
+      this->dummy = 0;
+    }
+    other.reset();
+  }
+  auto operator=(Option<T> const &other) -> Option<T> & = delete;
+  auto operator=(Option<T> &&other) noexcept -> Option<T> & {
+    IOP_TRACE();
+
+    if (this == &other)
+      return *this;
+
+    this->reset();
+    this->filled = other.filled;
+    if (other.filled) {
+      this->value = std::move(other.value);
+    } else {
+      this->dummy = 0;
+    }
+    other.reset();
+    return *this;
   }
 
   // Allows for more detailed panics, used by UNWRAP(_REF, _MUT) macros

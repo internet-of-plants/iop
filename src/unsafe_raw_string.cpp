@@ -14,7 +14,8 @@ auto UnsafeRawString::operator->() const noexcept -> StringView {
   return *this;
 }
 
-UnsafeRawString::~UnsafeRawString() {
+/*
+UnsafeRawString::~UnsafeRawString() noexcept {
   // IOP_TRACE();
   if (logLevel > LogLevel::TRACE)
     return;
@@ -23,6 +24,7 @@ UnsafeRawString::~UnsafeRawString() {
   Serial.println(F(")"));
   Serial.flush();
 }
+*/
 
 UnsafeRawString::UnsafeRawString(const char *str) noexcept : str(str) {
   /*
@@ -36,6 +38,7 @@ UnsafeRawString::UnsafeRawString(const char *str) noexcept : str(str) {
   */
 }
 
+/*
 UnsafeRawString::UnsafeRawString(const UnsafeRawString &str) noexcept
     : str(str.str) {
   // IOP_TRACE();
@@ -45,6 +48,8 @@ UnsafeRawString::UnsafeRawString(UnsafeRawString &&str) noexcept
     : str(str.str) {
   // IOP_TRACE();
 }
+*/
+
 // NOLINTNEXTLINE cert-oop54-cpp
 auto UnsafeRawString::operator=(UnsafeRawString const &other) noexcept
     -> UnsafeRawString & {

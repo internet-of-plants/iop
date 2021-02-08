@@ -1,14 +1,7 @@
 #ifndef IOP_RESULT_HPP
 #define IOP_RESULT_HPP
 
-#include "certificate_storage.hpp"
-
 #include "option.hpp"
-#include "string_view.hpp"
-
-#include "panic.hpp"
-#include "static_string.hpp"
-#include "tracer.hpp"
 
 #include <functional>
 
@@ -51,7 +44,7 @@
 /// Most methods move out by default. You probably want to call `.asRef()`
 /// before moving it out (UNWRAP_REF)
 ///
-/// Pwease no exception at T's or E's destructor
+/// Exceptions in T's and E's destructors will trigger abort
 template <typename T, typename E> class Result {
 private:
   enum class ResultKind { EMPTY = 0, OK, ERROR };
