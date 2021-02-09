@@ -2,7 +2,7 @@
 
 #ifndef IOP_FLASH_DISABLED
 #include "EEPROM.h"
-#include "copy_on_write.hpp"
+#include "core/string/cow.hpp"
 
 constexpr const uint16_t EEPROM_SIZE = 512;
 
@@ -28,10 +28,10 @@ static_assert(authTokenIndex + authTokenSize < EEPROM_SIZE,
 
 auto Flash::setup() noexcept -> void { EEPROM.begin(EEPROM_SIZE); }
 
-static Option<AuthToken> authToken;
+static iop::Option<AuthToken> authToken;
 // Token cache
 
-auto Flash::readAuthToken() const noexcept -> const Option<AuthToken> & {
+auto Flash::readAuthToken() const noexcept -> const iop::Option<AuthToken> & {
   IOP_TRACE();
 
   // Checks if value is cached
@@ -49,7 +49,7 @@ auto Flash::readAuthToken() const noexcept -> const Option<AuthToken> & {
 
   // AuthToken must be printable US-ASCII (to be stored in HTTP headers))
   if (!token.asString().isAllPrintable()) {
-    const auto tok = utils::scapeNonPrintable(token.asString());
+    const auto tok = token.asString().scapeNonPrintable();
     this->logger.error(F("Auth token was non printable: "), tok);
     this->removeAuthToken();
     return authToken;
@@ -58,7 +58,7 @@ auto Flash::readAuthToken() const noexcept -> const Option<AuthToken> & {
   this->logger.trace(F("Found Auth token: "), token.asString());
 
   // Updates cache
-  authToken = std::move(token);
+  authToken.emplace(std::move(token));
   return authToken;
 }
 
@@ -95,7 +95,7 @@ void Flash::writeAuthToken(const AuthToken &token) const noexcept {
   this->logger.info(F("Writing auth token to storage: "), token.asString());
 
   // Updates cache
-  authToken = token;
+  authToken.emplace(std::move(token));
 
   EEPROM.write(authTokenIndex, usedAuthTokenEEPROMFlag);
   EEPROM.put(authTokenIndex + 1, *token.asSharedArray());
@@ -103,9 +103,10 @@ void Flash::writeAuthToken(const AuthToken &token) const noexcept {
 }
 
 // Credentials cache
-static Option<WifiCredentials> wifiCredentials;
+static iop::Option<WifiCredentials> wifiCredentials;
 
-auto Flash::readWifiConfig() const noexcept -> const Option<WifiCredentials> & {
+auto Flash::readWifiConfig() const noexcept
+    -> const iop::Option<WifiCredentials> & {
   IOP_TRACE();
 
   // Check if value is in cache
@@ -124,11 +125,11 @@ auto Flash::readWifiConfig() const noexcept -> const Option<WifiCredentials> & {
   const auto ssid = NetworkName::fromBytesUnsafe(ptr, NetworkName::size);
   const auto psk = NetworkPassword::fromBytesUnsafe(ptr, NetworkPassword::size);
 
-  const auto ssidStr = utils::scapeNonPrintable(ssid.asString());
+  const auto ssidStr = ssid.asString().scapeNonPrintable();
   this->logger.trace(F("Found network credentials: "), ssidStr);
 
   // Updates cache
-  wifiCredentials = std::move(WifiCredentials(ssid, psk));
+  wifiCredentials.emplace(ssid, psk);
   return wifiCredentials;
 }
 
@@ -167,7 +168,7 @@ void Flash::writeWifiConfig(const WifiCredentials &config) const noexcept {
                     config.ssid.asString());
 
   // Updates cache
-  wifiCredentials = config;
+  wifiCredentials.emplace(std::move(config));
 
   const auto &psk = *config.password.asSharedArray();
   EEPROM.write(wifiConfigIndex, usedWifiConfigEEPROMFlag);
@@ -179,7 +180,7 @@ void Flash::writeWifiConfig(const WifiCredentials &config) const noexcept {
 
 #ifdef IOP_FLASH_DISABLED
 void Flash::setup() noexcept { IOP_TRACE(); }
-auto Flash::readAuthToken() const noexcept -> Option<AuthToken> {
+auto Flash::readAuthToken() const noexcept -> iop::Option<AuthToken> {
   (void)*this;
   IOP_TRACE();
   return AuthToken::empty();
@@ -197,7 +198,7 @@ void Flash::removeWifiConfig() const noexcept {
   (void)*this;
   IOP_TRACE();
 }
-auto Flash::readWifiConfig() const noexcept -> Option<WifiCredentials> {
+auto Flash::readWifiConfig() const noexcept -> iop::Option<WifiCredentials> {
   (void)*this;
   IOP_TRACE();
   return WifiCredentials(NetworkName::empty(), NetworkPassword::empty());

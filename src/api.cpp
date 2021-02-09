@@ -1,8 +1,5 @@
 #include "api.hpp"
-#include "copy_on_write.hpp"
-#include "fixed_string.hpp"
-#include "storage.hpp"
-#include "utils.hpp"
+#include "core/string/cow.hpp"
 
 #include "ESP8266httpUpdate.h"
 
@@ -14,7 +11,7 @@
 auto Api::reportPanic(const AuthToken &authToken,
                       const PanicData &event) const noexcept -> ApiStatus {
   IOP_TRACE();
-  this->logger.debug(F("Report panic:"), event.msg);
+  this->logger.debug(F("Report panic_hook:"), event.msg);
 
   const auto make = [event](JsonDocument &doc) {
     doc["file"] = event.file.get();
@@ -22,14 +19,15 @@ auto Api::reportPanic(const AuthToken &authToken,
     doc["func"] = event.func.get();
     doc["msg"] = event.msg.get();
   };
-  // TODO: does every panic possible fit into 2048 bytes?
+  // TODO: does every panic_hook possible fit into 2048 bytes?
   const auto maybeJson = this->makeJson<2048>(F("Api::reportPanic"), make);
   if (maybeJson.isNone())
     return ApiStatus::CLIENT_BUFFER_OVERFLOW;
   const auto &json = UNWRAP_REF(maybeJson);
 
   const auto token = authToken.asString();
-  const auto maybeResp = this->network().httpPost(token, F("/panic"), json);
+  const auto maybeResp =
+      this->network().httpPost(token, F("/panic_hook"), json);
 
 #ifndef IOP_MOCK_MONITOR
   if (IS_ERR(maybeResp)) {
@@ -76,8 +74,9 @@ auto Api::registerEvent(const AuthToken &authToken,
 #endif
 }
 
-auto Api::authenticate(StringView username, StringView password) const noexcept
-    -> Result<AuthToken, ApiStatus> {
+auto Api::authenticate(iop::StringView username,
+                       iop::StringView password) const noexcept
+    -> iop::Result<AuthToken, ApiStatus> {
   IOP_TRACE();
 
   this->logger.debug(F("Authenticate IoP user: "), username);
@@ -123,11 +122,12 @@ auto Api::authenticate(StringView username, StringView password) const noexcept
     PROGMEM_STRING(parseErr, "Unprintable payload, this isn't supported: ");
     const auto &ref = UNWRAP_ERR(result);
     switch (ref) {
-    case ParseError::TOO_BIG:
+    case iop::ParseError::TOO_BIG:
       this->logger.error(F("Auth token is too big: size = "), lengthStr);
       return ApiStatus::BROKEN_SERVER;
-    case ParseError::NON_PRINTABLE:
-      this->logger.error(parseErr, utils::scapeNonPrintable(payload));
+    case iop::ParseError::NON_PRINTABLE:
+      this->logger.error(parseErr,
+                         iop::StringView(payload).scapeNonPrintable());
       return ApiStatus::BROKEN_SERVER;
     }
     this->logger.error(F("Unexpected ParseError: "),
@@ -141,8 +141,8 @@ auto Api::authenticate(StringView username, StringView password) const noexcept
 #endif
 }
 
-auto Api::registerLog(const AuthToken &authToken, StringView log) const noexcept
-    -> ApiStatus {
+auto Api::registerLog(const AuthToken &authToken,
+                      iop::StringView log) const noexcept -> ApiStatus {
   IOP_TRACE();
   const auto token = authToken.asString();
   this->logger.debug(F("Register log. Token: "), token, F(". Log: "), log);
@@ -214,7 +214,7 @@ auto Api::upgrade(const AuthToken &token, const MacAddress &mac,
   return ApiStatus::BROKEN_SERVER;
 }
 #else
-auto Api::loggerLevel() const noexcept -> LogLevel {
+auto Api::loggerLevel() const noexcept -> iop::LogLevel {
   IOP_TRACE();
   return this->logger.level();
 }
@@ -242,16 +242,17 @@ auto Api::registerEvent(const AuthToken &token,
   IOP_TRACE();
   return ApiStatus::OK;
 }
-auto Api::authenticate(StringView username, StringView password) const noexcept
-    -> Result<AuthToken, ApiStatus> {
+auto Api::authenticate(iop::StringView username,
+                       iop::StringView password) const noexcept
+    -> iop::Result<AuthToken, ApiStatus> {
   (void)*this;
   (void)std::move(username);
   (void)std::move(password);
   IOP_TRACE();
   return AuthToken::empty();
 }
-auto Api::registerLog(const AuthToken &authToken, StringView log) const noexcept
-    -> ApiStatus {
+auto Api::registerLog(const AuthToken &authToken,
+                      iop::StringView log) const noexcept -> ApiStatus {
   (void)*this;
   (void)authToken;
   (void)std::move(log);
@@ -267,7 +268,7 @@ auto Api::setup() const noexcept -> void {
 
 Api::~Api() noexcept { IOP_TRACE(); }
 
-Api::Api(StaticString uri, const LogLevel logLevel) noexcept
+Api::Api(iop::StaticString uri, const iop::LogLevel logLevel) noexcept
     : logger(logLevel, F("API")), network_(std::move(uri), logLevel) {
   IOP_TRACE();
 }
@@ -285,7 +286,7 @@ auto Api::operator=(Api const &other) -> Api & {
   return *this;
 }
 
-auto Api::uri() const noexcept -> StaticString {
+auto Api::uri() const noexcept -> iop::StaticString {
   return this->network().uri();
 };
 
@@ -294,7 +295,7 @@ auto Api::network() const noexcept -> const Network & {
   return this->network_;
 }
 
-auto Api::loggerLevel() const noexcept -> LogLevel {
+auto Api::loggerLevel() const noexcept -> iop::LogLevel {
   IOP_TRACE();
   return this->logger.level();
 }

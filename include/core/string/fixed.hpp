@@ -1,8 +1,9 @@
-#ifndef IOP_FIXED_STRING_HPP
-#define IOP_FIXED_STRING_HPP
+#ifndef IOP_CORE_STRING_FIXED_HPP
+#define IOP_CORE_STRING_FIXED_HPP
 
-#include "storage.hpp"
-#include "tracer.hpp"
+#include "core/storage.hpp"
+
+namespace iop {
 
 /// Heapallocated string with fixed max size
 template <uint16_t SIZE> class FixedString {
@@ -96,5 +97,6 @@ public:
     return *this;
   }
 };
+} // namespace iop
 
 #endif

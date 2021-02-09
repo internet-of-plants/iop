@@ -2,12 +2,7 @@
 
 #ifndef IOP_LOG_DISABLED
 #include "api.hpp"
-#include "configuration.h"
 #include "flash.hpp"
-#include "static_string.hpp"
-#include "string_view.hpp"
-#include "unsafe_raw_string.hpp"
-#include <Arduino.h>
 
 class ByteRate {
   uint32_t lastBytesPerMinute{0};
@@ -44,8 +39,8 @@ static String currentLog;
 // TODO(pc): use ByteRate to allow grouping messages before sending, or reuse
 // the TCP connection to many
 
-static Api api(uri, LogLevel::WARN);
-static Flash flash(LogLevel::WARN);
+static Api api(uri, iop::LogLevel::WARN);
+static Flash flash(iop::LogLevel::WARN);
 
 #ifdef IOP_NETWORK_LOGGING
 static bool logNetwork = true;
@@ -88,7 +83,7 @@ void Log::reportLog() noexcept {
 void Log::setup() noexcept {
   constexpr const uint32_t BAUD_RATE = 115200;
   Serial.begin(BAUD_RATE);
-  if (logLevel <= LogLevel::DEBUG)
+  if (logLevel <= iop::LogLevel::DEBUG)
     Serial.setDebugOutput(true);
 
   constexpr const uint32_t thirtySec = 30 * 1000;
@@ -98,107 +93,79 @@ void Log::setup() noexcept {
     yield();
 }
 
-void Log::printLogType(const LogType &logType,
-                       const LogLevel &level) const noexcept {
-  if (logLevel_ == LogLevel::NO_LOG)
+void Log::printLogType(const iop::LogType &logType,
+                       const iop::LogLevel &level) const noexcept {
+  if (logLevel_ == iop::LogLevel::NO_LOG)
     return;
 
   switch (logType) {
-  case LogType::CONTINUITY:
+  case iop::LogType::CONTINUITY:
+  case iop::LogType::END:
     break;
 
-  case LogType::START:
+  case iop::LogType::START:
+  case iop::LogType::STARTEND:
     this->print(F("["));
-
-    switch (level) {
-    case LogLevel::TRACE:
-      this->print(F("TRACE"));
-      break;
-
-    case LogLevel::DEBUG:
-      this->print(F("DEBUG"));
-      break;
-
-    case LogLevel::INFO:
-      this->print(F("INFO"));
-      break;
-
-    case LogLevel::WARN:
-      this->print(F("WARN"));
-      break;
-
-    case LogLevel::ERROR:
-      this->print(F("ERROR"));
-      break;
-
-    case LogLevel::NO_LOG:
-      return;
-
-    case LogLevel::CRIT:
-    default:
-      this->print(F("CRIT"));
-      break;
-    }
-
+    this->print(this->levelToString().get());
     this->print(F("] "));
     this->print(this->targetLogger.get());
     this->print(F(": "));
   };
 }
 
-void Log::log(const LogLevel &level, const StaticString &msg,
-              const LogType &logType,
-              const StaticString &lineTermination) const noexcept {
+void Log::log(const iop::LogLevel &level, const iop::StaticString &msg,
+              const iop::LogType &logType,
+              const iop::StaticString &lineTermination) const noexcept {
   if (this->logLevel_ > level)
     return;
 
-  if (this->flush)
-    Serial.flush();
-
+  Serial.flush();
   this->printLogType(logType, level);
-
   this->print(msg.get());
   this->print(lineTermination.get());
-  if (this->flush)
-    Serial.flush();
+  Serial.flush();
+
+  if (logType == iop::LogType::END || logType == iop::LogType::STARTEND)
+    this->reportLog();
 }
 
-void Log::log(const LogLevel &level, const StringView &msg,
-              const LogType &logType,
-              const StaticString &lineTermination) const noexcept {
+void Log::log(const iop::LogLevel &level, const iop::StringView &msg,
+              const iop::LogType &logType,
+              const iop::StaticString &lineTermination) const noexcept {
   if (this->logLevel_ > level)
     return;
 
-  if (this->flush)
-    Serial.flush();
-
+  Serial.flush();
   this->printLogType(logType, level);
   this->print(msg.get());
   this->print(lineTermination.get());
-  if (this->flush)
-    Serial.flush();
+  Serial.flush();
+
+  if (logType == iop::LogType::END || logType == iop::LogType::STARTEND)
+    this->reportLog();
 }
 #else
 void Log::setup() noexcept {}
 void Log::reportLog() noexcept {}
-void Log::printLogType(const LogType &logType,
-                       const LogLevel &reportLogLevel) const noexcept {
+void Log::printiop::LogType(
+    const iop::LogType &logType,
+    const iop::LogLevel &reportiop::LogLevel) const noexcept {
   (void)*this;
   (void)logType;
-  (void)reportLogLevel;
+  (void)reportiop::LogLevel;
 }
-void Log::log(const LogLevel &level, const StringView &msg,
-              const LogType &logType,
-              const StaticString &lineTermination) const noexcept {
+void Log::log(const iop::LogLevel &level, const iop::StringView &msg,
+              const iop::LogType &logType,
+              const iop::StaticString &lineTermination) const noexcept {
   (void)*this;
   (void)level;
   (void)msg;
   (void)logType;
   (void)lineTermination;
 }
-void Log::log(const LogLevel &level, const StaticString &msg,
-              const LogType &logType,
-              const StaticString &lineTermination) const noexcept {
+void Log::log(const iop::LogLevel &level, const iop::StaticString &msg,
+              const iop::LogType &logType,
+              const iop::StaticString &lineTermination) const noexcept {
   (void)*this;
   (void)level;
   (void)msg;

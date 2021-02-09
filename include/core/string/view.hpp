@@ -1,14 +1,17 @@
-#ifndef IOP_STRING_VIEW_HPP
-#define IOP_STRING_VIEW_HPP
+#ifndef IOP_CORE_STRING_VIEW_HPP
+#define IOP_CORE_STRING_VIEW_HPP
 
-#include "tracer.hpp"
+#include "core/string/static.hpp"
+#include "core/string/unsafe_raw.hpp"
 
-#include "WString.h"
-
+#include <cstdint>
 #include <string>
 
-class UnsafeRawString;
-class StaticString;
+#define IOP_FILE iop::StaticString(FPSTR(__FILE__))
+#define IOP_LINE (uint32_t) __LINE__
+#define IOP_FUNC iop::StringView(iop::UnsafeRawString(__PRETTY_FUNCTION__))
+
+namespace iop {
 template <uint16_t SIZE> class FixedString;
 class CowString;
 
@@ -38,9 +41,7 @@ public:
   StringView(const CowString &str) noexcept;
   template <uint16_t SIZE>
   // NOLINTNEXTLINE hicpp-explicit-conversions
-  StringView(const FixedString<SIZE> &other) noexcept : str(other.get()) {
-    // IOP_TRACER();
-  }
+  StringView(const FixedString<SIZE> &other) noexcept : str(other.get()) {}
   StringView(const StringView &other) noexcept = default;
   StringView(StringView &&other) noexcept = default;
   auto operator==(const StringView &other) const noexcept -> bool;
@@ -54,8 +55,11 @@ public:
   auto contains(StaticString needle) const noexcept -> bool;
   auto hash() const noexcept -> uint64_t; // FNV hash
   auto isAllPrintable() const noexcept -> bool;
+  auto scapeNonPrintable() const noexcept -> CowString;
+  static auto isPrintable(char ch) noexcept -> bool;
 };
 
 static const StringView emptyStringView = String();
+} // namespace iop
 
 #endif

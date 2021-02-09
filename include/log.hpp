@@ -1,16 +1,12 @@
 #ifndef IOP_LOG_HPP
 #define IOP_LOG_HPP
 
-#include "static_string.hpp"
-#include "string_view.hpp"
+#include "core/log.hpp"
+#include "core/string/view.hpp"
 
 // TODO: think about logging some important things to flash (FS.h)
 
 class Api;
-
-enum class LogLevel { TRACE = 0, DEBUG, INFO, WARN, ERROR, CRIT, NO_LOG };
-
-enum LogType { START = 0, CONTINUITY };
 
 PROGMEM_STRING(defaultLineTermination, "\n");
 PROGMEM_STRING(emptyStaticString, "");
@@ -18,85 +14,82 @@ PROGMEM_STRING(emptyStaticString, "");
 /// Logger with its own log level and target
 class Log {
 private:
-  LogLevel logLevel_;
-  StaticString targetLogger;
-  bool flush = true;
+  iop::LogLevel logLevel_;
+  iop::StaticString targetLogger;
 
 public:
-  Log(const LogLevel &level, StaticString target) noexcept
+  Log(const iop::LogLevel &level, iop::StaticString target) noexcept
       : logLevel_{level}, targetLogger(std::move(target)) {}
-  Log(const LogLevel &level, StaticString target, bool flush) noexcept
-      : logLevel_{level}, targetLogger(std::move(target)), flush{flush} {}
-  auto level() const noexcept -> LogLevel { return this->logLevel_; }
-  auto target() const noexcept -> StaticString { return this->targetLogger; }
+  auto level() const noexcept -> iop::LogLevel { return this->logLevel_; }
+  auto target() const noexcept -> iop::StaticString {
+    return this->targetLogger;
+  }
   static void setup() noexcept;
 
   template <typename... Args> void trace(const Args &...args) const noexcept {
-    this->log_recursive(LogLevel::TRACE, true, args...);
+    this->log_recursive(iop::LogLevel::TRACE, true, args...);
   }
   template <typename... Args> void debug(const Args &...args) const noexcept {
-    this->log_recursive(LogLevel::DEBUG, true, args...);
+    this->log_recursive(iop::LogLevel::DEBUG, true, args...);
   }
   template <typename... Args> void info(const Args &...args) const noexcept {
-    this->log_recursive(LogLevel::INFO, true, args...);
+    this->log_recursive(iop::LogLevel::INFO, true, args...);
   }
   template <typename... Args> void warn(const Args &...args) const noexcept {
-    this->log_recursive(LogLevel::WARN, true, args...);
+    this->log_recursive(iop::LogLevel::WARN, true, args...);
   }
   template <typename... Args> void error(const Args &...args) const noexcept {
-    this->log_recursive(LogLevel::ERROR, true, args...);
+    this->log_recursive(iop::LogLevel::ERROR, true, args...);
   }
   template <typename... Args> void crit(const Args &...args) const noexcept {
-    this->log_recursive(LogLevel::CRIT, true, args...);
+    this->log_recursive(iop::LogLevel::CRIT, true, args...);
   }
 
   // "Recursive" variadic function
   template <typename... Args>
-  void log_recursive(const LogLevel &level, const bool first,
-                     const StaticString msg,
+  void log_recursive(const iop::LogLevel &level, const bool first,
+                     const iop::StaticString msg,
                      const Args &...args) const noexcept {
     if (first) {
-      this->log(level, msg, LogType::START, emptyStaticString);
+      this->log(level, msg, iop::LogType::START, emptyStaticString);
     } else {
-      this->log(level, msg, LogType::CONTINUITY, emptyStaticString);
+      this->log(level, msg, iop::LogType::CONTINUITY, emptyStaticString);
     }
     this->log_recursive(level, false, args...);
   }
 
   // Terminator
   template <typename... Args>
-  void log_recursive(const LogLevel &level, const bool first,
-                     const StaticString msg) const noexcept {
+  void log_recursive(const iop::LogLevel &level, const bool first,
+                     const iop::StaticString msg) const noexcept {
     if (first) {
-      this->log(level, msg, LogType::START, defaultLineTermination);
+      this->log(level, msg, iop::LogType::STARTEND, defaultLineTermination);
     } else {
-      this->log(level, msg, LogType::CONTINUITY, defaultLineTermination);
+      this->log(level, msg, iop::LogType::END, defaultLineTermination);
     }
-    this->reportLog();
   }
 
   // "Recursive" variadic function
   template <typename... Args>
-  void log_recursive(const LogLevel &level, const bool first,
-                     const StringView msg, const Args &...args) const noexcept {
+  void log_recursive(const iop::LogLevel &level, const bool first,
+                     const iop::StringView msg,
+                     const Args &...args) const noexcept {
     if (first) {
-      this->log(level, msg, LogType::START, emptyStaticString);
+      this->log(level, msg, iop::LogType::START, emptyStaticString);
     } else {
-      this->log(level, msg, LogType::CONTINUITY, emptyStaticString);
+      this->log(level, msg, iop::LogType::CONTINUITY, emptyStaticString);
     }
-    this->log_recursive(level, false, args...);
   }
 
   // Terminator
   template <typename... Args>
-  void log_recursive(const LogLevel &level, const bool first,
-                     const StringView msg) const noexcept {
+  void log_recursive(const iop::LogLevel &level, const bool first,
+                     const iop::StringView msg) const noexcept {
     if (first) {
-      this->log(level, msg, LogType::START, defaultLineTermination);
+      this->log(level, msg, iop::LogType::STARTEND, defaultLineTermination);
     } else {
-      this->log(level, msg, LogType::CONTINUITY, defaultLineTermination);
+      this->log(level, msg, iop::LogType::END, defaultLineTermination);
     }
-    this->reportLog();
   }
 
   ~Log() = default;
@@ -106,18 +99,39 @@ public:
   auto operator=(Log &&other) noexcept -> Log & = default;
 
 private:
-  void printLogType(const LogType &logType,
-                    const LogLevel &level) const noexcept;
+  void printLogType(const iop::LogType &logType,
+                    const iop::LogLevel &level) const noexcept;
 
-  void log(const LogLevel &level, const StaticString &msg,
-           const LogType &logType,
-           const StaticString &lineTermination) const noexcept;
-  void log(const LogLevel &level, const StringView &msg, const LogType &logType,
-           const StaticString &lineTermination) const noexcept;
+  void log(const iop::LogLevel &level, const iop::StaticString &msg,
+           const iop::LogType &logType,
+           const iop::StaticString &lineTermination) const noexcept;
+  void log(const iop::LogLevel &level, const iop::StringView &msg,
+           const iop::LogType &logType,
+           const iop::StaticString &lineTermination) const noexcept;
 
   static void print(const __FlashStringHelper *str) noexcept;
   static void print(const char *str) noexcept;
   static void reportLog() noexcept;
+
+  auto levelToString() const noexcept -> iop::StaticString {
+    switch (this->level()) {
+    case iop::LogLevel::TRACE:
+      return F("TRACE");
+    case iop::LogLevel::DEBUG:
+      return F("DEBUG");
+    case iop::LogLevel::INFO:
+      return F("INFO");
+    case iop::LogLevel::WARN:
+      return F("WARN");
+    case iop::LogLevel::ERROR:
+      return F("ERROR");
+    case iop::LogLevel::CRIT:
+      return F("CRIT");
+    case iop::LogLevel::NO_LOG:
+      return F("NO_LOG");
+    }
+    return F("UNKNOWN");
+  }
 };
 
 #include "utils.hpp"

@@ -1,15 +1,8 @@
-#include "api.hpp"
-#include "configuration.h"
-#include "copy_on_write.hpp"
+#include "core/string/cow.hpp"
 #include "flash.hpp"
-#include "log.hpp"
 #include "reset.hpp"
 #include "sensors.hpp"
 #include "server.hpp"
-#include "static_string.hpp"
-#include "utils.hpp"
-
-#include "string_view.hpp"
 
 // TODO: log restart reason Esp::getResetInfoPtr()
 
@@ -106,8 +99,9 @@ public:
   }
 
 private:
-  void handleInterrupt(const InterruptEvent event,
-                       const Option<AuthToken> &maybeToken) const noexcept {
+  void
+  handleInterrupt(const InterruptEvent event,
+                  const iop::Option<AuthToken> &maybeToken) const noexcept {
     // Satisfies linter when all interrupt features are disabled
     (void)*this;
     (void)event;
@@ -139,7 +133,7 @@ private:
           return;
 
         case ApiStatus::CLIENT_BUFFER_OVERFLOW:
-          panic_(F("Api::upgrade internal buffer overflow"));
+          iop_panic(F("Api::upgrade internal buffer overflow"));
 
         // Already logged at the network level
         case ApiStatus::CONNECTION_ISSUES:
@@ -174,7 +168,7 @@ private:
       const auto *ptr = static_cast<uint8_t *>(config.ssid);
       const auto ssid = NetworkName::fromBytesUnsafe(ptr, len);
 
-      const auto ssidStr = utils::scapeNonPrintable(ssid.asString());
+      const auto ssidStr = ssid.asString().scapeNonPrintable();
       this->logger.info(F("Connected to network: "), ssidStr);
 
       len = sizeof(config.password);
@@ -223,7 +217,7 @@ private:
 
     case ApiStatus::CLIENT_BUFFER_OVERFLOW:
       this->logger.error(F("Unable to send measurements"));
-      panic_(F("Api::registerEvent internal buffer overflow"));
+      iop_panic(F("Api::registerEvent internal buffer overflow"));
 
     // Already logged at the Network level
     case ApiStatus::BROKEN_SERVER: // TODO: have an API to log this
@@ -267,7 +261,7 @@ public:
     return *this;
   }
   ~EventLoop() noexcept { IOP_TRACE(); }
-  explicit EventLoop(StaticString uri) noexcept
+  explicit EventLoop(iop::StaticString uri) noexcept
 
       : sensors(soilResistivityPowerPin, soilTemperaturePin,
                 airTempAndHumidityPin, dhtVersion),
@@ -295,11 +289,11 @@ public:
 };
 
 // Avoid static initialization being run before logging is setup
-static Option<EventLoop> eventLoop;
+static iop::Option<EventLoop> eventLoop;
 void setup() {
   Log::setup();
   IOP_TRACE();
-  eventLoop = EventLoop(uri);
+  eventLoop.emplace(uri);
   UNWRAP_MUT(eventLoop).setup();
 }
 

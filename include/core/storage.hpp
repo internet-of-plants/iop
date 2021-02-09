@@ -1,20 +1,13 @@
-#ifndef IOP_STORAGE_HPP
-#define IOP_STORAGE_HPP
+#ifndef IOP_CORE_STORAGE_HPP
+#define IOP_CORE_STORAGE_HPP
 
+// Remove this eventually to make core self-contained
 #include "configuration.h"
 
-#include "result.hpp"
-#include "unsafe_raw_string.hpp"
-#include "utils.hpp"
+#include "core/memory.hpp"
+#include "core/result.hpp"
 
-#include <cinttypes>
-#include <memory>
-
-// TODO: we can't use the definition
-namespace utils {
-auto isPrintable(char ch) noexcept -> bool;
-} // namespace utils
-
+namespace iop {
 enum class ParseError { TOO_BIG, NON_PRINTABLE };
 
 /// Fixed size storage. Heap allocated (std::shared_ptr) std::array that has an
@@ -58,7 +51,7 @@ private:
     Serial.print(F("]("));
     for (const uint8_t byte : *this->val) {
       const auto ch = static_cast<char>(byte);
-      if (utils::isPrintable(ch)) {
+      if (StringView::isPrintable(ch)) {
         Serial.print(ch);
       } else {
         Serial.print(F("<\\"));
@@ -76,10 +69,10 @@ public:
     this->printTrace();
   }
   explicit Storage<SIZE>(const InnerStorage val) noexcept
-      : val(try_make_shared<InnerStorage>(val)) {
+      : val(iop::try_make_shared<InnerStorage>(val)) {
     IOP_TRACE();
     if (!this->val)
-      panic_(F("Unnable to allocate val"));
+      iop_panic(F("Unnable to allocate val"));
 
     *this->val->end() = 0;
 
@@ -149,7 +142,7 @@ public:
     return val;
   }
   static auto fromString(StringView str) noexcept
-      -> Result<Storage<SIZE>, ParseError> {
+      -> iop::Result<Storage<SIZE>, ParseError> {
     IOP_TRACE();
 
     uint8_t len = 0;
@@ -168,6 +161,7 @@ public:
     return val;
   }
 };
+} // namespace iop
 
 /// Creates a typed Storage<size_>, check it's documentation and definition for
 /// a clear understanding Prevents the mixup of different data that happens to
@@ -176,7 +170,7 @@ public:
   class name##_class {                                                         \
   public:                                                                      \
     static constexpr const size_t size = size_;                                \
-    using InnerStorage = Storage<size>;                                        \
+    using InnerStorage = iop::Storage<size>;                                   \
                                                                                \
   private:                                                                     \
     InnerStorage val;                                                          \
@@ -214,7 +208,7 @@ public:
       IOP_TRACE();                                                             \
       return this->val.mutPtr();                                               \
     }                                                                          \
-    auto asString() const noexcept -> StringView {                             \
+    auto asString() const noexcept -> iop::StringView {                        \
       IOP_TRACE();                                                             \
       return this->val.asString();                                             \
     }                                                                          \
@@ -231,12 +225,14 @@ public:
                                 const size_t len) noexcept -> name##_class {   \
       return name##_class(InnerStorage::fromBytesUnsafe(b, len));              \
     }                                                                          \
-    static auto fromString(StringView str) noexcept                            \
-        -> Result<name##_class, enum ParseError> {                             \
-          IOP_TRACE(); auto val = InnerStorage::fromString(std::move(str));    \
-          if (IS_OK(val)) return name##_class(UNWRAP_OK(val));                 \
-          return UNWRAP_ERR(val);                                              \
-        }                                                                      \
+    static auto fromString(iop::StringView str) noexcept                       \
+        -> iop::Result<name##_class, iop::ParseError> {                        \
+      IOP_TRACE();                                                             \
+      auto val = InnerStorage::fromString(std::move(str));                     \
+      if (IS_OK(val))                                                          \
+        return name##_class(UNWRAP_OK(val));                                   \
+      return UNWRAP_ERR(val);                                                  \
+    }                                                                          \
   };                                                                           \
   using name = name##_class; // NOLINT bugprone-macro-parentheses
 

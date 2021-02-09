@@ -1,11 +1,10 @@
 #ifndef IOP_NETWORK_HPP
 #define IOP_NETWORK_HPP
 
+#include "core/result.hpp"
 #include "log.hpp"
-#include "result.hpp"
 
 #include "ESP8266HTTPClient.h"
-#include "ESP8266WiFi.h"
 
 /// Higher level error reporting. Lower level is logged
 enum class ApiStatus {
@@ -30,42 +29,45 @@ enum class HttpMethod;
 /// It's supposed to serve as building-block for higher level abstractions
 /// Check `api.hpp`
 class Network {
-  StaticString uri_;
+  iop::StaticString uri_;
   Log logger;
 
 public:
-  Network(const StaticString uri, const LogLevel &logLevel) noexcept
+  Network(const iop::StaticString uri, const iop::LogLevel &logLevel) noexcept
       : uri_(std::move(uri)), logger(logLevel, F("NETWORK")) {
     IOP_TRACE();
   }
   auto setup() const noexcept -> void;
-  auto uri() const noexcept -> StaticString { return this->uri_; };
+  auto uri() const noexcept -> iop::StaticString { return this->uri_; };
 
   static auto wifiClient() noexcept -> WiFiClient &;
   static void disconnect() noexcept;
   static auto isConnected() noexcept -> bool;
 
-  auto httpPut(StringView token, StaticString path,
-               StringView data) const noexcept -> Result<Response, int>;
-  auto httpPost(StringView token, StringView path,
-                StringView data) const noexcept -> Result<Response, int>;
-  auto httpPost(StringView token, StaticString path,
-                StringView data) const noexcept -> Result<Response, int>;
-  auto httpPost(StaticString path, StringView data) const noexcept
-      -> Result<Response, int>;
+  auto httpPut(iop::StringView token, iop::StaticString path,
+               iop::StringView data) const noexcept
+      -> iop::Result<Response, int>;
+  auto httpPost(iop::StringView token, iop::StringView path,
+                iop::StringView data) const noexcept
+      -> iop::Result<Response, int>;
+  auto httpPost(iop::StringView token, iop::StaticString path,
+                iop::StringView data) const noexcept
+      -> iop::Result<Response, int>;
+  auto httpPost(iop::StaticString path, iop::StringView data) const noexcept
+      -> iop::Result<Response, int>;
 
-  auto httpRequest(HttpMethod method, const Option<StringView> &token,
-                   StringView path,
-                   const Option<StringView> &data) const noexcept
-      -> Result<Response, int>;
+  auto httpRequest(HttpMethod method, const iop::Option<iop::StringView> &token,
+                   iop::StringView path,
+                   const iop::Option<iop::StringView> &data) const noexcept
+      -> iop::Result<Response, int>;
 
   static auto rawStatusToString(const RawStatus &status) noexcept
-      -> StaticString;
+      -> iop::StaticString;
   auto rawStatus(int code) const noexcept -> RawStatus;
 
   static auto apiStatusToString(const ApiStatus &status) noexcept
-      -> StaticString;
-  auto apiStatus(const RawStatus &raw) const noexcept -> Option<ApiStatus>;
+      -> iop::StaticString;
+  auto apiStatus(const RawStatus &raw) const noexcept -> iop::Option<ApiStatus>;
 
   ~Network() noexcept { IOP_TRACE(); }
   Network(Network const &other) : uri_(other.uri_), logger(other.logger) {
@@ -86,7 +88,7 @@ public:
 class Response {
 public:
   ApiStatus status;
-  Option<String> payload;
+  iop::Option<String> payload;
   ~Response() noexcept;
   explicit Response(const ApiStatus &status) noexcept;
   Response(const ApiStatus &status, String payload) noexcept;

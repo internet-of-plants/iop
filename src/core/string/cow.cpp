@@ -1,6 +1,6 @@
-#include "copy_on_write.hpp"
-#include "unsafe_raw_string.hpp"
+#include "core/string/cow.hpp"
 
+namespace iop {
 auto CowString::borrow() const noexcept -> StringView {
   IOP_TRACE();
   if (IS_OK(storage)) {
@@ -29,3 +29,4 @@ auto CowString::operator=(CowString const &other) noexcept -> CowString & {
   }
   return *this;
 }
+} // namespace iop

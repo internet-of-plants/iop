@@ -1,10 +1,7 @@
-#include "unsafe_raw_string.hpp"
+#include "core/string/unsafe_raw.hpp"
+#include "core/string/view.hpp"
 
-#include "configuration.h"
-#include "static_string.hpp"
-#include "string_view.hpp"
-#include "tracer.hpp"
-
+namespace iop {
 auto UnsafeRawString::operator*() const noexcept -> StringView {
   // IOP_TRACE();
   return *this;
@@ -75,3 +72,4 @@ auto UnsafeRawString::get() const noexcept -> const char * {
   */
   return this->str;
 }
+} // namespace iop

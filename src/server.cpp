@@ -1,20 +1,7 @@
 #include "server.hpp"
 
-#include "IPAddress.h"
-#include "WiFiClient.h"
-
 #ifndef IOP_SERVER_DISABLED
-#include "api.hpp"
-#include "configuration.h"
 #include "flash.hpp"
-#include "utils.hpp"
-
-#include "bits/basic_string.h"
-#include <cstring>
-#include <string>
-
-#include "static_string.hpp"
-#include "string_view.hpp"
 
 constexpr const uint64_t intervalTryFlashWifiCredentialsMillis =
     60 * 60 * 1000; // 1 hour
@@ -81,11 +68,9 @@ PROGMEM_STRING(pageHTMLEnd, "<br>\r\n"
                             "<input type='submit' value='Submit' />\r\n"
                             "</form></body></html>");
 
-#include <unordered_map>
-
 // We use this globals to share messages from the callbacks
-static Option<std::pair<String, String>> credentialsWifi;
-static Option<std::pair<String, String>> credentialsIop;
+static iop::Option<std::pair<String, String>> credentialsWifi;
+static iop::Option<std::pair<String, String>> credentialsIop;
 
 constexpr const uint8_t serverPort = 80;
 static ESP8266WebServer server(serverPort);
@@ -104,7 +89,7 @@ void CredentialsServer::setup() const noexcept {
   server.on(F("/submit"), [s, loggerLevel]() {
     IOP_TRACE();
     // TODO: show in log that it doesn't use default logging (network log off)
-    if (loggerLevel >= LogLevel::DEBUG)
+    if (loggerLevel >= iop::LogLevel::DEBUG)
       Serial.println(F("[DEBUG] SERVER_CALLBACK: Received credentials form"));
 
     if (s->hasArg(F("wifi")) && s->hasArg(F("ssid")) &&
@@ -112,7 +97,7 @@ void CredentialsServer::setup() const noexcept {
       const auto ssid = s->arg(F("ssid"));
       const auto psk = s->arg(F("password"));
       if (!ssid.isEmpty() && !psk.isEmpty())
-        credentialsWifi = std::pair<String, String>(ssid, psk);
+        credentialsWifi.emplace(ssid, psk);
     }
 
     if (s->hasArg(F("iop")) && s->hasArg(F("iopEmail")) &&
@@ -120,7 +105,7 @@ void CredentialsServer::setup() const noexcept {
       const auto email = s->arg(F("iopEmail"));
       const auto password = s->arg(F("iopPassword"));
       if (!email.isEmpty() && !password.isEmpty())
-        credentialsIop = std::pair<String, String>(email, password);
+        credentialsIop.emplace(email, password);
     }
 
     s->sendHeader(F("Location"), F("/"));
@@ -130,7 +115,7 @@ void CredentialsServer::setup() const noexcept {
   server.onNotFound([s, loggerLevel]() {
     IOP_TRACE();
     const static Flash flash(loggerLevel);
-    if (loggerLevel >= LogLevel::DEBUG)
+    if (loggerLevel >= iop::LogLevel::DEBUG)
       Serial.println(F("[DEBUG] SERVER_CALLBACK: Serving captive portal HTML"));
 
     const auto mustConnect = !Network::isConnected();
@@ -219,29 +204,38 @@ void CredentialsServer::close() noexcept {
   }
 }
 
-auto CredentialsServer::statusToString(
-    const station_status_t status) const noexcept -> Option<StaticString> {
+auto CredentialsServer::statusToString(const station_status_t status)
+    const noexcept -> iop::Option<iop::StaticString> {
+  iop::Option<iop::StaticString> ret;
   IOP_TRACE();
   switch (status) {
   case STATION_IDLE:
-    return StaticString(F("STATION_IDLE"));
+    ret.emplace(F("STATION_IDLE"));
+    break;
   case STATION_CONNECTING:
-    return StaticString(F("STATION_CONNECTING"));
+    ret.emplace(F("STATION_CONNECTING"));
+    break;
   case STATION_WRONG_PASSWORD:
-    return StaticString(F("STATION_WRONG_PASSWORD"));
+    ret.emplace(F("STATION_WRONG_PASSWORD"));
+    break;
   case STATION_NO_AP_FOUND:
-    return StaticString(F("STATION_NO_AP_FOUND"));
+    ret.emplace(F("STATION_NO_AP_FOUND"));
+    break;
   case STATION_CONNECT_FAIL:
-    return StaticString(F("STATION_CONNECT_FAIL"));
+    ret.emplace(F("STATION_CONNECT_FAIL"));
+    break;
   case STATION_GOT_IP:
-    return StaticString(F("STATION_GOT_IP"));
+    ret.emplace(F("STATION_GOT_IP"));
+    break;
   }
-  this->logger.error(String(F("Unknown status: ")) + String(status));
-  return Option<StaticString>();
+  if (ret.isNone())
+    this->logger.error(String(F("Unknown status: ")) + String(status));
+  return std::move(ret);
 }
 
-auto CredentialsServer::connect(StringView ssid,
-                                StringView password) const noexcept -> void {
+auto CredentialsServer::connect(iop::StringView ssid,
+                                iop::StringView password) const noexcept
+    -> void {
   IOP_TRACE();
   if (wifi_station_get_connect_status() == STATION_CONNECTING) {
     ETS_UART_INTR_DISABLE(); // NOLINT hicpp-signed-bitwise
@@ -271,9 +265,10 @@ auto CredentialsServer::connect(StringView ssid,
   }
 }
 
-auto CredentialsServer::authenticate(StringView username, StringView password,
+auto CredentialsServer::authenticate(iop::StringView username,
+                                     iop::StringView password,
                                      const Api &api) const noexcept
-    -> Option<AuthToken> {
+    -> iop::Option<AuthToken> {
   IOP_TRACE();
   WiFi.mode(WIFI_STA);
   auto authToken = api.authenticate(username, std::move(password));
@@ -288,31 +283,32 @@ auto CredentialsServer::authenticate(StringView username, StringView password,
       this->logger.error(F("Invalid IoP credentials ("),
                          Network::apiStatusToString(status), F("): "),
                          std::move(username));
-      return Option<AuthToken>();
+      return iop::Option<AuthToken>();
 
     case ApiStatus::CLIENT_BUFFER_OVERFLOW:
-      panic_(F("CredentialsServer::authenticate internal buffer overflow"));
+      iop_panic(F("CredentialsServer::authenticate internal buffer overflow"));
 
     // Already logged at the Network level
     case ApiStatus::CONNECTION_ISSUES:
     case ApiStatus::BROKEN_SERVER:
       // Nothing to be done besides retrying later
-      return Option<AuthToken>();
+      return iop::Option<AuthToken>();
 
     case ApiStatus::OK:
-      // On success those shouldn't be triggered
-      panic_(F("Unreachable"));
+      // On success an AuthToken is returned, not OK
+      iop_panic(F("Unreachable"));
     }
 
     const auto str = Network::apiStatusToString(status);
     this->logger.crit(F("CredentialsServer::authenticate bad status: "), str);
-    return Option<AuthToken>();
+    return iop::Option<AuthToken>();
   }
-  return UNWRAP_OK(authToken);
+  return iop::maybe(UNWRAP_OK(authToken));
 }
 
-auto CredentialsServer::serve(const Option<WifiCredentials> &storedWifi,
-                              const Api &api) noexcept -> Option<AuthToken> {
+auto CredentialsServer::serve(const iop::Option<WifiCredentials> &storedWifi,
+                              const Api &api) noexcept
+    -> iop::Option<AuthToken> {
   IOP_TRACE();
   this->start();
 
@@ -371,18 +367,18 @@ auto CredentialsServer::serve(const Option<WifiCredentials> &storedWifi,
   // Give processing time to the servers
   dnsServer.processNextRequest();
   server.handleClient();
-  return Option<AuthToken>();
+  return iop::Option<AuthToken>();
 }
 #else
-auto CredentialsServer::serve(const Option<WifiCredentials> &storedWifi,
+auto CredentialsServer::serve(const iop::Option<WifiCredentials> &storedWifi,
                               const MacAddress &mac, const Api &api) noexcept
-    -> Option<AuthToken> {
+    -> iop::Option<AuthToken> {
   IOP_TRACE();
   (void)*this;
   (void)api;
   (void)mac;
   (void)storedWifi;
-  return Option<AuthToken>();
+  return iop::Option<AuthToken>();
 }
 void CredentialsServer::setup() const noexcept {
   (void)*this;

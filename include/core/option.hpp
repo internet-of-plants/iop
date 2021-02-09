@@ -1,26 +1,32 @@
-#ifndef IOP_OPTION_HPP
-#define IOP_OPTION_HPP
+#ifndef IOP_CORE_OPTION_HPP
+#define IOP_CORE_OPTION_HPP
 
+#include "core/memory.hpp" // Used for enable_if_t, for now
+#include "core/string/view.hpp"
+#include "core/tracer.hpp"
 #include "panic.hpp"
-#include "static_string.hpp"
-#include "string_view.hpp"
 
 #include <functional>
 
 #define UNWRAP(opt)                                                            \
-  std::move((opt).expect(F(#opt " is None"), CUTE_FILE, CUTE_LINE, CUTE_FUNC))
+  std::move((opt).expect(F(#opt " is None"), IOP_FILE, IOP_LINE, IOP_FUNC))
 #define UNWRAP_REF(opt) UNWRAP((opt).asRef()).get()
 #define UNWRAP_MUT(opt) UNWRAP((opt).asMut()).get()
 
+namespace iop {
+
 /// Optional sum-type, may be filled and contain a T, or not be filled.
 ///
-/// Trying to access data that is not there triggers `panic_`. Check before
+/// Trying to access data that is not there triggers `iop_panic`. Check before
 ///
 /// Most methods move out by default. You probably want to call `.asRef()` or
 /// `.asMut()` before calling those methods. Or use `UNWRAP_{REF,MUT}`
 ///
 /// Exceptions in T's destructor will trigger abort
-template <typename T> class Option {
+///
+/// T cannot be a reference, it won't compile. Use std::reference_wrapper<T>
+template <typename T, typename = enable_if_t<!std::is_reference<T>::value>>
+class Option {
 private:
   bool filled;
   union {
@@ -39,13 +45,21 @@ private:
 
 public:
   Option() noexcept : filled(false), dummy(0) { IOP_TRACE(); }
-  // NOLINTNEXTLINE hicpp-explicit-conversions
-  Option(T v) noexcept : filled(true), value(std::move(v)) { IOP_TRACE(); }
+  explicit Option(T v) noexcept : filled(true), value(std::move(v)) {
+    IOP_TRACE();
+  }
+
+  // We don't support initializer list based emplace, but feel free to add
+  template <class... Args> void emplace(Args &&...args) {
+    IOP_TRACE();
+    this->filled = true;
+    this->value = std::move(T(std::forward<Args>(args)...));
+  }
 
   auto asMut() noexcept -> Option<std::reference_wrapper<T>> {
     IOP_TRACE();
     if (this->isSome()) {
-      return std::ref(this->value);
+      return Option<std::reference_wrapper<T>>(std::ref(this->value));
     }
     return Option<std::reference_wrapper<T>>();
   }
@@ -53,7 +67,7 @@ public:
   auto asRef() const noexcept -> Option<std::reference_wrapper<const T>> {
     IOP_TRACE();
     if (this->isSome()) {
-      return std::ref<const T>(this->value);
+      return Option<std::reference_wrapper<const T>>(std::ref(this->value));
     }
     return Option<std::reference_wrapper<const T>>();
   }
@@ -77,18 +91,18 @@ public:
     } else {
       other.dummy = 0;
     }
-    return other;
+    return std::move(other);
   }
 
-  auto unwrapOr(T or_) noexcept -> T {
+  auto unwrapOr(T &&or_) noexcept -> T {
     IOP_TRACE();
     if (this->isSome())
       return UNWRAP(*this);
-    return or_;
+    return std::move(or_);
   }
 
   template <typename U>
-  auto andThen(std::function<Option<U>(const T)> f) noexcept -> Option<U> {
+  auto andThen(std::function<Option<U>(const T)> &f) noexcept -> Option<U> {
     IOP_TRACE();
     if (this->isSome())
       return f(UNWRAP(*this));
@@ -96,21 +110,21 @@ public:
   }
 
   template <typename U>
-  auto map(std::function<U(const T)> f) noexcept -> Option<U> {
+  auto map(std::function<U(const T)> &f) noexcept -> Option<U> {
     IOP_TRACE();
     if (this->isSome())
       return f(UNWRAP(*this));
     return Option<U>();
   }
 
-  auto or_(Option<T> v) noexcept -> Option<T> {
+  auto or_(Option<T> &&v) noexcept -> Option<T> {
     IOP_TRACE();
     if (this->isSome())
       return std::move(this);
-    return v;
+    return std::move(v);
   }
 
-  auto orElse(std::function<Option<T>()> v) noexcept -> Option<T> {
+  auto orElse(std::function<Option<T>()> &v) noexcept -> Option<T> {
     IOP_TRACE();
     if (this->isSome())
       return std::move(this);
@@ -153,26 +167,42 @@ public:
   }
 
   // Allows for more detailed panics, used by UNWRAP(_REF, _MUT) macros
-  auto expect(const StringView msg, const StaticString file,
-              const uint32_t line, const StringView func) noexcept -> T {
+  auto expect(StringView msg, StaticString file, const uint32_t line,
+              StringView func) noexcept -> T {
     IOP_TRACE();
     if (this->isNone())
-      panic__(msg, file, line, func);
-
-    const T value = std::move(this->value);
-    this->reset();
-    return value;
-  }
-  auto expect(const StaticString msg, const StaticString file,
-              const uint32_t line, const StringView func) noexcept -> T {
-    IOP_TRACE();
-    if (this->isNone())
-      panic__(msg, file, line, func);
+      iop::panic_hook(std::move(msg), std::move(file), line, std::move(func));
 
     T value = std::move(this->value);
     this->reset();
-    return value;
+    return std::move(value);
+  }
+  auto expect(StaticString msg, StaticString file, const uint32_t line,
+              StringView func) noexcept -> T {
+    IOP_TRACE();
+    if (this->isNone())
+      iop::panic_hook(std::move(msg), std::move(file), line, std::move(func));
+
+    T value = std::move(this->value);
+    this->reset();
+    return std::move(value);
   }
 };
+
+// TODO: improve this, upstream make_optional retuns Option<std::decay_t<T>>,
+// and has a variadic template override
+template <typename T> auto maybe(T &&value) noexcept -> Option<T> {
+  Option<T> ret;
+  ret.emplace(std::move(value));
+  return std::move(ret);
+}
+
+} // namespace iop
+
+#define MAYBE_PROGMEM_STRING_EMPTY(name)                                       \
+  static const iop::Option<iop::StaticString> name;
+#define MAYBE_PROGMEM_STRING(name, msg)                                        \
+  PROGMEM_STRING(name_##storage, msg);                                         \
+  static const iop::Option<iop::StaticString> name(name_##storage);
 
 #endif

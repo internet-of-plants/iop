@@ -1,6 +1,7 @@
-#ifndef IOP_UNSAFE_RAW_STRING_HPP
-#define IOP_UNSAFE_RAW_STRING_HPP
+#ifndef IOP_CORE_STRING_UNSAFE_RAW_HPP
+#define IOP_CORE_STRING_UNSAFE_RAW_HPP
 
+namespace iop {
 class StringView;
 
 /// Type-safe runtime string pointers, it's the user telling the system
@@ -25,5 +26,6 @@ public:
   auto operator*() const noexcept -> StringView;
   auto operator->() const noexcept -> StringView;
 };
+} // namespace iop
 
 #endif

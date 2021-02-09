@@ -1,7 +1,8 @@
 #ifndef IOP_UTILS_HPP
 #define IOP_UTILS_HPP
 
-#include "tracer.hpp"
+#include "Arduino.h"
+#include "core/tracer.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -53,38 +54,25 @@ using esp_time = unsigned long; // NOLINT google-runtime-int
 enum class InterruptEvent { NONE, FACTORY_RESET, ON_CONNECTION, MUST_UPGRADE };
 constexpr static const uint8_t interruptVariants = 4;
 
-#define MAYBE_PROGMEM_STRING_EMPTY(name) static const Option<StaticString> name;
-#define MAYBE_PROGMEM_STRING(name, msg)                                        \
-  PROGMEM_STRING(name_##storage, msg);                                         \
-  static const Option<StaticString> name(name_##storage);
+class MD5Hash_class;
+class MacAddress_class;
+class Log;
 
-#include <memory>
+namespace iop {
+class StringView;
+class CowString;
+} // namespace iop
 
-template <bool B, class T = void>
-using enable_if_t = typename std::enable_if<B, T>::type;
+// The `_class` suffix is just to make forward declaration works with macro
+// created classes. The actual class has that suffix, but a `using Type =
+// Type_class;` is set. But it's not here and if done here it will conflict.
 
-template <typename T, typename = enable_if_t<std::is_array<T>::value>>
-auto try_make_unique(size_t size) noexcept -> std::unique_ptr<T> {
-  IOP_TRACE();
-  return std::unique_ptr<T>(new typename std::remove_extent<T>::type[size]());
-}
-
-template <typename T, typename = enable_if_t<!std::is_array<T>::value>,
-          typename... Args>
-auto try_make_unique(Args &&...args) noexcept -> std::unique_ptr<T> {
-  IOP_TRACE();
-  return std::unique_ptr<T>(new (std::nothrow) T(std::forward<Args>(args)...));
-}
-
-// TODO: OOm can still cause problems because refcount is still allocated
-// separately and can fail
-template <typename _Tp, typename... _Args>
-inline auto try_make_shared(_Args &&...__args) noexcept
-    -> std::shared_ptr<_Tp> {
-  IOP_TRACE();
-  typedef typename std::remove_const<_Tp>::type _Tp_nc;
-  return std::allocate_shared<_Tp>(std::allocator<_Tp_nc>(),
-                                   std::forward<_Args>(__args)...);
-}
+namespace utils {
+auto hashSketch() noexcept -> const MD5Hash_class &;
+auto macAddress() noexcept -> const MacAddress_class &;
+void ICACHE_RAM_ATTR scheduleInterrupt(InterruptEvent ev) noexcept;
+auto ICACHE_RAM_ATTR descheduleInterrupt() noexcept -> InterruptEvent;
+void logMemory(const Log &logger) noexcept;
+} // namespace utils
 
 #endif

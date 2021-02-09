@@ -28,13 +28,14 @@ public:
           const uint8_t soilTemperaturePin, const uint8_t dhtPin,
           const uint8_t dhtVersion) noexcept
       : soilResistivityPowerPin(soilResistivityPowerPin),
-        soilTemperatureOneWireBus(try_make_shared<OneWire>(soilTemperaturePin)),
+        soilTemperatureOneWireBus(
+            iop::try_make_shared<OneWire>(soilTemperaturePin)),
         /* SELF_REF: this is dangerous, although allocation helps a lot. */
         soilTemperatureSensor(soilTemperatureOneWireBus.get()),
         airTempAndHumiditySensor(dhtPin, dhtVersion) {
     IOP_TRACE();
     if (!this->soilTemperatureOneWireBus)
-      panic_(F("Unable to allocate one wire bus for soil DallasTemperature"));
+      iop_panic(F("Unable to allocate one wire bus for soil DallasTemperature"));
   }
   void setup() noexcept;
   auto measure() noexcept -> Event;

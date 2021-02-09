@@ -1,14 +1,13 @@
 #ifndef IOP_SERVER_HPP
 #define IOP_SERVER_HPP
 
-#include <api.hpp>
-
 #include <DNSServer.h>
 #include <ESP8266WebServer.h>
 
-#include <memory>
+#include "api.hpp"
+#include "core/memory.hpp"
 
-enum ServeError { INVALID_WIFI_CONFIG };
+class Api;
 
 /// Server to safely acquire wifi and Internet of Plants credentials
 ///
@@ -37,24 +36,25 @@ private:
 
   void start() noexcept;
   /// Connects to WiFi
-  auto connect(StringView ssid, StringView password) const noexcept -> void;
+  auto connect(iop::StringView ssid, iop::StringView password) const noexcept
+      -> void;
   /// Uses IoP credentials to generate an authentication token for the device
-  auto authenticate(StringView username, StringView password,
-                    const Api &api) const noexcept -> Option<AuthToken>;
+  auto authenticate(iop::StringView username, iop::StringView password,
+                    const Api &api) const noexcept -> iop::Option<AuthToken>;
 
 public:
-  explicit CredentialsServer(const LogLevel &logLevel) noexcept
+  explicit CredentialsServer(const iop::LogLevel &logLevel) noexcept
       : logger(logLevel, F("SERVER")) {
     IOP_TRACE();
   }
 
   void setup() const noexcept;
-  auto serve(const Option<WifiCredentials> &storedWifi, const Api &api) noexcept
-      -> Option<AuthToken>;
+  auto serve(const iop::Option<WifiCredentials> &storedWifi,
+             const Api &api) noexcept -> iop::Option<AuthToken>;
   void close() noexcept;
 
   auto statusToString(station_status_t status) const noexcept
-      -> Option<StaticString>;
+      -> iop::Option<iop::StaticString>;
 
   ~CredentialsServer() noexcept { IOP_TRACE(); }
   CredentialsServer(CredentialsServer const &other) = default;

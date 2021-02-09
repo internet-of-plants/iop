@@ -1,11 +1,8 @@
-#include "string_view.hpp"
+#include "core/string/view.hpp"
+#include "core/string/cow.hpp"
+#include "utils.hpp"
 
-#include "configuration.h"
-#include "copy_on_write.hpp"
-#include "models.hpp"
-#include "tracer.hpp"
-#include "unsafe_raw_string.hpp"
-
+namespace iop {
 /*
 StringView::~StringView() noexcept {
   if (logLevel > LogLevel::TRACE)
@@ -44,6 +41,7 @@ auto StringView::isEmpty() const noexcept -> bool {
 
 auto StringView::contains(StringView needle) const noexcept -> bool {
   IOP_TRACE();
+  /*
   if (logLevel <= LogLevel::TRACE) {
     Serial.print(F("StringView(\""));
     Serial.print(this->get());
@@ -51,10 +49,12 @@ auto StringView::contains(StringView needle) const noexcept -> bool {
     Serial.print(needle.get());
     Serial.print(F("\")"));
   }
+  */
   return strstr(this->get(), std::move(needle).get()) != nullptr;
 }
 auto StringView::contains(StaticString needle) const noexcept -> bool {
   IOP_TRACE();
+  /*
   if (logLevel <= LogLevel::TRACE) {
     Serial.print(F("StringView(\""));
     Serial.print(this->get());
@@ -62,6 +62,7 @@ auto StringView::contains(StaticString needle) const noexcept -> bool {
     Serial.print(needle.get());
     Serial.print(F("\")"));
   }
+  */
   return strstr_P(this->get(), std::move(needle).asCharPtr()) != nullptr;
 }
 
@@ -92,8 +93,34 @@ auto StringView::isAllPrintable() const noexcept -> bool {
   for (uint8_t index = 0; index < len; ++index) {
     const auto ch = this->str[index]; // NOLINT *-pro-bounds-pointer-arithmetic
 
-    if (!utils::isPrintable(ch))
+    if (!StringView::isPrintable(ch))
       return false;
   }
   return true;
 }
+
+auto StringView::isPrintable(const char ch) noexcept -> bool {
+  return ch >= 32 && ch <= 126; // NOLINT cppcoreguidelines-avoid-magic-numbers
+}
+
+auto StringView::scapeNonPrintable() const noexcept -> CowString {
+  if (this->isAllPrintable())
+    return CowString(*this);
+
+  const size_t len = this->length();
+  String s;
+  s.reserve(len); // Scaped characters use more, but avoids the bulk of reallocs
+  for (uint8_t index = 0; index < len; ++index) {
+    // NOLINTNEXTLINE cppcoreguidelines-pro-bounds-pointer-arithmetic
+    const auto ch = this->get()[index];
+    if (StringView::isPrintable(ch)) {
+      s += ch;
+    } else {
+      s += F("<\\");
+      s += String(static_cast<uint8_t>(ch));
+      s += F(">");
+    }
+  }
+  return CowString(s);
+}
+} // namespace iop

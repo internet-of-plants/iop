@@ -1,16 +1,14 @@
 #ifndef IOP_CONFIGURATION_H
 #define IOP_CONFIGURATION_H
 
+#include "core/option.hpp"
 #include "log.hpp"
-#include "option.hpp"
-#include "static_string.hpp"
-
-#include "Arduino.h"
-
 #include <cstdint>
 
+#include "pins_arduino.h"
+
 /// Minimum log level to print a message (if serial is enabled)
-const auto logLevel = LogLevel::INFO;
+const auto logLevel = iop::LogLevel::INFO;
 
 const uint8_t soilTemperaturePin = D5;
 const uint8_t airTempAndHumidityPin = D6;
@@ -26,7 +24,7 @@ const esp_time interval = 180 * 1000;
 
 /// Expands to:
 /// static const char * const PROGMEM uri_progmem_char = <uri>;
-/// static const StaticString uri(uri_progmem_char);
+/// static const iop::StaticString uri(uri_progmem_char);
 ///
 /// It should be prefixed with https in production. Do not use plain http in
 /// production!
@@ -43,10 +41,10 @@ PROGMEM_STRING(uri, "https://iop-monitor-server.tk:4001/v1");
 /// If you really want to, replace the definitions with
 /// MAYBE_PROGMEM_STRING(variableName, variableValue), like the variables above
 
-static const Option<StaticString> wifiNetworkName;
-static const Option<StaticString> wifiPassword;
+static const iop::Option<iop::StaticString> wifiNetworkName;
+static const iop::Option<iop::StaticString> wifiPassword;
 
-static const Option<StaticString> iopEmail;
-static const Option<StaticString> iopPassword;
+static const iop::Option<iop::StaticString> iopEmail;
+static const iop::Option<iop::StaticString> iopPassword;
 
 #endif

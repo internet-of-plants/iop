@@ -1,8 +1,9 @@
-#ifndef IOP_STATIC_STRING_HPP
-#define IOP_STATIC_STRING_HPP
+#ifndef IOP_CORE_STRING_STATIC_HPP
+#define IOP_CORE_STRING_STATIC_HPP
 
 #include "WString.h"
 
+namespace iop {
 class StringView;
 
 /// Helper string that holds a pointer to a string stored in PROGMEM
@@ -44,9 +45,10 @@ public:
       -> StaticString & = default;
   auto operator=(StaticString &&other) noexcept -> StaticString & = default;
 };
+} // namespace iop
 
 #define PROGMEM_STRING(name, msg)                                              \
   static const char *const PROGMEM name##_progmem_char = msg;                  \
-  static const StaticString name(FPSTR(name##_progmem_char));
+  static const iop::StaticString name(FPSTR(name##_progmem_char));
 
 #endif

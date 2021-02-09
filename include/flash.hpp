@@ -11,16 +11,17 @@ class Flash {
   Log logger;
 
 public:
-  explicit Flash(LogLevel logLevel) noexcept : logger(logLevel, F("FLASH")) {
+  explicit Flash(iop::LogLevel logLevel) noexcept
+      : logger(logLevel, F("FLASH")) {
     IOP_TRACE();
   }
   static auto setup() noexcept -> void;
 
-  auto readAuthToken() const noexcept -> const Option<AuthToken> &;
+  auto readAuthToken() const noexcept -> const iop::Option<AuthToken> &;
   void removeAuthToken() const noexcept;
   void writeAuthToken(const AuthToken &token) const noexcept;
 
-  auto readWifiConfig() const noexcept -> const Option<WifiCredentials> &;
+  auto readWifiConfig() const noexcept -> const iop::Option<WifiCredentials> &;
   void removeWifiConfig() const noexcept;
   void writeWifiConfig(const WifiCredentials &config) const noexcept;
 

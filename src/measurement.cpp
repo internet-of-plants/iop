@@ -1,13 +1,13 @@
 #include "measurement.hpp"
 
+#ifndef IOP_MEASUREMENT_DISABLED
 #include "Arduino.h"
-#include "static_string.hpp"
-#include "string_view.hpp"
-#include "tracer.hpp"
-#include "unsafe_raw_string.hpp"
+#include "core/string/static.hpp"
+#include "core/string/unsafe_raw.hpp"
+#include "core/string/view.hpp"
+#include "core/tracer.hpp"
 
 namespace measurement {
-#ifndef IOP_MEASUREMENT_DISABLED
 auto soilTemperatureCelsius(DallasTemperature &sensor) noexcept -> float {
   IOP_TRACE();
   // Blocks until reading is done
@@ -45,6 +45,7 @@ auto soilResistivityRaw(const uint8_t powerPin) noexcept -> uint16_t {
   return value;
 }
 #else
+namespace measurement {
 auto soilTemperatureCelsius(DallasTemperature &sensor) noexcept -> float {
   IOP_TRACE();
   (void)sensor;

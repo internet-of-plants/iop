@@ -1,15 +1,10 @@
 #ifndef IOP_API_HPP
 #define IOP_API_HPP
 
-#include "fixed_string.hpp"
-#include "log.hpp"
+#include "core/log.hpp"
+#include "core/string/fixed.hpp"
 #include "models.hpp"
 #include "network.hpp"
-#include "option.hpp"
-#include "result.hpp"
-#include "static_string.hpp"
-#include "string_view.hpp"
-#include "tracer.hpp"
 
 #include "ArduinoJson.h"
 
@@ -18,19 +13,20 @@
 /// Handles all the network internals.
 ///
 /// If some method returns `ApiStatus::CLIENT_BUFFER_OVERFLOW` the method is
-/// broken. We don't panic because some method's are called during panic. So the
-/// user is responsible for dealing with it however they like.
+/// broken. We don't panic_hook because some method's are called during
+/// panic_hook. So the user is responsible for dealing with it however they
+/// like.
 class Api {
 private:
   Log logger;
   Network network_;
 
 public:
-  Api(StaticString uri, LogLevel logLevel) noexcept;
+  Api(iop::StaticString uri, iop::LogLevel logLevel) noexcept;
 
   auto setup() const noexcept -> void;
-  auto uri() const noexcept -> StaticString;
-  auto loggerLevel() const noexcept -> LogLevel;
+  auto uri() const noexcept -> iop::StaticString;
+  auto loggerLevel() const noexcept -> iop::LogLevel;
   auto network() const noexcept -> const Network &;
 
   /// Sends a log message through the network, currently needs a buffer.
@@ -65,18 +61,19 @@ public:
   /// CONNECTION_ISSUES: problems with connection, retry later?
   /// CLIENT_BUFFER_OVERFLOW: something is very broken with this method's code
   /// BROKEN_SERVER: just wait until server is fixed
-  auto authenticate(StringView username, StringView password) const noexcept
-      -> Result<AuthToken, ApiStatus>;
+  auto authenticate(iop::StringView username,
+                    iop::StringView password) const noexcept
+      -> iop::Result<AuthToken, ApiStatus>;
 
-  /// Reports panic message to server. Possible responses:
+  /// Reports panic_hook message to server. Possible responses:
   ///
-  /// OK: panic successfully reported
+  /// OK: panic_hook successfully reported
   /// FORBIDDEN: auth token is invalid
   /// CONNECTION_ISSUES: problems with connection, retry later?
   /// CLIENT_BUFFER_OVERFLOW: something is very broken with this method's code
   /// BROKEN_SERVER: must wait until server is fixeds
-  auto registerLog(const AuthToken &authToken, StringView log) const noexcept
-      -> ApiStatus;
+  auto registerLog(const AuthToken &authToken,
+                   iop::StringView log) const noexcept -> ApiStatus;
 
   /// Tries to update. Restarts on success. Returns OK if no updates are
   /// available
@@ -108,27 +105,28 @@ private:
   ///
   /// Gets a name for logging. And a callback that actually fills the json
   template <uint16_t SIZE>
-  auto makeJson(const StaticString name, const JsonCallback func) const noexcept
-      -> Option<FixedString<SIZE>> {
+  auto makeJson(const iop::StaticString name,
+                const JsonCallback func) const noexcept
+      -> iop::Option<iop::FixedString<SIZE>> {
     IOP_TRACE();
-    auto doc = try_make_unique<StaticJsonDocument<SIZE>>();
+    auto doc = iop::try_make_unique<StaticJsonDocument<SIZE>>();
     if (!doc) {
       this->logger.error(F("Unable to allocate "), String(SIZE),
                          F(" bytes at Api::makeJson for "), name);
-      return Option<FixedString<SIZE>>();
+      return iop::Option<iop::FixedString<SIZE>>();
     }
     func(*doc);
 
     if (doc->overflowed()) {
       const auto s = std::to_string(SIZE);
       this->logger.error(F("Payload doesn't fit Json<"), s, F("> at "), name);
-      return Option<FixedString<SIZE>>();
+      return iop::Option<iop::FixedString<SIZE>>();
     }
 
-    auto fixed = FixedString<SIZE>::empty();
+    auto fixed = iop::FixedString<SIZE>::empty();
     serializeJson(*doc, fixed.asMut(), fixed.size);
     this->logger.debug(F("Json: "), *fixed);
-    return Option<FixedString<SIZE>>(fixed);
+    return iop::Option<iop::FixedString<SIZE>>(fixed);
   }
 
 public:

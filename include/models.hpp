@@ -1,8 +1,8 @@
 #ifndef IOP_MODELS_HPP
 #define IOP_MODELS_HPP
 
-#include "storage.hpp"
-#include "tracer.hpp"
+#include "core/storage.hpp"
+#include "core/tracer.hpp"
 
 #include <cstdint>
 
@@ -16,23 +16,13 @@ TYPED_STORAGE(MacAddress, 17);
 class Log;
 class CowString;
 
-// TODO: move this
-namespace utils {
-auto hashSketch() noexcept -> const MD5Hash &;
-auto macAddress() noexcept -> const MacAddress &;
-void ICACHE_RAM_ATTR scheduleInterrupt(InterruptEvent ev) noexcept;
-auto ICACHE_RAM_ATTR descheduleInterrupt() noexcept -> InterruptEvent;
-void logMemory(const Log &logger) noexcept;
-auto scapeNonPrintable(StringView msg) noexcept -> CowString;
-} // namespace utils
-
 struct PanicData {
   // TODO: this could have a StaticString alternative to be able to use `_P`
   // PROGMEM methods
-  StringView msg;
-  StaticString file;
+  iop::StringView msg;
+  iop::StaticString file;
   uint32_t line;
-  StringView func;
+  iop::StringView func;
 };
 
 class WifiCredentials {

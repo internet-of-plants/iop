@@ -1,48 +1,47 @@
-#ifndef IOP_RESULT_HPP
-#define IOP_RESULT_HPP
+#ifndef IOP_CORE_RESULT_HPP
+#define IOP_CORE_RESULT_HPP
 
-#include "option.hpp"
-
-#include <functional>
+#include "core/option.hpp"
 
 #define RESULT_MAP_OK(res, type, func)                                         \
-  res.mapOk<type>(func, F(#res), CUTE_FILE, CUTE_LINE, CUTE_FUNC)
+  res.mapOk<type>(func, F(#res), IOP_FILE, IOP_LINE, IOP_FUNC)
 
 #define UNWRAP_OK_OR(res, or_)                                                 \
-  std::move((res).unwrapOkOr(or_, F(#res), CUTE_FILE, CUTE_LINE, CUTE_FUNC))
+  std::move((res).unwrapOkOr(or_, F(#res), IOP_FILE, IOP_LINE, IOP_FUNC))
 #define UNWRAP_ERR_OR(res, or_)                                                \
-  std::move((res).unwrapErrOr(or_, F(#res), CUTE_FILE, CUTE_LINE, CUTE_FUNC))
+  std::move((res).unwrapErrOr(or_, F(#res), IOP_FILE, IOP_LINE, IOP_FUNC))
 
 #define UNWRAP_OK(res)                                                         \
-  std::move(                                                                   \
-      (res).expectOk(F(#res " isn't Ok"), CUTE_FILE, CUTE_LINE, CUTE_FUNC))
+  std::move((res).expectOk(F(#res " isn't Ok"), IOP_FILE, IOP_LINE, IOP_FUNC))
 #define UNWRAP_OK_REF(res) UNWRAP_OK(RESULT_AS_REF(res)).get()
 #define UNWRAP_OK_MUT(res) UNWRAP_OK(RESULT_AS_MUT(res)).get()
 
 #define UNWRAP_ERR(r)                                                          \
-  std::move((r).expectErr(F(#r " isn't Err"), CUTE_FILE, CUTE_LINE, CUTE_FUNC))
+  std::move((r).expectErr(F(#r " isn't Err"), IOP_FILE, IOP_LINE, IOP_FUNC))
 #define UNWRAP_ERR_REF(res) UNWRAP_ERR(RESULT_AS_REF(res)).get()
 #define UNWRAP_ERR_MUT(res) UNWRAP_ERR(RESULT_AS_MUT(res)).get()
 
-#define RESULT_AS_REF(res) res.asRef(F(#res), CUTE_FILE, CUTE_LINE, CUTE_FUNC)
-#define RESULT_AS_MUT(res) res.asMut(F(#res), CUTE_FILE, CUTE_LINE, CUTE_FUNC)
+#define RESULT_AS_REF(res) res.asRef(F(#res), IOP_FILE, IOP_LINE, IOP_FUNC)
+#define RESULT_AS_MUT(res) res.asMut(F(#res), IOP_FILE, IOP_LINE, IOP_FUNC)
 
-#define IS_OK(res) res.isOk(F(#res), CUTE_FILE, CUTE_LINE, CUTE_FUNC)
-#define IS_ERR(res) res.isErr(F(#res), CUTE_FILE, CUTE_LINE, CUTE_FUNC)
+#define IS_OK(res) res.isOk(F(#res), IOP_FILE, IOP_LINE, IOP_FUNC)
+#define IS_ERR(res) res.isErr(F(#res), IOP_FILE, IOP_LINE, IOP_FUNC)
 
-#define RESULT_OK(res) res.ok(F(#res), CUTE_FILE, CUTE_LINE, CUTE_FUNC)
-#define RESULT_ERR(res) res.err(F(#res), CUTE_FILE, CUTE_LINE, CUTE_FUNC)
+#define RESULT_OK(res) res.ok(F(#res), IOP_FILE, IOP_LINE, IOP_FUNC)
+#define RESULT_ERR(res) res.err(F(#res), IOP_FILE, IOP_LINE, IOP_FUNC)
+
+namespace iop {
 
 /// Result sumtype, may be ok and contain a T, or not be ok and contain an E
-/// This type can be moved out, so it _will_ be empty, it will panic if tried to
-/// access after a move instead of causing undefined behavior
+/// This type can be moved out, so it _will_ be empty, it will panic_hook if tried to
+/// access after a move (you can only destroy it).
 ///
 /// You should probably use the macros defined above, instead of directly using
-/// Result's methods. They will report where empty results were accessed.
-/// Most used macros will be IS_{OK, ERR}, UNWRAP_{OK, ERR}_{REF, MUT}
+/// Result's methods. They will ergonomically report where empty results were
+/// accessed. Most used macros will be IS_{OK, ERR}, UNWRAP_{OK, ERR}_{REF, MUT}
 ///
 /// Most methods move out by default. You probably want to call `.asRef()`
-/// before moving it out (UNWRAP_REF)
+/// before moving it out (or use UNWRAP_{OK, ERR}_{REF, MUT})
 ///
 /// Exceptions in T's and E's destructors will trigger abort
 template <typename T, typename E> class Result {
@@ -101,7 +100,7 @@ public:
       this->error = std::move(other.error);
       break;
     case ResultKind::EMPTY:
-      panic_(F("Result is empty"));
+      iop_panic(F("Result is empty"));
       break;
     }
     other.reset();
@@ -119,7 +118,7 @@ public:
       this->error = std::move(other.error);
       break;
     case ResultKind::EMPTY:
-      panic_(F("Result is empty"));
+      iop_panic(F("Result is empty"));
       break;
     }
     other.reset();
@@ -157,7 +156,7 @@ public:
                 const uint32_t line, const StringView func) noexcept -> T {
     IOP_TRACE();
     if (this->isErr(msg, file, line, func))
-      panic__(msg, file, line, func);
+      iop::panic_hook(msg, file, line, func);
     T value = std::move(this->success);
     this->reset();
     return value;
@@ -166,7 +165,7 @@ public:
                  const uint32_t line, const StringView func) noexcept -> E {
     IOP_TRACE();
     if (this->isOk(msg, file, line, func))
-      panic__(msg, file, line, func);
+      iop::panic_hook(msg, file, line, func);
 
     E value = std::move(this->error);
     this->reset();
@@ -242,7 +241,7 @@ public:
       return false;
     case ResultKind::EMPTY:
     default:
-      panic__(String(F("Empty Result: ")) + varName.get(), file, line, func);
+      iop::panic_hook(String(F("Empty Result: ")) + varName.get(), file, line, func);
     }
   }
   auto isErr(const StaticString varName, const StaticString file,
@@ -256,9 +255,11 @@ public:
       return true;
     case ResultKind::EMPTY:
     default:
-      panic__(String(F("Empty Result: ")) + varName.get(), file, line, func);
+      iop::panic_hook(String(F("Empty Result: ")) + varName.get(), file, line, func);
     }
   }
 };
+
+} // namespace iop
 
 #endif

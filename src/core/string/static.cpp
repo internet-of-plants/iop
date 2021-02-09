@@ -1,10 +1,8 @@
-#include "static_string.hpp"
+#include "core/string/static.hpp"
+#include "core/string/view.hpp"
+#include "core/tracer.hpp"
 
-#include "configuration.h"
-#include "string_view.hpp"
-#include "tracer.hpp"
-#include "unsafe_raw_string.hpp"
-
+namespace iop {
 /*
 StaticString::~StaticString() noexcept {
   IOP_TRACE();
@@ -35,6 +33,7 @@ auto StaticString::get() const noexcept -> const __FlashStringHelper * {
 }
 auto StaticString::contains(StringView needle) const noexcept -> bool {
   IOP_TRACE();
+  /*
   if (logLevel <= LogLevel::TRACE) {
     Serial.print(F("StaticString(\""));
     Serial.print(this->get());
@@ -42,11 +41,13 @@ auto StaticString::contains(StringView needle) const noexcept -> bool {
     Serial.print(needle.get());
     Serial.print(F("\")"));
   }
+  */
   return strstr(String(this->get()).c_str(), std::move(needle).get()) !=
          nullptr;
 }
 auto StaticString::contains(StaticString needle) const noexcept -> bool {
   IOP_TRACE();
+  /*
   if (logLevel <= LogLevel::TRACE) {
     Serial.print(F("StaticString(\""));
     Serial.print(this->get());
@@ -54,6 +55,7 @@ auto StaticString::contains(StaticString needle) const noexcept -> bool {
     Serial.print(needle.get());
     Serial.print(F("\"))"));
   }
+  */
   return strstr_P(this->asCharPtr(), std::move(needle).asCharPtr()) != nullptr;
 }
 auto StaticString::length() const noexcept -> size_t {
@@ -74,3 +76,4 @@ auto StaticString::asCharPtr() const noexcept -> PGM_P {
   // NOLINT *-pro-type-reinterpret-cast
   return reinterpret_cast<PGM_P>(this->get());
 }
+} // namespace iop
