@@ -1,9 +1,9 @@
 #include "utils.hpp"
 
 #include "Esp.cpp"
+#include "core/log.hpp"
 #include "core/memory.hpp"
 #include "core/string/cow.hpp"
-#include "log.hpp"
 #include "models.hpp"
 
 static volatile InterruptEvent interruptEvents[interruptVariants] = {
@@ -93,7 +93,7 @@ auto hashSketch() noexcept -> const MD5Hash & {
   return UNWRAP_REF(hash);
 }
 
-void logMemory(const Log &logger) noexcept {
+void logMemory(const iop::Log &logger) noexcept {
   IOP_TRACE();
   logger.debug(F("Memory: "), String(ESP.getFreeHeap()), F(" "),
                String(ESP.getFreeContStack()), F(" "),

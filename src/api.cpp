@@ -11,7 +11,7 @@
 auto Api::reportPanic(const AuthToken &authToken,
                       const PanicData &event) const noexcept -> ApiStatus {
   IOP_TRACE();
-  this->logger.debug(F("Report panic_hook:"), event.msg);
+  this->logger.debug(F("Report iop_panic:"), event.msg);
 
   const auto make = [event](JsonDocument &doc) {
     doc["file"] = event.file.get();
@@ -19,15 +19,14 @@ auto Api::reportPanic(const AuthToken &authToken,
     doc["func"] = event.func.get();
     doc["msg"] = event.msg.get();
   };
-  // TODO: does every panic_hook possible fit into 2048 bytes?
+  // TODO: does every iop_panic possible fit into 2048 bytes?
   const auto maybeJson = this->makeJson<2048>(F("Api::reportPanic"), make);
   if (maybeJson.isNone())
     return ApiStatus::CLIENT_BUFFER_OVERFLOW;
   const auto &json = UNWRAP_REF(maybeJson);
 
   const auto token = authToken.asString();
-  const auto maybeResp =
-      this->network().httpPost(token, F("/panic_hook"), json);
+  const auto maybeResp = this->network().httpPost(token, F("/panic"), json);
 
 #ifndef IOP_MOCK_MONITOR
   if (IS_ERR(maybeResp)) {
@@ -156,7 +155,7 @@ auto Api::registerLog(const AuthToken &authToken,
 
 #ifndef IOP_MOCK_MONITOR
   if (IS_ERR(maybeResp)) {
-    const auto code = std::to_string(UNWRAP_ERR_REF(maybeResp));
+    const auto code = String(UNWRAP_ERR_REF(maybeResp));
     this->logger.error(F("Unexpected response at Api::registerLog: "), code);
     return ApiStatus::BROKEN_SERVER;
   }

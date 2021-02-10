@@ -18,7 +18,7 @@ class CodePoint {
   StringView func_;
 
 public:
-  // Use the IOP_CODE_POINT() macro
+  // Use the IOP_CODE_POINT() macro to construct CodePoint
   CodePoint(StaticString file, uint32_t line, StringView func) noexcept
       : file_(std::move(file)), line_(line), func_(std::move(func)) {}
   auto file() const noexcept -> StaticString { return this->file_; }

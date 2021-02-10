@@ -1,16 +1,15 @@
 #include "core/string/view.hpp"
 #include "core/string/cow.hpp"
-#include "utils.hpp"
 
 namespace iop {
 /*
 StringView::~StringView() noexcept {
-  if (logLevel > LogLevel::TRACE)
+  if (!Log::isTracing())
     return;
-  Serial.print(F("~StringView("));
-  Serial.print(this->get());
-  Serial.println(F(")"));
-  Serial.flush();
+  Log::print(F("~StringView("));
+  Log::print(this->get());
+  Log::print(F(")\n"));
+  Log::flush();
 }
 */
 StringView::StringView(const UnsafeRawString &str) noexcept : str(str.get()) {}
@@ -42,12 +41,13 @@ auto StringView::isEmpty() const noexcept -> bool {
 auto StringView::contains(StringView needle) const noexcept -> bool {
   IOP_TRACE();
   /*
-  if (logLevel <= LogLevel::TRACE) {
-    Serial.print(F("StringView(\""));
-    Serial.print(this->get());
-    Serial.print(F("\").contains(\""));
-    Serial.print(needle.get());
-    Serial.print(F("\")"));
+  if (!Log::isTracing()) {
+    Log::print(F("StringView(\""));
+    Log::print(this->get());
+    Log::print(F("\").contains(\""));
+    Log::print(needle.get());
+    Log::print(F("\")\n"));
+    Log::flush();
   }
   */
   return strstr(this->get(), std::move(needle).get()) != nullptr;
@@ -55,12 +55,13 @@ auto StringView::contains(StringView needle) const noexcept -> bool {
 auto StringView::contains(StaticString needle) const noexcept -> bool {
   IOP_TRACE();
   /*
-  if (logLevel <= LogLevel::TRACE) {
-    Serial.print(F("StringView(\""));
-    Serial.print(this->get());
-    Serial.print(F("\").contains(\""));
-    Serial.print(needle.get());
-    Serial.print(F("\")"));
+  if (!Log::isTracing()) {
+    Log::print(F("StringView(\""));
+    Log::print(this->get());
+    Log::print(F("\").contains(\""));
+    Log::print(needle.get());
+    Log::print(F("\")"));
+    Log::flush()
   }
   */
   return strstr_P(this->get(), std::move(needle).asCharPtr()) != nullptr;

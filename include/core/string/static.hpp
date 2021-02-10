@@ -3,6 +3,10 @@
 
 #include "WString.h"
 
+#define PROGMEM_STRING(name, msg)                                              \
+  static const char *const PROGMEM name##_progmem_char = msg;                  \
+  static const iop::StaticString name(FPSTR(name##_progmem_char));
+
 namespace iop {
 class StringView;
 
@@ -45,10 +49,9 @@ public:
       -> StaticString & = default;
   auto operator=(StaticString &&other) noexcept -> StaticString & = default;
 };
-} // namespace iop
 
-#define PROGMEM_STRING(name, msg)                                              \
-  static const char *const PROGMEM name##_progmem_char = msg;                  \
-  static const iop::StaticString name(FPSTR(name##_progmem_char));
+PROGMEM_STRING(emptyStaticString, "");
+
+} // namespace iop
 
 #endif

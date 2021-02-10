@@ -1,14 +1,14 @@
 #ifndef IOP_FLASH_HPP
 #define IOP_FLASH_HPP
 
-#include "log.hpp"
+#include "core/log.hpp"
 #include "models.hpp"
 
 #include "ESP8266WiFi.h"
 
 /// Wraps flash memory to provide a safe and ergonomic API
 class Flash {
-  Log logger;
+  iop::Log logger;
 
 public:
   explicit Flash(iop::LogLevel logLevel) noexcept

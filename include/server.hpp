@@ -28,7 +28,7 @@ class Api;
 /// Tip: call Network::isConnected() to check if connected
 class CredentialsServer {
 private:
-  Log logger;
+  iop::Log logger;
 
   esp_time nextTryFlashWifiCredentials = 0;
   esp_time nextTryHardcodedWifiCredentials = 0;

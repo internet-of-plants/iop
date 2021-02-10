@@ -1,17 +1,16 @@
 #include "core/string/static.hpp"
-#include "core/string/view.hpp"
 #include "core/tracer.hpp"
 
 namespace iop {
 /*
 StaticString::~StaticString() noexcept {
   IOP_TRACE();
-  if (logLevel > LogLevel::TRACE)
+  if (!Log::isTracing())
     return;
-  Serial.print(F("~StaticString("));
-  Serial.print(this->get());
-  Serial.println(F(")"));
-  Serial.flush();
+  Log::print(F("~StaticString("));
+  Log::print(this->get());
+  Log::print(F(")\n"));
+  Log::flush();
 }
 */
 
@@ -19,12 +18,12 @@ StaticString::~StaticString() noexcept {
 StaticString::StaticString(const __FlashStringHelper *str) noexcept : str(str) {
   /*
   IOP_TRACE();
-  if (logLevel > LogLevel::TRACE)
+  if (!Log::isTracing())
     return;
-  Serial.print(F("~StaticString("));
-  Serial.print(this->get());
-  Serial.println(F(")"));
-  Serial.flush();
+  Log::print(F("~StaticString("));
+  Log::print(this->get());
+  Log::print(F(")\n"));
+  Log::flush();
   */
 }
 auto StaticString::get() const noexcept -> const __FlashStringHelper * {
@@ -34,12 +33,12 @@ auto StaticString::get() const noexcept -> const __FlashStringHelper * {
 auto StaticString::contains(StringView needle) const noexcept -> bool {
   IOP_TRACE();
   /*
-  if (logLevel <= LogLevel::TRACE) {
-    Serial.print(F("StaticString(\""));
-    Serial.print(this->get());
-    Serial.print(F("\").contains(\""));
-    Serial.print(needle.get());
-    Serial.print(F("\")"));
+  if (!Log::isTracing()) {
+    Log::print(F("StaticString(\""));
+    Log::print(this->get());
+    Log::print(F("\").contains(\""));
+    Log::print(needle.get());
+    Log::print(F("\")"));
   }
   */
   return strstr(String(this->get()).c_str(), std::move(needle).get()) !=
@@ -48,12 +47,12 @@ auto StaticString::contains(StringView needle) const noexcept -> bool {
 auto StaticString::contains(StaticString needle) const noexcept -> bool {
   IOP_TRACE();
   /*
-  if (logLevel <= LogLevel::TRACE) {
-    Serial.print(F("StaticString(\""));
-    Serial.print(this->get());
-    Serial.print(F("\").contains(StaticString(\""));
-    Serial.print(needle.get());
-    Serial.print(F("\"))"));
+  if (!Log::isTracing()) {
+    Log::print(F("StaticString(\""));
+    Log::print(this->get());
+    Log::print(F("\").contains(StaticString(\""));
+    Log::print(needle.get());
+    Log::print(F("\"))"));
   }
   */
   return strstr_P(this->asCharPtr(), std::move(needle).asCharPtr()) != nullptr;

@@ -1,6 +1,24 @@
-#include "log.hpp"
+#include "core/log.hpp"
+#include "core/static_runner.hpp"
 
-#ifndef IOP_LOG_DISABLED
+#include "utils.hpp" // Imports IOP_SERIAL if available
+#ifdef IOP_SERIAL
+
+static void staticPrinter(const __FlashStringHelper *str,
+                          const iop::LogType kind) noexcept;
+static void viewPrinter(const char *str, const iop::LogType kind) noexcept;
+static void setuper(iop::LogLevel level) noexcept;
+static void flusher() noexcept;
+
+static iop::LogHook hook(viewPrinter, staticPrinter, setuper, flusher);
+
+// Other static variables may be constructed before this. So their
+// construction will use the default logger. Even if you disabled logging.
+// You should not use globaol static variables, and if so lazily instantiate
+// them
+static auto hookSetter = iop::StaticRunner([] { iop::Log::setHook(hook); });
+
+#ifdef IOP_NETWORK_LOGGING
 #include "api.hpp"
 #include "flash.hpp"
 
@@ -42,31 +60,8 @@ static String currentLog;
 static Api api(uri, iop::LogLevel::WARN);
 static Flash flash(iop::LogLevel::WARN);
 
-#ifdef IOP_NETWORK_LOGGING
 static bool logNetwork = true;
-#endif
-
-void Log::print(const __FlashStringHelper *str) noexcept {
-  Serial.print(str);
-#ifdef IOP_NETWORK_LOGGING
-  if (logNetwork) {
-    currentLog += str;
-    byteRate.addBytes(strlen_P(reinterpret_cast<PGM_P>(str)));
-  }
-#endif
-}
-void Log::print(const char *str) noexcept {
-  Serial.print(str);
-#ifdef IOP_NETWORK_LOGGING
-  if (logNetwork) {
-    currentLog += str;
-    byteRate.addBytes(strlen(str));
-  }
-#endif
-}
-
-void Log::reportLog() noexcept {
-#ifdef IOP_NETWORK_LOGGING
+void reportLog() noexcept {
   if (!logNetwork)
     return;
 
@@ -77,99 +72,43 @@ void Log::reportLog() noexcept {
     logNetwork = true;
   }
   currentLog.clear();
+}
+#endif
+
+static void staticPrinter(const __FlashStringHelper *str,
+                          const iop::LogType kind) noexcept {
+  Serial.print(str);
+#ifdef IOP_NETWORK_LOGGING
+  if (logNetwork) {
+    currentLog += str;
+    byteRate.addBytes(strlen_P(reinterpret_cast<PGM_P>(str)));
+  }
+  if (kind == LogType::END || kind == LogType::STARTEND)
+    this->reportLog();
 #endif
 }
-
-void Log::setup() noexcept {
-  constexpr const uint32_t BAUD_RATE = 115200;
-  Serial.begin(BAUD_RATE);
-  if (logLevel <= iop::LogLevel::DEBUG)
-    Serial.setDebugOutput(true);
-
-  constexpr const uint32_t thirtySec = 30 * 1000;
-  const auto end = millis() + thirtySec;
-
-  while (!Serial && millis() < end)
-    yield();
+static void viewPrinter(const char *str, const iop::LogType kind) noexcept {
+  Serial.print(str);
+#ifdef IOP_NETWORK_LOGGING
+  if (logNetwork) {
+    currentLog += str;
+    byteRate.addBytes(strlen(str));
+  }
+  if (kind == iop::LogType::END || kind == iop::LogType::STARTEND)
+    Log::reportLog();
+#endif
 }
-
-void Log::printLogType(const iop::LogType &logType,
-                       const iop::LogLevel &level) const noexcept {
-  if (logLevel_ == iop::LogLevel::NO_LOG)
-    return;
-
-  switch (logType) {
-  case iop::LogType::CONTINUITY:
-  case iop::LogType::END:
-    break;
-
-  case iop::LogType::START:
-  case iop::LogType::STARTEND:
-    this->print(F("["));
-    this->print(this->levelToString().get());
-    this->print(F("] "));
-    this->print(this->targetLogger.get());
-    this->print(F(": "));
-  };
-}
-
-void Log::log(const iop::LogLevel &level, const iop::StaticString &msg,
-              const iop::LogType &logType,
-              const iop::StaticString &lineTermination) const noexcept {
-  if (this->logLevel_ > level)
-    return;
-
-  Serial.flush();
-  this->printLogType(logType, level);
-  this->print(msg.get());
-  this->print(lineTermination.get());
-  Serial.flush();
-
-  if (logType == iop::LogType::END || logType == iop::LogType::STARTEND)
-    this->reportLog();
-}
-
-void Log::log(const iop::LogLevel &level, const iop::StringView &msg,
-              const iop::LogType &logType,
-              const iop::StaticString &lineTermination) const noexcept {
-  if (this->logLevel_ > level)
-    return;
-
-  Serial.flush();
-  this->printLogType(logType, level);
-  this->print(msg.get());
-  this->print(lineTermination.get());
-  Serial.flush();
-
-  if (logType == iop::LogType::END || logType == iop::LogType::STARTEND)
-    this->reportLog();
+static void flusher() noexcept { iop::LogHook::defaultFlusher(); }
+static void setuper(iop::LogLevel level) noexcept {
+  iop::LogHook::defaultSetuper(level);
 }
 #else
-void Log::setup() noexcept {}
-void Log::reportLog() noexcept {}
-void Log::printiop::LogType(
-    const iop::LogType &logType,
-    const iop::LogLevel &reportiop::LogLevel) const noexcept {
-  (void)*this;
-  (void)logType;
-  (void)reportiop::LogLevel;
-}
-void Log::log(const iop::LogLevel &level, const iop::StringView &msg,
-              const iop::LogType &logType,
-              const iop::StaticString &lineTermination) const noexcept {
-  (void)*this;
+static void setuper(iop::LogLevel level) noexcept {
+  Serial.end();
   (void)level;
-  (void)msg;
-  (void)logType;
-  (void)lineTermination;
 }
-void Log::log(const iop::LogLevel &level, const iop::StaticString &msg,
-              const iop::LogType &logType,
-              const iop::StaticString &lineTermination) const noexcept {
-  (void)*this;
-  (void)level;
-  (void)msg;
-  (void)logType;
-  (void)lineTermination;
-}
+static void flusher() noexcept {}
+static void viewPrinter(const char *str, const iop::LogType kind) noexcept {}
+static void staticPrinter(const __FlashStringHelper *str,
+                          const iop::LogType kind) noexcept {}
 #endif

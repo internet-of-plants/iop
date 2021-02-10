@@ -1,3 +1,4 @@
+#include "configuration.hpp"
 #include "core/string/cow.hpp"
 #include "flash.hpp"
 #include "reset.hpp"
@@ -11,7 +12,7 @@ private:
   Sensors sensors;
   Api api;
   CredentialsServer credentialsServer;
-  Log logger;
+  iop::Log logger;
 
   Flash flash;
 
@@ -291,7 +292,6 @@ public:
 // Avoid static initialization being run before logging is setup
 static iop::Option<EventLoop> eventLoop;
 void setup() {
-  Log::setup();
   IOP_TRACE();
   eventLoop.emplace(uri);
   UNWRAP_MUT(eventLoop).setup();

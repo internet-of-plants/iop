@@ -1,7 +1,9 @@
 #include "server.hpp"
 
 #ifndef IOP_SERVER_DISABLED
+#include "configuration.hpp"
 #include "flash.hpp"
+
 
 constexpr const uint64_t intervalTryFlashWifiCredentialsMillis =
     60 * 60 * 1000; // 1 hour
@@ -90,7 +92,8 @@ void CredentialsServer::setup() const noexcept {
     IOP_TRACE();
     // TODO: show in log that it doesn't use default logging (network log off)
     if (loggerLevel >= iop::LogLevel::DEBUG)
-      Serial.println(F("[DEBUG] SERVER_CALLBACK: Received credentials form"));
+      iop::Log::print(F("[DEBUG] SERVER_CALLBACK: Received credentials form\n"),
+                      iop::LogLevel::DEBUG, iop::LogType::STARTEND);
 
     if (s->hasArg(F("wifi")) && s->hasArg(F("ssid")) &&
         s->hasArg(F("password"))) {
@@ -116,7 +119,9 @@ void CredentialsServer::setup() const noexcept {
     IOP_TRACE();
     const static Flash flash(loggerLevel);
     if (loggerLevel >= iop::LogLevel::DEBUG)
-      Serial.println(F("[DEBUG] SERVER_CALLBACK: Serving captive portal HTML"));
+      iop::Log::print(
+          F("[DEBUG] SERVER_CALLBACK: Serving captive portal HTML\n"),
+          iop::LogLevel::DEBUG, iop::LogType::STARTEND);
 
     const auto mustConnect = !Network::isConnected();
     const auto needsIopAuth = flash.readAuthToken().isNone();
@@ -347,7 +352,7 @@ auto CredentialsServer::serve(const iop::Option<WifiCredentials> &storedWifi,
         F("Trying to connect to wifi with flash stored credentials"));
     this->connect(stored.ssid.asString(), stored.password.asString());
 
-    // WiFi Credentials hardcoded at "configuration.h"
+    // WiFi Credentials hardcoded at "configuration.hpp"
     //
     // Ideally it won't be wrong, but that's the price of hardcoding, if it's
     // not updated it may just be. Since it can't be deleted we must retry,

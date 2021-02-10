@@ -1,9 +1,11 @@
 #ifndef IOP_CONFIGURATION_H
 #define IOP_CONFIGURATION_H
 
+#include "core/log.hpp"
 #include "core/option.hpp"
-#include "log.hpp"
+#include "utils.hpp"
 #include <cstdint>
+
 
 #include "pins_arduino.h"
 
@@ -30,10 +32,11 @@ const esp_time interval = 180 * 1000;
 /// production!
 ///
 /// But if using plain http, define IOP_NOSSL below, otherwise it won't work
-PROGMEM_STRING(uri, "https://iop-monitor-server.tk:4001/v1");
+/// PROGMEM_STRING(uri, "https://iop-monitor-server.tk:4001/v1");
+PROGMEM_STRING(uri, "http://192.168.0.26:4001/v1");
 
 /// Plain http doesn't work if IOP_NOSSL is not set
-// #define IOP_NOSSL
+#define IOP_NOSSL
 
 /// The fields bellow should be empty. Filling them will be counter productive
 /// It's only here to speedup some debugging

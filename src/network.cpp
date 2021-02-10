@@ -1,5 +1,6 @@
 #include "network.hpp"
 #include "core/cert_store.hpp"
+#include "generated/certificates.hpp"
 #include "models.hpp"
 
 #include "ESP8266WiFi.h"
@@ -9,7 +10,7 @@
 #ifdef IOP_NOSSL
 static WiFiClient client;
 #else
-static IopCertStore certStore;
+static iop::CertStore certStore;
 static BearSSL::WiFiClientSecure client;
 #endif
 static HTTPClient http;
@@ -427,11 +428,11 @@ auto Response::operator=(Response &&resp) noexcept -> Response & {
 
 Response::~Response() noexcept {
   IOP_TRACE();
-  if (logLevel > iop::LogLevel::TRACE)
+  if (!iop::Log::isTracing())
     return;
   const auto str = Network::apiStatusToString(status);
-  Serial.print(F("~Response("));
-  Serial.print(str.get());
-  Serial.println(F(")"));
-  Serial.flush();
+  iop::Log::print(F("~Response("), iop::LogLevel::TRACE, iop::LogType::START);
+  iop::Log::print(str.get(), iop::LogLevel::TRACE, iop::LogType::CONTINUITY);
+  iop::Log::print(F(")\n"), iop::LogLevel::TRACE, iop::LogType::END);
+  iop::Log::flush();
 }

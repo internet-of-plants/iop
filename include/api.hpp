@@ -13,12 +13,10 @@
 /// Handles all the network internals.
 ///
 /// If some method returns `ApiStatus::CLIENT_BUFFER_OVERFLOW` the method is
-/// broken. We don't panic_hook because some method's are called during
-/// panic_hook. So the user is responsible for dealing with it however they
-/// like.
+/// broken. The user is responsible for dealing with it however they like.
 class Api {
 private:
-  Log logger;
+  iop::Log logger;
   Network network_;
 
 public:
@@ -65,9 +63,9 @@ public:
                     iop::StringView password) const noexcept
       -> iop::Result<AuthToken, ApiStatus>;
 
-  /// Reports panic_hook message to server. Possible responses:
+  /// Reports panicHandler message to server. Possible responses:
   ///
-  /// OK: panic_hook successfully reported
+  /// OK: panicHandler successfully reported
   /// FORBIDDEN: auth token is invalid
   /// CONNECTION_ISSUES: problems with connection, retry later?
   /// CLIENT_BUFFER_OVERFLOW: something is very broken with this method's code

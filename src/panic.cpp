@@ -1,11 +1,11 @@
-#include "panic.hpp"
-
+#include "core/panic.hpp"
 #include "api.hpp"
+#include "configuration.hpp"
+#include "core/static_runner.hpp"
 #include "flash.hpp"
 
 PROGMEM_STRING(logTarget, "PANIC")
-static const Log logger(iop::LogLevel::TRACE, logTarget);
-static bool panicking = false;
+static const iop::Log logger(iop::LogLevel::TRACE, logTarget);
 
 static const Api api(uri, iop::LogLevel::TRACE);
 static const Flash flash(iop::LogLevel::TRACE);
@@ -42,7 +42,7 @@ void upgrade() noexcept {
 }
 
 // TODO(pc): save unique panics to flash
-// TODO(pc): dump stackstrace on panic_hook
+// TODO(pc): dump stackstrace on iop_panic
 // https://github.com/sticilface/ESPmanager/blob/dce7fc06806a90c179a40eb2d74f4278fffad5b4/src/SaveStack.cpp
 auto reportPanic(const iop::StringView &msg, const iop::StaticString &file,
                  const uint32_t line, const iop::StringView &func) noexcept
@@ -51,7 +51,7 @@ auto reportPanic(const iop::StringView &msg, const iop::StaticString &file,
 
   const auto &maybeToken = flash.readAuthToken();
   if (maybeToken.isNone()) {
-    logger.crit(F("No auth token, unable to report panic_hook"));
+    logger.crit(F("No auth token, unable to report iop_panic"));
     return false;
   }
 
@@ -69,7 +69,7 @@ auto reportPanic(const iop::StringView &msg, const iop::StaticString &file,
 
   switch (status) {
   case ApiStatus::FORBIDDEN:
-    logger.warn(F("Invalid auth token, but keeping since at panic_hook"));
+    logger.warn(F("Invalid auth token, but keeping since at iop_panic"));
     return false;
 
   case ApiStatus::CLIENT_BUFFER_OVERFLOW:
@@ -89,35 +89,20 @@ auto reportPanic(const iop::StringView &msg, const iop::StaticString &file,
     return false;
 
   case ApiStatus::OK:
-    logger.info(F("Reported panic_hook to server successfully"));
+    logger.info(F("Reported iop_panic to server successfully"));
     return true;
   }
   const auto str = Network::apiStatusToString(status);
-  logger.error(F("Unexpected status, panic_hook.h: reportPanic: "), str);
+  logger.error(F("Unexpected status, iop_panic.h: reportPanic: "), str);
   return false;
 }
 
-void entry(const iop::StringView &msg, const iop::StaticString &file,
-           const uint32_t line, const iop::StringView &func) noexcept {
-  IOP_TRACE();
-  if (panicking) {
-    logger.crit(F("PANICK REENTRY: Line "), std::to_string(line),
-                F(" of file "), file, F(" inside "), func, F(": "), msg);
-    ESP.deepSleep(0);
-    __panic_func(file.asCharPtr(), line, func.get());
-  }
-  panicking = true;
-
-  constexpr const uint16_t oneSecond = 1000;
-  delay(oneSecond);
-}
-
-void halt(const iop::StringView &msg, const iop::StaticString &file,
-          uint32_t line, const iop::StringView &func) noexcept
+static void halt(const iop::StringView &msg,
+                 iop::CodePoint const &point) noexcept
     __attribute__((noreturn));
 
-void halt(const iop::StringView &msg, const iop::StaticString &file,
-          const uint32_t line, const iop::StringView &func) noexcept {
+static void halt(const iop::StringView &msg,
+                 iop::CodePoint const &point) noexcept {
   IOP_TRACE();
   auto reportedPanic = false;
 
@@ -141,7 +126,8 @@ void halt(const iop::StringView &msg, const iop::StaticString &file,
 
     if (Network::isConnected()) {
       if (!reportedPanic)
-        reportedPanic = reportPanic(msg, file, line, func);
+        reportedPanic =
+            reportPanic(msg, point.file(), point.line(), point.func());
 
       // Panic data is lost if report fails but upgrade works
       // Doesn't return if upgrade succeeds
@@ -161,26 +147,13 @@ void halt(const iop::StringView &msg, const iop::StaticString &file,
   }
 
   ESP.deepSleep(0);
-  __panic_func(file.asCharPtr(), line, func.get());
+  __panic_func(point.file().asCharPtr(), point.line(), point.func().get());
 }
 
-namespace iop {
-void panic_hook(StringView msg, const StaticString &file, const uint32_t line,
-                const StringView &func) noexcept {
-  IOP_TRACE();
-  entry(msg, file, line, func);
-  logger.crit(F("Line "), std::to_string(line), F(" of file "), file,
-              F(" inside "), func, F(": "), msg);
-  halt(std::move(msg), file, line, func);
-}
-
-void panic_hook(StaticString msg, const StaticString &file, const uint32_t line,
-                const StringView &func) noexcept {
-  IOP_TRACE();
-  String msg_(msg.get());
-  entry(msg_, file, line, func);
-  logger.crit(F("Line "), std::to_string(line), F(" of file "), file,
-              F(" inside "), func, F(": "), std::move(msg));
-  halt(msg_, file, line, func);
-}
-} // namespace iop
+// Other static variables may be constructed before this. So their
+// construction will use the default panic hook. You should not use global
+// static variables, and if so lazily instantiate them
+static iop::PanicHook hook(iop::PanicHook::defaultViewPanic,
+                           iop::PanicHook::defaultStaticPanic,
+                           iop::PanicHook::defaultEntry, halt);
+static auto hookSetter = iop::StaticRunner([] { iop::setPanicHook(hook); });

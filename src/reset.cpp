@@ -1,7 +1,7 @@
 #include "reset.hpp"
 
 #ifndef IOP_FACTORY_RESET_DISABLED
-#include "configuration.h"
+#include "configuration.hpp"
 #include "utils.hpp"
 
 static volatile esp_time resetStateTime = 0;
@@ -11,17 +11,19 @@ void ICACHE_RAM_ATTR buttonChanged() noexcept {
   if (digitalRead(factoryResetButton) == HIGH) {
     resetStateTime = millis();
     if (logLevel >= iop::LogLevel::INFO)
-      Serial.println(F("[INFO] RESET: Pressed FACTORY_RESET button. Keep it "
-                       "pressed for at least 15 "
-                       "seconds to factory reset your device"));
+      iop::Log::print(F("[INFO] RESET: Pressed FACTORY_RESET button. Keep it "
+                        "pressed for at least 15 "
+                        "seconds to factory reset your device\n"),
+                      iop::LogLevel::INFO, iop::LogType::STARTEND);
   } else {
     constexpr const uint32_t fifteenSeconds = 15000;
     if (resetStateTime + fifteenSeconds < millis()) {
       utils::scheduleInterrupt(InterruptEvent::FACTORY_RESET);
       if (logLevel >= iop::LogLevel::INFO)
-        Serial.println(
+        iop::Log::print(
             F("[INFO] RESET: Setted FACTORY_RESET flag, running it in "
-              "the next loop run"));
+              "the next loop run\n"),
+            iop::LogLevel::INFO, iop::LogType::STARTEND);
     }
   }
 }

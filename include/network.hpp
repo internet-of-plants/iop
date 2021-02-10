@@ -1,8 +1,8 @@
 #ifndef IOP_NETWORK_HPP
 #define IOP_NETWORK_HPP
 
+#include "core/log.hpp"
 #include "core/result.hpp"
-#include "log.hpp"
 
 #include "ESP8266HTTPClient.h"
 
@@ -30,7 +30,7 @@ enum class HttpMethod;
 /// Check `api.hpp`
 class Network {
   iop::StaticString uri_;
-  Log logger;
+  iop::Log logger;
 
 public:
   Network(const iop::StaticString uri, const iop::LogLevel &logLevel) noexcept

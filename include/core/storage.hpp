@@ -1,9 +1,7 @@
 #ifndef IOP_CORE_STORAGE_HPP
 #define IOP_CORE_STORAGE_HPP
 
-// Remove this eventually to make core self-contained
-#include "configuration.h"
-
+#include "core/log.hpp"
 #include "core/memory.hpp"
 #include "core/result.hpp"
 
@@ -42,25 +40,26 @@ private:
   }
 
   void printTrace() const noexcept {
-    if (logLevel > LogLevel::TRACE)
+    if (!Log::isTracing())
       return;
-    Serial.print(F("Storage<"));
-    Serial.print(SIZE);
-    Serial.print(F(">["));
-    Serial.print(this->val.use_count());
-    Serial.print(F("]("));
+    Log::print(F("Storage<"), LogLevel::TRACE, LogType::START);
+    Log::print(String(SIZE).c_str(), LogLevel::TRACE, LogType::CONTINUITY);
+    Log::print(F(">["), LogLevel::TRACE, LogType::CONTINUITY);
+    Log::print(String(this->val.use_count()).c_str(), LogLevel::TRACE,
+               LogType::CONTINUITY);
+    Log::print(F("]("), LogLevel::TRACE, LogType::CONTINUITY);
     for (const uint8_t byte : *this->val) {
       const auto ch = static_cast<char>(byte);
       if (StringView::isPrintable(ch)) {
-        Serial.print(ch);
+        Log::print(String(ch).c_str(), LogLevel::TRACE, LogType::CONTINUITY);
       } else {
-        Serial.print(F("<\\"));
-        Serial.print(byte);
-        Serial.print(F(">"));
+        Log::print(F("<\\"), LogLevel::TRACE, LogType::CONTINUITY);
+        Log::print(String(byte).c_str(), LogLevel::TRACE, LogType::CONTINUITY);
+        Log::print(F(">"), LogLevel::TRACE, LogType::CONTINUITY);
       }
     }
-    Serial.println(F(")"));
-    Serial.flush();
+    Log::print(F(")\n"), LogLevel::TRACE, LogType::END);
+    Log::flush();
   }
 
 public:

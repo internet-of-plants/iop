@@ -41,7 +41,7 @@ struct Cert {
 /// No pointer ownership is acquired, those pointers should point to static data
 ///
 /// Install it with `CertStore::setCertList(...)`
-/// If not installed it will panic_hook
+/// If not installed it will iop_panic  
 class CertList {
   const uint16_t *sizes;
   const uint8_t *const *indexes;

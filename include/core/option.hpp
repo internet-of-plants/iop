@@ -2,14 +2,14 @@
 #define IOP_CORE_OPTION_HPP
 
 #include "core/memory.hpp" // Used for enable_if_t, for now
+#include "core/panic.hpp"
 #include "core/string/view.hpp"
 #include "core/tracer.hpp"
-#include "panic.hpp"
 
 #include <functional>
 
 #define UNWRAP(opt)                                                            \
-  std::move((opt).expect(F(#opt " is None"), IOP_FILE, IOP_LINE, IOP_FUNC))
+  std::move((opt).expect(F(#opt " is None"), IOP_CODE_POINT()))
 #define UNWRAP_REF(opt) UNWRAP((opt).asRef()).get()
 #define UNWRAP_MUT(opt) UNWRAP((opt).asMut()).get()
 
@@ -167,21 +167,19 @@ public:
   }
 
   // Allows for more detailed panics, used by UNWRAP(_REF, _MUT) macros
-  auto expect(StringView msg, StaticString file, const uint32_t line,
-              StringView func) noexcept -> T {
+  auto expect(StringView msg, const CodePoint point) noexcept -> T {
     IOP_TRACE();
     if (this->isNone())
-      iop::panic_hook(std::move(msg), std::move(file), line, std::move(func));
+      iop::panicHandler(std::move(msg), point);
 
     T value = std::move(this->value);
     this->reset();
     return std::move(value);
   }
-  auto expect(StaticString msg, StaticString file, const uint32_t line,
-              StringView func) noexcept -> T {
+  auto expect(StaticString msg, const CodePoint point) noexcept -> T {
     IOP_TRACE();
     if (this->isNone())
-      iop::panic_hook(std::move(msg), std::move(file), line, std::move(func));
+      iop::panicHandler(std::move(msg), point);
 
     T value = std::move(this->value);
     this->reset();

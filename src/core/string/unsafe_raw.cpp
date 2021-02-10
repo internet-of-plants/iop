@@ -16,10 +16,10 @@ UnsafeRawString::~UnsafeRawString() noexcept {
   // IOP_TRACE();
   if (logLevel > LogLevel::TRACE)
     return;
-  Serial.print(F("~UnsafeRawString("));
-  Serial.print(this->str);
-  Serial.println(F(")"));
-  Serial.flush();
+  Log::print(F("~UnsafeRawString("));
+  Log::print(this->str);
+  Log::print(F(")\n"));
+  Log::flush();
 }
 */
 
@@ -28,10 +28,10 @@ UnsafeRawString::UnsafeRawString(const char *str) noexcept : str(str) {
   IOP_TRACE();
   if (logLevel > LogLevel::TRACE)
     return;
-  Serial.print(F("UnsafeRawString("));
-  Serial.print(this->str);
-  Serial.println(F(")"));
-  Serial.flush();
+  Log::print(F("UnsafeRawString("));
+  Log::print(this->str);
+  Log::print(F(")\n"));
+  Log::flush();
   */
 }
 
@@ -65,10 +65,10 @@ auto UnsafeRawString::get() const noexcept -> const char * {
   IOP_TRACE();
   if (logLevel > LogLevel::TRACE)
     return this->str;
-  Serial.print(F("UnsafeRawString("));
-  Serial.print(this->str);
-  Serial.println(F(")"));
-  Serial.flush();
+  Log::print(F("UnsafeRawString("));
+  Log::print(this->str);
+  Log::print(F(")\n"));
+  Log::flush();
   */
   return this->str;
 }

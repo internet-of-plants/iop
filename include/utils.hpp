@@ -56,9 +56,9 @@ constexpr static const uint8_t interruptVariants = 4;
 
 class MD5Hash_class;
 class MacAddress_class;
-class Log;
 
 namespace iop {
+class Log;
 class StringView;
 class CowString;
 } // namespace iop
@@ -72,7 +72,7 @@ auto hashSketch() noexcept -> const MD5Hash_class &;
 auto macAddress() noexcept -> const MacAddress_class &;
 void ICACHE_RAM_ATTR scheduleInterrupt(InterruptEvent ev) noexcept;
 auto ICACHE_RAM_ATTR descheduleInterrupt() noexcept -> InterruptEvent;
-void logMemory(const Log &logger) noexcept;
+void logMemory(const iop::Log &logger) noexcept;
 } // namespace utils
 
 #endif
