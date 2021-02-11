@@ -42,7 +42,7 @@ class Tracer {
   CodePoint point;
 
 public:
-  Tracer(CodePoint point) noexcept;
+  explicit Tracer(CodePoint point) noexcept;
   ~Tracer() noexcept;
   Tracer(const Tracer &other) noexcept = delete;
   Tracer(Tracer &&other) noexcept = delete;

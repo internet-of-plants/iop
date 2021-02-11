@@ -16,7 +16,7 @@ template <uint16_t SIZE> class FixedString;
 class CowString;
 
 /// Readonly non-owning reference to string abstractions,
-/// treating them all as one.
+/// handling them all with one unified interface.
 ///
 /// Since it doesn't own anything it shouldn't be stored around,
 /// it will endup outliving the inner storage and causing a use-after-free.
@@ -24,7 +24,7 @@ class CowString;
 /// Use it heavily as a function parameter that isn't stored, instead of the
 /// plain char* or String&, it's typesafe, doesn't allocate and its
 /// constructor will implicitly copy the internal pointer of each string
-/// abstraction.
+/// abstraction available.
 class StringView {
 private:
   const char *str;

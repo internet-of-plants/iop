@@ -12,7 +12,12 @@ namespace iop {
 /// ordering of static definitions at runtime. Use this just to run things
 /// before `setup()`
 struct StaticRunner {
-  explicit StaticRunner(std::function<void()> func) noexcept { func(); }
+  explicit StaticRunner(std::function<void()> func) noexcept {
+    // This weirdness allows implitic conversion to std::function and avoids
+    // lint about a value parameter that isn't moved
+    const auto func2 = std::move(func);
+    func2();
+  }
   ~StaticRunner() noexcept = default;
   StaticRunner(StaticRunner const &other) noexcept = default;
   StaticRunner(StaticRunner &&other) noexcept = default;

@@ -5,8 +5,8 @@
 #ifdef IOP_SERIAL
 
 static void staticPrinter(const __FlashStringHelper *str,
-                          const iop::LogType kind) noexcept;
-static void viewPrinter(const char *str, const iop::LogType kind) noexcept;
+                          iop::LogType kind) noexcept;
+static void viewPrinter(const char *str, iop::LogType kind) noexcept;
 static void setuper(iop::LogLevel level) noexcept;
 static void flusher() noexcept;
 
@@ -85,6 +85,8 @@ static void staticPrinter(const __FlashStringHelper *str,
   }
   if (kind == LogType::END || kind == LogType::STARTEND)
     this->reportLog();
+#else
+  (void)kind;
 #endif
 }
 static void viewPrinter(const char *str, const iop::LogType kind) noexcept {
@@ -96,6 +98,8 @@ static void viewPrinter(const char *str, const iop::LogType kind) noexcept {
   }
   if (kind == iop::LogType::END || kind == iop::LogType::STARTEND)
     Log::reportLog();
+#else
+  (void)kind;
 #endif
 }
 static void flusher() noexcept { iop::LogHook::defaultFlusher(); }

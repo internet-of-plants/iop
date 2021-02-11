@@ -13,9 +13,6 @@ TYPED_STORAGE(NetworkPassword, 64);
 TYPED_STORAGE(MD5Hash, 32);
 TYPED_STORAGE(MacAddress, 17);
 
-class Log;
-class CowString;
-
 struct PanicData {
   // TODO: this could have a StaticString alternative to be able to use `_P`
   // PROGMEM methods

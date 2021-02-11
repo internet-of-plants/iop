@@ -39,7 +39,7 @@ auto takePanicHook() noexcept -> PanicHook {
   hook = defaultHook;
   return old;
 }
-void setPanicHook(const PanicHook newHook) noexcept { hook = newHook; }
+void setPanicHook(PanicHook newHook) noexcept { hook = std::move(newHook); }
 
 void PanicHook::defaultViewPanic(StringView const &msg,
                                  CodePoint const &point) noexcept {
@@ -68,6 +68,7 @@ void PanicHook::defaultEntry(StringView const &msg,
 }
 void PanicHook::defaultHalt(StringView const &msg,
                             CodePoint const &point) noexcept {
+  (void)msg;
   IOP_TRACE();
   ESP.deepSleep(0);
   __panic_func(point.file().asCharPtr(), point.line(), point.func().get());

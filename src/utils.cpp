@@ -53,12 +53,12 @@ auto macAddress() noexcept -> const MacAddress & {
   constexpr const uint8_t macSize = 6;
 
   std::array<uint8_t, macSize> buff = {0};
-  wifi_get_macaddr(STATION_IF, buff.data()); // NOLINT hicpp-no-array-decay
+  wifi_get_macaddr(STATION_IF, buff.data());
 
   auto mac_ = MacAddress::empty();
   PROGMEM_STRING(fmtStr, "%02X:%02X:%02X:%02X:%02X:%02X");
   const auto *fmt = fmtStr.asCharPtr();
-  // NOLINTNEXTLINE *-magic-numbers *-pro-bounds-array-to-pointer-decay
+  // NOLINTNEXTLINE hicpp-vararg
   sprintf_P(reinterpret_cast<char *>(mac_.mutPtr()), fmt, buff[0], buff[1],
             buff[2], buff[3], buff[4], buff[5]); // NOLINT *-magic-numbers
 

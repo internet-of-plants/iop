@@ -41,20 +41,19 @@ struct Cert {
 /// No pointer ownership is acquired, those pointers should point to static data
 ///
 /// Install it with `CertStore::setCertList(...)`
-/// If not installed it will iop_panic  
+/// If not installed it will iop_panic
 class CertList {
   const uint16_t *sizes;
   const uint8_t *const *indexes;
   const uint8_t *const *certs;
-  const uint16_t *numberOfCertificates;
+  uint16_t numberOfCertificates;
 
 public:
   CertList(const uint8_t *const *certs, const uint8_t *const *indexes,
-           const uint16_t *sizes,
-           const uint16_t *numberOfCertificates) noexcept;
+           const uint16_t *sizes, uint16_t numberOfCertificates) noexcept;
 
   auto cert(uint16_t index) const noexcept -> Cert;
-  auto certificates() const noexcept -> uint16_t;
+  auto count() const noexcept -> uint16_t;
 
   CertList(CertList const &other) noexcept = default;
   CertList(CertList &&other) noexcept;
@@ -74,26 +73,30 @@ class CertStore : public BearSSL::CertStoreBase {
 
 public:
   CertStore() noexcept = default;
-  ~CertStore() noexcept override = default;
 
   // This is crucial. Set this at your setup. Use the generated `certList`
   void setCertList(CertList list) noexcept {
     this->maybeCertList.emplace(list);
   }
 
-  // Not something to copy or move around. Set to a static var and forget it
+  // CertStore can't be copied or moved around. Set to a static and reference it
   CertStore(CertStore const &other) noexcept = delete;
   CertStore(CertStore &&other) noexcept = delete;
   auto operator=(CertStore const &other) noexcept -> CertStore & = delete;
   auto operator=(CertStore &&other) noexcept -> CertStore & = delete;
 
-  // Panics if maybeCertList is None
+  /// Called by libraries like HttpClient. Call `setCertList` before passing
+  /// iop::CertStore to whiever lib is going to use it.
+  ///
+  /// Panics if CertList is not set.
   void installCertStore(br_x509_minimal_context *ctx) final;
+
+  ~CertStore() noexcept override = default;
 
 private:
   // These need to be static as they are called from from BearSSL C code
+  // Panic if maybeCertList is None. Used to handle data for a specific cert
 
-  // Panics if maybeCertList is None. Uses it to get cert data
   static auto findHashedTA(void *ctx, void *hashed_dn, size_t len)
       -> const br_x509_trust_anchor *;
   static void freeHashedTA(void *ctx, const br_x509_trust_anchor *ta);

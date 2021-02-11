@@ -26,6 +26,8 @@ namespace iop {
 ///
 /// T cannot be a reference, it won't compile. Use std::reference_wrapper<T>
 template <typename T, typename = enable_if_t<!std::is_reference<T>::value>>
+// Weird ass false positive
+// NOLINTNEXTLINE *-special-member-functions
 class Option {
 private:
   bool filled;
@@ -137,6 +139,8 @@ public:
   }
 
   Option(Option<T> const &other) = delete;
+  // Weird ass false positive
+  // NOLINTNEXTLINE google-explicit-constructor hicpp-explicit-conversions
   Option(Option<T> &&other) noexcept {
     IOP_TRACE();
     this->reset();
@@ -148,7 +152,9 @@ public:
     }
     other.reset();
   }
-  auto operator=(Option<T> const &other) -> Option<T> & = delete;
+  auto operator=(Option<T> const &other) noexcept -> Option<T> & = delete;
+  // Weird ass false positive
+  // NOLINTNEXTLINE *-copy-assignment-signature *-unconventional-assign-operator
   auto operator=(Option<T> &&other) noexcept -> Option<T> & {
     IOP_TRACE();
 

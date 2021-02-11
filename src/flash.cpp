@@ -95,7 +95,7 @@ void Flash::writeAuthToken(const AuthToken &token) const noexcept {
   this->logger.info(F("Writing auth token to storage: "), token.asString());
 
   // Updates cache
-  authToken.emplace(std::move(token));
+  authToken.emplace(token);
 
   EEPROM.write(authTokenIndex, usedAuthTokenEEPROMFlag);
   EEPROM.put(authTokenIndex + 1, *token.asSharedArray());
@@ -168,7 +168,7 @@ void Flash::writeWifiConfig(const WifiCredentials &config) const noexcept {
                     config.ssid.asString());
 
   // Updates cache
-  wifiCredentials.emplace(std::move(config));
+  wifiCredentials.emplace(config);
 
   const auto &psk = *config.password.asSharedArray();
   EEPROM.write(wifiConfigIndex, usedWifiConfigEEPROMFlag);

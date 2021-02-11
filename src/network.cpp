@@ -36,7 +36,6 @@ auto Network::setup() const noexcept -> void {
   http.setReuse(false);
 
   static const char *headers[] = {PSTR("LATEST_VERSION")};
-  // NOLINTNEXTLINE *-pro-bounds-array-to-pointer-decay hicpp-no-array-decay
   http.collectHeaders(headers, 1);
 
   client.setNoDelay(false);

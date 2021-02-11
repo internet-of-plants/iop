@@ -2,9 +2,8 @@
 #include "Esp.h"
 #include "core/log.hpp"
 
-
 namespace iop {
-Tracer::Tracer(CodePoint c) noexcept : point(std::move(c)) {
+Tracer::Tracer(CodePoint point) noexcept : point(std::move(point)) {
   if (!Log::isTracing())
     return;
 

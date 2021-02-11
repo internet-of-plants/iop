@@ -27,48 +27,30 @@ public:
   TraceViewPrinter traceViewPrint;
   TraceStaticPrinter traceStaticPrint;
 
-  static void defaultViewPrinter(const char *str, LogType type) noexcept;
-  static void defaultStaticPrinter(const __FlashStringHelper *str,
-                                   LogType type) noexcept;
-  static void defaultSetuper(const iop::LogLevel level) noexcept;
+  /// Prints log to Serial.
+  /// May be called from interrupt because it's the default tracing printer
+  static void ICACHE_RAM_ATTR defaultViewPrinter(const char *str,
+                                                 LogType type) noexcept;
+  /// Prints log to Serial.
+  /// May be called from interrupt because it's the default tracing printer
+  static void ICACHE_RAM_ATTR
+  defaultStaticPrinter(const __FlashStringHelper *str, LogType type) noexcept;
+  static void defaultSetuper(iop::LogLevel level) noexcept;
   static void defaultFlusher() noexcept;
 
   LogHook(ViewPrinter viewPrinter, StaticPrinter staticPrinter, Setuper setuper,
-          Flusher flusher) noexcept
-      : viewPrint(std::move(viewPrinter)),
-        staticPrint(std::move(staticPrinter)), setup(std::move(setuper)),
-        flush(std::move(flusher)), traceViewPrint(defaultViewPrinter),
-        traceStaticPrint(defaultStaticPrinter) {}
-  // Specifies custom tracer funcs, may be called from interrupts. Don't be
-  // fancy, and be ware, it can saturate channels very fast
+          Flusher flusher) noexcept;
+  // Specifies custom tracer funcs, may be called from interrupts (put it into
+  // ICACHE_RAM). Don't be fancy, and be ware, it can saturate channels very
+  // fast
   LogHook(ViewPrinter viewPrinter, StaticPrinter staticPrinter, Setuper setuper,
           Flusher flusher, TraceViewPrinter traceViewPrint,
-          TraceStaticPrinter traceStaticPrint) noexcept
-      : viewPrint(std::move(viewPrinter)),
-        staticPrint(std::move(staticPrinter)), setup(std::move(setuper)),
-        flush(std::move(flusher)), traceViewPrint(traceViewPrint),
-        traceStaticPrint(traceStaticPrint) {}
+          TraceStaticPrinter traceStaticPrint) noexcept;
   ~LogHook() noexcept = default;
-  LogHook(LogHook const &other) noexcept
-      : viewPrint(other.viewPrint), staticPrint(other.staticPrint),
-        setup(other.setup), flush(other.flush) {}
-  LogHook(LogHook &&other) noexcept
-      : viewPrint(other.viewPrint), staticPrint(other.staticPrint),
-        setup(other.setup), flush(other.flush) {}
-  auto operator=(LogHook const &other) noexcept -> LogHook & {
-    this->viewPrint = other.viewPrint;
-    this->staticPrint = other.staticPrint;
-    this->flush = other.flush;
-    this->setup = other.setup;
-    return *this;
-  }
-  auto operator=(LogHook &&other) noexcept -> LogHook & {
-    this->viewPrint = other.viewPrint;
-    this->staticPrint = other.staticPrint;
-    this->flush = other.flush;
-    this->setup = other.setup;
-    return *this;
-  }
+  LogHook(LogHook const &other) noexcept;
+  LogHook(LogHook &&other) noexcept;
+  auto operator=(LogHook const &other) noexcept -> LogHook &;
+  auto operator=(LogHook &&other) noexcept -> LogHook &;
 };
 
 PROGMEM_STRING(defaultLineTermination, "\n");
@@ -171,6 +153,7 @@ public:
 
   void printLogType(const LogType &logType,
                     const LogLevel &level) const noexcept;
+  auto levelToString() const noexcept -> StaticString;
 
   void log(const LogLevel &level, const StaticString &msg,
            const LogType &logType,
@@ -178,27 +161,6 @@ public:
   void log(const LogLevel &level, const StringView &msg, const LogType &logType,
            const StaticString &lineTermination) const noexcept;
 
-  auto levelToString() const noexcept -> StaticString {
-    switch (this->level()) {
-    case LogLevel::TRACE:
-      return F("TRACE");
-    case LogLevel::DEBUG:
-      return F("DEBUG");
-    case LogLevel::INFO:
-      return F("INFO");
-    case LogLevel::WARN:
-      return F("WARN");
-    case LogLevel::ERROR:
-      return F("ERROR");
-    case LogLevel::CRIT:
-      return F("CRIT");
-    case LogLevel::NO_LOG:
-      return F("NO_LOG");
-    }
-    return F("UNKNOWN");
-  }
-
-public:
   ~Log() = default;
   Log(Log const &other) noexcept = default;
   Log(Log &&other) noexcept = default;

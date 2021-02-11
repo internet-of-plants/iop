@@ -23,7 +23,7 @@ auto CertStore::findHashedTA(void *ctx, void *hashed_dn, size_t len)
 
   iop_assert(cs->maybeCertList.isSome(), certListNotSet);
   const auto &list = UNWRAP_REF(cs->maybeCertList);
-  for (int i = 0; i < list.certificates(); i++) {
+  for (int i = 0; i < list.count(); i++) {
     const auto cert = list.cert(i);
 
     if (memcmp_P(hashed_dn, cert.index, hashSize) == 0) {
@@ -83,15 +83,15 @@ Cert::Cert(Cert &&other) noexcept
 
 CertList::CertList(const uint8_t *const *certs, const uint8_t *const *indexes,
                    const uint16_t *sizes,
-                   const uint16_t *numberOfCertificates) noexcept
+                   const uint16_t numberOfCertificates) noexcept
     : sizes(sizes), indexes(indexes), certs(certs),
       numberOfCertificates(numberOfCertificates) {
   IOP_TRACE();
 }
 
-auto CertList::certificates() const noexcept -> uint16_t {
+auto CertList::count() const noexcept -> uint16_t {
   IOP_TRACE();
-  return *this->numberOfCertificates;
+  return this->numberOfCertificates;
 }
 
 auto CertList::cert(uint16_t index) const noexcept -> Cert {
