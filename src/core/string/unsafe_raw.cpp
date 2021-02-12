@@ -6,10 +6,6 @@ auto UnsafeRawString::operator*() const noexcept -> StringView {
   // IOP_TRACE();
   return *this;
 }
-auto UnsafeRawString::operator->() const noexcept -> StringView {
-  // IOP_TRACE();
-  return *this;
-}
 
 /*
 UnsafeRawString::~UnsafeRawString() noexcept {

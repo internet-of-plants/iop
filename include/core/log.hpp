@@ -29,12 +29,11 @@ public:
 
   /// Prints log to Serial.
   /// May be called from interrupt because it's the default tracing printer
-  static void ICACHE_RAM_ATTR defaultViewPrinter(const char *str,
-                                                 LogType type) noexcept;
+  static void defaultViewPrinter(const char *str, LogType type) noexcept;
   /// Prints log to Serial.
   /// May be called from interrupt because it's the default tracing printer
-  static void ICACHE_RAM_ATTR
-  defaultStaticPrinter(const __FlashStringHelper *str, LogType type) noexcept;
+  static void defaultStaticPrinter(const __FlashStringHelper *str,
+                                   LogType type) noexcept;
   static void defaultSetuper(iop::LogLevel level) noexcept;
   static void defaultFlusher() noexcept;
 
@@ -65,11 +64,11 @@ public:
       : level_{level}, target_(std::move(target)) {}
 
   /// Replaces current hook for this. Very useful to support other logging
-  /// channels, like network or flash. Default just prints to serial
+  /// channels, like network or flash. Default just prints to serial.
   ///
   /// The default logger (Serial) already will be initialized, call Serial.end()
-  /// in your setuper if you don't want Serial to be initialized. TODO: add and
-  /// `end` to LogHook?
+  /// in your setuper if you don't want Serial to be initialized. Or undef
+  /// `IOP_SERIAL` to make the default loggers into noops.
   static void setHook(LogHook hook) noexcept;
 
   /// Removes current hook, replaces for default one (that just prints to

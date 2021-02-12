@@ -6,9 +6,4 @@ namespace reset {
 void setup() noexcept;
 } // namespace reset
 
-#include "utils.hpp"
-#ifndef IOP_FACTORY_RESET
-#define IOP_FACTORY_RESET_DISABLED
-#endif
-
 #endif

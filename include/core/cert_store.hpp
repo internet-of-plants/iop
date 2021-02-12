@@ -62,28 +62,22 @@ public:
   ~CertList() noexcept = default;
 };
 
-/// TLS certificate storage using hardcoded certs. You must set your hardcoded
-/// certs, use `setCertList`. The certList should be generated together with the
-/// certificates.
+/// TLS certificate storage using hardcoded certs. You must construct with the
+/// hardcoded certs. The certList should be generated together with the
+/// certificates. Check the (build/preBuildCertificates.py)
 ///
-/// Should be used as a static variable. It's not copyable, nor movable.
+/// Should be constructed in static. It's not copyable, nor movable.
 class CertStore : public BearSSL::CertStoreBase {
-  std::unique_ptr<BearSSL::X509List> x509;
-  iop::Option<CertList> maybeCertList;
+  iop::Option<BearSSL::X509List> x509;
+  CertList certList;
 
 public:
-  CertStore() noexcept = default;
+  explicit CertStore(CertList list) noexcept;
 
-  // This is crucial. Set this at your setup. Use the generated `certList`
-  void setCertList(CertList list) noexcept {
-    this->maybeCertList.emplace(list);
-  }
-
-  // CertStore can't be copied or moved around. Set to a static and reference it
   CertStore(CertStore const &other) noexcept = delete;
-  CertStore(CertStore &&other) noexcept = delete;
+  CertStore(CertStore &&other) noexcept = default;
   auto operator=(CertStore const &other) noexcept -> CertStore & = delete;
-  auto operator=(CertStore &&other) noexcept -> CertStore & = delete;
+  auto operator=(CertStore &&other) noexcept -> CertStore & = default;
 
   /// Called by libraries like HttpClient. Call `setCertList` before passing
   /// iop::CertStore to whiever lib is going to use it.

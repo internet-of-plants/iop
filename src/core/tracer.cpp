@@ -7,7 +7,6 @@ Tracer::Tracer(CodePoint point) noexcept : point(std::move(point)) {
   if (!Log::isTracing())
     return;
 
-  // TODO: use logger interface instead of Serial, even if a new tracer hook
   Log::flush();
   Log::print(F("[TRACE] TRACER: Entering scope from line "), LogLevel::TRACE,
              LogType::START);

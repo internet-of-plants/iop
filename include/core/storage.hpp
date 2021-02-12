@@ -4,6 +4,7 @@
 #include "core/log.hpp"
 #include "core/memory.hpp"
 #include "core/result.hpp"
+#include "core/string/cow.hpp"
 
 namespace iop {
 enum class ParseError { TOO_BIG, NON_PRINTABLE };
@@ -116,10 +117,19 @@ public:
     this->printTrace();
     return this->val->data();
   }
-  auto asString() const noexcept -> StringView {
+  auto isAllPrintable() const noexcept -> bool {
     IOP_TRACE();
     this->printTrace();
-    return UnsafeRawString(reinterpret_cast<const char *>(this->val->data()));
+    const auto ptr = reinterpret_cast<const char *>(this->val->data());
+    const StringView str = UnsafeRawString(ptr);
+    return str.isAllPrintable();
+  }
+  auto asString() const noexcept -> CowString {
+    IOP_TRACE();
+    this->printTrace();
+    const auto ptr = reinterpret_cast<const char *>(this->val->data());
+    const auto raw = UnsafeRawString(ptr);
+    return StringView(raw).scapeNonPrintable();
   }
   auto asSharedArray() const noexcept -> std::shared_ptr<InnerStorage> {
     IOP_TRACE();
@@ -155,7 +165,7 @@ public:
     auto val = Storage<SIZE>::empty();
     strncpy(reinterpret_cast<char *>(val.mutPtr()), std::move(str).get(), len);
     val.printTrace();
-    if (!val.asString().isAllPrintable())
+    if (!val.isAllPrintable())
       return ParseError::NON_PRINTABLE;
     return val;
   }
@@ -207,7 +217,10 @@ public:
       IOP_TRACE();                                                             \
       return this->val.mutPtr();                                               \
     }                                                                          \
-    auto asString() const noexcept -> iop::StringView {                        \
+    auto isAllPrintable() const noexcept -> bool {                             \
+      return this->val.isAllPrintable();                                       \
+    }                                                                          \
+    auto asString() const noexcept -> iop::CowString {                         \
       IOP_TRACE();                                                             \
       return this->val.asString();                                             \
     }                                                                          \

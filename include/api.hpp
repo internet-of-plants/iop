@@ -2,9 +2,10 @@
 #define IOP_API_HPP
 
 #include "core/log.hpp"
+#include "core/network.hpp"
 #include "core/string/fixed.hpp"
+#include "core/utils.hpp"
 #include "models.hpp"
-#include "network.hpp"
 
 #include "ArduinoJson.h"
 
@@ -12,12 +13,12 @@
 ///
 /// Handles all the network internals.
 ///
-/// If some method returns `ApiStatus::CLIENT_BUFFER_OVERFLOW` the method is
+/// If some method returns `NetworkStatus::CLIENT_BUFFER_OVERFLOW` the method is
 /// broken. The user is responsible for dealing with it however they like.
 class Api {
 private:
   iop::Log logger;
-  Network network_;
+  iop::Network network_;
 
 public:
   Api(iop::StaticString uri, iop::LogLevel logLevel) noexcept;
@@ -25,7 +26,7 @@ public:
   auto setup() const noexcept -> void;
   auto uri() const noexcept -> iop::StaticString;
   auto loggerLevel() const noexcept -> iop::LogLevel;
-  auto network() const noexcept -> const Network &;
+  auto network() const noexcept -> const iop::Network &;
 
   /// Sends a log message through the network, currently needs a buffer.
   /// Streaming is a TODO.
@@ -36,7 +37,7 @@ public:
   /// CLIENT_BUFFER_OVERFLOW: this route shouldn't trigger this, ever
   /// BROKEN_SERVER: just wait until server is fixed
   auto reportPanic(const AuthToken &authToken,
-                   const PanicData &event) const noexcept -> ApiStatus;
+                   const PanicData &event) const noexcept -> iop::NetworkStatus;
 
   /// Register frequent event to server, with measurements and device
   /// information
@@ -50,7 +51,7 @@ public:
   /// MUST_UPGRADE: Well, upgrade your code
   /// BROKEN_SERVER: Must wait until server is fixed
   auto registerEvent(const AuthToken &token, const Event &event) const noexcept
-      -> ApiStatus;
+      -> iop::NetworkStatus;
 
   /// Tries to authenticate with the server getting AuthToken if succeeded
   ///
@@ -61,7 +62,7 @@ public:
   /// BROKEN_SERVER: just wait until server is fixed
   auto authenticate(iop::StringView username,
                     iop::StringView password) const noexcept
-      -> iop::Result<AuthToken, ApiStatus>;
+      -> iop::Result<AuthToken, iop::NetworkStatus>;
 
   /// Reports panicHandler message to server. Possible responses:
   ///
@@ -71,7 +72,7 @@ public:
   /// CLIENT_BUFFER_OVERFLOW: something is very broken with this method's code
   /// BROKEN_SERVER: must wait until server is fixeds
   auto registerLog(const AuthToken &authToken,
-                   iop::StringView log) const noexcept -> ApiStatus;
+                   iop::StringView log) const noexcept -> iop::NetworkStatus;
 
   /// Tries to update. Restarts on success. Returns OK if no updates are
   /// available
@@ -90,8 +91,9 @@ public:
   /// CONNECTION_ISSUES: problems with connection, retry later?
   /// CLIENT_BUFFER_OVERFLOW: this route shouldn't trigger this, ever
   /// BROKEN_SERVER: just wait until server is fixed
-  auto upgrade(const AuthToken &token, const MacAddress &mac,
-               const MD5Hash &sketchHash) const noexcept -> ApiStatus;
+  auto upgrade(const AuthToken &token, const iop::MacAddress &mac,
+               const iop::MD5Hash &sketchHash) const noexcept
+      -> iop::NetworkStatus;
 
 private:
   using JsonCallback = std::function<void(JsonDocument &)>;

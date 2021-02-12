@@ -1,8 +1,7 @@
 #include "core/log.hpp"
+#include "core/utils.hpp"
 
 #include "Arduino.h"
-
-// TODO: think about logging some important things to flash (FS.h)
 
 static bool initialized = false;
 
@@ -10,25 +9,26 @@ static bool isTracing_ = false;
 
 auto iop::Log::isTracing() noexcept -> bool { return isTracing_; }
 
-static iop::LogHook defaultHook(iop::LogHook::defaultViewPrinter,
-                                iop::LogHook::defaultStaticPrinter,
-                                iop::LogHook::defaultSetuper,
-                                iop::LogHook::defaultFlusher);
+const static iop::LogHook defaultHook(iop::LogHook::defaultViewPrinter,
+                                      iop::LogHook::defaultStaticPrinter,
+                                      iop::LogHook::defaultSetuper,
+                                      iop::LogHook::defaultFlusher);
 static iop::LogHook hook = defaultHook;
 
 namespace iop {
-void Log::setup(LogLevel level) noexcept { hook.setup(level); }
+void ICACHE_RAM_ATTR Log::setup(LogLevel level) noexcept { hook.setup(level); }
 void Log::flush() noexcept { hook.flush(); }
-void Log::print(const char *view, const LogLevel level,
-                const LogType kind) noexcept {
+void ICACHE_RAM_ATTR Log::print(const char *view, const LogLevel level,
+                                const LogType kind) noexcept {
   Log::setup(level);
   if (level > LogLevel::TRACE)
     hook.viewPrint(view, kind);
   else
     hook.traceViewPrint(view, kind);
 }
-void Log::print(const __FlashStringHelper *progmem, const LogLevel level,
-                const LogType kind) noexcept {
+void ICACHE_RAM_ATTR Log::print(const __FlashStringHelper *progmem,
+                                const LogLevel level,
+                                const LogType kind) noexcept {
   Log::setup(level);
   if (level > LogLevel::TRACE)
     hook.staticPrint(progmem, kind);
@@ -112,25 +112,30 @@ auto Log::levelToString() const noexcept -> StaticString {
   return F("UNKNOWN");
 }
 
-void LogHook::defaultStaticPrinter(const __FlashStringHelper *str,
-                                   const iop::LogType type) noexcept {
+void ICACHE_RAM_ATTR LogHook::defaultStaticPrinter(
+    const __FlashStringHelper *str, const iop::LogType type) noexcept {
+#ifdef IOP_SERIAL
   Serial.print(str);
+#endif
   (void)type;
 }
-void LogHook::defaultViewPrinter(const char *str,
-                                 const iop::LogType type) noexcept {
+void ICACHE_RAM_ATTR
+LogHook::defaultViewPrinter(const char *str, const iop::LogType type) noexcept {
+#ifdef IOP_SERIAL
   Serial.print(str);
+#endif
   (void)type;
 }
-// TODO: hook a setup too? or let the user initialize it somewhere else
-// Is there a way not initialize the serial?
-void LogHook::defaultSetuper(const iop::LogLevel level) noexcept {
+void ICACHE_RAM_ATTR
+LogHook::defaultSetuper(const iop::LogLevel level) noexcept {
   static bool debugging = false;
   if (initialized) {
+#ifdef IOP_SERIAL
     if (!debugging && level <= iop::LogLevel::DEBUG) {
       debugging = true;
       Serial.setDebugOutput(true);
     }
+#endif
     isTracing_ |= level == iop::LogLevel::TRACE;
 
     return;
@@ -138,6 +143,7 @@ void LogHook::defaultSetuper(const iop::LogLevel level) noexcept {
   debugging = false;
   initialized = true;
 
+#ifdef IOP_SERIAL
   constexpr const uint32_t BAUD_RATE = 115200;
   Serial.begin(BAUD_RATE);
   if (level <= iop::LogLevel::DEBUG)
@@ -145,11 +151,15 @@ void LogHook::defaultSetuper(const iop::LogLevel level) noexcept {
 
   constexpr const uint32_t twoSec = 2 * 1000;
   const auto end = millis() + twoSec;
-
   while (!Serial && millis() < end)
     yield();
+#endif
 }
-void LogHook::defaultFlusher() noexcept { Serial.flush(); }
+void LogHook::defaultFlusher() noexcept {
+#ifdef IOP_SERIAL
+  Serial.flush();
+#endif
+}
 
 LogHook::LogHook(LogHook::ViewPrinter viewPrinter,
                  LogHook::StaticPrinter staticPrinter, LogHook::Setuper setuper,

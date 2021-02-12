@@ -1,10 +1,10 @@
 #include "reset.hpp"
-
-#ifndef IOP_FACTORY_RESET_DISABLED
-#include "configuration.hpp"
 #include "utils.hpp"
 
-static volatile esp_time resetStateTime = 0;
+#ifdef IOP_FACTORY_RESET
+#include "configuration.hpp"
+
+static volatile iop::esp_time resetStateTime = 0;
 
 void ICACHE_RAM_ATTR buttonChanged() noexcept {
   // IOP_TRACE();

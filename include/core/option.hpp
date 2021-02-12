@@ -193,12 +193,8 @@ public:
   }
 };
 
-// TODO: improve this, upstream make_optional retuns Option<std::decay_t<T>>,
-// and has a variadic template override
-template <typename T> auto maybe(T &&value) noexcept -> Option<T> {
-  Option<T> ret;
-  ret.emplace(std::move(value));
-  return std::move(ret);
+template <typename T> auto some(T value) noexcept -> Option<T> {
+  return Option<T>(std::move(value));
 }
 
 } // namespace iop

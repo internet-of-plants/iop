@@ -21,18 +21,17 @@ public:
   }
 
   constexpr auto get() const noexcept -> const char * {
-    IOP_TRACE();
-    return this->str.asString().get();
+    return reinterpret_cast<const char *>(this->str.constPtr());
   }
 
-  // TODO: You can accidentally store a non-printable character that will go
-  // unnotice using this
+  /// You can accidentally store a non-printable character that will go unnotice
+  /// using this
   auto asMut() noexcept -> char * {
     IOP_TRACE();
     return reinterpret_cast<char *>(this->str.mutPtr());
   }
-  // TODO: You can accidentally store a non-printable character that will go
-  // unnotice using this
+  /// You can accidentally store a non-printable character that will go unnotice
+  /// using this
   auto asStorage() const noexcept -> Storage<SIZE> {
     IOP_TRACE();
     return this->str;
@@ -48,12 +47,7 @@ public:
   }
 
   auto operator*() const noexcept -> StringView {
-    IOP_TRACE();
-    return this->str.asString();
-  }
-  auto operator->() const noexcept -> StringView {
-    IOP_TRACE();
-    return this->str.asString();
+    return UnsafeRawString(this->get());
   }
 
   static auto fromStorage(Storage<SIZE> other) noexcept
@@ -61,7 +55,7 @@ public:
     IOP_TRACE();
 
     auto val = FixedString<SIZE>(other);
-    if (!val.isAllPrintable())
+    if (!val->isAllPrintable())
       return ParseError::NON_PRINTABLE;
     return val;
   }

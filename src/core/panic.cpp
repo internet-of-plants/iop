@@ -1,6 +1,7 @@
 #include "core/panic.hpp"
 #include "core/log.hpp"
 #include "core/tracer.hpp"
+#include "core/utils.hpp"
 
 #include "Esp.h"
 
@@ -8,10 +9,10 @@ PROGMEM_STRING(logTarget, "PANIC")
 const static iop::Log logger(iop::LogLevel::CRIT, logTarget);
 static bool panicking = false;
 
-static iop::PanicHook defaultHook(iop::PanicHook::defaultViewPanic,
-                                  iop::PanicHook::defaultStaticPanic,
-                                  iop::PanicHook::defaultEntry,
-                                  iop::PanicHook::defaultHalt);
+const static iop::PanicHook defaultHook(iop::PanicHook::defaultViewPanic,
+                                        iop::PanicHook::defaultStaticPanic,
+                                        iop::PanicHook::defaultEntry,
+                                        iop::PanicHook::defaultHalt);
 
 static iop::PanicHook hook(defaultHook);
 
@@ -58,6 +59,7 @@ void PanicHook::defaultEntry(StringView const &msg,
     logger.crit(F("PANICK REENTRY: Line "), String(point.line()),
                 F(" of file "), point.file(), F(" inside "), point.func(),
                 F(": "), msg);
+    iop::logMemory(logger);
     ESP.deepSleep(0);
     __panic_func(point.file().asCharPtr(), point.line(), point.func().get());
   }

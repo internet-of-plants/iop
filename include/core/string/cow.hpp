@@ -14,8 +14,7 @@ namespace iop {
 class CowString {
   // We use `iop::Result` although the semantics isn't right, to avoid
   // reimplementing sum-types here. And we don't need the complexity of
-  // std::variant like types. TODO: Maybe `iop::Either` is a better name
-  // for the internal and Result can use it too
+  // std::variant like types.
   iop::Result<StringView, String> storage;
 
 public:
@@ -23,6 +22,7 @@ public:
   explicit CowString(StringView str) noexcept : storage(std::move(str)) {}
 
   auto borrow() const noexcept -> StringView;
+  auto get() const noexcept -> const char * { return this->borrow().get(); }
 
   ~CowString() noexcept = default;
   CowString(CowString const &other) noexcept;

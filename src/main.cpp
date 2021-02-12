@@ -1,6 +1,7 @@
 #include "configuration.hpp"
 #include "core/string/cow.hpp"
 #include "flash.hpp"
+#include "models.hpp"
 #include "reset.hpp"
 #include "sensors.hpp"
 #include "server.hpp"
@@ -16,9 +17,9 @@ private:
 
   Flash flash;
 
-  esp_time nextTime;
-  esp_time nextYieldLog;
-  esp_time nextHandleConnectionLost;
+  iop::esp_time nextTime;
+  iop::esp_time nextYieldLog;
+  iop::esp_time nextHandleConnectionLost;
 
 public:
   void setup() noexcept {
@@ -55,7 +56,7 @@ public:
 
     const auto now = millis();
 
-    const auto isConnected = Network::isConnected();
+    const auto isConnected = iop::Network::isConnected();
     const auto hasAuthToken = authToken.isSome();
     if (isConnected && hasAuthToken)
       this->credentialsServer.close();
@@ -118,7 +119,7 @@ private:
       this->logger.warn(F("Factory Reset: deleting stored credentials"));
       this->flash.removeWifiConfig();
       this->flash.removeAuthToken();
-      Network::disconnect();
+      iop::Network::disconnect();
 #endif
       (void)0; // Satisfies linter
       break;
@@ -126,26 +127,26 @@ private:
 #ifdef IOP_OTA
       if (maybeToken.isSome()) {
         const auto &token = UNWRAP_REF(maybeToken);
-        const auto &mac = utils::macAddress();
-        const auto status = this->api.upgrade(token, mac, utils::hashSketch());
+        const auto &mac = iop::macAddress();
+        const auto status = this->api.upgrade(token, mac, iop::hashSketch());
         switch (status) {
-        case ApiStatus::FORBIDDEN:
+        case iop::NetworkStatus::FORBIDDEN:
           this->logger.warn(F("Invalid auth token, but keeping since at OTA"));
           return;
 
-        case ApiStatus::CLIENT_BUFFER_OVERFLOW:
+        case iop::NetworkStatus::CLIENT_BUFFER_OVERFLOW:
           iop_panic(F("Api::upgrade internal buffer overflow"));
 
         // Already logged at the network level
-        case ApiStatus::CONNECTION_ISSUES:
-        case ApiStatus::BROKEN_SERVER:
+        case iop::NetworkStatus::CONNECTION_ISSUES:
+        case iop::NetworkStatus::BROKEN_SERVER:
           // Nothing to be done besides retrying later
 
-        case ApiStatus::OK: // Cool beans
+        case iop::NetworkStatus::OK: // Cool beans
           return;
         }
 
-        const auto str = Network::apiStatusToString(status);
+        const auto str = iop::Network::apiStatusToString(status);
         this->logger.error(F("Bad status, EventLoop::handleInterrupt "), str);
       } else {
         this->logger.error(
@@ -169,7 +170,7 @@ private:
       const auto *ptr = static_cast<uint8_t *>(config.ssid);
       const auto ssid = NetworkName::fromBytesUnsafe(ptr, len);
 
-      const auto ssidStr = ssid.asString().scapeNonPrintable();
+      const auto ssidStr = ssid.asString();
       this->logger.info(F("Connected to network: "), ssidStr);
 
       len = sizeof(config.password);
@@ -199,38 +200,30 @@ private:
     this->logger.debug(F("Handle Measurements"));
 
     const auto measurements = sensors.measure();
-    // TODO: have another cont thread to monitor for problems and
-    // report/restart the system
-    // TODO: register min and max heap usage, stack usage, a counter of times
-    // loop was called since the last event...
     const auto status = this->api.registerEvent(token, measurements);
 
     switch (status) {
-    case ApiStatus::FORBIDDEN:
-      // TODO: is there a way to keep it around somewhere as a backup?
-      // In case it's a server bug, since it will force the user to join our
-      // AP again to retype the credentials. If so how can we reuse it and
-      // detect it started working again?
+    case iop::NetworkStatus::FORBIDDEN:
       this->logger.error(F("Unable to send measurements"));
       this->logger.warn(F("Auth token was refused, deleting it"));
       this->flash.removeAuthToken();
       return;
 
-    case ApiStatus::CLIENT_BUFFER_OVERFLOW:
+    case iop::NetworkStatus::CLIENT_BUFFER_OVERFLOW:
       this->logger.error(F("Unable to send measurements"));
       iop_panic(F("Api::registerEvent internal buffer overflow"));
 
     // Already logged at the Network level
-    case ApiStatus::BROKEN_SERVER: // TODO: have an API to log this
-    case ApiStatus::CONNECTION_ISSUES:
+    case iop::NetworkStatus::BROKEN_SERVER:
+    case iop::NetworkStatus::CONNECTION_ISSUES:
       // Nothing to be done besides retrying later
 
-    case ApiStatus::OK: // Cool beans
+    case iop::NetworkStatus::OK: // Cool beans
       return;
     }
 
     this->logger.error(F("Unexpected status, EventLoop::handleMeasurements: "),
-                       Network::apiStatusToString(status));
+                       iop::Network::apiStatusToString(status));
   }
 
 public:
@@ -262,12 +255,11 @@ public:
     return *this;
   }
   ~EventLoop() noexcept { IOP_TRACE(); }
-  explicit EventLoop(iop::StaticString uri) noexcept
-
+  explicit EventLoop(iop::StaticString uri, iop::LogLevel logLevel_) noexcept
       : sensors(soilResistivityPowerPin, soilTemperaturePin,
                 airTempAndHumidityPin, dhtVersion),
-        api(std::move(uri), logLevel), credentialsServer(logLevel),
-        logger(logLevel, F("LOOP")), flash(logLevel), nextTime(0),
+        api(std::move(uri), logLevel_), credentialsServer(logLevel_),
+        logger(logLevel_, F("LOOP")), flash(logLevel_), nextTime(0),
         nextYieldLog(0), nextHandleConnectionLost(0) {
     IOP_TRACE();
   }
@@ -292,8 +284,9 @@ public:
 // Avoid static initialization being run before logging is setup
 static iop::Option<EventLoop> eventLoop;
 void setup() {
+  iop::Log::setup(logLevel);
   IOP_TRACE();
-  eventLoop.emplace(uri);
+  eventLoop.emplace(uri, logLevel);
   UNWRAP_MUT(eventLoop).setup();
 }
 

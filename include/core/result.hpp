@@ -251,7 +251,6 @@ public:
     }
   }
 };
-
 } // namespace iop
 
 #endif

@@ -47,15 +47,15 @@ auto Flash::readAuthToken() const noexcept -> const iop::Option<AuthToken> & {
 
   auto token = AuthToken::fromBytesUnsafe(ptr, AuthToken::size);
 
+  const auto tok = token.asString();
   // AuthToken must be printable US-ASCII (to be stored in HTTP headers))
-  if (!token.asString().isAllPrintable()) {
-    const auto tok = token.asString().scapeNonPrintable();
+  if (!token.isAllPrintable()) {
     this->logger.error(F("Auth token was non printable: "), tok);
     this->removeAuthToken();
     return authToken;
   }
 
-  this->logger.trace(F("Found Auth token: "), token.asString());
+  this->logger.trace(F("Found Auth token: "), tok);
 
   // Updates cache
   authToken.emplace(std::move(token));
@@ -86,7 +86,7 @@ void Flash::writeAuthToken(const AuthToken &token) const noexcept {
   if (maybeCurrToken.isSome()) {
     const auto &currToken = UNWRAP_REF(maybeCurrToken);
 
-    if (token.asString() == currToken.asString()) {
+    if (memcmp(token.constPtr(), currToken.constPtr(), AuthToken::size) == 0) {
       this->logger.debug(F("Auth token already stored in flash"));
       return;
     }
@@ -125,7 +125,7 @@ auto Flash::readWifiConfig() const noexcept
   const auto ssid = NetworkName::fromBytesUnsafe(ptr, NetworkName::size);
   const auto psk = NetworkPassword::fromBytesUnsafe(ptr, NetworkPassword::size);
 
-  const auto ssidStr = ssid.asString().scapeNonPrintable();
+  const auto ssidStr = ssid.asString();
   this->logger.trace(F("Found network credentials: "), ssidStr);
 
   // Updates cache
@@ -156,8 +156,10 @@ void Flash::writeWifiConfig(const WifiCredentials &config) const noexcept {
   if (maybeCurrConfig.isSome()) {
     const auto &currConfig = UNWRAP_REF(maybeCurrConfig);
 
-    if (currConfig.ssid.asString() == config.ssid.asString() &&
-        currConfig.password.asString() == config.password.asString()) {
+    if (memcmp(currConfig.ssid.constPtr(), config.ssid.constPtr(),
+               NetworkName::size) == 0 &&
+        memcmp(currConfig.password.constPtr(), config.password.constPtr(),
+               NetworkPassword::size) == 0) {
       this->logger.debug(F("WiFi credentials already stored in flash"));
       // No need to save credential that already are stored
       return;

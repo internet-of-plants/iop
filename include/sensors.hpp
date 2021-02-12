@@ -11,7 +11,7 @@
 #include <memory>
 
 /// Abstracts away sensors access, providing a cohesive state. It's
-/// completely synchronous. TODO: allow async reads
+/// completely synchronous.
 class Sensors {
 private:
   uint8_t soilResistivityPowerPin;
@@ -35,7 +35,8 @@ public:
         airTempAndHumiditySensor(dhtPin, dhtVersion) {
     IOP_TRACE();
     if (!this->soilTemperatureOneWireBus)
-      iop_panic(F("Unable to allocate one wire bus for soil DallasTemperature"));
+      iop_panic(
+          F("Unable to allocate one wire bus for soil DallasTemperature"));
   }
   void setup() noexcept;
   auto measure() noexcept -> Event;
@@ -62,10 +63,5 @@ public:
   }
   auto operator=(Sensors &&other) -> Sensors & = delete;
 };
-
-#include "utils.hpp"
-#ifndef IOP_SENSORS
-#define IOP_SENSORS_DISABLED
-#endif
 
 #endif

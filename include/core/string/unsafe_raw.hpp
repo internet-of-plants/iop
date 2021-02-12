@@ -24,7 +24,6 @@ public:
   auto operator=(UnsafeRawString &&other) noexcept -> UnsafeRawString &;
   auto get() const noexcept -> const char *;
   auto operator*() const noexcept -> StringView;
-  auto operator->() const noexcept -> StringView;
 };
 } // namespace iop
 

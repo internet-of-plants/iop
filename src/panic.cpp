@@ -17,27 +17,28 @@ void upgrade() noexcept {
     return;
 
   const auto &token = UNWRAP_REF(maybeToken);
-  const auto &mac = utils::macAddress();
-  const auto status = api.upgrade(token, mac, utils::hashSketch());
+  const auto &mac = iop::macAddress();
+  const auto status = api.upgrade(token, mac, iop::hashSketch());
 
   switch (status) {
-  case ApiStatus::FORBIDDEN:
+  case iop::NetworkStatus::FORBIDDEN:
     logger.warn(F("Invalid auth token, but keeping since at iop_panic"));
     return;
 
-  case ApiStatus::CLIENT_BUFFER_OVERFLOW:
+  case iop::NetworkStatus::CLIENT_BUFFER_OVERFLOW:
     iop_panic(F("Api::upgrade internal buffer overflow"));
 
   // Already logged at the network level
-  case ApiStatus::CONNECTION_ISSUES:
-  case ApiStatus::BROKEN_SERVER:
+  case iop::NetworkStatus::CONNECTION_ISSUES:
+  case iop::NetworkStatus::BROKEN_SERVER:
     // Nothing to be done besides retrying later
 
-  case ApiStatus::OK: // Cool beans, triggered if no updates are available too
+  case iop::NetworkStatus::OK: // Cool beans, triggered if no updates are
+                               // available too
     return;
   }
 
-  const auto str = Network::apiStatusToString(status);
+  const auto str = iop::Network::apiStatusToString(status);
   logger.error(F("Bad status, EventLoop::handleInterrupt "), str);
 }
 
@@ -64,35 +65,33 @@ auto reportPanic(const iop::StringView &msg, const iop::StaticString &file,
   };
 
   const auto status = api.reportPanic(token, panicData);
-  // TODO(pc): We could broadcast panics to other devices in the same network
-  // if Api::reportPanic fails
 
   switch (status) {
-  case ApiStatus::FORBIDDEN:
+  case iop::NetworkStatus::FORBIDDEN:
     logger.warn(F("Invalid auth token, but keeping since at iop_panic"));
     return false;
 
-  case ApiStatus::CLIENT_BUFFER_OVERFLOW:
+  case iop::NetworkStatus::CLIENT_BUFFER_OVERFLOW:
     // TODO(pc): deal with this, but how? Truncating the msg?
     // Should we have an endpoint to report this type of error that can't
     // trigger it?
     logger.crit(F("Api::reportPanic client buffer overflow"));
     return false;
 
-  case ApiStatus::BROKEN_SERVER:
+  case iop::NetworkStatus::BROKEN_SERVER:
     // Nothing we can do besides waiting.
     logger.crit(F("Api::reportPanic is broken"));
     return false;
 
-  case ApiStatus::CONNECTION_ISSUES:
+  case iop::NetworkStatus::CONNECTION_ISSUES:
     // Nothing to be done besides retrying later
     return false;
 
-  case ApiStatus::OK:
+  case iop::NetworkStatus::OK:
     logger.info(F("Reported iop_panic to server successfully"));
     return true;
   }
-  const auto str = Network::apiStatusToString(status);
+  const auto str = iop::Network::apiStatusToString(status);
   logger.error(F("Unexpected status, iop_panic.h: reportPanic: "), str);
   return false;
 }
@@ -124,7 +123,7 @@ static void halt(const iop::StringView &msg,
       break;
     }
 
-    if (Network::isConnected()) {
+    if (iop::Network::isConnected()) {
       if (!reportedPanic)
         reportedPanic =
             reportPanic(msg, point.file(), point.line(), point.func());

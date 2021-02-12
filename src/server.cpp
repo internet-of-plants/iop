@@ -2,8 +2,8 @@
 
 #ifndef IOP_SERVER_DISABLED
 #include "configuration.hpp"
+#include "core/interrupt.hpp"
 #include "flash.hpp"
-
 
 constexpr const uint64_t intervalTryFlashWifiCredentialsMillis =
     60 * 60 * 1000; // 1 hour
@@ -21,50 +21,95 @@ PROGMEM_STRING(pageHTMLStart,
                "<form style='margin: 0 auto; width: 500px;' action='/submit' "
                "method='POST'>\r\n");
 
-// TODO: add js to disable fields according to wifi and iop checkboxes?
 PROGMEM_STRING(
     wifiOverwriteHTML,
-    "<h3><center>It seems you already have your wifi credentials set, if you "
+    "<h3>"
+    "  <center>It seems you already have your wifi credentials set, if you "
     "want to rewrite it, please set the checkbox below and fill the "
-    "fields. Otherwise they will be ignored</center></h3>\r\n"
-    "<div><input type='checkbox' name='wifi'><label "
-    "for='wifi'>Overwrite wifi credentials</label></div>"
-    "<div><div><strong>Network name:</strong></div><input name='ssid' "
-    "type='text' style='width:100%' /></div>\r\n"
-    "<div><div><strong>Password:</strong></div><input name='password' "
-    "type='password' style='width:100%' /></div>\r\n");
+    "fields. Otherwise they will be ignored</center>"
+    "</h3>\r\n"
+    "<div>"
+    "  <input type='checkbox' name='wifi'>"
+    "  <label for='wifi'>Overwrite wifi credentials</label>"
+    "</div>"
+    "<div class=\"wifi\" style=\"display: 'none'\">"
+    "  <div><strong>Network name:</strong></div>"
+    "  <input name='ssid' type='text' style='width:100%' />"
+    "</div>\r\n"
+    "<div class=\"wifi\" style=\"display: 'none'\">"
+    "  <div><strong>Password:</strong></div>"
+    "  <input name='password' type='password' style='width:100%' />"
+    "</div>\r\n");
 
 PROGMEM_STRING(
     wifiHTML,
-    "<h3><center>Please provide your Wifi credentials, so we can connect to "
-    "it.</center></h3>\r\n"
+    "<h3><center>"
+    "Please provide your Wifi credentials, so we can connect to it."
+    "</center></h3>\r\n"
     "<div><input type='hidden' value='true' name='wifi'></div>"
-    "<div><div><strong>Network name:</strong></div><input name='ssid' "
-    "type='text' style='width:100%' /></div>\r\n"
-    "<div><div><strong>Password:</strong></div><input name='password' "
-    "type='password' style='width:100%' /></div>\r\n");
+    "<div>"
+    "  <div><strong>Network name:</strong></div>"
+    "  <input name='ssid' type='text' style='width:100%' />"
+    "</div>\r\n"
+    "<div><div><strong>Password:</strong></div>"
+    "<input name='password' type='password' style='width:100%' /></div>\r\n");
 
 PROGMEM_STRING(
     iopOverwriteHTML,
     "<h3><center>It seems you already have your Iop credentials set, if you "
     "want to rewrite it, please set the checkbox below and fill the "
     "fields. Otherwise they will be ignored</center></h3>\r\n"
-    "<div><input type='checkbox' name='iop'><label "
-    "for='iop'>Overwrite Iop credentials</label></div>"
-    "<div><div><strong>Email:</strong></div><input name='iopEmail' type='text' "
-    "style='width:100%' /></div>\r\n"
-    "<div><div><strong>Password:</strong></div><input name='iopPassword' "
-    "type='password' style='width:100%' /></div>\r\n");
+    "<div>"
+    "  <input type='checkbox' name='iop'>"
+    "  <label for='iop'>Overwrite Iop credentials</label>"
+    "</div>"
+    "<div class=\"iop\" style=\"display: 'none'\">"
+    "  <div><strong>Email:</strong></div>"
+    "  <input name='iopEmail' type='text' style='width:100%' />"
+    "</div>\r\n"
+    "<div class=\"iop\" style=\"display: 'none'\">"
+    "  <div><strong>Password:</strong></div>"
+    "  <input name='iopPassword' type='password' style='width:100%' />"
+    "</div>\r\n");
 
 PROGMEM_STRING(
-    iopHTML,
-    "<h3><center>Please provide your Iop credentials, so we can get an "
-    "authentication token to use</center></h3>\r\n"
-    "<div><input type='hidden' value='true' name='iop'></div>"
-    "<div><div><strong>Email:</strong></div><input name='iopEmail' type='text' "
-    "style='width:100%' /></div>\r\n"
-    "<div><div><strong>Password:</strong></div><input name='iopPassword' "
-    "type='password' style='width:100%' /></div>\r\n");
+    iopHTML, "<h3><center>"
+             "  Please provide your Iop credentials, so we can get an "
+             "authentication token to use"
+             "</center></h3>\r\n"
+             "<div><input type='hidden' value='true' name='iop'></div>"
+             "<div>"
+             "  <div><strong>Email:</strong></div>"
+             "  <input name='iopEmail' type='text' style='width:100%' />"
+             "</div>\r\n"
+             "<div>"
+             "  <div><strong>Password:</strong></div>"
+             "  <input name='iopPassword' type='password' style='width:100%' />"
+             "</div>\r\n");
+
+PROGMEM_STRING(script,
+               "<script type=\"javascript\">"
+               "const wifi = document.querySelector(\"input[name=\"wifi\"]\");"
+               "wifi.addEventListener(\"onchange\", ev => {"
+               "  ev.getElementsByClassName(\"wifi\").forEach(el => {"
+               "    if (ev.currentTarget.checked) {"
+               "      el.style.display = \"block\";"
+               "    } else {"
+               "      el.style.display = \"none\";"
+               "    }"
+               "  });"
+               "});"
+               "const iop = document.querySelector(\"input[name=\"iop\"]\"));"
+               "iop.addEventListener(\"onchange\", ev => {"
+               "  ev.getElementsByClassName(\"iop\").forEach(el => {"
+               "    if (ev.currentTarget.checked) {"
+               "      el.style.display = \"block\";"
+               "    } else {"
+               "      el.style.display = \"none\";"
+               "    }"
+               "  });"
+               "});"
+               "</script>");
 
 PROGMEM_STRING(pageHTMLEnd, "<br>\r\n"
                             "<input type='submit' value='Submit' />\r\n"
@@ -90,10 +135,10 @@ void CredentialsServer::setup() const noexcept {
   auto *s = &server;
   server.on(F("/submit"), [s, loggerLevel]() {
     IOP_TRACE();
-    // TODO: show in log that it doesn't use default logging (network log off)
     if (loggerLevel >= iop::LogLevel::DEBUG)
-      iop::Log::print(F("[DEBUG] SERVER_CALLBACK: Received credentials form\n"),
-                      iop::LogLevel::DEBUG, iop::LogType::STARTEND);
+      iop::Log::print(
+          F("[DEBUG] [RAW] SERVER_CALLBACK: Received credentials form\n"),
+          iop::LogLevel::DEBUG, iop::LogType::STARTEND);
 
     if (s->hasArg(F("wifi")) && s->hasArg(F("ssid")) &&
         s->hasArg(F("password"))) {
@@ -120,13 +165,13 @@ void CredentialsServer::setup() const noexcept {
     const static Flash flash(loggerLevel);
     if (loggerLevel >= iop::LogLevel::DEBUG)
       iop::Log::print(
-          F("[DEBUG] SERVER_CALLBACK: Serving captive portal HTML\n"),
+          F("[DEBUG] [RAW] SERVER_CALLBACK: Serving captive portal HTML\n"),
           iop::LogLevel::DEBUG, iop::LogType::STARTEND);
 
-    const auto mustConnect = !Network::isConnected();
+    const auto mustConnect = !iop::Network::isConnected();
     const auto needsIopAuth = flash.readAuthToken().isNone();
 
-    auto len = pageHTMLStart.length() + pageHTMLEnd.length();
+    auto len = pageHTMLStart.length() + pageHTMLEnd.length() + script.length();
 
     if (mustConnect) {
       len += wifiHTML.length();
@@ -156,6 +201,7 @@ void CredentialsServer::setup() const noexcept {
       s->sendContent_P(iopOverwriteHTML.asCharPtr());
     }
 
+    s->sendContent_P(script.asCharPtr());
     s->sendContent_P(pageHTMLEnd.asCharPtr());
   });
 }
@@ -176,7 +222,7 @@ void CredentialsServer::start() noexcept {
 
     WiFi.softAPConfig(staticIp, staticIp, mask);
 
-    const static auto hash = utils::macAddress().asString().hash();
+    const static auto hash = iop::macAddress().asString().borrow().hash();
     const auto ssid = std::string("iop-") + std::to_string(hash);
 
     // TODO(pc): the password should be random (passed at compile time)
@@ -243,14 +289,10 @@ auto CredentialsServer::connect(iop::StringView ssid,
     -> void {
   IOP_TRACE();
   if (wifi_station_get_connect_status() == STATION_CONNECTING) {
-    ETS_UART_INTR_DISABLE(); // NOLINT hicpp-signed-bitwise
+    const iop::InterruptLock _guard;
     wifi_station_disconnect();
-    ETS_UART_INTR_ENABLE(); // NOLINT hicpp-signed-bitwise
   }
 
-  // TODO: should we use WiFi.setPersistent(false) and save it to flash on our
-  // own when connection succeeds? It seems invalid credentials here still get
-  // stored to flash even if they fail
   WiFi.begin(ssid.get(), std::move(password).get());
 
   if (WiFi.waitForConnectResult() == -1) {
@@ -258,7 +300,7 @@ auto CredentialsServer::connect(iop::StringView ssid,
     return;
   }
 
-  if (!Network::isConnected()) {
+  if (!iop::Network::isConnected()) {
     const auto status = wifi_station_get_connect_status();
     const auto maybeStatusStr = this->statusToString(status);
     if (maybeStatusStr.isNone())
@@ -284,31 +326,31 @@ auto CredentialsServer::authenticate(iop::StringView username,
     const auto &status = UNWRAP_ERR_REF(authToken);
 
     switch (status) {
-    case ApiStatus::FORBIDDEN:
+    case iop::NetworkStatus::FORBIDDEN:
       this->logger.error(F("Invalid IoP credentials ("),
-                         Network::apiStatusToString(status), F("): "),
+                         iop::Network::apiStatusToString(status), F("): "),
                          std::move(username));
       return iop::Option<AuthToken>();
 
-    case ApiStatus::CLIENT_BUFFER_OVERFLOW:
+    case iop::NetworkStatus::CLIENT_BUFFER_OVERFLOW:
       iop_panic(F("CredentialsServer::authenticate internal buffer overflow"));
 
     // Already logged at the Network level
-    case ApiStatus::CONNECTION_ISSUES:
-    case ApiStatus::BROKEN_SERVER:
+    case iop::NetworkStatus::CONNECTION_ISSUES:
+    case iop::NetworkStatus::BROKEN_SERVER:
       // Nothing to be done besides retrying later
       return iop::Option<AuthToken>();
 
-    case ApiStatus::OK:
+    case iop::NetworkStatus::OK:
       // On success an AuthToken is returned, not OK
       iop_panic(F("Unreachable"));
     }
 
-    const auto str = Network::apiStatusToString(status);
+    const auto str = iop::Network::apiStatusToString(status);
     this->logger.crit(F("CredentialsServer::authenticate bad status: "), str);
     return iop::Option<AuthToken>();
   }
-  return iop::maybe(UNWRAP_OK(authToken));
+  return iop::some(UNWRAP_OK(authToken));
 }
 
 auto CredentialsServer::serve(const iop::Option<WifiCredentials> &storedWifi,
@@ -327,7 +369,7 @@ auto CredentialsServer::serve(const iop::Option<WifiCredentials> &storedWifi,
     const auto cred = UNWRAP(credentialsWifi);
     this->connect(cred.first, cred.second);
 
-  } else if (Network::isConnected() && credentialsIop.isSome()) {
+  } else if (iop::Network::isConnected() && credentialsIop.isSome()) {
     const auto cred = UNWRAP(credentialsIop);
     auto tok = this->authenticate(cred.first, cred.second, api);
     if (tok.isSome())
@@ -342,7 +384,7 @@ auto CredentialsServer::serve(const iop::Option<WifiCredentials> &storedWifi,
     //
     // So we never delete a flash stored wifi credentials (outside of factory
     // reset), we have a timer to avoid constantly retrying a bad credential.
-  } else if (!Network::isConnected() && storedWifi.isSome() &&
+  } else if (!iop::Network::isConnected() && storedWifi.isSome() &&
              this->nextTryFlashWifiCredentials <= now) {
     this->nextTryFlashWifiCredentials =
         now + intervalTryFlashWifiCredentialsMillis;
@@ -357,7 +399,7 @@ auto CredentialsServer::serve(const iop::Option<WifiCredentials> &storedWifi,
     // Ideally it won't be wrong, but that's the price of hardcoding, if it's
     // not updated it may just be. Since it can't be deleted we must retry,
     // but with a bigish interval.
-  } else if (!Network::isConnected() && wifiNetworkName.isSome() &&
+  } else if (!iop::Network::isConnected() && wifiNetworkName.isSome() &&
              wifiPassword.isSome() &&
              this->nextTryHardcodedWifiCredentials <= now) {
     this->nextTryHardcodedWifiCredentials =

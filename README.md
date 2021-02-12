@@ -62,6 +62,11 @@ The `String` problem is that if a `String` is moved twice it causes a nullptr-de
 
 **Replace** `Arduino/libraries/ESP8266WiFi/src/CertStoreBearSSL.cpp` **for** [CertStoreBearSSL.cpp](https://github.com/esp8266/Arduino/blob/master/libraries/ESP8266WiFi/src/CertStoreBearSSL.cpp)
 
+**Replace** `Arduino/libraries/ESP8266httpUpdate/src/ESP8266httpUpdate.h` **for** [ESP8266httpUpdate.h](https://github.com/esp8266/Arduino/blob/master/libraries/ESP8266httpUpdate/src/ESP8266httpUpdate.h)
+
+**Replace** `Arduino/libraries/ESP8266httpUpdate/src/ESP8266httpUpdate.cpp` **for** [ESP8266httpUpdate.cpp](https://github.com/esp8266/Arduino/blob/master/libraries/ESP8266httpUpdate/src/ESP8266httpUpdate.cpp)
+
+
 We are sorry for this inconvenience, but until upstream updates it's the best approach.
 
 # TODO
@@ -90,7 +95,7 @@ Most decisions are listed here. If you find some other questionable decision ple
 
 - Avoiding moves
 
-    Since cpp doesn't have destructive moves, it can leave our code in an invalid state. Either with a nulled `std::{unique,shared}_ptr`, or with an empty `Result<T, E>`, for example. And since those abstractions are heavily used throughout the code we don't want a human mistake to cause UB, panic or raise exceptions. Even a wrongly moved-out `Option<T>` can cause logical errors.
+    Since cpp doesn't have destructive moves, it can leave our code in an invalid state. Either with a nulled `std::{unique,shared}_ptr`, or with an empty `Result<T, E>`, for example. And since those abstractions are heavily used throughout the code we don't want a human mistake to cause UB, panic or raise exceptions. But even a wrongly moved-out `Option<T>` can cause logical errors.
 
     To avoid that we try not to move out, getting references when we can. For example using `UNWRAP(_OK,_ERR)_{REF,MUT}`. But you have to be careful to make sure that the reference doesn't outlive its storage (as always). Instead of `UNWRAP_{OK,ERR}`, that move out, although they can be very useful, like moving-out to return the inner value.
 
@@ -102,15 +107,15 @@ Most decisions are listed here. If you find some other questionable decision ple
 
     Most errors should be propagated with `Result<T, E>` or even an `Option<T>`. Exceptions should not happen. And critical errors, that can't be recovered, working as the last stand between us and UB should panic with the `panic_(F("Explanation of what went wrong..."))` macro.
 
-    We don't like exceptions. We don't want to pay the runtime price for them (they are disabled by default). We don't use them for regular control flow, or any control flow at all. But we do want a way to fail hard. So we have a function to panic in a way integrated with the platform. It doesn't use any compiler/esp8266 panic internals, so maybe panic is a bad name. But it basically logs the critical error, reports it through the network if it can (to the server, but we could report to nearby devices that we own too, so they can help). And it keeps asking the server for updates.
+    We don't want to pay the overhead for exceptions. Nor have alternatives code paths. Either works and reports the error with the return type. Or `iop_panic(F("Message...))` on complete failure, with no turning back. `iop_panic` logs the critical error, reports it through the network to the main server if it can, and keeps asking the server for updates.
 
     We have future plans to improve this, but we should never panic. Panics should be a way to avoid UB when everything went wrong, and quickly fix when detected.
 
-    The embedded code is fairly small and a panic is probably going to be recurrent if no updates happen, so for now halting and allowing external updates to fix it seems the way to go. All errors are reported to the network, if available.
+    The embedded code is fairly small and a panic is probably going to be recurrent if no updates happen, so for now halting and allowing external updates to fix the problem seems the way to go. All errors are reported to the network, if available. While debugging manually press physical the restart button, and when done update all the devices.
 
-    Panics before having network access + authentication with the central server have a very small code surface to cause. They should be very rare, hopefully impossible. But they are critical bugs if they happens. In this case the device will halt until manually restarted, and they will only be debuggable manually. Those panics are theoretically possible because we have no way to statically garantee their branches are unreachable, but they should be.
+    Panics before having network access + authentication with the central server have a very small code surface to cause. They should be very rare, hopefully impossible. But they are considered critical bugs. In this case the device will halt until manually restarted. They will only be fixable manually. Those panics are theoretically possible because we have no way to statically garantee their branches are unreachable, but they should be.
 
-    Some software and hardware exceptions may still happen, we don't handle them, but it's a TODO. Panics also still don't support stack-dumps, but it's planned.
+    Some software and hardware exceptions may still happen, we don't handle them, but it's a TODO to handle what we can. We should also report restart reasons. Panics also still don't support stack-dumps, but it's planned.
 
 - Redundant runtime checks
 

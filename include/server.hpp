@@ -30,8 +30,8 @@ class CredentialsServer {
 private:
   iop::Log logger;
 
-  esp_time nextTryFlashWifiCredentials = 0;
-  esp_time nextTryHardcodedWifiCredentials = 0;
+  iop::esp_time nextTryFlashWifiCredentials = 0;
+  iop::esp_time nextTryHardcodedWifiCredentials = 0;
   bool isServerOpen = false;
 
   void start() noexcept;

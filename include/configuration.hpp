@@ -4,8 +4,6 @@
 #include "core/log.hpp"
 #include "core/option.hpp"
 #include "utils.hpp"
-#include <cstdint>
-
 
 #include "pins_arduino.h"
 
@@ -22,7 +20,7 @@ const uint8_t factoryResetButton = D1;
 const uint8_t dhtVersion = 22; // DHT22
 
 /// Time between measurements
-const esp_time interval = 180 * 1000;
+const iop::esp_time interval = 180 * 1000;
 
 /// Expands to:
 /// static const char * const PROGMEM uri_progmem_char = <uri>;
@@ -31,12 +29,10 @@ const esp_time interval = 180 * 1000;
 /// It should be prefixed with https in production. Do not use plain http in
 /// production!
 ///
-/// But if using plain http, define IOP_NOSSL below, otherwise it won't work
+/// But if using plain http:
+/// define IOP_NOSSL at `core/utils.hpp`, otherwise it won't work
 /// PROGMEM_STRING(uri, "https://iop-monitor-server.tk:4001/v1");
 PROGMEM_STRING(uri, "http://192.168.0.26:4001/v1");
-
-/// Plain http doesn't work if IOP_NOSSL is not set
-#define IOP_NOSSL
 
 /// The fields bellow should be empty. Filling them will be counter productive
 /// It's only here to speedup some debugging

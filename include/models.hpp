@@ -10,12 +10,8 @@
 TYPED_STORAGE(AuthToken, 64);
 TYPED_STORAGE(NetworkName, 32);
 TYPED_STORAGE(NetworkPassword, 64);
-TYPED_STORAGE(MD5Hash, 32);
-TYPED_STORAGE(MacAddress, 17);
 
 struct PanicData {
-  // TODO: this could have a StaticString alternative to be able to use `_P`
-  // PROGMEM methods
   iop::StringView msg;
   iop::StaticString file;
   uint32_t line;
@@ -46,7 +42,6 @@ struct EventStorage {
   float soilTemperatureCelsius;
 };
 
-// TODO: Remove this and use EventStorage directly
 class Event {
 public:
   EventStorage storage;
