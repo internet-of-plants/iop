@@ -6,5 +6,5 @@ __pycache__
 .vscode/ipch
 .*.swo
 .*.swp
-include/configuration.h
+include/configuration.hpp
 workspace.code-workspace
