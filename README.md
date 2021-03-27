@@ -54,17 +54,17 @@ You must apply the following patches to the local `esp8266/Arduino`. This is a n
 
 The `String` problem is that if a `String` is moved twice it causes a nullptr-deref, and we do that do signify ownership passing. The other thing is that in `3.0` you can inherit from `CertStoreBase` and make your own `CertStore`. Until now people have been hijacking the header guard (which we did), and it's a horrible approach.
 
-**Replace** `Arduino/cores/esp8266/WString.h` **for** [WString.h](https://github.com/esp8266/Arduino/blob/master/cores/esp8266/WString.h)
+**Replace** `Arduino/cores/esp8266/WString.h` **for** [WString.h](https://github.com/esp8266/Arduino/blob/59873908c44f0ba0bc6e8bb644ab9fcecc9814b1/cores/esp8266/WString.h)
 
-**Replace** `Arduino/cores/esp8266/WString.cpp` **for** [WString.cpp](https://github.com/esp8266/Arduino/blob/master/cores/esp8266/WString.cpp)
+**Replace** `Arduino/cores/esp8266/WString.cpp` **for** [WString.cpp](https://github.com/esp8266/Arduino/blob/59873908c44f0ba0bc6e8bb644ab9fcecc9814b1/cores/esp8266/WString.cpp)
 
-**Replace** `Arduino/libraries/ESP8266WiFi/src/CertStoreBearSSL.h` **for** [CertStoreBearSSL.h](https://github.com/esp8266/Arduino/blob/master/libraries/ESP8266WiFi/src/CertStoreBearSSL.h)
+**Replace** `Arduino/libraries/ESP8266WiFi/src/CertStoreBearSSL.h` **for** [CertStoreBearSSL.h](https://github.com/esp8266/Arduino/blob/59873908c44f0ba0bc6e8bb644ab9fcecc9814b1/libraries/ESP8266WiFi/src/CertStoreBearSSL.h)
 
-**Replace** `Arduino/libraries/ESP8266WiFi/src/CertStoreBearSSL.cpp` **for** [CertStoreBearSSL.cpp](https://github.com/esp8266/Arduino/blob/master/libraries/ESP8266WiFi/src/CertStoreBearSSL.cpp)
+**Replace** `Arduino/libraries/ESP8266WiFi/src/CertStoreBearSSL.cpp` **for** [CertStoreBearSSL.cpp](https://github.com/esp8266/Arduino/blob/59873908c44f0ba0bc6e8bb644ab9fcecc9814b1/libraries/ESP8266WiFi/src/CertStoreBearSSL.cpp)
 
-**Replace** `Arduino/libraries/ESP8266httpUpdate/src/ESP8266httpUpdate.h` **for** [ESP8266httpUpdate.h](https://github.com/esp8266/Arduino/blob/master/libraries/ESP8266httpUpdate/src/ESP8266httpUpdate.h)
+**Replace** `Arduino/libraries/ESP8266httpUpdate/src/ESP8266httpUpdate.h` **for** [ESP8266httpUpdate.h](https://github.com/esp8266/Arduino/blob/59873908c44f0ba0bc6e8bb644ab9fcecc9814b1/libraries/ESP8266httpUpdate/src/ESP8266httpUpdate.h)
 
-**Replace** `Arduino/libraries/ESP8266httpUpdate/src/ESP8266httpUpdate.cpp` **for** [ESP8266httpUpdate.cpp](https://github.com/esp8266/Arduino/blob/master/libraries/ESP8266httpUpdate/src/ESP8266httpUpdate.cpp)
+**Replace** `Arduino/libraries/ESP8266httpUpdate/src/ESP8266httpUpdate.cpp` **for** [ESP8266httpUpdate.cpp](https://github.com/esp8266/Arduino/blob/59873908c44f0ba0bc6e8bb644ab9fcecc9814b1/libraries/ESP8266httpUpdate/src/ESP8266httpUpdate.cpp)
 
 
 We are sorry for this inconvenience, but until upstream updates it's the best approach.
