@@ -203,33 +203,28 @@ auto Api::registerLog(const AuthToken &authToken,
 extern "C" uint32_t _FS_start;
 extern "C" uint32_t _FS_end;
 
-auto Api::upgrade(const AuthToken &token, const iop::MacAddress &mac,
-                  const iop::MD5Hash &sketchHash) const noexcept
+auto Api::upgrade(const AuthToken &token) const noexcept
     -> iop::NetworkStatus {
   IOP_TRACE();
   this->logger.debug(F("Upgrading sketch"));
 
   const auto tok = token.asString();
-
-  const auto path = String(F("/update/")) + mac.asString().get();
+  const auto path = F("/update");
+  const auto uri = String(this->uri().get()) + path;
 
   auto &client = iop::Network::wifiClient();
-
-  const auto *const version = sketchHash.asString().get();
-  const auto uri = String(this->uri().get()) + path;
 
   ESPhttpUpdate.setAuthorization(String(tok.get()));
   ESPhttpUpdate.closeConnectionsOnUpdate(true);
   ESPhttpUpdate.rebootOnUpdate(true);
   ESPhttpUpdate.setLedPin(LED_BUILTIN);
-  const auto updateResult =
-      ESPhttpUpdate.updateFS(client, uri, String(version));
+  const auto result = ESPhttpUpdate.updateFS(client, uri, emptyString);
 
 #ifdef IOP_MOCK_MONITOR
   return iop::NetworkStatus::OK;
 #endif
 
-  switch (updateResult) {
+  switch (result) {
   case HTTP_UPDATE_NO_UPDATES:
   case HTTP_UPDATE_OK:
     return iop::NetworkStatus::OK;

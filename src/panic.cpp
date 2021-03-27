@@ -17,8 +17,7 @@ void upgrade() noexcept {
     return;
 
   const auto &token = UNWRAP_REF(maybeToken);
-  const auto &mac = iop::macAddress();
-  const auto status = api.upgrade(token, mac, iop::hashSketch());
+  const auto status = api.upgrade(token);
 
   switch (status) {
   case iop::NetworkStatus::FORBIDDEN:

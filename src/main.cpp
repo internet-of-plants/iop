@@ -17,7 +17,7 @@ private:
 
   Flash flash;
 
-  iop::esp_time nextTime;
+  iop::esp_time nextMeasurement;
   iop::esp_time nextYieldLog;
   iop::esp_time nextHandleConnectionLost;
 
@@ -83,9 +83,9 @@ public:
         // No-op, we must just wait
       }
 
-    } else if (this->nextTime <= now) {
+    } else if (this->nextMeasurement <= now) {
       this->nextHandleConnectionLost = 0;
-      this->nextTime = now + interval;
+      this->nextMeasurement = now + interval;
       this->handleMeasurements(UNWRAP_REF(authToken));
       this->logger.info(String(ESP.getVcc())); // TODO: remove this
 
@@ -127,8 +127,7 @@ private:
 #ifdef IOP_OTA
       if (maybeToken.isSome()) {
         const auto &token = UNWRAP_REF(maybeToken);
-        const auto &mac = iop::macAddress();
-        const auto status = this->api.upgrade(token, mac, iop::hashSketch());
+        const auto status = this->api.upgrade(token);
         switch (status) {
         case iop::NetworkStatus::FORBIDDEN:
           this->logger.warn(F("Invalid auth token, but keeping since at OTA"));
@@ -237,7 +236,7 @@ public:
     this->credentialsServer = other.credentialsServer;
     this->logger = other.logger;
     this->flash = other.flash;
-    this->nextTime = other.nextTime;
+    this->nextMeasurement = other.nextMeasurement;
     this->nextYieldLog = other.nextYieldLog;
     this->nextHandleConnectionLost = other.nextHandleConnectionLost;
     return *this;
@@ -249,7 +248,7 @@ public:
     this->credentialsServer = other.credentialsServer;
     this->logger = other.logger;
     this->flash = other.flash;
-    this->nextTime = other.nextTime;
+    this->nextMeasurement = other.nextMeasurement;
     this->nextYieldLog = other.nextYieldLog;
     this->nextHandleConnectionLost = other.nextHandleConnectionLost;
     return *this;
@@ -259,14 +258,14 @@ public:
       : sensors(soilResistivityPowerPin, soilTemperaturePin,
                 airTempAndHumidityPin, dhtVersion),
         api(std::move(uri), logLevel_), credentialsServer(logLevel_),
-        logger(logLevel_, F("LOOP")), flash(logLevel_), nextTime(0),
+        logger(logLevel_, F("LOOP")), flash(logLevel_), nextMeasurement(0),
         nextYieldLog(0), nextHandleConnectionLost(0) {
     IOP_TRACE();
   }
   EventLoop(EventLoop const &other) noexcept
       : sensors(other.sensors), api(other.api),
         credentialsServer(other.credentialsServer), logger(other.logger),
-        flash(other.flash), nextTime(other.nextTime),
+        flash(other.flash), nextMeasurement(other.nextMeasurement),
         nextYieldLog(other.nextYieldLog),
         nextHandleConnectionLost(other.nextHandleConnectionLost) {
     IOP_TRACE();
@@ -274,7 +273,7 @@ public:
   EventLoop(EventLoop &&other) noexcept
       : sensors(other.sensors), api(other.api),
         credentialsServer(other.credentialsServer), logger(other.logger),
-        flash(other.flash), nextTime(other.nextTime),
+        flash(other.flash), nextMeasurement(other.nextMeasurement),
         nextYieldLog(other.nextYieldLog),
         nextHandleConnectionLost(other.nextHandleConnectionLost) {
     IOP_TRACE();

@@ -91,8 +91,7 @@ public:
   /// CONNECTION_ISSUES: problems with connection, retry later?
   /// CLIENT_BUFFER_OVERFLOW: this route shouldn't trigger this, ever
   /// BROKEN_SERVER: just wait until server is fixed
-  auto upgrade(const AuthToken &token, const iop::MacAddress &mac,
-               const iop::MD5Hash &sketchHash) const noexcept
+  auto upgrade(const AuthToken &token) const noexcept
       -> iop::NetworkStatus;
 
 private:
