@@ -158,7 +158,7 @@ auto Api::authenticate(iop::StringView username,
     const auto lengthStr = std::to_string(payload.length());
 
     PROGMEM_STRING(parseErr, "Unprintable payload, this isn't supported: ");
-    const auto &ref = UNWRAP_ERR(result);
+    const auto &ref = UNWRAP_ERR_REF(result);
     switch (ref) {
     case iop::ParseError::TOO_BIG:
       this->logger.error(F("Auth token is too big: size = "), lengthStr);

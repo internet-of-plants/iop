@@ -99,7 +99,7 @@ static auto methodToString(const HttpMethod &method) noexcept
     ret.emplace(F("OPTIONS"));
     break;
   }
-  return std::move(ret);
+  return ret;
 }
 
 auto Network::wifiClient() noexcept -> WiFiClient & { return client; }

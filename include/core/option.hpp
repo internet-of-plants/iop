@@ -1,7 +1,6 @@
 #ifndef IOP_CORE_OPTION_HPP
 #define IOP_CORE_OPTION_HPP
 
-#include "core/memory.hpp" // Used for enable_if_t, for now
 #include "core/panic.hpp"
 #include "core/string/view.hpp"
 #include "core/tracer.hpp"
@@ -25,7 +24,7 @@ namespace iop {
 /// Exceptions in T's destructor will trigger abort
 ///
 /// T cannot be a reference, it won't compile. Use std::reference_wrapper<T>
-template <typename T, typename = enable_if_t<!std::is_reference<T>::value>>
+template <typename T, typename = std::enable_if_t<!std::is_reference<T>::value>>
 // Weird ass false positive
 // NOLINTNEXTLINE *-special-member-functions
 class Option {
@@ -93,7 +92,7 @@ public:
     } else {
       other.dummy = 0;
     }
-    return std::move(other);
+    return other;
   }
 
   auto unwrapOr(T &&or_) noexcept -> T {
@@ -189,7 +188,7 @@ public:
 
     T value = std::move(this->value);
     this->reset();
-    return std::move(value);
+    return value;
   }
 };
 

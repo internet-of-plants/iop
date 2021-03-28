@@ -281,7 +281,7 @@ auto CredentialsServer::statusToString(const station_status_t status)
   }
   if (ret.isNone())
     this->logger.error(String(F("Unknown status: ")) + String(status));
-  return std::move(ret);
+  return ret;
 }
 
 auto CredentialsServer::connect(iop::StringView ssid,

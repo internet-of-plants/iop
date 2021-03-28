@@ -5,16 +5,14 @@
 #include <memory>
 
 namespace iop {
-template <bool B, class T = void>
-using enable_if_t = typename std::enable_if<B, T>::type;
 
-template <typename T, typename = enable_if_t<std::is_array<T>::value>>
+template <typename T, typename = std::enable_if_t<std::is_array<T>::value>>
 auto try_make_unique(size_t size) noexcept -> std::unique_ptr<T> {
   IOP_TRACE();
   return std::unique_ptr<T>(new typename std::remove_extent<T>::type[size]());
 }
 
-template <typename T, typename = enable_if_t<!std::is_array<T>::value>,
+template <typename T, typename = std::enable_if_t<!std::is_array<T>::value>,
           typename... Args>
 auto try_make_unique(Args &&...args) noexcept -> std::unique_ptr<T> {
   IOP_TRACE();

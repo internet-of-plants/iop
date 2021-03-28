@@ -1,7 +1,5 @@
 # Internet of Plants - Embedded Software
 
-**Important: Read the Build bulletpoint carefully, it has a few quirks because of bugs upstream**
-
 Firmware for Internet of Plants embedded system. Made for ESP8266.
 
 It connects to an already existent wifi network, and through it connects to a hardcoded [host](https://github.com/internet-of-plants/server), authenticating itself. It provides air humidity, air temperature, soil temperature and soil humidity measurements to the server every few minutes.
@@ -49,25 +47,6 @@ sudo usermod -a -G plugdev $USER
 # Build
 
 You can just deploy the code to the nodemcu using PlatformIO. Choose `env:release` to deploy to production. After the first deploy you can use the update server.
-
-You must apply the following patches to the local `esp8266/Arduino`. This is a necessary inconvenience while upstream is at `2.7.4` version. They froze version `2`, and `3` is a breaking change. So we live in a unsupported grey area for now. It works and we could make a fork, but this is a highly temporary situation.
-
-The `String` problem is that if a `String` is moved twice it causes a nullptr-deref, and we do that do signify ownership passing. The other thing is that in `3.0` you can inherit from `CertStoreBase` and make your own `CertStore`. Until now people have been hijacking the header guard (which we did), and it's a horrible approach.
-
-**Replace** `Arduino/cores/esp8266/WString.h` **for** [WString.h](https://github.com/esp8266/Arduino/blob/59873908c44f0ba0bc6e8bb644ab9fcecc9814b1/cores/esp8266/WString.h)
-
-**Replace** `Arduino/cores/esp8266/WString.cpp` **for** [WString.cpp](https://github.com/esp8266/Arduino/blob/59873908c44f0ba0bc6e8bb644ab9fcecc9814b1/cores/esp8266/WString.cpp)
-
-**Replace** `Arduino/libraries/ESP8266WiFi/src/CertStoreBearSSL.h` **for** [CertStoreBearSSL.h](https://github.com/esp8266/Arduino/blob/59873908c44f0ba0bc6e8bb644ab9fcecc9814b1/libraries/ESP8266WiFi/src/CertStoreBearSSL.h)
-
-**Replace** `Arduino/libraries/ESP8266WiFi/src/CertStoreBearSSL.cpp` **for** [CertStoreBearSSL.cpp](https://github.com/esp8266/Arduino/blob/59873908c44f0ba0bc6e8bb644ab9fcecc9814b1/libraries/ESP8266WiFi/src/CertStoreBearSSL.cpp)
-
-**Replace** `Arduino/libraries/ESP8266httpUpdate/src/ESP8266httpUpdate.h` **for** [ESP8266httpUpdate.h](https://github.com/esp8266/Arduino/blob/59873908c44f0ba0bc6e8bb644ab9fcecc9814b1/libraries/ESP8266httpUpdate/src/ESP8266httpUpdate.h)
-
-**Replace** `Arduino/libraries/ESP8266httpUpdate/src/ESP8266httpUpdate.cpp` **for** [ESP8266httpUpdate.cpp](https://github.com/esp8266/Arduino/blob/59873908c44f0ba0bc6e8bb644ab9fcecc9814b1/libraries/ESP8266httpUpdate/src/ESP8266httpUpdate.cpp)
-
-
-We are sorry for this inconvenience, but until upstream updates it's the best approach.
 
 # TODO
 

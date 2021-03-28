@@ -6,7 +6,7 @@
 
 static volatile iop::esp_time resetStateTime = 0;
 
-void ICACHE_RAM_ATTR buttonChanged() noexcept {
+void IRAM_ATTR buttonChanged() noexcept {
   // IOP_TRACE();
   if (digitalRead(factoryResetButton) == HIGH) {
     resetStateTime = millis();

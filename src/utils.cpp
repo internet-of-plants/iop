@@ -17,8 +17,8 @@ auto descheduleInterrupt() noexcept -> InterruptEvent {
   return InterruptEvent::NONE;
 }
 // This function is called inside an interrupt, it can't be fancy (it can only
-// call functions stored in ICACHE_RAM_ATTR)
-void ICACHE_RAM_ATTR scheduleInterrupt(const InterruptEvent ev) noexcept {
+// call functions stored in IRAM_ATTR)
+void IRAM_ATTR scheduleInterrupt(const InterruptEvent ev) noexcept {
   volatile InterruptEvent *ptr = nullptr;
   for (volatile auto &el : interruptEvents) {
     if (el == InterruptEvent::NONE && ptr == nullptr) {

@@ -40,7 +40,7 @@ public:
   LogHook(ViewPrinter viewPrinter, StaticPrinter staticPrinter, Setuper setuper,
           Flusher flusher) noexcept;
   // Specifies custom tracer funcs, may be called from interrupts (put it into
-  // ICACHE_RAM). Don't be fancy, and be ware, it can saturate channels very
+  // ICACHE_RAM). Don't be fancy, and be aware, it can saturate channels very
   // fast
   LogHook(ViewPrinter viewPrinter, StaticPrinter staticPrinter, Setuper setuper,
           Flusher flusher, TraceViewPrinter traceViewPrint,

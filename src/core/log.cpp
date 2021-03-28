@@ -16,9 +16,9 @@ const static iop::LogHook defaultHook(iop::LogHook::defaultViewPrinter,
 static iop::LogHook hook = defaultHook;
 
 namespace iop {
-void ICACHE_RAM_ATTR Log::setup(LogLevel level) noexcept { hook.setup(level); }
+void IRAM_ATTR Log::setup(LogLevel level) noexcept { hook.setup(level); }
 void Log::flush() noexcept { hook.flush(); }
-void ICACHE_RAM_ATTR Log::print(const char *view, const LogLevel level,
+void IRAM_ATTR Log::print(const char *view, const LogLevel level,
                                 const LogType kind) noexcept {
   Log::setup(level);
   if (level > LogLevel::TRACE)
@@ -26,7 +26,7 @@ void ICACHE_RAM_ATTR Log::print(const char *view, const LogLevel level,
   else
     hook.traceViewPrint(view, kind);
 }
-void ICACHE_RAM_ATTR Log::print(const __FlashStringHelper *progmem,
+void IRAM_ATTR Log::print(const __FlashStringHelper *progmem,
                                 const LogLevel level,
                                 const LogType kind) noexcept {
   Log::setup(level);
@@ -112,21 +112,21 @@ auto Log::levelToString() const noexcept -> StaticString {
   return F("UNKNOWN");
 }
 
-void ICACHE_RAM_ATTR LogHook::defaultStaticPrinter(
+void IRAM_ATTR LogHook::defaultStaticPrinter(
     const __FlashStringHelper *str, const iop::LogType type) noexcept {
 #ifdef IOP_SERIAL
   Serial.print(str);
 #endif
   (void)type;
 }
-void ICACHE_RAM_ATTR
+void IRAM_ATTR
 LogHook::defaultViewPrinter(const char *str, const iop::LogType type) noexcept {
 #ifdef IOP_SERIAL
   Serial.print(str);
 #endif
   (void)type;
 }
-void ICACHE_RAM_ATTR
+void IRAM_ATTR
 LogHook::defaultSetuper(const iop::LogLevel level) noexcept {
   static bool debugging = false;
   if (initialized) {
