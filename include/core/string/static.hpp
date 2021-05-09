@@ -1,7 +1,26 @@
 #ifndef IOP_CORE_STRING_STATIC_HPP
 #define IOP_CORE_STRING_STATIC_HPP
 
+#include <stddef.h>
+#include <string.h>
+#include <string>
+
+#ifdef IOP_DESKTOP
+// Is this the best adaptation?
+#define PSTR(x) x
+
+class __FlashStringHelper;
+#define PROGMEM 
+#define FPSTR(pstr_pointer) (reinterpret_cast<const __FlashStringHelper *>(pstr_pointer))
+#define F(string_literal) (FPSTR(PSTR(string_literal)))
+#define PGM_P const char *
+#define strstr_P(a, b) strstr(a, b)
+#define strlen_P(a) strlen(a)
+#define memmove_P(dest, orig, len) memmove((void *) dest, (const void *) orig, len)
+#define strcmp_P(a, b) strcmp(a, b)
+#else
 #include "WString.h"
+#endif
 
 #define PROGMEM_STRING(name, msg)                                              \
   static const char *const PROGMEM name##_progmem_char = msg;                  \
@@ -34,6 +53,7 @@ public:
   auto contains(StaticString needle) const noexcept -> bool;
   auto length() const noexcept -> size_t;
   auto isEmpty() const noexcept -> bool;
+  auto toStdString() const noexcept -> std::string;
 
   // Be careful when calling this function, if you pass PGM_P to a function that
   // expects a regular char* a hardware exception _may_ happen, PROGMEM data

@@ -1,3 +1,7 @@
+#ifdef IOP_DESKTOP
+#define DHT_H
+#endif
+
 /*!
  *  @file DHT.h
  *

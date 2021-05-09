@@ -1,8 +1,105 @@
 #include "flash.hpp"
 
-#ifndef IOP_FLASH_DISABLED
+#ifdef IOP_DESKTOP
+#include <unistd.h>
+#include <fcntl.h>
+#include <iostream>
+
+int read_(int fd, void* buf, size_t size) {
+  return read(fd, buf, size);
+}
+int write_(int fd, const void* buf, size_t size) {
+  return write(fd, buf, size);
+}
+
+class Eeprom {
+  size_t size;
+  std::unique_ptr<uint8_t[]> storage;
+public:
+  Eeprom(): size(0), storage(nullptr) {}
+
+  void begin(size_t size) {
+    if (size == 0) return;
+    this->size = size;
+    this->storage = iop::try_make_unique<uint8_t[]>(size);
+    if (!this->storage) return;
+    memset(this->storage.get(), '\0', size);
+    
+    const auto fd = open("eeprom.dat", O_RDONLY);
+    if (fd == -1) return;
+    if (read_(fd, this->storage.get(), size) == -1) return;
+    close(fd);
+  }
+  uint8_t read(int const address) {
+    if (address < 0 || address >= this->size) return 0;
+    if (!this->storage) return 0;
+    return this->storage[address];
+  }
+  void write(int const address, uint8_t const val) {
+    if (address < 0 || address >= this->size) return;
+    if (!this->storage) return;
+    this->storage[address] = val;
+  }
+  bool commit() {
+    const auto fd = open("eeprom.dat", O_WRONLY | O_CREAT, 0777);
+    if (fd == -1) return false;
+    if (!this->storage) return false;
+    if (write_(fd, this->storage.get(), size) == -1) return false;
+    if (close(fd) == -1) return false;
+    return true;
+  }
+  bool end() {
+    const auto ret = this->commit();
+    this->storage.reset(nullptr);
+    return ret;
+  }
+
+  uint8_t * getDataPtr() {
+    return this->storage.get();
+  }
+  uint8_t const * getConstDataPtr() const {
+    return this->storage.get();
+  }
+
+  template<typename T> 
+  T &get(int const address, T &t) {
+    if (address < 0 || address + sizeof(T) > _size)
+      return t;
+
+    memcpy((uint8_t*) &t, _data + address, sizeof(T));
+    return t;
+  }
+
+  template<typename T> 
+  const T &put(int const address, const T &t) {
+    if (address < 0 || address + sizeof(T) > _size)
+      return t;
+    if (memcmp(_data + address, (const uint8_t*)&t, sizeof(T)) != 0) {
+      _dirty = true;
+      memcpy(_data + address, (const uint8_t*)&t, sizeof(T));
+    }
+
+    return t;
+  }
+
+  size_t length() {return _size;}
+
+  uint8_t& operator[](int const address) {return getDataPtr()[address];}
+  uint8_t const & operator[](int const address) const {return getConstDataPtr()[address];}
+
+protected:
+  uint32_t _sector;
+  uint8_t* _data = nullptr;
+  size_t _size = 0;
+  bool _dirty = false;
+};
+
+static Eeprom EEPROM;
+#else
 #include "EEPROM.h"
-#include "core/string/cow.hpp"
+#endif
+
+#ifndef IOP_FLASH_DISABLED
 
 constexpr const uint16_t EEPROM_SIZE = 512;
 
@@ -28,14 +125,14 @@ static_assert(authTokenIndex + authTokenSize < EEPROM_SIZE,
 
 auto Flash::setup() noexcept -> void { EEPROM.begin(EEPROM_SIZE); }
 
-static iop::Option<AuthToken> authToken;
+static std::optional<AuthToken> authToken;
 // Token cache
 
-auto Flash::readAuthToken() const noexcept -> const iop::Option<AuthToken> & {
+auto Flash::readAuthToken() const noexcept -> const std::optional<AuthToken> & {
   IOP_TRACE();
 
   // Checks if value is cached
-  if (authToken.isSome())
+  if (authToken.has_value())
     return authToken;
 
   // Check if magic byte is set in flash (as in, something is stored)
@@ -66,7 +163,7 @@ void Flash::removeAuthToken() const noexcept {
   IOP_TRACE();
 
   // Clears cache, if any
-  (void)authToken.take();
+  authToken.reset();
 
   // Checks if it's written to flash first, avoids wasting writes
   if (EEPROM.read(authTokenIndex) == usedAuthTokenEEPROMFlag) {
@@ -83,8 +180,8 @@ void Flash::writeAuthToken(const AuthToken &token) const noexcept {
 
   // Avoids re-writing the same data
   const auto &maybeCurrToken = this->readAuthToken();
-  if (maybeCurrToken.isSome()) {
-    const auto &currToken = UNWRAP_REF(maybeCurrToken);
+  if (maybeCurrToken.has_value()) {
+    const auto &currToken = maybeCurrToken.value();
 
     if (memcmp(token.constPtr(), currToken.constPtr(), AuthToken::size) == 0) {
       this->logger.debug(F("Auth token already stored in flash"));
@@ -103,14 +200,14 @@ void Flash::writeAuthToken(const AuthToken &token) const noexcept {
 }
 
 // Credentials cache
-static iop::Option<WifiCredentials> wifiCredentials;
+static std::optional<WifiCredentials> wifiCredentials;
 
 auto Flash::readWifiConfig() const noexcept
-    -> const iop::Option<WifiCredentials> & {
+    -> const std::optional<WifiCredentials> & {
   IOP_TRACE();
 
   // Check if value is in cache
-  if (wifiCredentials.isSome())
+  if (wifiCredentials.has_value())
     return wifiCredentials;
 
   // Check if magic byte is set in flash (as in, something is stored)
@@ -137,8 +234,7 @@ void Flash::removeWifiConfig() const noexcept {
   IOP_TRACE();
   this->logger.info(F("Deleting stored wifi config"));
 
-  // Clears cache, if any
-  (void)wifiCredentials.take();
+  wifiCredentials.reset();
 
   // Checks if it's written to flash first, avoids wasting writes
   if (EEPROM.read(wifiConfigIndex) == usedWifiConfigEEPROMFlag) {
@@ -153,8 +249,8 @@ void Flash::writeWifiConfig(const WifiCredentials &config) const noexcept {
 
   // Avoids re-writing same data
   const auto &maybeCurrConfig = this->readWifiConfig();
-  if (maybeCurrConfig.isSome()) {
-    const auto &currConfig = UNWRAP_REF(maybeCurrConfig);
+  if (maybeCurrConfig.has_value()) {
+    const auto &currConfig = maybeCurrConfig.value();
 
     if (memcmp(currConfig.ssid.constPtr(), config.ssid.constPtr(),
                NetworkName::size) == 0 &&
@@ -182,10 +278,11 @@ void Flash::writeWifiConfig(const WifiCredentials &config) const noexcept {
 
 #ifdef IOP_FLASH_DISABLED
 void Flash::setup() noexcept { IOP_TRACE(); }
-auto Flash::readAuthToken() const noexcept -> iop::Option<AuthToken> {
+auto Flash::readAuthToken() const noexcept -> const std::optional<AuthToken> & {
   (void)*this;
   IOP_TRACE();
-  return AuthToken::empty();
+  const static auto token = iop::some(AuthToken::empty());
+  return token;
 }
 void Flash::removeAuthToken() const noexcept {
   (void)*this;
@@ -200,10 +297,12 @@ void Flash::removeWifiConfig() const noexcept {
   (void)*this;
   IOP_TRACE();
 }
-auto Flash::readWifiConfig() const noexcept -> iop::Option<WifiCredentials> {
+
+auto Flash::readWifiConfig() const noexcept -> const std::optional<WifiCredentials> & {
   (void)*this;
   IOP_TRACE();
-  return WifiCredentials(NetworkName::empty(), NetworkPassword::empty());
+  const static auto creds = iop::some(WifiCredentials(NetworkName::empty(), NetworkPassword::empty()));
+  return creds;
 }
 void Flash::writeWifiConfig(const WifiCredentials &config) const noexcept {
   (void)*this;

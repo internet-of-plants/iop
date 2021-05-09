@@ -13,8 +13,6 @@ from shutil import which
 # Based on https://github.com/arduino/esp8266/blob/master/libraries/ESP8266WiFi/examples/BearSSL_CertStore/certs-from-mozilla.py
 # Adapted to be able to bake the certificates into the source code
 
-# TODO: make a 'generated' namespace wrapping data
-
 try:
     from urllib.request import urlopen
 except Exception:

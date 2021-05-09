@@ -1,3 +1,4 @@
+#ifndef IOP_DESKTOP
 /*!
  *  @file DHT.cpp
  *
@@ -386,3 +387,4 @@ uint32_t DHT::expectPulse(bool level) {
 
   return count;
 }
+#endif

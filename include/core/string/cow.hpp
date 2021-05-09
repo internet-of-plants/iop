@@ -15,14 +15,15 @@ class CowString {
   // We use `iop::Result` although the semantics isn't right, to avoid
   // reimplementing sum-types here. And we don't need the complexity of
   // std::variant like types.
-  iop::Result<StringView, String> storage;
+  iop::Result<StringView, std::string> storage;
 
 public:
-  explicit CowString(String str) noexcept : storage(std::move(str)) {}
+  explicit CowString(std::string str) noexcept : storage(std::move(str)) {}
   explicit CowString(StringView str) noexcept : storage(std::move(str)) {}
 
   auto borrow() const noexcept -> StringView;
   auto get() const noexcept -> const char * { return this->borrow().get(); }
+  auto toMut() noexcept -> std::string &;
 
   ~CowString() noexcept = default;
   CowString(CowString const &other) noexcept;

@@ -1,6 +1,10 @@
 #include "utils.hpp"
 #include "models.hpp"
 
+#ifdef IOP_DESKTOP
+#define IRAM_ATTR
+#endif
+
 static volatile InterruptEvent interruptEvents[interruptVariants] = {
     InterruptEvent::NONE};
 

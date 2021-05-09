@@ -1,7 +1,6 @@
 #ifndef IOP_CORE_PANIC_HPP
 #define IOP_CORE_PANIC_HPP
 
-#include "core/string/view.hpp"
 #include "core/tracer.hpp"
 #include <functional>
 

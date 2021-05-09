@@ -1,11 +1,23 @@
 #ifndef IOP_SERVER_HPP
 #define IOP_SERVER_HPP
 
-#include <DNSServer.h>
-#include <ESP8266WebServer.h>
+#ifdef IOP_DESKTOP
+typedef enum {
+    STATION_IDLE = 0,
+    STATION_CONNECTING,
+    STATION_WRONG_PASSWORD,
+    STATION_NO_AP_FOUND,
+    STATION_CONNECT_FAIL,
+    STATION_GOT_IP
+} station_status_t;
+#else
+#include <user_interface.h>
+#endif
 
-#include "api.hpp"
-#include "core/memory.hpp"
+#include "core/utils.hpp"
+#include "models.hpp"
+
+#include <optional>
 
 class Api;
 
@@ -40,7 +52,7 @@ private:
       -> void;
   /// Uses IoP credentials to generate an authentication token for the device
   auto authenticate(iop::StringView username, iop::StringView password,
-                    const Api &api) const noexcept -> iop::Option<AuthToken>;
+                    const Api &api) const noexcept -> std::optional<AuthToken>;
 
 public:
   explicit CredentialsServer(const iop::LogLevel &logLevel) noexcept
@@ -49,12 +61,12 @@ public:
   }
 
   void setup() const noexcept;
-  auto serve(const iop::Option<WifiCredentials> &storedWifi,
-             const Api &api) noexcept -> iop::Option<AuthToken>;
+  auto serve(const std::optional<WifiCredentials> &storedWifi,
+             const Api &api) noexcept -> std::optional<AuthToken>;
   void close() noexcept;
 
   auto statusToString(station_status_t status) const noexcept
-      -> iop::Option<iop::StaticString>;
+      -> std::optional<iop::StaticString>;
 
   ~CredentialsServer() noexcept { IOP_TRACE(); }
   CredentialsServer(CredentialsServer const &other) = default;

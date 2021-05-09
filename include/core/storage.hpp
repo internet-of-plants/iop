@@ -44,18 +44,18 @@ private:
     if (!Log::isTracing())
       return;
     Log::print(F("Storage<"), LogLevel::TRACE, LogType::START);
-    Log::print(String(SIZE).c_str(), LogLevel::TRACE, LogType::CONTINUITY);
+    Log::print(std::to_string(SIZE).c_str(), LogLevel::TRACE, LogType::CONTINUITY);
     Log::print(F(">["), LogLevel::TRACE, LogType::CONTINUITY);
-    Log::print(String(this->val.use_count()).c_str(), LogLevel::TRACE,
+    Log::print(std::to_string(this->val.use_count()).c_str(), LogLevel::TRACE,
                LogType::CONTINUITY);
     Log::print(F("]("), LogLevel::TRACE, LogType::CONTINUITY);
     for (const uint8_t byte : *this->val) {
       const auto ch = static_cast<char>(byte);
       if (StringView::isPrintable(ch)) {
-        Log::print(String(ch).c_str(), LogLevel::TRACE, LogType::CONTINUITY);
+        Log::print(std::to_string(ch).c_str(), LogLevel::TRACE, LogType::CONTINUITY);
       } else {
         Log::print(F("<\\"), LogLevel::TRACE, LogType::CONTINUITY);
-        Log::print(String(byte).c_str(), LogLevel::TRACE, LogType::CONTINUITY);
+        Log::print(std::to_string(byte).c_str(), LogLevel::TRACE, LogType::CONTINUITY);
         Log::print(F(">"), LogLevel::TRACE, LogType::CONTINUITY);
       }
     }

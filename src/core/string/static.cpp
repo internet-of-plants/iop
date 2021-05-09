@@ -41,7 +41,9 @@ auto StaticString::contains(StringView needle) const noexcept -> bool {
     Log::print(F("\")"));
   }
   */
-  return strstr(String(this->get()).c_str(), std::move(needle).get()) !=
+  std::string msg(this->length(), '\0');
+  memmove_P(&msg.front(), this->asCharPtr(), this->length());
+  return strstr(msg.c_str(), std::move(needle).get()) !=
          nullptr;
 }
 auto StaticString::contains(StaticString needle) const noexcept -> bool {
@@ -61,6 +63,14 @@ auto StaticString::length() const noexcept -> size_t {
   IOP_TRACE();
   return strlen_P(this->asCharPtr());
 }
+
+auto StaticString::toStdString() const noexcept -> std::string {
+  const auto len = this->length();
+  std::string msg(len, '\0');
+  memmove_P(&msg.front(), this->asCharPtr(), len);
+  return msg;
+}
+
 auto StaticString::isEmpty() const noexcept -> bool {
   IOP_TRACE();
   return this->length() == 0;

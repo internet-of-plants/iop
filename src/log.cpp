@@ -1,8 +1,13 @@
 #include "core/log.hpp"
 #include "core/static_runner.hpp"
-
 #include "utils.hpp" // Imports IOP_SERIAL if available
+
+#ifdef IOP_DESKTOP
+#undef IOP_SERIAL
+#endif
+
 #ifdef IOP_SERIAL
+#include "Arduino.h"
 
 static void staticPrinter(const __FlashStringHelper *str,
                           iop::LogType kind) noexcept;
@@ -77,7 +82,11 @@ void reportLog() noexcept {
 
 static void staticPrinter(const __FlashStringHelper *str,
                           const iop::LogType kind) noexcept {
+#ifdef IOP_DESKTOP
+  std::cout << reinterpret_cast<const char*>(str) << std::endl;
+#else
   Serial.print(str);
+#endif
 #ifdef IOP_NETWORK_LOGGING
   if (logNetwork) {
     currentLog += str;
@@ -90,7 +99,12 @@ static void staticPrinter(const __FlashStringHelper *str,
 #endif
 }
 static void viewPrinter(const char *str, const iop::LogType kind) noexcept {
+#ifdef IOP_DESKTOP
+  std::cout << str << std::endl;
+#else
   Serial.print(str);
+#endif
+
 #ifdef IOP_NETWORK_LOGGING
   if (logNetwork) {
     currentLog += str;
@@ -108,7 +122,9 @@ static void setuper(iop::LogLevel level) noexcept {
 }
 #else
 static void setuper(iop::LogLevel level) noexcept {
+  #ifndef IOP_DESKTOP
   Serial.end();
+  #endif
   (void)level;
 }
 static void flusher() noexcept {}

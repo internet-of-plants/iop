@@ -68,6 +68,19 @@
         "xmemory": "cpp",
         "xstddef": "cpp",
         "xtr1common": "cpp",
-        "queue": "cpp"
+        "queue": "cpp",
+        "bit": "cpp",
+        "set": "cpp",
+        "ranges": "cpp",
+        "chrono": "cpp",
+        "condition_variable": "cpp",
+        "csignal": "cpp",
+        "ratio": "cpp",
+        "iomanip": "cpp",
+        "mutex": "cpp",
+        "shared_mutex": "cpp",
+        "stop_token": "cpp",
+        "thread": "cpp",
+        "unordered_set": "cpp"
     }
 }

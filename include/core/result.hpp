@@ -1,7 +1,10 @@
 #ifndef IOP_CORE_RESULT_HPP
 #define IOP_CORE_RESULT_HPP
 
-#include "core/option.hpp"
+#include "core/panic.hpp"
+
+#include <optional>
+#include <functional>
 
 #define RESULT_MAP_OK(res, type, func)                                         \
   res.mapOk<type>(func, F(#res), IOP_CODE_POINT())
@@ -168,10 +171,10 @@ public:
     return value;
   }
   auto ok(const StaticString varName, const CodePoint point) noexcept
-      -> Option<T> {
+      -> ::std::optional<T> {
     IOP_TRACE();
     if (this->isErr(varName, point))
-      return Option<T>();
+      return ::std::optional<T>();
 
     const auto val = std::move(this->success);
     this->reset();
@@ -179,12 +182,12 @@ public:
   }
 
   auto err(const StaticString varName, const CodePoint point) noexcept
-      -> Option<T> {
+      -> ::std::optional<E> {
     IOP_TRACE();
     if (this->isOk(varName, point))
-      return Option<T>();
+      return ::std::optional<E>();
 
-    T value = std::move(this->error);
+    const auto value = std::move(this->error);
     this->reset();
     return value;
   }
@@ -224,6 +227,19 @@ public:
     this->reset();
     return val;
   }
+
+protected:
+  void emptyResult(const StaticString varName, const CodePoint point) const noexcept __attribute__((noreturn)) {
+    StaticString base(F("Empty Result: "));
+    std::string msg(base.length() + varName.length(), '\0');
+    char *start = &msg.front();
+    memmove_P(start, base.asCharPtr(), base.length());
+    start += base.length();
+    memmove_P(start, varName.asCharPtr(), varName.length());
+    iop::panicHandler(msg, point);
+  }
+
+public:
   auto isOk(const StaticString varName, const CodePoint point) const noexcept
       -> bool {
     IOP_TRACE();
@@ -234,7 +250,7 @@ public:
       return false;
     case ResultKind::EMPTY:
     default:
-      iop::panicHandler(String(F("Empty Result: ")) + varName.get(), point);
+      this->emptyResult(varName, point);
     }
   }
   auto isErr(const StaticString varName, const CodePoint point) const noexcept
@@ -247,7 +263,7 @@ public:
       return true;
     case ResultKind::EMPTY:
     default:
-      iop::panicHandler(String(F("Empty Result: ")) + varName.get(), point);
+      this->emptyResult(varName, point);
     }
   }
 };

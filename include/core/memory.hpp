@@ -9,7 +9,7 @@ namespace iop {
 template <typename T, typename = std::enable_if_t<std::is_array<T>::value>>
 auto try_make_unique(size_t size) noexcept -> std::unique_ptr<T> {
   IOP_TRACE();
-  return std::unique_ptr<T>(new typename std::remove_extent<T>::type[size]());
+  return std::unique_ptr<T>(new (std::nothrow) typename std::remove_extent<T>::type[size]());
 }
 
 template <typename T, typename = std::enable_if_t<!std::is_array<T>::value>,

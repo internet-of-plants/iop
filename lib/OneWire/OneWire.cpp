@@ -1,3 +1,4 @@
+#ifndef IOP_DESKTOP
 /*
 Copyright (c) 2007, Jim Studt  (original old version - many contributors since)
 
@@ -577,4 +578,5 @@ uint16_t OneWire::crc16(const uint8_t* input, uint16_t len, uint16_t crc)
 }
 #endif
 
+#endif
 #endif

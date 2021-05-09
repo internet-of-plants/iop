@@ -1,18 +1,35 @@
 #include "core/network.hpp"
 #include "core/utils.hpp"
 
+#ifdef IOP_ONLINE
+
+#ifdef IOP_DESKTOP
+#include "driver/client.hpp"
+
+class Esp {
+public:
+  uint16_t getFreeHeap() { return 1000; }
+  uint16_t getFreeContStack() { return 1000; }
+  uint16_t getMaxFreeBlockSize() { return 1000; }
+  uint16_t getHeapFragmentation() { return 0; }
+  uint16_t getFreeSketchSpace() { return 1000; }
+  std::string getSketchMD5() { return "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"; }
+};
+static Esp ESP;
+#else
 #include "ESP8266WiFi.h"
+#endif
 
 const static iop::UpgradeHook defaultHook(iop::UpgradeHook::defaultHook);
 
 static iop::UpgradeHook hook(defaultHook);
-static iop::Option<iop::CertStore> maybeCertStore;
+static std::optional<iop::CertStore> maybeCertStore;
 
 namespace iop {
 void UpgradeHook::defaultHook() noexcept { IOP_TRACE(); }
 
 void Network::setCertStore(iop::CertStore store) noexcept {
-  maybeCertStore.emplace(std::move(store));
+  maybeCertStore = std::make_optional(std::move(store));
 }
 void Network::setUpgradeHook(UpgradeHook scheduler) noexcept {
   hook = std::move(scheduler);
@@ -23,22 +40,35 @@ auto Network::takeUpgradeHook() noexcept -> UpgradeHook {
   return old;
 }
 
-#ifdef IOP_ONLINE
+#ifdef IOP_DESKTOP
+static WiFiClient client;
+#ifdef IOP_SSL
+#error "SSL not supported for desktop right now"
+#endif
+#else
+
 #ifdef IOP_SSL
 static BearSSL::WiFiClientSecure client;
 #else
 static WiFiClient client;
 #endif
+#endif
 static HTTPClient http;
 
 auto Network::isConnected() noexcept -> bool {
   IOP_TRACE();
+  #ifdef IOP_DESKTOP
+  return true;
+  #else
   return WiFi.status() == WL_CONNECTED;
+  #endif
 }
 
 void Network::disconnect() noexcept {
   IOP_TRACE();
+  #ifndef IOP_DESKTOP
   WiFi.disconnect();
+  #endif
 }
 
 static bool initialized = false;
@@ -50,7 +80,7 @@ auto Network::setup() const noexcept -> void {
 
   if (!this->uri().contains(F(":"))) {
     PROGMEM_STRING(error, "Host must contain protocol (http:// or https://): ");
-    iop_panic(String(error.get()) + F(" ") + this->uri().get());
+    iop_panic(StaticString(error.get()).toStdString() + " " + this->uri().toStdString());
   }
 
   http.setReuse(false);
@@ -61,18 +91,20 @@ auto Network::setup() const noexcept -> void {
   client.setNoDelay(false);
   client.setSync(true);
 
+  #ifndef IOP_DESKTOP
   WiFi.persistent(true);
   WiFi.setAutoReconnect(true);
   WiFi.setAutoConnect(true);
   WiFi.mode(WIFI_STA);
   delay(1);
   WiFi.reconnect();
+  #endif
 }
 
 static auto methodToString(const HttpMethod &method) noexcept
-    -> Option<StaticString> {
+    -> std::optional<StaticString> {
   IOP_TRACE();
-  Option<StaticString> ret;
+  std::optional<StaticString> ret;
   switch (method) {
   case HttpMethod::GET:
     ret.emplace(F("GET"));
@@ -107,8 +139,8 @@ auto Network::wifiClient() noexcept -> WiFiClient & { return client; }
 // Returns Response if it can understand what the server sent, int is the raw
 // response given by ESP8266HTTPClient
 auto Network::httpRequest(const HttpMethod method_,
-                          const Option<StringView> &token, StringView path,
-                          const Option<StringView> &data) const noexcept
+                          const std::optional<StringView> &token, StringView path,
+                          const std::optional<StringView> &data) const noexcept
     -> Result<Response, int> {
   IOP_TRACE();
   Network::setup();
@@ -116,28 +148,32 @@ auto Network::httpRequest(const HttpMethod method_,
   if (!Network::isConnected())
     return Response(NetworkStatus::CONNECTION_ISSUES);
 
+  #ifdef IOP_DESKTOP
+  const auto uri = this->uri().toStdString() + path.get();
+  #else
   const auto uri = String(this->uri().get()) + path.get();
-  const auto method = UNWRAP(methodToString(method_));
+  #endif
+  const auto method = methodToString(method_).value();
 
-  StringView data_(emptyString);
-  if (data.isSome())
-    data_ = UNWRAP_REF(data);
+  StringView data_ = emptyStringView;
+  if (data.has_value())
+    data_ = data.value();
 
   this->logger.info(F("["), method, F("] "), std::move(path),
-                    data.isSome() ? F(" has payload") : F(" no payload"));
+                    data.has_value() ? F(" has payload") : F(" no payload"));
 
   // TODO: this may log sensitive information, network logging is currently
   // capped at info because of that, right
-  if (data.isSome())
-    this->logger.debug(UNWRAP_REF(data));
+  if (data.has_value())
+    this->logger.debug(data.value());
 
-  if (token.isSome()) {
-    const auto tok = UNWRAP_REF(token);
+  if (token.has_value()) {
+    const auto tok = token.value();
     this->logger.debug(F("Token: "), tok);
     http.setAuthorization(tok.get());
   } else {
     // We have to clear the authorization, it persists between requests
-    http.setAuthorization(emptyString.c_str());
+    http.setAuthorization(emptyStringView.get());
   }
 
   // We can afford bigger timeouts since we shouldn't make frequent requests
@@ -145,7 +181,7 @@ auto Network::httpRequest(const HttpMethod method_,
   http.setTimeout(oneMinuteMs);
 
   // Currently only JSON is supported
-  if (data.isSome())
+  if (data.has_value())
     http.addHeader(F("Content-Type"), F("application/json"));
 
   // Authentication headers, identifies device and detects updates, perf
@@ -153,13 +189,13 @@ auto Network::httpRequest(const HttpMethod method_,
   http.addHeader(F("MAC_ADDRESS"), macAddress().asString().get());
   http.addHeader(F("VERSION"), hashSketch().asString().get());
 
-  http.addHeader(F("FREE_STACK"), String(ESP.getFreeContStack()));
-  http.addHeader(F("FREE_HEAP"), String(ESP.getFreeHeap()));
-  http.addHeader(F("HEAP_FRAGMENTATION"), String(ESP.getHeapFragmentation()));
-  http.addHeader(F("BIGGEST_FREE_BLOCK"), String(ESP.getMaxFreeBlockSize()));
+  http.addHeader(F("FREE_STACK"), std::to_string(ESP.getFreeContStack()).c_str());
+  http.addHeader(F("FREE_HEAP"), std::to_string(ESP.getFreeHeap()).c_str());
+  http.addHeader(F("HEAP_FRAGMENTATION"), std::to_string(ESP.getHeapFragmentation()).c_str());
+  http.addHeader(F("BIGGEST_FREE_BLOCK"), std::to_string(ESP.getMaxFreeBlockSize()).c_str());
 
   if (!http.begin(Network::wifiClient(), uri)) {
-    this->logger.warn(F("Failed to begin http connection to "), uri);
+    this->logger.warn(F("Failed to begin http connection to "), UnsafeRawString(uri.c_str()));
     return Response(NetworkStatus::CONNECTION_ISSUES);
   }
   this->logger.trace(F("Began HTTP connection"));
@@ -168,13 +204,13 @@ auto Network::httpRequest(const HttpMethod method_,
 
   this->logger.trace(F("Making HTTP request"));
   const auto code =
-      http.sendRequest(String(method.get()).c_str(), data__, data_.length());
+      http.sendRequest(method.toStdString().c_str(), data__, data_.length());
   this->logger.trace(F("Made HTTP request"));
 
   // Handle system upgrade request
   const auto upgrade = http.header(PSTR("LATEST_VERSION"));
   if (upgrade.length() > 0 &&
-      upgrade.equals(hashSketch().asString().get()) != 0) {
+      strcmp(upgrade.c_str(), hashSketch().asString().get()) != 0) {
     this->logger.info(F("Scheduled upgrade"));
     hook.schedule();
   }
@@ -195,23 +231,27 @@ auto Network::httpRequest(const HttpMethod method_,
 
   // We have to simplify the errors reported by this API (but they are logged)
   const auto maybeApiStatus = this->apiStatus(rawStatus);
-  if (maybeApiStatus.isSome()) {
+  if (maybeApiStatus.has_value()) {
     // The payload is always downloaded, since we check for its size and the
     // origin is trusted. If it's there it's supposed to be there.
     auto payload = http.getString();
     http.end();
-    this->logger.debug(F("Payload: "), payload);
-    return Response(UNWRAP_REF(maybeApiStatus), std::move(payload));
+    this->logger.debug(F("Payload: "), UnsafeRawString(payload.c_str()));
+    // TODO: every response occupies 2x the size because we convert String -> std::string
+    return Response(maybeApiStatus.value(), std::string(payload.c_str()));
   }
   http.end();
   return code;
 }
 #else
+namespace iop {
 void Network::setup() const noexcept {
   (void)*this;
   IOP_TRACE();
+  #ifndef IOP_DESKTOP
   WiFi.mode(WIFI_OFF);
   delay(1);
+  #endif
 }
 void Network::disconnect() noexcept { IOP_TRACE(); }
 auto Network::isConnected() noexcept -> bool {
@@ -219,8 +259,8 @@ auto Network::isConnected() noexcept -> bool {
   return true;
 }
 auto Network::httpRequest(const HttpMethod method,
-                          const Option<StringView> &token, StringView path,
-                          const Option<StringView> &data) const noexcept
+                          const std::optional<StringView> &token, StringView path,
+                          const std::optional<StringView> &data) const noexcept
     -> Result<Response, int> {
   (void)*this;
   (void)token;
@@ -235,34 +275,34 @@ auto Network::httpRequest(const HttpMethod method,
 auto Network::httpPut(StringView token, StaticString path,
                       StringView data) const noexcept -> Result<Response, int> {
   IOP_TRACE();
-  return this->httpRequest(HttpMethod::PUT, some(std::move(token)),
-                           String(std::move(path).get()),
-                           some(std::move(data)));
+  return this->httpRequest(HttpMethod::PUT, std::make_optional(std::move(token)),
+                           std::move(path).toStdString(),
+                           std::make_optional(std::move(data)));
 }
 
 auto Network::httpPost(StringView token, const StaticString path,
                        StringView data) const noexcept
     -> Result<Response, int> {
   IOP_TRACE();
-  return this->httpRequest(HttpMethod::POST, some(std::move(token)),
-                           String(std::move(path).get()),
-                           some(std::move(data)));
+  return this->httpRequest(HttpMethod::POST, std::make_optional(std::move(token)),
+                           std::move(path).toStdString(),
+                           std::make_optional(std::move(data)));
 }
 
 auto Network::httpPost(StringView token, StringView path,
                        StringView data) const noexcept
     -> Result<Response, int> {
   IOP_TRACE();
-  return this->httpRequest(HttpMethod::POST, some(std::move(token)),
-                           std::move(path), some(std::move(data)));
+  return this->httpRequest(HttpMethod::POST, std::make_optional(std::move(token)),
+                           std::move(path), std::make_optional(std::move(data)));
 }
 
 auto Network::httpPost(StaticString path, StringView data) const noexcept
     -> Result<Response, int> {
   IOP_TRACE();
-  return this->httpRequest(HttpMethod::POST, Option<StringView>(),
-                           String(std::move(path).get()),
-                           some(std::move(data)));
+  return this->httpRequest(HttpMethod::POST, std::optional<StringView>(),
+                           std::move(path).toStdString(),
+                           std::make_optional(std::move(data)));
 }
 
 auto Network::rawStatusToString(const RawStatus &status) noexcept
@@ -351,8 +391,8 @@ auto Network::apiStatusToString(const NetworkStatus &status) noexcept
 }
 
 auto Network::apiStatus(const RawStatus &raw) const noexcept
-    -> Option<NetworkStatus> {
-  Option<NetworkStatus> ret;
+    -> std::optional<NetworkStatus> {
+  std::optional<NetworkStatus> ret;
   IOP_TRACE();
   switch (raw) {
   case RawStatus::CONNECTION_FAILED:
@@ -396,15 +436,15 @@ auto Network::apiStatus(const RawStatus &raw) const noexcept
 }
 
 Response::Response(const NetworkStatus &status) noexcept
-    : status(status), payload(Option<String>()) {
+    : status(status), payload(std::optional<std::string>()) {
   IOP_TRACE();
 }
-Response::Response(const NetworkStatus &status, String payload) noexcept
+Response::Response(const NetworkStatus &status, std::string payload) noexcept
     : status(status), payload(std::move(payload)) {
   IOP_TRACE();
 }
 Response::Response(Response &&resp) noexcept
-    : status(resp.status), payload(Option<String>()) {
+    : status(resp.status), payload(std::optional<std::string>()) {
   IOP_TRACE();
   this->payload = std::move(resp.payload);
 }

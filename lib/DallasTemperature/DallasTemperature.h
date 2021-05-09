@@ -1,3 +1,7 @@
+#ifdef IOP_DESKTOP
+#define DallasTemperature_h
+#endif
+
 #ifndef DallasTemperature_h
 #define DallasTemperature_h
 

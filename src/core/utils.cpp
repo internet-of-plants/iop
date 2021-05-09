@@ -1,13 +1,33 @@
 #include "core/utils.hpp"
+#include <optional>
+
+#ifdef IOP_DESKTOP
+class Esp {
+public:
+  uint16_t getFreeHeap() { return 1000; }
+  uint16_t getFreeContStack() { return 1000; }
+  uint16_t getMaxFreeBlockSize() { return 1000; }
+  uint16_t getHeapFragmentation() { return 0; }
+  uint16_t getFreeSketchSpace() { return 1000; }
+  std::string getSketchMD5() { return "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"; }
+};
+static Esp ESP;
+#define STATION_IF 0
+static void wifi_get_macaddr(uint8_t station, uint8_t *buff) {
+  (void) station;
+  memcpy(buff, "AA:AA:AA:AA:AA:AA", 18);
+}
+#define sprintf_P sprintf
+#else
 #include "Esp.cpp"
-#include "core/string/cow.hpp"
+#endif
 
 namespace iop {
 auto macAddress() noexcept -> const MacAddress & {
   IOP_TRACE();
-  static iop::Option<MacAddress> mac;
-  if (mac.isSome())
-    return UNWRAP_REF(mac);
+  static std::optional<MacAddress> mac;
+  if (mac.has_value())
+    return mac.value();
 
   constexpr const uint8_t macSize = 6;
 
@@ -22,43 +42,43 @@ auto macAddress() noexcept -> const MacAddress & {
             buff[2], buff[3], buff[4], buff[5]); // NOLINT *-magic-numbers
 
   mac.emplace(std::move(mac_));
-  return UNWRAP_REF(mac);
+  return mac.value();
 }
 
 auto hashSketch() noexcept -> const MD5Hash & {
   IOP_TRACE();
-  static iop::Option<MD5Hash> hash;
-  if (hash.isSome())
-    return UNWRAP_REF(hash);
+  static std::optional<MD5Hash> hash;
+  if (hash.has_value())
+    return hash.value();
 
   // We could reimplement the internal function to avoid using String, but the
   // type safety and static cache are enough to avoid this complexity
-  const auto hashed = ESP.getSketchMD5();
+  const std::string hashed(ESP.getSketchMD5().c_str());
   auto res = MD5Hash::fromString(iop::UnsafeRawString(hashed.c_str()));
   if (IS_ERR(res)) {
     const auto &ref = UNWRAP_ERR_REF(res);
     PROGMEM_STRING(sizeErr, "MD5 hex is too big, this is critical: ");
     PROGMEM_STRING(printErr, "Unprintable char in MD5 hex, this is critical: ");
-    const String size(MD5Hash::size);
+    const auto size = std::to_string(MD5Hash::size);
 
     const auto printable = iop::StringView(hashed).scapeNonPrintable();
     switch (ref) {
     case iop::ParseError::TOO_BIG:
-      iop_panic(String(sizeErr.get()) + hashed + F(", expected size: ") + size);
+      iop_panic(sizeErr.toStdString() + hashed + StaticString(F(", expected size: ")).toStdString() + size);
     case iop::ParseError::NON_PRINTABLE:
-      iop_panic(String(printErr.get()) + printable.borrow().get());
+      iop_panic(printErr.toStdString() + printable.borrow().get());
     }
-    iop_panic(String(F("Unexpected ParseError: ")) + static_cast<uint8_t>(ref));
+    iop_panic(StaticString(F("Unexpected ParseError: ")).toStdString() + std::to_string(static_cast<uint8_t>(ref)));
   }
   hash.emplace(UNWRAP_OK(res));
-  return UNWRAP_REF(hash);
+  return hash.value();
 }
 void logMemory(const iop::Log &logger) noexcept {
   IOP_TRACE();
-  logger.info(F("Free Heap: "), String(ESP.getFreeHeap()), F(", Free Stack: "),
-              String(ESP.getFreeContStack()), F(", Free Stack Space: "),
-              String(ESP.getFreeSketchSpace()), F(", Heap Fragmentation: "),
-              String(ESP.getHeapFragmentation()), F(", Biggest Heap Block: "),
-              String(ESP.getMaxFreeBlockSize()));
+  logger.info(F("Free Heap: "), std::to_string(ESP.getFreeHeap()), F(", Free Stack: "),
+              std::to_string(ESP.getFreeContStack()), F(", Free Stack Space: "),
+              std::to_string(ESP.getFreeSketchSpace()), F(", Heap Fragmentation: "),
+              std::to_string(ESP.getHeapFragmentation()), F(", Biggest Heap Block: "),
+              std::to_string(ESP.getMaxFreeBlockSize()));
 }
 } // namespace iop

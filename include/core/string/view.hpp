@@ -32,11 +32,13 @@ private:
 public:
   ~StringView() noexcept = default;
   // NOLINTNEXTLINE hicpp-explicit-conversions
-  StringView(const UnsafeRawString &str) noexcept;
+  StringView(const UnsafeRawString &str) noexcept : str(str.get()) {}
   // NOLINTNEXTLINE hicpp-explicit-conversions
-  StringView(const std::string &str) noexcept;
+  StringView(const std::string &str) noexcept : str(str.c_str()) {}
+  #ifndef IOP_DESKTOP
   // NOLINTNEXTLINE hicpp-explicit-conversions
-  StringView(const String &str) noexcept;
+  StringView(const String &other) noexcept : str(other.c_str()) {}
+  #endif
   // NOLINTNEXTLINE hicpp-explicit-conversions
   StringView(const CowString &str) noexcept;
   template <uint16_t SIZE>
@@ -53,13 +55,15 @@ public:
   auto isEmpty() const noexcept -> bool;
   auto contains(StringView needle) const noexcept -> bool;
   auto contains(StaticString needle) const noexcept -> bool;
+  auto indexOf(StringView needle) const noexcept -> ssize_t;
+  auto indexOf(StaticString needle) const noexcept -> ssize_t;
   auto hash() const noexcept -> uint64_t; // FNV hash
   auto isAllPrintable() const noexcept -> bool;
   auto scapeNonPrintable() const noexcept -> CowString;
   static auto isPrintable(char ch) noexcept -> bool;
 };
 
-static const StringView emptyStringView = String();
+static const StringView emptyStringView = std::string();
 } // namespace iop
 
 #endif

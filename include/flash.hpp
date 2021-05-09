@@ -3,8 +3,13 @@
 
 #include "core/log.hpp"
 #include "models.hpp"
+#include <optional>
 
+#ifdef IOP_DESKTOP
+class WifiCredentials;
+#else
 #include "ESP8266WiFi.h"
+#endif
 
 /// Wraps flash memory to provide a safe and ergonomic API
 class Flash {
@@ -17,11 +22,11 @@ public:
   }
   static auto setup() noexcept -> void;
 
-  auto readAuthToken() const noexcept -> const iop::Option<AuthToken> &;
+  auto readAuthToken() const noexcept -> const std::optional<AuthToken> &;
   void removeAuthToken() const noexcept;
   void writeAuthToken(const AuthToken &token) const noexcept;
 
-  auto readWifiConfig() const noexcept -> const iop::Option<WifiCredentials> &;
+  auto readWifiConfig() const noexcept -> const std::optional<WifiCredentials> &;
   void removeWifiConfig() const noexcept;
   void writeWifiConfig(const WifiCredentials &config) const noexcept;
 
@@ -39,10 +44,14 @@ public:
 // If we aren't online we will endup writing/removing dummy values, so let's not
 // waste writes
 #ifndef IOP_ONLINE
+#ifndef IOP_DESKTOP
 #define IOP_FLASH_DISABLED
 #endif
+#endif
 #ifndef IOP_MONITOR
+#ifndef IOP_DESKTOP
 #define IOP_FLASH_DISABLED
+#endif
 #endif
 
 #endif

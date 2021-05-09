@@ -1,7 +1,6 @@
 #ifndef IOP_UTILS_HPP
 #define IOP_UTILS_HPP
 
-#include "Arduino.h"
 #include "core/tracer.hpp"
 #include "core/utils.hpp"
 

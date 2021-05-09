@@ -1,7 +1,12 @@
 #include "core/log.hpp"
 #include "core/utils.hpp"
 
+#ifdef IOP_DESKTOP
+#define IRAM_ATTR
+#include <iostream>
+#else
 #include "Arduino.h"
+#endif
 
 static bool initialized = false;
 
@@ -59,7 +64,7 @@ void Log::printLogType(const LogType &logType,
   case LogType::START:
   case LogType::STARTEND:
     Log::print(F("["), level, LogType::START);
-    Log::print(this->levelToString().get(), level, LogType::CONTINUITY);
+    Log::print(this->levelToString(level).get(), level, LogType::CONTINUITY);
     Log::print(F("] "), level, LogType::CONTINUITY);
     Log::print(this->target_.get(), level, LogType::CONTINUITY);
     Log::print(F(": "), level, LogType::CONTINUITY);
@@ -92,8 +97,8 @@ void Log::log(const LogLevel &level, const StringView &msg,
   Log::flush();
 }
 
-auto Log::levelToString() const noexcept -> StaticString {
-  switch (this->level()) {
+auto Log::levelToString(const LogLevel level) const noexcept -> StaticString {
+  switch (level) {
   case LogLevel::TRACE:
     return F("TRACE");
   case LogLevel::DEBUG:
@@ -115,14 +120,22 @@ auto Log::levelToString() const noexcept -> StaticString {
 void IRAM_ATTR LogHook::defaultStaticPrinter(
     const __FlashStringHelper *str, const iop::LogType type) noexcept {
 #ifdef IOP_SERIAL
+#ifdef IOP_DESKTOP
+  std::cout << reinterpret_cast<const char*>(str);
+#else
   Serial.print(str);
+#endif
 #endif
   (void)type;
 }
 void IRAM_ATTR
 LogHook::defaultViewPrinter(const char *str, const iop::LogType type) noexcept {
 #ifdef IOP_SERIAL
+#ifdef IOP_DESKTOP
+  std::cout << str;
+#else
   Serial.print(str);
+#endif
 #endif
   (void)type;
 }
@@ -131,10 +144,12 @@ LogHook::defaultSetuper(const iop::LogLevel level) noexcept {
   static bool debugging = false;
   if (initialized) {
 #ifdef IOP_SERIAL
+#ifndef IOP_DESKTOP
     if (!debugging && level <= iop::LogLevel::DEBUG) {
       debugging = true;
       Serial.setDebugOutput(true);
     }
+#endif
 #endif
     isTracing_ |= level == iop::LogLevel::TRACE;
 
@@ -144,6 +159,7 @@ LogHook::defaultSetuper(const iop::LogLevel level) noexcept {
   initialized = true;
 
 #ifdef IOP_SERIAL
+#ifndef IOP_DESKTOP
   constexpr const uint32_t BAUD_RATE = 115200;
   Serial.begin(BAUD_RATE);
   if (level <= iop::LogLevel::DEBUG)
@@ -154,10 +170,15 @@ LogHook::defaultSetuper(const iop::LogLevel level) noexcept {
   while (!Serial && millis() < end)
     yield();
 #endif
+#endif
 }
 void LogHook::defaultFlusher() noexcept {
 #ifdef IOP_SERIAL
+#ifdef IOP_DESKTOP
+  std::cout << std::flush;
+#else
   Serial.flush();
+#endif
 #endif
 }
 

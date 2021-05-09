@@ -1,6 +1,10 @@
 #include "sensors.hpp"
 #include "utils.hpp"
 
+#ifdef IOP_DESKTOP
+#undef IOP_SENSORS
+#endif
+
 #ifdef IOP_SENSORS
 void Sensors::setup() noexcept {
   IOP_TRACE();

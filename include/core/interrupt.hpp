@@ -1,7 +1,12 @@
 #ifndef IOP_CORE_INTERRUPT_HPP
 #define IOP_CORE_INTERRUPT_HPP
 
+#ifdef IOP_DESKTOP
+#define ETS_UART_INTR_DISABLE()
+#define ETS_UART_INTR_ENABLE()
+#else
 #include "ets_sys.h"
+#endif
 
 namespace iop {
 struct InterruptLock {

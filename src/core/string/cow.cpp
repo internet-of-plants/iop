@@ -9,6 +9,14 @@ auto CowString::borrow() const noexcept -> StringView {
   return UNWRAP_ERR_REF(storage);
 }
 
+auto CowString::toMut() noexcept -> std::string & {
+  if (IS_OK(this->storage)) {
+      std::string msg(UNWRAP_OK_MUT(this->storage).get());
+      this->storage = iop::Result<StringView, std::string>(std::move(msg));
+  }
+  return UNWRAP_ERR_MUT(this->storage);
+}
+
 CowString::CowString(CowString const &other) noexcept
     : storage(emptyStringView) {
   IOP_TRACE();

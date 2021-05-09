@@ -4,6 +4,26 @@
 #include "core/static_runner.hpp"
 #include "flash.hpp"
 
+#ifdef IOP_DESKTOP
+#include <thread>
+#include <cstdlib>
+#include <chrono>
+class Esp {
+public:
+  void deepSleep(uint32_t microsecs) {
+    std::this_thread::sleep_for(std::chrono::microseconds(microsecs));
+  }
+};
+static Esp ESP;
+
+#include <iostream>
+static void __panic_func(const char *file, uint16_t line, const char *func) noexcept __attribute__((noreturn));
+void __panic_func(const char *file, uint16_t line, const char *func) noexcept {
+  std::cout << file << " " << line << " " << func << std::endl;
+  std::abort();
+}
+#endif
+
 PROGMEM_STRING(logTarget, "PANIC")
 static const iop::Log logger(iop::LogLevel::TRACE, logTarget);
 
@@ -13,10 +33,10 @@ static const Flash flash(iop::LogLevel::TRACE);
 void upgrade() noexcept {
   IOP_TRACE();
   const auto &maybeToken = flash.readAuthToken();
-  if (maybeToken.isNone())
+  if (!maybeToken.has_value())
     return;
 
-  const auto &token = UNWRAP_REF(maybeToken);
+  const auto &token = maybeToken.value();
   const auto status = api.upgrade(token);
 
   switch (status) {
@@ -50,12 +70,12 @@ auto reportPanic(const iop::StringView &msg, const iop::StaticString &file,
   IOP_TRACE();
 
   const auto &maybeToken = flash.readAuthToken();
-  if (maybeToken.isNone()) {
+  if (!maybeToken.has_value()) {
     logger.crit(F("No auth token, unable to report iop_panic"));
     return false;
   }
 
-  const auto &token = UNWRAP_REF(maybeToken);
+  const auto &token = maybeToken.value();
   const auto panicData = (PanicData){
       msg,
       file,
@@ -107,20 +127,22 @@ static void halt(const iop::StringView &msg,
   constexpr const uint32_t tenMinutesUs = 10 * 60 * 1000;
   constexpr const uint32_t oneHourUs = 60 * 60 * 1000;
   while (true) {
-    if (flash.readWifiConfig().isNone()) {
+    if (!flash.readWifiConfig().has_value()) {
       logger.warn(F("Nothing we can do, no wifi config available"));
       break;
     }
 
-    if (flash.readAuthToken().isNone()) {
+    if (!flash.readAuthToken().has_value()) {
       logger.warn(F("Nothing we can do, no auth token available"));
       break;
     }
 
+    #ifndef IOP_DESKTOP
     if (WiFi.getMode() == WIFI_OFF) {
       logger.crit(F("WiFi is disabled, unable to recover"));
       break;
     }
+    #endif
 
     if (iop::Network::isConnected()) {
       if (!reportedPanic)
@@ -137,11 +159,13 @@ static void halt(const iop::StringView &msg,
       ESP.deepSleep(oneHourUs);
     }
 
+    #ifndef IOP_DESKTOP
     // Let's allow the wifi to reconnect
     WiFi.forceSleepWake();
     WiFi.mode(WIFI_STA);
     WiFi.reconnect();
     WiFi.waitForConnectResult();
+    #endif
   }
 
   ESP.deepSleep(0);

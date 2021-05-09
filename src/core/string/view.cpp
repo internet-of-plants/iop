@@ -12,9 +12,6 @@ StringView::~StringView() noexcept {
   Log::flush();
 }
 */
-StringView::StringView(const UnsafeRawString &str) noexcept : str(str.get()) {}
-StringView::StringView(const std::string &str) noexcept : str(str.c_str()) {}
-StringView::StringView(const String &other) noexcept : str(other.c_str()) {}
 StringView::StringView(const CowString &other) noexcept
     : str(other.borrow().get()) {}
 auto StringView::operator==(const StringView &other) const noexcept -> bool {
@@ -40,31 +37,24 @@ auto StringView::isEmpty() const noexcept -> bool {
 
 auto StringView::contains(StringView needle) const noexcept -> bool {
   IOP_TRACE();
-  /*
-  if (!Log::isTracing()) {
-    Log::print(F("StringView(\""));
-    Log::print(this->get());
-    Log::print(F("\").contains(\""));
-    Log::print(needle.get());
-    Log::print(F("\")\n"));
-    Log::flush();
-  }
-  */
-  return strstr(this->get(), std::move(needle).get()) != nullptr;
+  return this->indexOf(needle) >= 0;
 }
 auto StringView::contains(StaticString needle) const noexcept -> bool {
   IOP_TRACE();
-  /*
-  if (!Log::isTracing()) {
-    Log::print(F("StringView(\""));
-    Log::print(this->get());
-    Log::print(F("\").contains(\""));
-    Log::print(needle.get());
-    Log::print(F("\")"));
-    Log::flush()
-  }
-  */
-  return strstr_P(this->get(), std::move(needle).asCharPtr()) != nullptr;
+  return this->indexOf(needle) >= 0;
+}
+
+auto StringView::indexOf(StringView needle) const noexcept -> ssize_t {
+  IOP_TRACE();
+  const char* index = strstr(this->get(), std::move(needle).get());
+  if (index == nullptr) return -1;
+  return index - this->get();
+}
+auto StringView::indexOf(StaticString needle) const noexcept -> ssize_t {
+  IOP_TRACE();
+  const char* index = strstr_P(this->get(), std::move(needle).asCharPtr());
+  if (index == nullptr) return -1;
+  return index - this->get();
 }
 
 // FNV hash
@@ -109,17 +99,16 @@ auto StringView::scapeNonPrintable() const noexcept -> CowString {
     return CowString(*this);
 
   const size_t len = this->length();
-  String s;
-  s.reserve(len); // Scaped characters use more, but avoids the bulk of reallocs
+  std::string s(len, '\0');
   for (uint8_t index = 0; index < len; ++index) {
     // NOLINTNEXTLINE cppcoreguidelines-pro-bounds-pointer-arithmetic
     const auto ch = this->get()[index];
     if (StringView::isPrintable(ch)) {
       s += ch;
     } else {
-      s += F("<\\");
-      s += String(static_cast<uint8_t>(ch));
-      s += F(">");
+      s += "<\\";
+      s += std::to_string(static_cast<uint8_t>(ch));
+      s += ">";
     }
   }
   return CowString(s);

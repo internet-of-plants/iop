@@ -1,10 +1,35 @@
 #include "configuration.hpp"
-#include "core/string/cow.hpp"
 #include "flash.hpp"
 #include "models.hpp"
 #include "reset.hpp"
 #include "sensors.hpp"
 #include "server.hpp"
+#include "api.hpp"
+
+#include <optional>
+
+#ifdef IOP_DESKTOP
+class Esp {
+public:
+  uint16_t getVcc() { return 400; }
+};
+static Esp ESP;
+
+#define LED_BUILTIN 0
+#define OUTPUT 1
+#include <chrono>
+#include <thread>
+void pinMode(uint8_t pin, uint8_t mode) {
+  (void) pin;
+  (void) mode;
+}
+void yield() {}
+void delay(uint64_t ms) {
+  std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+}
+const auto start = std::chrono::system_clock::now().time_since_epoch();
+uint64_t millis() { return std::chrono::duration_cast<std::chrono::milliseconds>((std::chrono::system_clock::now() - start).time_since_epoch()).count(); }
+#endif
 
 // TODO: log restart reason Esp::getResetInfoPtr()
 
@@ -57,7 +82,7 @@ public:
     const auto now = millis();
 
     const auto isConnected = iop::Network::isConnected();
-    const auto hasAuthToken = authToken.isSome();
+    const auto hasAuthToken = authToken.has_value();
     if (isConnected && hasAuthToken)
       this->credentialsServer.close();
 
@@ -86,9 +111,9 @@ public:
     } else if (this->nextMeasurement <= now) {
       this->nextHandleConnectionLost = 0;
       this->nextMeasurement = now + interval;
-      this->handleMeasurements(UNWRAP_REF(authToken));
-      this->logger.info(String(ESP.getVcc())); // TODO: remove this
-
+      this->handleMeasurements(authToken.value());
+      //this->logger.info(std::to_string(ESP.getVcc())); // TODO: remove this
+      
     } else if (this->nextYieldLog <= now) {
       this->nextHandleConnectionLost = 0;
       constexpr const uint16_t tenSeconds = 10000;
@@ -103,7 +128,7 @@ public:
 private:
   void
   handleInterrupt(const InterruptEvent event,
-                  const iop::Option<AuthToken> &maybeToken) const noexcept {
+                  const std::optional<AuthToken> &maybeToken) const noexcept {
     // Satisfies linter when all interrupt features are disabled
     (void)*this;
     (void)event;
@@ -125,8 +150,8 @@ private:
       break;
     case InterruptEvent::MUST_UPGRADE:
 #ifdef IOP_OTA
-      if (maybeToken.isSome()) {
-        const auto &token = UNWRAP_REF(maybeToken);
+      if (maybeToken.has_value()) {
+        const auto &token = maybeToken.value();
         const auto status = this->api.upgrade(token);
         switch (status) {
         case iop::NetworkStatus::FORBIDDEN:
@@ -156,9 +181,10 @@ private:
       break;
     case InterruptEvent::ON_CONNECTION:
 #ifdef IOP_ONLINE
+#ifndef IOP_DESKTOP
       const auto ip = WiFi.localIP().toString();
       const auto status = std::to_string(wifi_station_get_connect_status());
-      this->logger.debug(F("WiFi connected ("), ip, F("): "), status);
+      this->logger.debug(F("WiFi connected ("), iop::UnsafeRawString(ip.c_str()), F("): "), status);
 
       struct station_config config = {0};
       wifi_station_get_config(&config);
@@ -176,7 +202,8 @@ private:
       ptr = static_cast<uint8_t *>(config.password);
       const auto psk = NetworkPassword::fromBytesUnsafe(ptr, len);
 
-      this->flash.writeWifiConfig({.ssid = ssid, .password = psk});
+      this->flash.writeWifiConfig(WifiCredentials(ssid, psk));
+#endif
 #endif
       (void)2; // Satisfies linter
       break;
@@ -189,8 +216,8 @@ private:
     const auto &wifi = this->flash.readWifiConfig();
     const auto maybeToken = this->credentialsServer.serve(wifi, this->api);
 
-    if (maybeToken.isSome())
-      this->flash.writeAuthToken(UNWRAP_REF(maybeToken));
+    if (maybeToken.has_value())
+      this->flash.writeAuthToken(maybeToken.value());
   }
 
   void handleMeasurements(const AuthToken &token) noexcept {
@@ -281,15 +308,28 @@ public:
 };
 
 // Avoid static initialization being run before logging is setup
-static iop::Option<EventLoop> eventLoop;
+static std::optional<EventLoop> eventLoop;
 void setup() {
   iop::Log::setup(logLevel);
   IOP_TRACE();
   eventLoop.emplace(uri, logLevel);
-  UNWRAP_MUT(eventLoop).setup();
+  eventLoop.value().setup();
 }
 
 void loop() {
   IOP_TRACE();
-  UNWRAP_MUT(eventLoop).loop();
+  eventLoop.value().loop();
 }
+
+#ifdef IOP_DESKTOP
+#include <unistd.h>
+#include <iostream>
+int main(int argc, char** argv) {
+  setup();
+  while (true) {
+    loop();
+    usleep(100);
+  }
+  return 0;
+}
+#endif

@@ -2,9 +2,30 @@
 #define IOP_CORE_CERTSTORE_HPP
 
 #include "core/memory.hpp"
-#include "core/option.hpp"
+#include <optional>
 
+#ifdef IOP_DESKTOP
+class br_x509_minimal_context;
+class br_x509_trust_anchor;
+class br_x509_minimal_context;
+
+namespace BearSSL {
+class CertStoreBase {
+  public:
+    virtual ~CertStoreBase() {}
+
+    // Installs the cert store into the X509 decoder (normally via static function callbacks)
+    virtual void installCertStore(br_x509_minimal_context *ctx) = 0;
+};
+        
+class X509List {
+  uint8_t dummy;
+};
+} // namespace BearSSL
+
+#else
 #include "CertStoreBearSSL.h"
+#endif
 
 namespace iop {
 
@@ -68,16 +89,20 @@ public:
 ///
 /// Should be constructed in static. It's not copyable, nor movable.
 class CertStore : public BearSSL::CertStoreBase {
-  iop::Option<BearSSL::X509List> x509;
+  std::optional<BearSSL::X509List> x509;
   CertList certList;
 
 public:
   explicit CertStore(CertList list) noexcept;
 
   CertStore(CertStore const &other) noexcept = delete;
-  CertStore(CertStore &&other) noexcept = default;
+  CertStore(CertStore &&other) noexcept: x509(std::optional<BearSSL::X509List>()), certList(std::move(other.certList)) {}
   auto operator=(CertStore const &other) noexcept -> CertStore & = delete;
-  auto operator=(CertStore &&other) noexcept -> CertStore & = default;
+  auto operator=(CertStore &&other) noexcept -> CertStore & {
+    this->x509.reset();
+    this->certList = std::move(other.certList);
+    return *this;
+  }
 
   /// Called by libraries like HttpClient. Call `setCertList` before passing
   /// iop::CertStore to whiever lib is going to use it.

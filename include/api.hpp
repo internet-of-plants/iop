@@ -106,26 +106,31 @@ private:
   template <uint16_t SIZE>
   auto makeJson(const iop::StaticString name,
                 const JsonCallback func) const noexcept
-      -> iop::Option<iop::FixedString<SIZE>> {
+      -> std::optional<iop::FixedString<SIZE>> {
     IOP_TRACE();
+    
+    #ifdef IOP_DESKTOP
+    return std::optional<iop::FixedString<SIZE>>();
+    #else
     auto doc = iop::try_make_unique<StaticJsonDocument<SIZE>>();
     if (!doc) {
-      this->logger.error(F("Unable to allocate "), String(SIZE),
+      this->logger.error(F("Unable to allocate "), std::to_string(SIZE),
                          F(" bytes at Api::makeJson for "), name);
-      return iop::Option<iop::FixedString<SIZE>>();
+      return std::optional<iop::FixedString<SIZE>>();
     }
     func(*doc);
 
     if (doc->overflowed()) {
       const auto s = std::to_string(SIZE);
       this->logger.error(F("Payload doesn't fit Json<"), s, F("> at "), name);
-      return iop::Option<iop::FixedString<SIZE>>();
+      return std::optional<iop::FixedString<SIZE>>();
     }
 
     auto fixed = iop::FixedString<SIZE>::empty();
     serializeJson(*doc, fixed.asMut(), fixed.size);
     this->logger.debug(F("Json: "), *fixed);
-    return iop::Option<iop::FixedString<SIZE>>(fixed);
+    return std::make_optional(fixed);
+    #endif
   }
 
 public:

@@ -1,3 +1,7 @@
+#ifdef IOP_DESKTOP
+#define OneWire_h
+#endif
+
 #ifndef OneWire_h
 #define OneWire_h
 

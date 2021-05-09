@@ -152,7 +152,7 @@ public:
 
   void printLogType(const LogType &logType,
                     const LogLevel &level) const noexcept;
-  auto levelToString() const noexcept -> StaticString;
+  auto levelToString(LogLevel level) const noexcept -> StaticString;
 
   void log(const LogLevel &level, const StaticString &msg,
            const LogType &logType,

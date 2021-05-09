@@ -1,12 +1,10 @@
 #ifndef IOP_CONFIGURATION_HPP
 #define IOP_CONFIGURATION_HPP
 
-#include "core/option.hpp"
 #include "core/log.hpp"
+#include "core/pins.hpp"
 #include "utils.hpp"
-#include <cstdint>
-
-#include "pins_arduino.h"
+#include <optional>
 
 /// Minimum log level to print a message (if serial is enabled)
 const auto logLevel = iop::LogLevel::INFO;
@@ -31,7 +29,7 @@ const iop::esp_time interval = 180 * 1000;
 /// production!
 ///
 /// But if using plain http:
-/// define IOP_NOSSL at `core/utils.hpp`, otherwise it won't work
+/// Undefine IOP_SSL at `core/utils.hpp`, otherwise it won't work
 PROGMEM_STRING(uri, "https://iop-monitor-server.tk:4001/v1");
 
 /// The fields bellow should be empty. Filling them will be counter productive
@@ -40,10 +38,10 @@ PROGMEM_STRING(uri, "https://iop-monitor-server.tk:4001/v1");
 /// If you really want to, replace the definitions with
 /// MAYBE_PROGMEM_STRING(variableName, variableValue), like the variables above
 
-static const iop::Option<iop::StaticString> wifiNetworkName;
-static const iop::Option<iop::StaticString> wifiPassword;
+static const std::optional<iop::StaticString> wifiNetworkName;
+static const std::optional<iop::StaticString> wifiPassword;
 
-static const iop::Option<iop::StaticString> iopEmail;
-static const iop::Option<iop::StaticString> iopPassword;
+static const std::optional<iop::StaticString> iopEmail;
+static const std::optional<iop::StaticString> iopPassword;
 
 #endif

@@ -7,13 +7,22 @@ namespace iop {
 constexpr const uint8_t hashSize = 32;
 
 CertStore::CertStore(CertList certList) noexcept
-    : x509(Option<BearSSL::X509List>()), certList(std::move(certList)) {
+    : certList(std::move(certList)) {
   IOP_TRACE();
 }
 
 auto CertStore::findHashedTA(void *ctx, void *hashed_dn, size_t len)
     -> const br_x509_trust_anchor * {
   IOP_TRACE();
+
+  #ifdef IOP_DESKTOP
+  (void) ctx;
+  (void) hashed_dn;
+  (void) len;
+
+class Api;
+  return nullptr;
+  #else
   auto *cs = static_cast<CertStore *>(ctx);
 
   if (cs == nullptr)
@@ -25,7 +34,8 @@ auto CertStore::findHashedTA(void *ctx, void *hashed_dn, size_t len)
                 "static array"));
   }
   if (len != hashSize)
-    iop_panic(String(F("Invalid hash len, this is critical: ")) + String(len));
+    iop_panic(StaticString(F("Invalid hash len, this is critical: ")).toStdString()
+                + std::to_string(len));
 
   const auto &list = cs->certList;
   for (int i = 0; i < list.count(); i++) {
@@ -33,7 +43,7 @@ auto CertStore::findHashedTA(void *ctx, void *hashed_dn, size_t len)
 
     if (memcmp_P(hashed_dn, cert.index, hashSize) == 0) {
       cs->x509.emplace(cert.cert, *cert.size);
-      const auto *taTmp = UNWRAP_REF(cs->x509).getTrustAnchors();
+      const auto *taTmp = cs->x509.value().getTrustAnchors();
 
       // We can const cast because x509 is heap allocated and we own it so it's
       // mutable. This isn't a const function. The upstream API is just that way
@@ -48,19 +58,24 @@ auto CertStore::findHashedTA(void *ctx, void *hashed_dn, size_t len)
   }
 
   return nullptr;
+  #endif
 }
 
 void CertStore::freeHashedTA(void *ctx, const br_x509_trust_anchor *ta) {
   IOP_TRACE();
   (void)ta; // Unused
 
-  static_cast<CertStore *>(ctx)->x509.take();
+  static_cast<CertStore *>(ctx)->x509.reset();
 }
 
 void CertStore::installCertStore(br_x509_minimal_context *ctx) {
   IOP_TRACE();
+  #ifdef IOP_DESKTOP
+  (void) ctx;
+  #else
   auto *ptr = static_cast<void *>(this);
   br_x509_minimal_set_dynamic(ctx, ptr, findHashedTA, freeHashedTA);
+  #endif
 }
 
 Cert::Cert(const uint8_t *cert, const uint8_t *index,

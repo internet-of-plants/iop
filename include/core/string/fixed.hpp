@@ -15,6 +15,11 @@ private:
 public:
   constexpr const static uint16_t size = SIZE;
 
+  void clear() noexcept {
+    IOP_TRACE();
+    memset(this->str.mutPtr(), '\0', SIZE);
+  }
+
   static auto empty() noexcept -> FixedString<SIZE> {
     IOP_TRACE();
     return FixedString<SIZE>(Storage<SIZE>::empty());
