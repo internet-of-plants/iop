@@ -27,7 +27,7 @@ auto StringView::get() const noexcept -> const char * {
   return this->str;
 }
 auto StringView::length() const noexcept -> size_t {
-  IOP_TRACE();
+  //IOP_TRACE();
   return strlen(this->get());
 }
 auto StringView::isEmpty() const noexcept -> bool {
@@ -36,12 +36,10 @@ auto StringView::isEmpty() const noexcept -> bool {
 }
 
 auto StringView::contains(StringView needle) const noexcept -> bool {
-  IOP_TRACE();
-  return this->indexOf(needle) >= 0;
+  return strstr(this->get(), std::move(needle).get()) != nullptr;
 }
 auto StringView::contains(StaticString needle) const noexcept -> bool {
-  IOP_TRACE();
-  return this->indexOf(needle) >= 0;
+  return strstr_P(this->get(), std::move(needle).asCharPtr()) != nullptr;
 }
 
 auto StringView::indexOf(StringView needle) const noexcept -> ssize_t {

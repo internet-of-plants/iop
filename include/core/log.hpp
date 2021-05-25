@@ -11,9 +11,9 @@ enum class LogType { START, CONTINUITY, STARTEND, END };
 
 class LogHook {
 public:
-  using ViewPrinter = std::function<void(const char *, LogType)>;
+  using ViewPrinter = std::function<void(const char *, LogLevel, LogType)>;
   using StaticPrinter =
-      std::function<void(const __FlashStringHelper *, LogType)>;
+      std::function<void(const __FlashStringHelper *, LogLevel, LogType)>;
   using Setuper = std::function<void(LogLevel)>;
   using Flusher = std::function<void()>;
 
@@ -29,10 +29,10 @@ public:
 
   /// Prints log to Serial.
   /// May be called from interrupt because it's the default tracing printer
-  static void defaultViewPrinter(const char *str, LogType type) noexcept;
+  static void defaultViewPrinter(const char *str, LogLevel level, LogType type) noexcept;
   /// Prints log to Serial.
   /// May be called from interrupt because it's the default tracing printer
-  static void defaultStaticPrinter(const __FlashStringHelper *str,
+  static void defaultStaticPrinter(const __FlashStringHelper *str, LogLevel level,
                                    LogType type) noexcept;
   static void defaultSetuper(iop::LogLevel level) noexcept;
   static void defaultFlusher() noexcept;
@@ -137,6 +137,7 @@ public:
     } else {
       this->log(level, msg, LogType::CONTINUITY, emptyStaticString);
     }
+    this->log_recursive(level, false, args...);
   }
 
   // Terminator

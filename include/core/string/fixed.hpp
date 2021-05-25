@@ -16,8 +16,7 @@ public:
   constexpr const static uint16_t size = SIZE;
 
   void clear() noexcept {
-    IOP_TRACE();
-    memset(this->str.mutPtr(), '\0', SIZE);
+    this->str.clear();
   }
 
   static auto empty() noexcept -> FixedString<SIZE> {
@@ -32,7 +31,6 @@ public:
   /// You can accidentally store a non-printable character that will go unnotice
   /// using this
   auto asMut() noexcept -> char * {
-    IOP_TRACE();
     return reinterpret_cast<char *>(this->str.mutPtr());
   }
   /// You can accidentally store a non-printable character that will go unnotice
@@ -43,7 +41,7 @@ public:
   }
 
   auto length() const noexcept -> size_t {
-    IOP_TRACE();
+    //IOP_TRACE();
     return strlen(this->get());
   }
   auto isEmpty() const noexcept -> bool {

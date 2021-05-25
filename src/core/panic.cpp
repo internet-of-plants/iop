@@ -5,7 +5,6 @@
 
 #include <iostream>
 
-
 #ifdef IOP_DESKTOP
 #include <thread>
 #include <cstdlib>
@@ -23,7 +22,6 @@ static Esp ESP;
 #include <thread>
 void __panic_func(const char *file, uint16_t line, const char *func) noexcept __attribute__((noreturn));
 void __panic_func(const char *file, uint16_t line, const char *func) noexcept {
-  std::cout << file << " " << line << " " << func << std::endl;
   std::abort();
 }
 void delay(uint32_t time) {
@@ -35,6 +33,7 @@ void delay(uint32_t time) {
 
 PROGMEM_STRING(loggingTarget, "PANIC")
 const static iop::Log logger(iop::LogLevel::CRIT, loggingTarget);
+
 static bool isPanicking = false;
 
 const static iop::PanicHook defaultHook(iop::PanicHook::defaultViewPanic,
@@ -50,18 +49,21 @@ void panicHandler(StringView msg, CodePoint const &point) noexcept {
   hook.entry(msg, point);
   hook.viewPanic(msg, point);
   hook.halt(msg, point);
+  std::abort();
   while (true) {
-  } // Will trigger software watch-dog, but shouldn't be reached
+  } // Is this UB? It will trigger software watch-dog, but shouldn't be reached
 }
 
+#include <iostream>
 void panicHandler(StaticString msg, CodePoint const &point) noexcept {
   IOP_TRACE();
   const auto msg_ = msg.toStdString();
   hook.entry(msg_, point);
   hook.staticPanic(msg, point);
   hook.halt(msg_, point);
+  std::abort();
   while (true) {
-  } // Will trigger software watch-dog, but shouldn't be reached
+  } // Is this UB? It will trigger software watch-dog, but shouldn't be reached
 }
 auto takePanicHook() noexcept -> PanicHook {
   auto old = hook;
@@ -72,7 +74,6 @@ void setPanicHook(PanicHook newHook) noexcept { hook = std::move(newHook); }
 
 void PanicHook::defaultViewPanic(StringView const &msg,
                                  CodePoint const &point) noexcept {
-  ::std::cout << "Line " << ::std::to_string(point.line()) << " of file " << point.file().asCharPtr() << " inside " << point.func().get() << ": " << msg.get() << std::endl;
   logger.crit(F("Line "), ::std::to_string(point.line()), F(" of file "), point.file(),
               F(" inside "), point.func(), F(": "), msg);
 }

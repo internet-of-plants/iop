@@ -60,7 +60,7 @@ auto StaticString::contains(StaticString needle) const noexcept -> bool {
   return strstr_P(this->asCharPtr(), std::move(needle).asCharPtr()) != nullptr;
 }
 auto StaticString::length() const noexcept -> size_t {
-  IOP_TRACE();
+  //IOP_TRACE();
   return strlen_P(this->asCharPtr());
 }
 
@@ -81,7 +81,7 @@ auto StaticString::isEmpty() const noexcept -> bool {
 // may still do It's why StringView doesn't have a constructor for
 // StaticString
 auto StaticString::asCharPtr() const noexcept -> PGM_P {
-  IOP_TRACE();
+  //IOP_TRACE();
   // NOLINT *-pro-type-reinterpret-cast
   return reinterpret_cast<PGM_P>(this->get());
 }

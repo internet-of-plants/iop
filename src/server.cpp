@@ -1,5 +1,6 @@
 #include "server.hpp"
 
+#ifndef IOP_SERVER_DISABLED
 
 #ifdef IOP_DESKTOP
 #include "driver/server.hpp"
@@ -43,7 +44,6 @@ static unsigned long millis() { return 100; }
 #include <ESP8266WebServer.h>
 #endif
 
-#ifndef IOP_SERVER_DISABLED
 #include "configuration.hpp"
 #include "core/interrupt.hpp"
 #include "core/network.hpp"
@@ -159,8 +159,8 @@ PROGMEM_STRING(pageHTMLEnd, "<br>\r\n"
                             "</form></body></html>");
 
 // We use this globals to share messages from the callbacks
-static std::pair<std::string, std::string> credentialsWifi;
-static std::pair<std::string, std::string> credentialsIop;
+static std::optional<std::pair<std::string, std::string>> credentialsWifi;
+static std::optional<std::pair<std::string, std::string>> credentialsIop;
 
 static ESP8266WebServer server;
 
@@ -189,8 +189,20 @@ void CredentialsServer::setup() const noexcept {
         s->hasArg(F("password"))) {
       const auto ssid = std::string(s->arg(F("ssid")).c_str());
       const auto psk = std::string(s->arg(F("password")).c_str());
+
+      if (loggerLevel >= iop::LogLevel::DEBUG) {
+        iop::Log::print(
+            F("[DEBUG] [RAW] SERVER_CALLBACK: SSID "),
+            iop::LogLevel::DEBUG, iop::LogType::START);
+        iop::Log::print(
+            ssid.c_str(),
+            iop::LogLevel::DEBUG, iop::LogType::CONTINUITY);
+        iop::Log::print(
+            F("\n"),
+            iop::LogLevel::DEBUG, iop::LogType::END);
+      }
       if (ssid.length() > 0 && psk.length() > 0)
-        credentialsWifi = std::make_pair(ssid, psk);
+        credentialsWifi = std::make_optional(std::make_pair(ssid, psk));
     }
 
     if (s->hasArg(F("iop")) && s->hasArg(F("iopEmail")) &&
@@ -198,7 +210,7 @@ void CredentialsServer::setup() const noexcept {
       const std::string email(s->arg(F("iopEmail")).c_str());
       const std::string password(s->arg(F("iopPassword")).c_str());
       if (email.length() > 0 && password.length() > 0) {
-        credentialsIop = std::make_pair(email, password);
+        credentialsIop = std::make_optional(std::make_pair(email, password));
       }
     }
 
@@ -249,6 +261,8 @@ void CredentialsServer::setup() const noexcept {
 
     s->sendContent_P(script.asCharPtr());
     s->sendContent_P(pageHTMLEnd.asCharPtr());
+    iop::Log::print(F("[INFO] [RAW] SERVER_CALLBACK: Served HTML\n"),
+      iop::LogLevel::DEBUG, iop::LogType::STARTEND);
   });
 }
 
@@ -291,7 +305,7 @@ void CredentialsServer::start() noexcept {
     // Makes it a captive portal (redirects all wifi trafic to it)
     dnsServer.start(dnsPort, F("*"), WiFi.softAPIP());
 
-    this->logger.info(F("Opened captive portal: "), iop::UnsafeRawString(ip.c_str()));
+    this->logger.info(F("Opened captive portal: "), ip);
   }
 }
 
@@ -343,6 +357,7 @@ auto CredentialsServer::connect(iop::StringView ssid,
                                 iop::StringView password) const noexcept
     -> void {
   IOP_TRACE();
+  this->logger.info(F("Connect: "), ssid);
   #ifndef IOP_DESKTOP
   if (wifi_station_get_connect_status() == STATION_CONNECTING) {
     const iop::InterruptLock _guard;
@@ -358,11 +373,11 @@ auto CredentialsServer::connect(iop::StringView ssid,
 
   if (!iop::Network::isConnected()) {
     const auto status = wifi_station_get_connect_status();
-    const auto maybeStatusStr = this->statusToString(status);
+    auto maybeStatusStr = this->statusToString(status);
     if (!maybeStatusStr.has_value())
       return; // It already will be logged by statusToString;
 
-    const auto statusStr = maybeStatusStr.value();
+    const auto statusStr = iop::unwrap(maybeStatusStr, IOP_CTX());
     this->logger.error(F("Invalid wifi credentials ("), statusStr, F("): "),
                        std::move(ssid));
   }
@@ -385,7 +400,6 @@ auto CredentialsServer::authenticate(iop::StringView username,
   #endif
   this->logger.info(F("Tried to authenticate"));
   if (IS_ERR(authToken)) {
-    std::cout << "IIIIII" << std::endl;
     const auto &status = UNWRAP_ERR_REF(authToken);
 
     switch (status) {
@@ -428,18 +442,22 @@ auto CredentialsServer::serve(const std::optional<WifiCredentials> &storedWifi,
   // But we shouldn't act on it inside the server's callback, as callback
   // should be rather simple, so we use globals. UNWRAP moves them out on use.
 
-  if (credentialsWifi.first.length() > 0 && credentialsWifi.second.length() > 0) {
-    this->connect(credentialsWifi.first, credentialsWifi.second);
+  const auto isConnected = iop::Network::isConnected();
+
+  if (credentialsWifi.has_value()) {
+    const auto wifi = iop::unwrap(credentialsWifi, IOP_CTX());
+    this->connect(wifi.first, wifi.second);
   }
   
-  if (iop::Network::isConnected() && credentialsIop.first.length() > 0 && credentialsIop.second.length() > 0) {
-    auto tok = this->authenticate(credentialsIop.first, credentialsIop.second, api);
+  if (isConnected && credentialsIop.has_value()) {
+    const auto iop = iop::unwrap(credentialsIop, IOP_CTX());
+    auto tok = this->authenticate(iop.first, iop.second, api);
     if (tok.has_value())
       return tok;
 
     // WiFi Credentials stored in flash
 
-    // Wifi connection error is hard to debug
+    // Wifi connection errors are hard to debug
     // (see countless open issues about it at esp8266/Arduino's github)
     // One example citing others:
     // https://github.com/esp8266/Arduino/issues/7432
@@ -448,14 +466,11 @@ auto CredentialsServer::serve(const std::optional<WifiCredentials> &storedWifi,
     // reset), we have a timer to avoid constantly retrying a bad credential.
   }
   
-  if (!iop::Network::isConnected() && storedWifi.has_value() &&
-             this->nextTryFlashWifiCredentials <= now) {
-    this->nextTryFlashWifiCredentials =
-        now + intervalTryFlashWifiCredentialsMillis;
+  if (!isConnected && storedWifi.has_value() && this->nextTryFlashWifiCredentials <= now) {
+    this->nextTryFlashWifiCredentials = now + intervalTryFlashWifiCredentialsMillis;
 
-    const auto &stored = storedWifi.value();
-    this->logger.info(
-        F("Trying to connect to wifi with flash stored credentials"));
+    const auto &stored = iop::unwrap_ref(storedWifi, IOP_CTX());
+    this->logger.info(F("Trying wifi credentials stored in flash"));
     this->connect(stored.ssid.asString(), stored.password.asString());
 
     // WiFi Credentials hardcoded at "configuration.hpp"
@@ -465,20 +480,16 @@ auto CredentialsServer::serve(const std::optional<WifiCredentials> &storedWifi,
     // but with a bigish interval.
   }
   
-  if (!iop::Network::isConnected() && wifiNetworkName.has_value() &&
-             wifiPassword.has_value() &&
-             this->nextTryHardcodedWifiCredentials <= now) {
-    this->nextTryHardcodedWifiCredentials =
-        now + intervalTryHardcodedWifiCredentialsMillis;
-    const auto &ssid = wifiNetworkName.value();
-    const auto &psk = wifiPassword.value();
-    this->logger.info(
-        F("Trying to connect to wifi with hardcoded credentials"));
+  const auto hasHardcodedWifiCreds = wifiNetworkName.has_value() && wifiPassword.has_value();
+  if (!isConnected && hasHardcodedWifiCreds && this->nextTryHardcodedWifiCredentials <= now) {
+    this->nextTryHardcodedWifiCredentials = now + intervalTryHardcodedWifiCredentialsMillis;
+
+    this->logger.info(F("Trying hardcoded wifi credentials"));
+
+    const auto &ssid = iop::unwrap_ref(wifiNetworkName, IOP_CTX());
+    const auto &psk = iop::unwrap_ref(wifiPassword, IOP_CTX());
     this->connect(ssid.toStdString(), psk.toStdString());
   }
-
-  credentialsWifi = std::make_pair("", "");
-  credentialsIop = std::make_pair("", "");
 
   // Give processing time to the servers
   this->logger.trace(F("Serve captive portal"));

@@ -148,32 +148,27 @@ auto Network::httpRequest(const HttpMethod method_,
   if (!Network::isConnected())
     return Response(NetworkStatus::CONNECTION_ISSUES);
 
-  #ifdef IOP_DESKTOP
   const auto uri = this->uri().toStdString() + path.get();
-  #else
-  const auto uri = String(this->uri().get()) + path.get();
-  #endif
-  const auto method = methodToString(method_).value();
+  const auto method = iop::unwrap_ref(methodToString(method_), IOP_CTX());
 
-  StringView data_ = emptyStringView;
+  auto data_ = emptyStringView;
   if (data.has_value())
-    data_ = data.value();
+    data_ = iop::unwrap_ref(data, IOP_CTX());
 
-  this->logger.info(F("["), method, F("] "), std::move(path),
-                    data.has_value() ? F(" has payload") : F(" no payload"));
+  this->logger.info(method, F(", data length: "), std::to_string(data_.length()));
 
   // TODO: this may log sensitive information, network logging is currently
   // capped at info because of that, right
   if (data.has_value())
-    this->logger.debug(data.value());
+    this->logger.debug(iop::unwrap_ref(data, IOP_CTX()));
 
   if (token.has_value()) {
-    const auto tok = token.value();
+    const auto tok = iop::unwrap_ref(token, IOP_CTX());
     this->logger.debug(F("Token: "), tok);
     http.setAuthorization(tok.get());
   } else {
     // We have to clear the authorization, it persists between requests
-    http.setAuthorization(emptyStringView.get());
+    http.setAuthorization("");
   }
 
   // We can afford bigger timeouts since we shouldn't make frequent requests
@@ -188,24 +183,24 @@ auto Network::httpRequest(const HttpMethod method_,
   // monitoring
   http.addHeader(F("MAC_ADDRESS"), macAddress().asString().get());
   http.addHeader(F("VERSION"), hashSketch().asString().get());
-
+ 
   http.addHeader(F("FREE_STACK"), std::to_string(ESP.getFreeContStack()).c_str());
   http.addHeader(F("FREE_HEAP"), std::to_string(ESP.getFreeHeap()).c_str());
   http.addHeader(F("HEAP_FRAGMENTATION"), std::to_string(ESP.getHeapFragmentation()).c_str());
   http.addHeader(F("BIGGEST_FREE_BLOCK"), std::to_string(ESP.getMaxFreeBlockSize()).c_str());
 
   if (!http.begin(Network::wifiClient(), uri)) {
-    this->logger.warn(F("Failed to begin http connection to "), UnsafeRawString(uri.c_str()));
+    this->logger.warn(F("Failed to begin http connection to "), uri);
     return Response(NetworkStatus::CONNECTION_ISSUES);
   }
   this->logger.trace(F("Began HTTP connection"));
 
   const auto *const data__ = reinterpret_cast<const uint8_t *>(data_.get());
 
-  this->logger.trace(F("Making HTTP request"));
+  this->logger.debug(F("Making HTTP request"));
   const auto code =
       http.sendRequest(method.toStdString().c_str(), data__, data_.length());
-  this->logger.trace(F("Made HTTP request"));
+  this->logger.debug(F("Made HTTP request")); 
 
   // Handle system upgrade request
   const auto upgrade = http.header(PSTR("LATEST_VERSION"));
@@ -215,11 +210,10 @@ auto Network::httpRequest(const HttpMethod method_,
     hook.schedule();
   }
 
-  // A few bureaucracies to log and report errors
   const auto rawStatus = this->rawStatus(code);
-  const auto codeStr = std::to_string(code);
   const auto rawStatusStr = Network::rawStatusToString(rawStatus);
-  this->logger.info(F("Response code ("), codeStr, F("): "), rawStatusStr);
+
+  this->logger.info(F("Response code ("), std::to_string(code), F("): "), rawStatusStr);
 
   constexpr const int32_t maxPayloadSizeAcceptable = 2048;
   if (http.getSize() > maxPayloadSizeAcceptable) {
@@ -236,14 +230,18 @@ auto Network::httpRequest(const HttpMethod method_,
     // origin is trusted. If it's there it's supposed to be there.
     auto payload = http.getString();
     http.end();
-    this->logger.debug(F("Payload: "), UnsafeRawString(payload.c_str()));
+    this->logger.debug(F("Payload (") , std::to_string(payload.length()), F("): "), UnsafeRawString(payload.c_str()));
     // TODO: every response occupies 2x the size because we convert String -> std::string
-    return Response(maybeApiStatus.value(), std::string(payload.c_str()));
+    return Response(iop::unwrap_ref(maybeApiStatus, IOP_CTX()), std::string(payload.c_str()));
   }
   http.end();
   return code;
 }
 #else
+#ifndef IOP_DESKTOP
+#include "ESP8266WiFi.h"
+#endif
+
 namespace iop {
 void Network::setup() const noexcept {
   (void)*this;
@@ -332,7 +330,7 @@ auto Network::rawStatusToString(const RawStatus &status) noexcept
   case RawStatus::UNKNOWN:
     return F("UNKNOWN");
   }
-  return F("UNKNOWN-undefocumented");
+  return F("UNKNOWN-not-documented");
 }
 
 auto Network::rawStatus(const int code) const noexcept -> RawStatus {

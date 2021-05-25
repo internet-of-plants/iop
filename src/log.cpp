@@ -1,17 +1,20 @@
 #include "core/log.hpp"
 #include "core/static_runner.hpp"
+#include "configuration.hpp"
 #include "utils.hpp" // Imports IOP_SERIAL if available
 
-#ifdef IOP_DESKTOP
-#undef IOP_SERIAL
+#ifdef IOP_NETWORK_LOGGING
+
+#ifndef IOP_DESKTOP
+#include "Arduino.h"
+#else
+#include "driver/time.hpp"
 #endif
 
-#ifdef IOP_SERIAL
-#include "Arduino.h"
-
 static void staticPrinter(const __FlashStringHelper *str,
+                          iop::LogLevel level, 
                           iop::LogType kind) noexcept;
-static void viewPrinter(const char *str, iop::LogType kind) noexcept;
+static void viewPrinter(const char *str, iop::LogLevel level, iop::LogType kind) noexcept;
 static void setuper(iop::LogLevel level) noexcept;
 static void flusher() noexcept;
 
@@ -23,7 +26,6 @@ static iop::LogHook hook(viewPrinter, staticPrinter, setuper, flusher);
 // them
 static auto hookSetter = iop::StaticRunner([] { iop::Log::setHook(hook); });
 
-#ifdef IOP_NETWORK_LOGGING
 #include "api.hpp"
 #include "flash.hpp"
 
@@ -54,7 +56,11 @@ public:
 };
 
 static ByteRate byteRate;
+#ifdef IOP_DESKTOP
+static std::string currentLog;
+#else
 static String currentLog;
+#endif
 
 // TODO(pc): allow gradually sending bytes wifiClient->write(...) instead of
 // buffering the log before sending We can use the already in place system of
@@ -67,68 +73,53 @@ static Flash flash(iop::LogLevel::WARN);
 
 static bool logNetwork = true;
 void reportLog() noexcept {
-  if (!logNetwork)
+  if (!logNetwork || !currentLog.length())
     return;
 
+  std::cout << "Report log: " << currentLog << " === " << std::endl;
+
   const auto maybeToken = flash.readAuthToken();
-  if (maybeToken.isSome()) {
+  if (maybeToken.has_value()) {
     logNetwork = false;
-    api.registerLog(UNWRAP_REF(maybeToken), utils::macAddress(), currentLog);
+    api.registerLog(iop::unwrap_ref(maybeToken, IOP_CTX()), currentLog);
     logNetwork = true;
   }
   currentLog.clear();
 }
-#endif
 
 static void staticPrinter(const __FlashStringHelper *str,
+                          const iop::LogLevel level,
                           const iop::LogType kind) noexcept {
 #ifdef IOP_DESKTOP
-  std::cout << reinterpret_cast<const char*>(str) << std::endl;
-#else
-  Serial.print(str);
-#endif
-#ifdef IOP_NETWORK_LOGGING
-  if (logNetwork) {
-    currentLog += str;
-    byteRate.addBytes(strlen_P(reinterpret_cast<PGM_P>(str)));
-  }
-  if (kind == LogType::END || kind == LogType::STARTEND)
-    this->reportLog();
-#else
-  (void)kind;
-#endif
-}
-static void viewPrinter(const char *str, const iop::LogType kind) noexcept {
-#ifdef IOP_DESKTOP
-  std::cout << str << std::endl;
+  std::cout << reinterpret_cast<const char*>(str);
 #else
   Serial.print(str);
 #endif
 
-#ifdef IOP_NETWORK_LOGGING
-  if (logNetwork) {
+  const auto charArray = reinterpret_cast<PGM_P>(str);
+  if (logNetwork && level >= iop::LogLevel::CRIT) {
+    currentLog += charArray;
+    byteRate.addBytes(strlen_P(charArray));
+    if (kind == iop::LogType::END || kind == iop::LogType::STARTEND)
+      reportLog();
+  }
+}
+static void viewPrinter(const char *str, const iop::LogLevel level, const iop::LogType kind) noexcept {
+#ifdef IOP_DESKTOP
+  std::cout << str;
+#else
+  Serial.print(str);
+#endif
+
+  if (logNetwork && level >= iop::LogLevel::CRIT) {
     currentLog += str;
     byteRate.addBytes(strlen(str));
+    if (kind == iop::LogType::END || kind == iop::LogType::STARTEND)
+      reportLog();
   }
-  if (kind == iop::LogType::END || kind == iop::LogType::STARTEND)
-    Log::reportLog();
-#else
-  (void)kind;
-#endif
 }
 static void flusher() noexcept { iop::LogHook::defaultFlusher(); }
 static void setuper(iop::LogLevel level) noexcept {
   iop::LogHook::defaultSetuper(level);
 }
-#else
-static void setuper(iop::LogLevel level) noexcept {
-  #ifndef IOP_DESKTOP
-  Serial.end();
-  #endif
-  (void)level;
-}
-static void flusher() noexcept {}
-static void viewPrinter(const char *str, const iop::LogType kind) noexcept {}
-static void staticPrinter(const __FlashStringHelper *str,
-                          const iop::LogType kind) noexcept {}
 #endif

@@ -6,22 +6,7 @@
 #include "core/result.hpp"
 
 #ifdef IOP_DESKTOP
-#define HTTPC_ERROR_CONNECTION_FAILED   (-1)
-#define HTTPC_ERROR_SEND_HEADER_FAILED  (-2)
-#define HTTPC_ERROR_SEND_PAYLOAD_FAILED (-3)
-#define HTTPC_ERROR_NOT_CONNECTED       (-4)
-#define HTTPC_ERROR_CONNECTION_LOST     (-5)
-#define HTTPC_ERROR_NO_STREAM           (-6)
-#define HTTPC_ERROR_NO_HTTP_SERVER      (-7)
-#define HTTPC_ERROR_TOO_LESS_RAM        (-8)
-#define HTTPC_ERROR_ENCODING            (-9)
-#define HTTPC_ERROR_STREAM_WRITE        (-10)
-#define HTTPC_ERROR_READ_TIMEOUT        (-11)
-#define HTTP_CODE_OK                    (200)
-#define HTTP_CODE_INTERNAL_SERVER_ERROR (500)
-#define HTTP_CODE_FORBIDDEN             (403)
-#define HTTP_CODE_FOUND                 (302)
-#define HTTP_CODE_NOT_FOUND             (404)
+#include "driver/client.hpp"
 class WiFiClient;
 #else
 #include "ESP8266HTTPClient.h"

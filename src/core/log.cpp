@@ -12,7 +12,9 @@ static bool initialized = false;
 
 static bool isTracing_ = false;
 
-auto iop::Log::isTracing() noexcept -> bool { return isTracing_; }
+auto iop::Log::isTracing() noexcept -> bool { 
+  return isTracing_;
+}
 
 const static iop::LogHook defaultHook(iop::LogHook::defaultViewPrinter,
                                       iop::LogHook::defaultStaticPrinter,
@@ -27,18 +29,18 @@ void IRAM_ATTR Log::print(const char *view, const LogLevel level,
                                 const LogType kind) noexcept {
   Log::setup(level);
   if (level > LogLevel::TRACE)
-    hook.viewPrint(view, kind);
+    hook.viewPrint(view, level, kind);
   else
-    hook.traceViewPrint(view, kind);
+    hook.traceViewPrint(view, level, kind);
 }
 void IRAM_ATTR Log::print(const __FlashStringHelper *progmem,
                                 const LogLevel level,
                                 const LogType kind) noexcept {
   Log::setup(level);
   if (level > LogLevel::TRACE)
-    hook.staticPrint(progmem, kind);
+    hook.staticPrint(progmem, level, kind);
   else
-    hook.traceStaticPrint(progmem, kind);
+    hook.traceStaticPrint(progmem, level, kind);
 }
 auto Log::takeHook() noexcept -> LogHook {
   initialized = false;
@@ -118,7 +120,9 @@ auto Log::levelToString(const LogLevel level) const noexcept -> StaticString {
 }
 
 void IRAM_ATTR LogHook::defaultStaticPrinter(
-    const __FlashStringHelper *str, const iop::LogType type) noexcept {
+    const __FlashStringHelper *str, const LogLevel level, const iop::LogType type) noexcept {
+if (level == LogLevel::TRACE)
+    std::cout << "TRACE BRUH" << std::endl;
 #ifdef IOP_SERIAL
 #ifdef IOP_DESKTOP
   std::cout << reinterpret_cast<const char*>(str);
@@ -127,9 +131,12 @@ void IRAM_ATTR LogHook::defaultStaticPrinter(
 #endif
 #endif
   (void)type;
+  (void)level;
 }
 void IRAM_ATTR
-LogHook::defaultViewPrinter(const char *str, const iop::LogType type) noexcept {
+LogHook::defaultViewPrinter(const char *str, const LogLevel level, const iop::LogType type) noexcept {
+  if (level == LogLevel::TRACE)
+    std::cout << "TRACE BRUH" << std::endl;
 #ifdef IOP_SERIAL
 #ifdef IOP_DESKTOP
   std::cout << str;
@@ -138,6 +145,7 @@ LogHook::defaultViewPrinter(const char *str, const iop::LogType type) noexcept {
 #endif
 #endif
   (void)type;
+  (void)level;
 }
 void IRAM_ATTR
 LogHook::defaultSetuper(const iop::LogLevel level) noexcept {
@@ -151,6 +159,7 @@ LogHook::defaultSetuper(const iop::LogLevel level) noexcept {
     }
 #endif
 #endif
+    if (level == iop::LogLevel::TRACE) std::cout << "TRACE sss" << std::endl;
     isTracing_ |= level == iop::LogLevel::TRACE;
 
     return;

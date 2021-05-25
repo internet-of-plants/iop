@@ -1,14 +1,20 @@
 #include "flash.hpp"
 
+#ifndef IOP_FLASH_DISABLED
+
 #ifdef IOP_DESKTOP
 #include <unistd.h>
 #include <fcntl.h>
 #include <iostream>
+#include <errno.h>
+#include "configuration.hpp"
 
-int read_(int fd, void* buf, size_t size) {
+#include "utils.hpp"
+
+static int read__(int fd, void* buf, size_t size) {
   return read(fd, buf, size);
 }
-int write_(int fd, const void* buf, size_t size) {
+static int write_(int fd, const void* buf, size_t size) {
   return write(fd, buf, size);
 }
 
@@ -27,7 +33,7 @@ public:
     
     const auto fd = open("eeprom.dat", O_RDONLY);
     if (fd == -1) return;
-    if (read_(fd, this->storage.get(), size) == -1) return;
+    if (read__(fd, this->storage.get(), size) == -1) return;
     close(fd);
   }
   uint8_t read(int const address) {
@@ -36,16 +42,20 @@ public:
     return this->storage[address];
   }
   void write(int const address, uint8_t const val) {
-    if (address < 0 || address >= this->size) return;
-    if (!this->storage) return;
+    iop_assert(address >= 0 || address < this->size, F("Invalid address"));
+    iop_assert(this->storage, F("Allocation failed"));
     this->storage[address] = val;
   }
   bool commit() {
+    iop_assert(this->storage, F("Unable to allocate storage"));
+    iop::Log(logLevel, F("EEPROM")).debug(F("Commit: "), utils::base64Encode(this->storage.get(), this->size));
     const auto fd = open("eeprom.dat", O_WRONLY | O_CREAT, 0777);
-    if (fd == -1) return false;
-    if (!this->storage) return false;
-    if (write_(fd, this->storage.get(), size) == -1) return false;
-    if (close(fd) == -1) return false;
+    iop_assert(fd != -1, F("Unable to open file"));
+    if (write_(fd, this->storage.get(), size) == -1) {
+      iop_panic(std::to_string(errno) + ": " + strerror(errno));
+    }
+    
+    iop_assert(close(fd) != -1, F("Close failed"));
     return true;
   }
   bool end() {
@@ -55,51 +65,37 @@ public:
   }
 
   uint8_t * getDataPtr() {
+    iop_assert(this->storage, F("Allocation failed"));
     return this->storage.get();
   }
   uint8_t const * getConstDataPtr() const {
+    iop_assert(this->storage, F("Allocation failed"));
     return this->storage.get();
   }
 
   template<typename T> 
   T &get(int const address, T &t) {
-    if (address < 0 || address + sizeof(T) > _size)
-      return t;
-
-    memcpy((uint8_t*) &t, _data + address, sizeof(T));
+    iop_assert(address < 0 || address + sizeof(T) > size, F("Invalid address"));
+    memcpy((uint8_t*) &t, this->storage.get() + address, sizeof(T));
     return t;
   }
 
   template<typename T> 
   const T &put(int const address, const T &t) {
-    if (address < 0 || address + sizeof(T) > _size)
-      return t;
-    if (memcmp(_data + address, (const uint8_t*)&t, sizeof(T)) != 0) {
-      _dirty = true;
-      memcpy(_data + address, (const uint8_t*)&t, sizeof(T));
-    }
-
+    if (address < 0 || address + sizeof(T) > size) return t;
+    memcpy(this->storage.get() + address, (const uint8_t*)&t, sizeof(T));
     return t;
   }
 
-  size_t length() {return _size;}
-
-  uint8_t& operator[](int const address) {return getDataPtr()[address];}
-  uint8_t const & operator[](int const address) const {return getConstDataPtr()[address];}
-
-protected:
-  uint32_t _sector;
-  uint8_t* _data = nullptr;
-  size_t _size = 0;
-  bool _dirty = false;
+  size_t length() { return size; }
+  uint8_t& operator[](int const address) { return getDataPtr()[address]; }
+  uint8_t const & operator[](int const address) const { return getConstDataPtr()[address]; }
 };
 
 static Eeprom EEPROM;
 #else
 #include "EEPROM.h"
 #endif
-
-#ifndef IOP_FLASH_DISABLED
 
 constexpr const uint16_t EEPROM_SIZE = 512;
 
@@ -181,7 +177,7 @@ void Flash::writeAuthToken(const AuthToken &token) const noexcept {
   // Avoids re-writing the same data
   const auto &maybeCurrToken = this->readAuthToken();
   if (maybeCurrToken.has_value()) {
-    const auto &currToken = maybeCurrToken.value();
+    const auto &currToken = iop::unwrap_ref(maybeCurrToken, IOP_CTX());
 
     if (memcmp(token.constPtr(), currToken.constPtr(), AuthToken::size) == 0) {
       this->logger.debug(F("Auth token already stored in flash"));
@@ -200,7 +196,11 @@ void Flash::writeAuthToken(const AuthToken &token) const noexcept {
 }
 
 // Credentials cache
+#ifdef IOP_DESKTOP
+static std::optional<WifiCredentials> wifiCredentials(WifiCredentials::empty());
+#else
 static std::optional<WifiCredentials> wifiCredentials;
+#endif
 
 auto Flash::readWifiConfig() const noexcept
     -> const std::optional<WifiCredentials> & {
@@ -250,7 +250,7 @@ void Flash::writeWifiConfig(const WifiCredentials &config) const noexcept {
   // Avoids re-writing same data
   const auto &maybeCurrConfig = this->readWifiConfig();
   if (maybeCurrConfig.has_value()) {
-    const auto &currConfig = maybeCurrConfig.value();
+    const auto &currConfig = iop::unwrap_ref(maybeCurrConfig, IOP_CTX());
 
     if (memcmp(currConfig.ssid.constPtr(), config.ssid.constPtr(),
                NetworkName::size) == 0 &&
@@ -281,7 +281,7 @@ void Flash::setup() noexcept { IOP_TRACE(); }
 auto Flash::readAuthToken() const noexcept -> const std::optional<AuthToken> & {
   (void)*this;
   IOP_TRACE();
-  const static auto token = iop::some(AuthToken::empty());
+  const static auto token = std::make_optional(AuthToken::empty());
   return token;
 }
 void Flash::removeAuthToken() const noexcept {
@@ -301,7 +301,7 @@ void Flash::removeWifiConfig() const noexcept {
 auto Flash::readWifiConfig() const noexcept -> const std::optional<WifiCredentials> & {
   (void)*this;
   IOP_TRACE();
-  const static auto creds = iop::some(WifiCredentials(NetworkName::empty(), NetworkPassword::empty()));
+  const static auto creds = std::make_optional(WifiCredentials(NetworkName::empty(), NetworkPassword::empty()));
   return creds;
 }
 void Flash::writeWifiConfig(const WifiCredentials &config) const noexcept {

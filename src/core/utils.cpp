@@ -20,6 +20,7 @@ static void wifi_get_macaddr(uint8_t station, uint8_t *buff) {
 #define sprintf_P sprintf
 #else
 #include "Esp.cpp"
+#include "user_interface.h"
 #endif
 
 namespace iop {
@@ -27,7 +28,7 @@ auto macAddress() noexcept -> const MacAddress & {
   IOP_TRACE();
   static std::optional<MacAddress> mac;
   if (mac.has_value())
-    return mac.value();
+    return iop::unwrap_ref(mac, IOP_CTX());
 
   constexpr const uint8_t macSize = 6;
 
@@ -42,14 +43,14 @@ auto macAddress() noexcept -> const MacAddress & {
             buff[2], buff[3], buff[4], buff[5]); // NOLINT *-magic-numbers
 
   mac.emplace(std::move(mac_));
-  return mac.value();
+  return iop::unwrap_ref(mac, IOP_CTX());
 }
 
 auto hashSketch() noexcept -> const MD5Hash & {
   IOP_TRACE();
   static std::optional<MD5Hash> hash;
   if (hash.has_value())
-    return hash.value();
+    return iop::unwrap_ref(hash, IOP_CTX());
 
   // We could reimplement the internal function to avoid using String, but the
   // type safety and static cache are enough to avoid this complexity
@@ -71,7 +72,7 @@ auto hashSketch() noexcept -> const MD5Hash & {
     iop_panic(StaticString(F("Unexpected ParseError: ")).toStdString() + std::to_string(static_cast<uint8_t>(ref)));
   }
   hash.emplace(UNWRAP_OK(res));
-  return hash.value();
+  return iop::unwrap_ref(hash, IOP_CTX());
 }
 void logMemory(const iop::Log &logger) noexcept {
   IOP_TRACE();

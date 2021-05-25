@@ -19,16 +19,15 @@ static Esp ESP;
 #include <iostream>
 static void __panic_func(const char *file, uint16_t line, const char *func) noexcept __attribute__((noreturn));
 void __panic_func(const char *file, uint16_t line, const char *func) noexcept {
-  std::cout << file << " " << line << " " << func << std::endl;
   std::abort();
 }
 #endif
 
 PROGMEM_STRING(logTarget, "PANIC")
-static const iop::Log logger(iop::LogLevel::TRACE, logTarget);
+static const iop::Log logger(iop::LogLevel::DEBUG, logTarget);
 
-static const Api api(uri, iop::LogLevel::TRACE);
-static const Flash flash(iop::LogLevel::TRACE);
+static const Api api(uri, iop::LogLevel::DEBUG);
+static const Flash flash(iop::LogLevel::DEBUG);
 
 void upgrade() noexcept {
   IOP_TRACE();
@@ -36,7 +35,7 @@ void upgrade() noexcept {
   if (!maybeToken.has_value())
     return;
 
-  const auto &token = maybeToken.value();
+  const auto &token = iop::unwrap_ref(maybeToken, IOP_CTX());
   const auto status = api.upgrade(token);
 
   switch (status) {
@@ -75,7 +74,7 @@ auto reportPanic(const iop::StringView &msg, const iop::StaticString &file,
     return false;
   }
 
-  const auto &token = maybeToken.value();
+  const auto &token = iop::unwrap_ref(maybeToken, IOP_CTX());
   const auto panicData = (PanicData){
       msg,
       file,
@@ -124,8 +123,8 @@ static void halt(const iop::StringView &msg,
   IOP_TRACE();
   auto reportedPanic = false;
 
-  constexpr const uint32_t tenMinutesUs = 10 * 60 * 1000;
-  constexpr const uint32_t oneHourUs = 60 * 60 * 1000;
+  constexpr const uint32_t tenMinutesUs = 10 * 60 * 1000 * 1000;
+  constexpr const uint32_t oneHourUs = ((uint32_t)60) * 60 * 1000 * 1000;
   while (true) {
     if (!flash.readWifiConfig().has_value()) {
       logger.warn(F("Nothing we can do, no wifi config available"));

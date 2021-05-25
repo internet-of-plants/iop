@@ -8,3 +8,4 @@ __pycache__
 .*.swp
 include/configuration.hpp
 workspace.code-workspace
+eeprom.dat

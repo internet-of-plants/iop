@@ -1,6 +1,7 @@
 #include "core/cert_store.hpp"
 #include "core/memory.hpp"
 #include "core/panic.hpp"
+#include "core/utils.hpp"
 
 namespace iop {
 
@@ -43,7 +44,7 @@ class Api;
 
     if (memcmp_P(hashed_dn, cert.index, hashSize) == 0) {
       cs->x509.emplace(cert.cert, *cert.size);
-      const auto *taTmp = cs->x509.value().getTrustAnchors();
+      const auto *taTmp = iop::unwrap_ref(cs->x509, IOP_CTX()).getTrustAnchors();
 
       // We can const cast because x509 is heap allocated and we own it so it's
       // mutable. This isn't a const function. The upstream API is just that way

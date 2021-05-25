@@ -23,6 +23,9 @@ public:
   NetworkName ssid;
   NetworkPassword password;
 
+  static WifiCredentials empty() noexcept {
+    return WifiCredentials(NetworkName::empty(), NetworkPassword::empty());
+  }
   ~WifiCredentials() noexcept = default;
   WifiCredentials(NetworkName ssid, NetworkPassword pass) noexcept
       : ssid(std::move(ssid)), password(std::move(pass)) {}

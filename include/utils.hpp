@@ -16,7 +16,9 @@
 // (Un)Comment this line to toggle network logging
 // TODO: we should make network logging into another task in cont.h, yielding to
 // it when needed. Otherwise the stack will go cray cray
-// #define IOP_NETWORK_LOGGING
+//#ifdef IOP_DESKTOP
+#define IOP_NETWORK_LOGGING
+//#endif
 
 // (Un)Comment this line to toggle sensors dependency
 // #define IOP_SENSORS
@@ -37,6 +39,12 @@
 // defined
 #define IOP_MOCK_MONITOR
 
+#ifndef IOP_SERIAL
+#ifdef IOP_NETWORK_LOGGING
+#undef IOP_NETWORK_LOGGING
+#endif
+#endif
+
 // If you change the number of interrupt types, please update interruptVariant
 // to the correct size
 enum class InterruptEvent { NONE, FACTORY_RESET, ON_CONNECTION, MUST_UPGRADE };
@@ -45,6 +53,7 @@ constexpr static const uint8_t interruptVariants = 4;
 namespace utils {
 void scheduleInterrupt(InterruptEvent ev) noexcept;
 auto descheduleInterrupt() noexcept -> InterruptEvent;
+std::string base64Encode(const uint8_t *in, const size_t size);
 } // namespace utils
 
 #endif

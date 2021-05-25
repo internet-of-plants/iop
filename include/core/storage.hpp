@@ -41,7 +41,7 @@ private:
   }
 
   void printTrace() const noexcept {
-    if (!Log::isTracing())
+    if (!Log::isTracing() || this->size > 50)
       return;
     Log::print(F("Storage<"), LogLevel::TRACE, LogType::START);
     Log::print(std::to_string(SIZE).c_str(), LogLevel::TRACE, LogType::CONTINUITY);
@@ -49,7 +49,12 @@ private:
     Log::print(std::to_string(this->val.use_count()).c_str(), LogLevel::TRACE,
                LogType::CONTINUITY);
     Log::print(F("]("), LogLevel::TRACE, LogType::CONTINUITY);
+    uint16_t count = 0;
     for (const uint8_t byte : *this->val) {
+      if (count++ == 14) {
+        Log::print("<...>", LogLevel::TRACE, LogType::CONTINUITY);
+        break;
+      }
       const auto ch = static_cast<char>(byte);
       if (StringView::isPrintable(ch)) {
         Log::print(std::to_string(ch).c_str(), LogLevel::TRACE, LogType::CONTINUITY);
@@ -108,7 +113,6 @@ public:
     return *this;
   }
   auto constPtr() const noexcept -> const uint8_t * {
-    IOP_TRACE();
     this->printTrace();
     return this->val->data();
   }
@@ -116,6 +120,10 @@ public:
     IOP_TRACE();
     this->printTrace();
     return this->val->data();
+  }
+  void clear() noexcept {
+    IOP_TRACE();
+    memset(this->val->data(), '\0', size);
   }
   auto isAllPrintable() const noexcept -> bool {
     IOP_TRACE();
@@ -210,7 +218,6 @@ public:
       return *this;                                                            \
     }                                                                          \
     auto constPtr() const noexcept -> const uint8_t * {                        \
-      IOP_TRACE();                                                             \
       return this->val.constPtr();                                             \
     }                                                                          \
     auto mutPtr() noexcept -> uint8_t * {                                      \

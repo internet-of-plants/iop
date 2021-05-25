@@ -3,6 +3,9 @@
 
 #include "core/string/view.hpp"
 
+/// Returns CodePoint object pointing to the caller
+/// this is useful to track callers of functions that can panic
+#define IOP_CTX() IOP_CODE_POINT()
 #define IOP_CODE_POINT() iop::CodePoint(IOP_FILE, IOP_LINE, IOP_FUNC)
 
 /// Logs scope changes to serial if logLevel is set to TRACE

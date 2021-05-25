@@ -9,6 +9,8 @@
 #include <optional>
 
 #ifdef IOP_DESKTOP
+#include "driver/time.hpp"
+
 class Esp {
 public:
   uint16_t getVcc() { return 400; }
@@ -17,18 +19,12 @@ static Esp ESP;
 
 #define LED_BUILTIN 0
 #define OUTPUT 1
-#include <chrono>
-#include <thread>
+
 void pinMode(uint8_t pin, uint8_t mode) {
   (void) pin;
   (void) mode;
 }
 void yield() {}
-void delay(uint64_t ms) {
-  std::this_thread::sleep_for(std::chrono::milliseconds(ms));
-}
-const auto start = std::chrono::system_clock::now().time_since_epoch();
-uint64_t millis() { return std::chrono::duration_cast<std::chrono::milliseconds>((std::chrono::system_clock::now() - start).time_since_epoch()).count(); }
 #endif
 
 // TODO: log restart reason Esp::getResetInfoPtr()
@@ -111,7 +107,7 @@ public:
     } else if (this->nextMeasurement <= now) {
       this->nextHandleConnectionLost = 0;
       this->nextMeasurement = now + interval;
-      this->handleMeasurements(authToken.value());
+      this->handleMeasurements(iop::unwrap_ref(authToken, IOP_CTX()));
       //this->logger.info(std::to_string(ESP.getVcc())); // TODO: remove this
       
     } else if (this->nextYieldLog <= now) {
@@ -151,7 +147,7 @@ private:
     case InterruptEvent::MUST_UPGRADE:
 #ifdef IOP_OTA
       if (maybeToken.has_value()) {
-        const auto &token = maybeToken.value();
+        const auto &token = iop::unwrap_ref(maybeToken, IOP_CTX());
         const auto status = this->api.upgrade(token);
         switch (status) {
         case iop::NetworkStatus::FORBIDDEN:
@@ -217,7 +213,7 @@ private:
     const auto maybeToken = this->credentialsServer.serve(wifi, this->api);
 
     if (maybeToken.has_value())
-      this->flash.writeAuthToken(maybeToken.value());
+      this->flash.writeAuthToken(iop::unwrap_ref(maybeToken, IOP_CTX()));
   }
 
   void handleMeasurements(const AuthToken &token) noexcept {
@@ -313,12 +309,11 @@ void setup() {
   iop::Log::setup(logLevel);
   IOP_TRACE();
   eventLoop.emplace(uri, logLevel);
-  eventLoop.value().setup();
+  iop::unwrap_mut(eventLoop, IOP_CTX()).setup();
 }
 
 void loop() {
-  IOP_TRACE();
-  eventLoop.value().loop();
+  iop::unwrap_mut(eventLoop, IOP_CTX()).loop();
 }
 
 #ifdef IOP_DESKTOP
