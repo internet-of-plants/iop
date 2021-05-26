@@ -53,7 +53,7 @@ constexpr static const uint8_t interruptVariants = 4;
 namespace utils {
 void scheduleInterrupt(InterruptEvent ev) noexcept;
 auto descheduleInterrupt() noexcept -> InterruptEvent;
-std::string base64Encode(const uint8_t *in, const size_t size);
+auto base64Encode(const uint8_t *in, const size_t size) noexcept -> std::string;
 } // namespace utils
 
 #endif

@@ -22,10 +22,6 @@ class __FlashStringHelper;
 #include "WString.h"
 #endif
 
-#define PROGMEM_STRING(name, msg)                                              \
-  static const char *const PROGMEM name##_progmem_char = msg;                  \
-  static const iop::StaticString name(FPSTR(name##_progmem_char));
-
 namespace iop {
 class StringView;
 
@@ -45,6 +41,9 @@ private:
   const __FlashStringHelper *str;
 
 public:
+  StaticString() noexcept: str(nullptr) {
+    this->str = F("");
+  }
   // NOLINTNEXTLINE hicpp-explicit-conversions
   StaticString(const __FlashStringHelper *str) noexcept;
 
@@ -70,7 +69,7 @@ public:
   auto operator=(StaticString &&other) noexcept -> StaticString & = default;
 };
 
-PROGMEM_STRING(emptyStaticString, "");
+static const StaticString emptyStaticString;
 
 } // namespace iop
 

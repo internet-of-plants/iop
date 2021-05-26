@@ -36,7 +36,7 @@ auto macAddress() noexcept -> const MacAddress & {
   wifi_get_macaddr(STATION_IF, buff.data());
 
   auto mac_ = MacAddress::empty();
-  PROGMEM_STRING(fmtStr, "%02X:%02X:%02X:%02X:%02X:%02X");
+  const StaticString fmtStr(F("%02X:%02X:%02X:%02X:%02X:%02X"));
   const auto *fmt = fmtStr.asCharPtr();
   // NOLINTNEXTLINE hicpp-vararg
   sprintf_P(reinterpret_cast<char *>(mac_.mutPtr()), fmt, buff[0], buff[1],
@@ -58,8 +58,8 @@ auto hashSketch() noexcept -> const MD5Hash & {
   auto res = MD5Hash::fromString(iop::UnsafeRawString(hashed.c_str()));
   if (IS_ERR(res)) {
     const auto &ref = UNWRAP_ERR_REF(res);
-    PROGMEM_STRING(sizeErr, "MD5 hex is too big, this is critical: ");
-    PROGMEM_STRING(printErr, "Unprintable char in MD5 hex, this is critical: ");
+    const StaticString sizeErr(F("MD5 hex is too big, this is critical: "));
+    const StaticString printErr(F("Unprintable char in MD5 hex, this is critical: "));
     const auto size = std::to_string(MD5Hash::size);
 
     const auto printable = iop::StringView(hashed).scapeNonPrintable();

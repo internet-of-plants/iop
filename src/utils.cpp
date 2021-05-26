@@ -47,7 +47,7 @@ void IRAM_ATTR scheduleInterrupt(const InterruptEvent ev) noexcept {
   }
 }
 
-std::string base64Encode(const uint8_t *in, const size_t size) {
+auto base64Encode(const uint8_t *in, const size_t size) noexcept -> std::string {
   std::string out;
 
   int val = 0, valb = -6;

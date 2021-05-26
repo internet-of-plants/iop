@@ -68,15 +68,13 @@ static String currentLog;
 // TODO(pc): use ByteRate to allow grouping messages before sending, or reuse
 // the TCP connection to many
 
-static Api api(uri, iop::LogLevel::WARN);
+static Api api(uri(), iop::LogLevel::WARN);
 static Flash flash(iop::LogLevel::WARN);
 
 static bool logNetwork = true;
 void reportLog() noexcept {
   if (!logNetwork || !currentLog.length())
     return;
-
-  std::cout << "Report log: " << currentLog << " === " << std::endl;
 
   const auto maybeToken = flash.readAuthToken();
   if (maybeToken.has_value()) {

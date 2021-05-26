@@ -31,8 +31,10 @@ void delay(uint32_t time) {
 #include "Esp.h"
 #endif
 
-PROGMEM_STRING(loggingTarget, "PANIC")
-const static iop::Log logger(iop::LogLevel::CRIT, loggingTarget);
+static auto panicTarget() -> iop::StaticString {
+  return iop::StaticString(F("PANIC"));
+}
+const static iop::Log logger(iop::LogLevel::CRIT, panicTarget());
 
 static bool isPanicking = false;
 

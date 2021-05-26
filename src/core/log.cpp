@@ -121,8 +121,6 @@ auto Log::levelToString(const LogLevel level) const noexcept -> StaticString {
 
 void IRAM_ATTR LogHook::defaultStaticPrinter(
     const __FlashStringHelper *str, const LogLevel level, const iop::LogType type) noexcept {
-if (level == LogLevel::TRACE)
-    std::cout << "TRACE BRUH" << std::endl;
 #ifdef IOP_SERIAL
 #ifdef IOP_DESKTOP
   std::cout << reinterpret_cast<const char*>(str);
@@ -135,8 +133,6 @@ if (level == LogLevel::TRACE)
 }
 void IRAM_ATTR
 LogHook::defaultViewPrinter(const char *str, const LogLevel level, const iop::LogType type) noexcept {
-  if (level == LogLevel::TRACE)
-    std::cout << "TRACE BRUH" << std::endl;
 #ifdef IOP_SERIAL
 #ifdef IOP_DESKTOP
   std::cout << str;
@@ -159,7 +155,6 @@ LogHook::defaultSetuper(const iop::LogLevel level) noexcept {
     }
 #endif
 #endif
-    if (level == iop::LogLevel::TRACE) std::cout << "TRACE sss" << std::endl;
     isTracing_ |= level == iop::LogLevel::TRACE;
 
     return;

@@ -308,7 +308,7 @@ static std::optional<EventLoop> eventLoop;
 void setup() {
   iop::Log::setup(logLevel);
   IOP_TRACE();
-  eventLoop.emplace(uri, logLevel);
+  eventLoop.emplace(uri(), logLevel);
   iop::unwrap_mut(eventLoop, IOP_CTX()).setup();
 }
 
@@ -317,6 +317,7 @@ void loop() {
 }
 
 #ifdef IOP_DESKTOP
+#ifndef UNIT_TEST
 #include <unistd.h>
 #include <iostream>
 int main(int argc, char** argv) {
@@ -327,4 +328,5 @@ int main(int argc, char** argv) {
   }
   return 0;
 }
+#endif
 #endif

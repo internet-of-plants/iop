@@ -79,8 +79,8 @@ auto Network::setup() const noexcept -> void {
   initialized = true;
 
   if (!this->uri().contains(F(":"))) {
-    PROGMEM_STRING(error, "Host must contain protocol (http:// or https://): ");
-    iop_panic(StaticString(error.get()).toStdString() + " " + this->uri().toStdString());
+    const StaticString error(F("Host must contain protocol (http:// or https://): "));
+    iop_panic(error.toStdString() + " " + this->uri().toStdString());
   }
 
   http.setReuse(false);
@@ -148,7 +148,11 @@ auto Network::httpRequest(const HttpMethod method_,
   if (!Network::isConnected())
     return Response(NetworkStatus::CONNECTION_ISSUES);
 
+  #ifdef IOP_DESKTOP
   const auto uri = this->uri().toStdString() + path.get();
+  #else
+  const auto uri = String(this->uri().get()) + path.get();
+  #endif
   const auto method = iop::unwrap_ref(methodToString(method_), IOP_CTX());
 
   auto data_ = emptyStringView;

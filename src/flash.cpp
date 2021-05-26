@@ -48,7 +48,7 @@ public:
   }
   bool commit() {
     iop_assert(this->storage, F("Unable to allocate storage"));
-    iop::Log(logLevel, F("EEPROM")).debug(F("Commit: "), utils::base64Encode(this->storage.get(), this->size));
+    //iop::Log(logLevel, F("EEPROM")).debug(F("Commit: "), utils::base64Encode(this->storage.get(), this->size));
     const auto fd = open("eeprom.dat", O_WRONLY | O_CREAT, 0777);
     iop_assert(fd != -1, F("Unable to open file"));
     if (write_(fd, this->storage.get(), size) == -1) {

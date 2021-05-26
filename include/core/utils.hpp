@@ -10,7 +10,9 @@
 #define IOP_SERIAL
 
 // (Un)Comment this line to toggle SSL dependency
-// #define IOP_SSL
+#ifndef IOP_DESKTOP
+#define IOP_SSL
+#endif
 
 // (Un)Comment this line to toggle memory stats logging
 // #define LOG_MEMORY

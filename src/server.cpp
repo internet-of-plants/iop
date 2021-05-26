@@ -56,18 +56,20 @@ constexpr const uint64_t intervalTryFlashWifiCredentialsMillis =
 constexpr const uint64_t intervalTryHardcodedWifiCredentialsMillis =
     60 * 60 * 1000; // 1 hour
 
-PROGMEM_STRING(pageHTMLStart,
-               "<!DOCTYPE HTML>\r\n"
-               "<html><body>\r\n"
-               "  <h1><center>Hello, I'm your plantomator</center></h1>\r\n"
-               "  <h4><center>If, in the future, you want to reset the "
-               "configurations set here, just press the factory reset button "
-               "for at least 15 seconds</center></h4>"
-               "<form style='margin: 0 auto; width: 500px;' action='/submit' "
-               "method='POST'>\r\n");
+auto pageHTMLStart() -> iop::StaticString {
+  return iop::StaticString(F(
+    "<!DOCTYPE HTML>\r\n"
+    "<html><body>\r\n"
+    "  <h1><center>Hello, I'm your plantomator</center></h1>\r\n"
+    "  <h4><center>If, in the future, you want to reset the "
+    "configurations set here, just press the factory reset button "
+    "for at least 15 seconds</center></h4>"
+    "<form style='margin: 0 auto; width: 500px;' action='/submit' "
+    "method='POST'>\r\n"));
+}
 
-PROGMEM_STRING(
-    wifiOverwriteHTML,
+auto wifiOverwriteHTML() -> iop::StaticString {
+  return iop::StaticString(F(
     "<h3>"
     "  <center>It seems you already have your wifi credentials set, if you "
     "want to rewrite it, please set the checkbox below and fill the "
@@ -84,10 +86,11 @@ PROGMEM_STRING(
     "<div class=\"wifi\" style=\"display: none\">"
     "  <div><strong>Password:</strong></div>"
     "  <input name='password' type='password' style='width:100%' />"
-    "</div>\r\n");
+    "</div>\r\n"));
+}
 
-PROGMEM_STRING(
-    wifiHTML,
+auto wifiHTML() -> iop::StaticString {
+  return iop::StaticString(F(
     "<h3><center>"
     "Please provide your Wifi credentials, so we can connect to it."
     "</center></h3>\r\n"
@@ -97,10 +100,11 @@ PROGMEM_STRING(
     "  <input name='ssid' type='text' style='width:100%' />"
     "</div>\r\n"
     "<div><div><strong>Password:</strong></div>"
-    "<input name='password' type='password' style='width:100%' /></div>\r\n");
+    "<input name='password' type='password' style='width:100%' /></div>\r\n"));
+}
 
-PROGMEM_STRING(
-    iopOverwriteHTML,
+auto iopOverwriteHTML() -> iop::StaticString {
+  return iop::StaticString(F(
     "<h3><center>It seems you already have your Iop credentials set, if you "
     "want to rewrite it, please set the checkbox below and fill the "
     "fields. Otherwise they will be ignored</center></h3>\r\n"
@@ -115,48 +119,55 @@ PROGMEM_STRING(
     "<div class=\"iop\" style=\"display: 'none'\">"
     "  <div><strong>Password:</strong></div>"
     "  <input name='iopPassword' type='password' style='width:100%' />"
-    "</div>\r\n");
+    "</div>\r\n"));
+}
 
-PROGMEM_STRING(
-    iopHTML, "<h3><center>"
-             "  Please provide your Iop credentials, so we can get an "
-             "authentication token to use"
-             "</center></h3>\r\n"
-             "<div><input type='hidden' value='true' name='iop'></div>"
-             "<div>"
-             "  <div><strong>Email:</strong></div>"
-             "  <input name='iopEmail' type='text' style='width:100%' />"
-             "</div>\r\n"
-             "<div>"
-             "  <div><strong>Password:</strong></div>"
-             "  <input name='iopPassword' type='password' style='width:100%' />"
-             "</div>\r\n");
+auto iopHTML() -> iop::StaticString {
+  return iop::StaticString(F(
+    "<h3><center>Please provide your Iop credentials, so we can get an "
+    "authentication token to use</center></h3>\r\n"
+    "<div>"
+    "  <input type='hidden' value='true' name='iop'></div>"
+    "<div>"
+    "  <div><strong>Email:</strong></div>"
+    "  <input name='iopEmail' type='text' style='width:100%' />"
+    "</div>\r\n"
+    "<div>"
+    "  <div><strong>Password:</strong></div>"
+    "  <input name='iopPassword' type='password' style='width:100%' />"
+    "</div>\r\n"));
+}
 
-PROGMEM_STRING(script,
-               "<script type='application/javascript'>"
-               "document.querySelector(\"input[name='wifi']\").addEventListener('change', ev => {"
-               "  for (const el of document.getElementsByClassName('wifi')) {"
-               "    if (ev.currentTarget.checked) {"
-               "      el.style.display = 'block';"
-               "    } else {"
-               "      el.style.display = 'none';"
-               "    }"
-               "  }"
-               "});"
-               "document.querySelector(\"input[name='iop']\").addEventListener('change', ev => {"
-               "  for (const el of document.getElementsByClassName('iop')) {"
-               "    if (ev.currentTarget.checked) {"
-               "      el.style.display = 'block';"
-               "    } else {"
-               "      el.style.display = 'none';"
-               "    }"
-               "  }"
-               "});"
-               "</script>");
+auto script() -> iop::StaticString {
+  return iop::StaticString(F(
+    "<script type='application/javascript'>"
+    "document.querySelector(\"input[name='wifi']\").addEventListener('change', ev => {"
+    "  for (const el of document.getElementsByClassName('wifi')) {"
+    "    if (ev.currentTarget.checked) {"
+    "      el.style.display = 'block';"
+    "    } else {"
+    "      el.style.display = 'none';"
+    "    }"
+    "  }"
+    "});"
+    "document.querySelector(\"input[name='iop']\").addEventListener('change', ev => {"
+    "  for (const el of document.getElementsByClassName('iop')) {"
+    "    if (ev.currentTarget.checked) {"
+    "      el.style.display = 'block';"
+    "    } else {"
+    "      el.style.display = 'none';"
+    "    }"
+    "  }"
+    "});"
+    "</script>"));
+}
 
-PROGMEM_STRING(pageHTMLEnd, "<br>\r\n"
-                            "<input type='submit' value='Submit' />\r\n"
-                            "</form></body></html>");
+auto pageHTMLEnd() -> iop::StaticString {
+  return iop::StaticString(F(
+    "<br>\r\n"
+    "<input type='submit' value='Submit' />\r\n"
+    "</form></body></html>"));
+}
 
 // We use this globals to share messages from the callbacks
 static std::optional<std::pair<std::string, std::string>> credentialsWifi;
@@ -229,38 +240,38 @@ void CredentialsServer::setup() const noexcept {
     const auto mustConnect = !iop::Network::isConnected();
     const auto needsIopAuth = !flash.readAuthToken().has_value();
 
-    auto len = pageHTMLStart.length() + pageHTMLEnd.length() + script.length();
+    auto len = pageHTMLStart().length() + pageHTMLEnd().length() + script().length();
 
     if (mustConnect) {
-      len += wifiHTML.length();
+      len += wifiHTML().length();
     } else {
-      len += wifiOverwriteHTML.length();
+      len += wifiOverwriteHTML().length();
     }
 
     if (needsIopAuth) {
-      len += iopHTML.length();
+      len += iopHTML().length();
     } else {
-      len += iopOverwriteHTML.length();
+      len += iopOverwriteHTML().length();
     }
 
     s->setContentLength(len);
 
-    s->send_P(HTTP_CODE_OK, PSTR("text/html"), pageHTMLStart.asCharPtr());
+    s->send_P(HTTP_CODE_OK, PSTR("text/html"), pageHTMLStart().asCharPtr());
 
     if (mustConnect) {
-      s->sendContent_P(wifiHTML.asCharPtr());
+      s->sendContent_P(wifiHTML().asCharPtr());
     } else {
-      s->sendContent_P(wifiOverwriteHTML.asCharPtr());
+      s->sendContent_P(wifiOverwriteHTML().asCharPtr());
     }
 
     if (needsIopAuth) {
-      s->sendContent_P(iopHTML.asCharPtr());
+      s->sendContent_P(iopHTML().asCharPtr());
     } else {
-      s->sendContent_P(iopOverwriteHTML.asCharPtr());
+      s->sendContent_P(iopOverwriteHTML().asCharPtr());
     }
 
-    s->sendContent_P(script.asCharPtr());
-    s->sendContent_P(pageHTMLEnd.asCharPtr());
+    s->sendContent_P(script().asCharPtr());
+    s->sendContent_P(pageHTMLEnd().asCharPtr());
     iop::Log::print(F("[INFO] [RAW] SERVER_CALLBACK: Served HTML\n"),
       iop::LogLevel::DEBUG, iop::LogType::STARTEND);
   });
@@ -480,14 +491,14 @@ auto CredentialsServer::serve(const std::optional<WifiCredentials> &storedWifi,
     // but with a bigish interval.
   }
   
-  const auto hasHardcodedWifiCreds = wifiNetworkName.has_value() && wifiPassword.has_value();
+  const auto hasHardcodedWifiCreds = wifiNetworkName().has_value() && wifiPassword().has_value();
   if (!isConnected && hasHardcodedWifiCreds && this->nextTryHardcodedWifiCredentials <= now) {
     this->nextTryHardcodedWifiCredentials = now + intervalTryHardcodedWifiCredentialsMillis;
 
     this->logger.info(F("Trying hardcoded wifi credentials"));
 
-    const auto &ssid = iop::unwrap_ref(wifiNetworkName, IOP_CTX());
-    const auto &psk = iop::unwrap_ref(wifiPassword, IOP_CTX());
+    const auto &ssid = iop::unwrap_ref(wifiNetworkName(), IOP_CTX());
+    const auto &psk = iop::unwrap_ref(wifiPassword(), IOP_CTX());
     this->connect(ssid.toStdString(), psk.toStdString());
   }
 

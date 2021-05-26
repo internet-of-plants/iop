@@ -52,7 +52,9 @@ public:
   auto operator=(LogHook &&other) noexcept -> LogHook &;
 };
 
-PROGMEM_STRING(defaultLineTermination, "\n");
+static auto defaultLineTermination() -> StaticString {
+  return StaticString(F("\n"));
+}
 
 /// Logger with its own log level and target
 class Log {
@@ -122,9 +124,9 @@ public:
   void log_recursive(const LogLevel &level, const bool first,
                      const StaticString msg) const noexcept {
     if (first) {
-      this->log(level, msg, LogType::STARTEND, defaultLineTermination);
+      this->log(level, msg, LogType::STARTEND, defaultLineTermination());
     } else {
-      this->log(level, msg, LogType::END, defaultLineTermination);
+      this->log(level, msg, LogType::END, defaultLineTermination());
     }
   }
 
@@ -145,9 +147,9 @@ public:
   void log_recursive(const LogLevel &level, const bool first,
                      const StringView msg) const noexcept {
     if (first) {
-      this->log(level, msg, LogType::STARTEND, defaultLineTermination);
+      this->log(level, msg, LogType::STARTEND, defaultLineTermination());
     } else {
-      this->log(level, msg, LogType::END, defaultLineTermination);
+      this->log(level, msg, LogType::END, defaultLineTermination());
     }
   }
 

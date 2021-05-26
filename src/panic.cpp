@@ -23,10 +23,12 @@ void __panic_func(const char *file, uint16_t line, const char *func) noexcept {
 }
 #endif
 
-PROGMEM_STRING(logTarget, "PANIC")
-static const iop::Log logger(iop::LogLevel::DEBUG, logTarget);
+static auto panicTarget() -> iop::StaticString {
+  return iop::StaticString(F("PANIC"));
+}
+static const iop::Log logger(iop::LogLevel::DEBUG, panicTarget());
 
-static const Api api(uri, iop::LogLevel::DEBUG);
+static const Api api(uri(), iop::LogLevel::DEBUG);
 static const Flash flash(iop::LogLevel::DEBUG);
 
 void upgrade() noexcept {
