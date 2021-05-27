@@ -27,11 +27,10 @@ void IRAM_ATTR scheduleInterrupt(const InterruptEvent ev) noexcept {
   for (volatile auto &el : interruptEvents) {
     if (el == InterruptEvent::NONE && ptr == nullptr) {
       ptr = &el;
-
-      // We only allow one of each interrupt concurrently
-      // So if we find ourselves we bail
-      if (el == ev)
-        return;
+    } else if (el == ev) {
+      return;
+    } else if (el != InterruptEvent::NONE) {
+      continue;
     }
 
     if (ptr != nullptr) {
@@ -40,7 +39,7 @@ void IRAM_ATTR scheduleInterrupt(const InterruptEvent ev) noexcept {
       // If no space is available and we reach here there is a bug in the code,
       // interruptVariants is probably wrong. We used to panic here, but that
       // doesn't work when called from interrupts
-      iop::Log::print(F("[CRIT] RESET: Unsable to store interrupt, "
+      iop::Log::print(F("[CRIT] RESET: Unable to store interrupt, "
                         "'interruptVariant' is probably wrong\n"),
                       iop::LogLevel::INFO, iop::LogType::STARTEND);
     }
