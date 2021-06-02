@@ -82,6 +82,12 @@
         "stop_token": "cpp",
         "thread": "cpp",
         "unordered_set": "cpp",
-        "cerrno": "cpp"
+        "cerrno": "cpp",
+        "any": "cpp",
+        "strstream": "cpp",
+        "codecvt": "cpp",
+        "coroutine": "cpp",
+        "source_location": "cpp",
+        "future": "cpp"
     }
 }

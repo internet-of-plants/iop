@@ -1,11 +1,12 @@
-#include "core/utils.hpp"
-
-#ifndef IOP_ONLINE
-#define IOP_DRIVER_CLIENT
-#endif
-
 #ifndef IOP_DRIVER_CLIENT
 #define IOP_DRIVER_CLIENT
+
+#ifndef IOP_DESKTOP
+#include "ESP8266WiFi.h"
+#include "ESP8266HTTPClient.h"
+#else
+#include "driver/wifi.hpp"
+class WiFiClient;
 
 #define HTTPC_ERROR_CONNECTION_FAILED   (-1)
 #define HTTPC_ERROR_SEND_HEADER_FAILED  (-2)
@@ -24,6 +25,7 @@
 #include <unordered_map>
 #include "core/string/static.hpp"
 #include "core/string/fixed.hpp"
+#include "core/utils.hpp"
 #include "core/log.hpp"
 
 #include <algorithm>
@@ -37,11 +39,11 @@
 #include <stdlib.h>
 #include <iostream>
 
-const static iop::Log clientDriverLogger(iop::LogLevel::WARN, F("HTTP Client"));
+const static iop::Log clientDriverLogger(iop::LogLevel::DEBUG, F("HTTP Client"));
 
 static int send__(uint32_t fd, const char * msg, const size_t len) noexcept {
-  if (clientDriverLogger.level() == iop::LogLevel::TRACE || iop::Log::isTracing())
-    iop::Log::print(msg, iop::LogLevel::TRACE, iop::LogType::CONTINUITY);
+  if (iop::Log::isTracing())
+    iop::Log::print(msg, iop::LogLevel::TRACE, iop::LogType::STARTEND);
   return write(fd, msg, len);
 }
 static int recv(uint32_t fd, char *msg, size_t len) {
@@ -219,14 +221,14 @@ public:
       iop::Log::print(F(""), iop::LogLevel::TRACE, iop::LogType::END);
     clientDriverLogger.debug(F("Sent data"));
     
-    static auto buffer = iop::FixedString<1024>::empty();
+    static auto buffer = iop::FixedString<5096>::empty();
     buffer.clear();
     
     int32_t size = 0;
     auto firstLine = true;
     auto isPayload = false;
     
-    auto status = std::make_optional(500);
+    auto status = std::make_optional(1000);
     auto *buffStart = buffer.asMut();
     iop::StringView buff(buffer);
     while (true) {
@@ -241,13 +243,17 @@ public:
       }
       clientDriverLogger.debug(F("Len: "), std::to_string(size));
       if (firstLine && size == 0) {
-        clientDriverLogger.error(F("Empty request"));
         close(fd);
-        return 500;
+        clientDriverLogger.warn(F("Empty request: "), std::to_string(fd), F(" "), std::string(reinterpret_cast<const char*>(data), len));
+        return status.value_or(500);
+        //continue;
       }
       
-      iop_assert(buff.contains(F("\n")), F("We need a better HTTP client"));
+      clientDriverLogger.debug(F("Buffer: "), buff);
+      //if (!buff.contains(F("\n"))) continue;
       clientDriverLogger.debug(F("Read: ("), std::to_string(size), F(") ["), std::to_string(buffer.length()), F("]: "), std::string(buffer.get()).substr(0, buff.indexOf(F("\n"))));
+
+      if (firstLine && !buff.contains(F("\n"))) continue;
 
       if (firstLine && size < 10) { // len("HTTP/1.1 ") = 9
         clientDriverLogger.error(F("Error reading first line: "), std::to_string(size));
@@ -263,7 +269,7 @@ public:
           clientDriverLogger.error(F("Bad server: "), statusStr, F(" -- "), buffer);
           return 500;
         }
-        iop_assert(buff.contains(F("\n")), iop::StaticString(F("First: ")).toStdString() + std::to_string(buffer.length()) + iop::StaticString(F(" bytes don't contain newline, the path is too long\n")).toStdString());
+        //iop_assert(buff.contains(F("\n")), iop::StaticString(F("First: ")).toStdString() + std::to_string(buffer.length()) + iop::StaticString(F(" bytes don't contain newline, the path is too long\n")).toStdString());
         status = std::make_optional(atoi(std::string(statusStr.get(), 0, codeEnd).c_str()));
         clientDriverLogger.debug(F("Status: "), std::to_string(status.value_or(500)));
         firstLine = false;
@@ -275,7 +281,8 @@ public:
         clientDriverLogger.error(F("No status"));
         return 500;
       }
-      iop_assert(buff.contains(F("\n")), F("We need a better HTTP client"));
+      clientDriverLogger.debug(F("Buffer: "), buff);
+      //if (!buff.contains(F("\n"))) continue;
       clientDriverLogger.debug(F("Headers + Payload: "), std::string(buffer.get()).substr(0, buff.indexOf(F("\n"))));
 
       while (len > 0 && buffer.length() > 0 && !isPayload) {
@@ -317,7 +324,7 @@ public:
             memmove(buffer.asMut(), ptr, strlen(ptr) + 1);
             if (!buff.contains(F("\n"))) iop_panic(F("Fuuuc")); //continue;
           }
-          if (!buff.contains(F("\n"))) continue;
+          //if (!buff.contains(F("\n"))) continue;
           clientDriverLogger.debug(F("Buffer: "), std::string(buffer.get()).substr(0, buff.indexOf(F("\n"))));
           clientDriverLogger.debug(F("Skipping header ("), std::to_string(buff.indexOf(F("\r\n"))), F(")"));
           const char* ptr = buff.get() + buff.indexOf(F("\r\n")) + 2;
@@ -342,8 +349,9 @@ public:
       break;
     }
 
-    clientDriverLogger.debug(F("Close client"));
+    clientDriverLogger.debug(F("Close client: "), std::to_string(fd), F(" "), std::string(reinterpret_cast<const char*>(data), len));
     close(fd);
+    clientDriverLogger.info(F("Status: "), std::to_string(status.value_or(500)));
     return iop::unwrap(status, IOP_CTX());
   }
 
@@ -403,5 +411,10 @@ public:
     return true;
   }
 };
+
+#ifdef IOP_SSL
+#error "SSL not supported for desktop right now"
+#endif
+#endif
 
 #endif

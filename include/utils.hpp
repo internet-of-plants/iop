@@ -16,12 +16,14 @@
 // (Un)Comment this line to toggle network logging
 // TODO: we should make network logging into another task in cont.h, yielding to
 // it when needed. Otherwise the stack will go cray cray
-//#ifdef IOP_DESKTOP
+#ifdef IOP_DESKTOP
 #define IOP_NETWORK_LOGGING
-//#endif
+#endif
 
 // (Un)Comment this line to toggle sensors dependency
-// #define IOP_SENSORS
+#ifndef IOP_DESKTOP
+#define IOP_SENSORS
+#endif
 
 // (Un)Comment this line to toggle flash memory dependency
 #define IOP_FLASH

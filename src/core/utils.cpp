@@ -1,27 +1,7 @@
 #include "core/utils.hpp"
 #include <optional>
 
-#ifdef IOP_DESKTOP
-class Esp {
-public:
-  uint16_t getFreeHeap() { return 1000; }
-  uint16_t getFreeContStack() { return 1000; }
-  uint16_t getMaxFreeBlockSize() { return 1000; }
-  uint16_t getHeapFragmentation() { return 0; }
-  uint16_t getFreeSketchSpace() { return 1000; }
-  std::string getSketchMD5() { return "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"; }
-};
-static Esp ESP;
-#define STATION_IF 0
-static void wifi_get_macaddr(uint8_t station, uint8_t *buff) {
-  (void) station;
-  memcpy(buff, "AA:AA:AA:AA:AA:AA", 18);
-}
-#define sprintf_P sprintf
-#else
-#include "Esp.cpp"
-#include "user_interface.h"
-#endif
+#include "driver/device.hpp"
 
 namespace iop {
 auto macAddress() noexcept -> const MacAddress & {

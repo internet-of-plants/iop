@@ -5,12 +5,7 @@
 #include "core/log.hpp"
 #include "core/result.hpp"
 
-#ifdef IOP_DESKTOP
 #include "driver/client.hpp"
-class WiFiClient;
-#else
-#include "ESP8266HTTPClient.h"
-#endif
 
 namespace iop {
 /// Higher level error reporting. Lower level is logged

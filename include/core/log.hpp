@@ -2,6 +2,7 @@
 #define IOP_CORE_LOG_HPP
 
 #include "core/string/view.hpp"
+#include "driver/log.hpp"
 #include <functional>
 
 namespace iop {

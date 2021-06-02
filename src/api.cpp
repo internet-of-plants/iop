@@ -11,11 +11,7 @@ static iop::CertStore certStore(generated::certList);
 
 #ifndef IOP_API_DISABLED
 
-#ifdef IOP_DESKTOP
 #include "driver/client.hpp"
-#else
-#include "ESP8266httpUpdate.h"
-#endif
 
 static void upgradeScheduler() noexcept {
   utils::scheduleInterrupt(InterruptEvent::MUST_UPGRADE);
@@ -217,7 +213,6 @@ auto Api::registerLog(const AuthToken &authToken,
     -> iop::NetworkStatus {
   IOP_TRACE();
   const auto token = authToken.asString();
-  std::cout << "Register log" << std::endl;
   this->logger.debug(F("Register log. Token: "), token, F(". Log: "), log);
   auto maybeResp = this->network().httpPost(token, F("/v1/log"), std::move(log));
 
@@ -238,6 +233,8 @@ auto Api::registerLog(const AuthToken &authToken,
 #define LED_BUILTIN 0
 //#include "driver/upgrade.hpp"
 const static std::string emptyString;
+#else
+#include "ESP8266httpUpdate.h"
 #endif
 
 auto Api::upgrade(const AuthToken &token) const noexcept
@@ -248,6 +245,7 @@ auto Api::upgrade(const AuthToken &token) const noexcept
   #ifndef IOP_DESKTOP
   const auto tok = token.asString();
   const auto path = F("/v1/update");
+
   #ifndef IOP_DESKTOP
   const auto uri = String(this->uri().get()) + path;
   #else

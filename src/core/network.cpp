@@ -3,22 +3,8 @@
 
 #ifdef IOP_ONLINE
 
-#ifdef IOP_DESKTOP
+#include "driver/device.hpp"
 #include "driver/client.hpp"
-
-class Esp {
-public:
-  uint16_t getFreeHeap() { return 1000; }
-  uint16_t getFreeContStack() { return 1000; }
-  uint16_t getMaxFreeBlockSize() { return 1000; }
-  uint16_t getHeapFragmentation() { return 0; }
-  uint16_t getFreeSketchSpace() { return 1000; }
-  std::string getSketchMD5() { return "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"; }
-};
-static Esp ESP;
-#else
-#include "ESP8266WiFi.h"
-#endif
 
 const static iop::UpgradeHook defaultHook(iop::UpgradeHook::defaultHook);
 
@@ -40,35 +26,21 @@ auto Network::takeUpgradeHook() noexcept -> UpgradeHook {
   return old;
 }
 
-#ifdef IOP_DESKTOP
-static WiFiClient client;
-#ifdef IOP_SSL
-#error "SSL not supported for desktop right now"
-#endif
-#else
-
 #ifdef IOP_SSL
 static BearSSL::WiFiClientSecure client;
 #else
 static WiFiClient client;
 #endif
-#endif
 static HTTPClient http;
 
 auto Network::isConnected() noexcept -> bool {
   IOP_TRACE();
-  #ifdef IOP_DESKTOP
-  return true;
-  #else
   return WiFi.status() == WL_CONNECTED;
-  #endif
 }
 
 void Network::disconnect() noexcept {
   IOP_TRACE();
-  #ifndef IOP_DESKTOP
   WiFi.disconnect();
-  #endif
 }
 
 static bool initialized = false;
@@ -91,14 +63,12 @@ auto Network::setup() const noexcept -> void {
   client.setNoDelay(false);
   client.setSync(true);
 
-  #ifndef IOP_DESKTOP
   WiFi.persistent(true);
   WiFi.setAutoReconnect(true);
   WiFi.setAutoConnect(true);
   WiFi.mode(WIFI_STA);
   delay(1);
   WiFi.reconnect();
-  #endif
 }
 
 static auto methodToString(const HttpMethod &method) noexcept
@@ -242,18 +212,15 @@ auto Network::httpRequest(const HttpMethod method_,
   return code;
 }
 #else
-#ifndef IOP_DESKTOP
-#include "ESP8266WiFi.h"
-#endif
+#include "driver/time.hpp"
+#include "driver/wifi.hpp"
 
 namespace iop {
 void Network::setup() const noexcept {
   (void)*this;
   IOP_TRACE();
-  #ifndef IOP_DESKTOP
   WiFi.mode(WIFI_OFF);
   delay(1);
-  #endif
 }
 void Network::disconnect() noexcept { IOP_TRACE(); }
 auto Network::isConnected() noexcept -> bool {

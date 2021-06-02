@@ -1,13 +1,6 @@
 #include "core/log.hpp"
 #include "core/utils.hpp"
 
-#ifdef IOP_DESKTOP
-#define IRAM_ATTR
-#include <iostream>
-#else
-#include "Arduino.h"
-#endif
-
 static bool initialized = false;
 
 static bool isTracing_ = false;
@@ -122,11 +115,9 @@ auto Log::levelToString(const LogLevel level) const noexcept -> StaticString {
 void IRAM_ATTR LogHook::defaultStaticPrinter(
     const __FlashStringHelper *str, const LogLevel level, const iop::LogType type) noexcept {
 #ifdef IOP_SERIAL
-#ifdef IOP_DESKTOP
-  std::cout << reinterpret_cast<const char*>(str);
+  logPrint(str);
 #else
-  Serial.print(str);
-#endif
+  (void)str;
 #endif
   (void)type;
   (void)level;
@@ -134,55 +125,21 @@ void IRAM_ATTR LogHook::defaultStaticPrinter(
 void IRAM_ATTR
 LogHook::defaultViewPrinter(const char *str, const LogLevel level, const iop::LogType type) noexcept {
 #ifdef IOP_SERIAL
-#ifdef IOP_DESKTOP
-  std::cout << str;
+  logPrint(str);
 #else
-  Serial.print(str);
-#endif
+  (void)str;
 #endif
   (void)type;
   (void)level;
 }
 void IRAM_ATTR
 LogHook::defaultSetuper(const iop::LogLevel level) noexcept {
-  static bool debugging = false;
-  if (initialized) {
-#ifdef IOP_SERIAL
-#ifndef IOP_DESKTOP
-    if (!debugging && level <= iop::LogLevel::DEBUG) {
-      debugging = true;
-      Serial.setDebugOutput(true);
-    }
-#endif
-#endif
-    isTracing_ |= level == iop::LogLevel::TRACE;
-
-    return;
-  }
-  debugging = false;
-  initialized = true;
-
-#ifdef IOP_SERIAL
-#ifndef IOP_DESKTOP
-  constexpr const uint32_t BAUD_RATE = 115200;
-  Serial.begin(BAUD_RATE);
-  if (level <= iop::LogLevel::DEBUG)
-    Serial.setDebugOutput(true);
-
-  constexpr const uint32_t twoSec = 2 * 1000;
-  const auto end = millis() + twoSec;
-  while (!Serial && millis() < end)
-    yield();
-#endif
-#endif
+  isTracing_ |= level == iop::LogLevel::TRACE;
+  logSetup(level);
 }
 void LogHook::defaultFlusher() noexcept {
 #ifdef IOP_SERIAL
-#ifdef IOP_DESKTOP
-  std::cout << std::flush;
-#else
-  Serial.flush();
-#endif
+  logFlush();
 #endif
 }
 

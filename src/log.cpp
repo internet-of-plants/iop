@@ -5,11 +5,7 @@
 
 #ifdef IOP_NETWORK_LOGGING
 
-#ifndef IOP_DESKTOP
-#include "Arduino.h"
-#else
 #include "driver/time.hpp"
-#endif
 
 static void staticPrinter(const __FlashStringHelper *str,
                           iop::LogLevel level, 
@@ -56,11 +52,7 @@ public:
 };
 
 static ByteRate byteRate;
-#ifdef IOP_DESKTOP
 static std::string currentLog;
-#else
-static String currentLog;
-#endif
 
 // TODO(pc): allow gradually sending bytes wifiClient->write(...) instead of
 // buffering the log before sending We can use the already in place system of
@@ -88,11 +80,7 @@ void reportLog() noexcept {
 static void staticPrinter(const __FlashStringHelper *str,
                           const iop::LogLevel level,
                           const iop::LogType kind) noexcept {
-#ifdef IOP_DESKTOP
-  std::cout << reinterpret_cast<const char*>(str);
-#else
-  Serial.print(str);
-#endif
+  iop::LogHook::defaultStaticPrinter(str, level, kind);
 
   const auto charArray = reinterpret_cast<PGM_P>(str);
   if (logNetwork && level >= iop::LogLevel::CRIT) {
@@ -103,11 +91,7 @@ static void staticPrinter(const __FlashStringHelper *str,
   }
 }
 static void viewPrinter(const char *str, const iop::LogLevel level, const iop::LogType kind) noexcept {
-#ifdef IOP_DESKTOP
-  std::cout << str;
-#else
-  Serial.print(str);
-#endif
+  iop::LogHook::defaultViewPrinter(str, level, kind);
 
   if (logNetwork && level >= iop::LogLevel::CRIT) {
     currentLog += str;

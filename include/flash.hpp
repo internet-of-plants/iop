@@ -5,11 +5,7 @@
 #include "models.hpp"
 #include <optional>
 
-#ifdef IOP_DESKTOP
-class WifiCredentials;
-#else
-#include "ESP8266WiFi.h"
-#endif
+#include "driver/wifi.hpp"
 
 /// Wraps flash memory to provide a safe and ergonomic API
 class Flash {

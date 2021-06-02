@@ -24,6 +24,7 @@ public:
   auto borrow() const noexcept -> StringView;
   auto get() const noexcept -> const char * { return this->borrow().get(); }
   auto toMut() noexcept -> std::string &;
+  auto toString() noexcept -> std::string;
 
   ~CowString() noexcept = default;
   CowString(CowString const &other) noexcept;

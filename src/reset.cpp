@@ -1,14 +1,11 @@
 #include "reset.hpp"
 #include "utils.hpp"
 
-#ifdef IOP_DESKTOP
-#undef IOP_FACTORY_RESET
-#endif
-
 #ifdef IOP_FACTORY_RESET
 #include "configuration.hpp"
 
-#include "Arduino.h"
+#include "driver/pins.hpp"
+#include "driver/time.hpp"
 
 static volatile iop::esp_time resetStateTime = 0;
 

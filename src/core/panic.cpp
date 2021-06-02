@@ -5,31 +5,7 @@
 
 #include <iostream>
 
-#ifdef IOP_DESKTOP
-#include <thread>
-#include <cstdlib>
-#include <chrono>
-class Esp {
-public:
-  void deepSleep(uint32_t microsecs) {
-    std::this_thread::sleep_for(std::chrono::microseconds(microsecs));
-  }
-};
-static Esp ESP;
-#include <iostream>
-#include <cstdlib>
-#include <chrono>
-#include <thread>
-void __panic_func(const char *file, uint16_t line, const char *func) noexcept __attribute__((noreturn));
-void __panic_func(const char *file, uint16_t line, const char *func) noexcept {
-  std::abort();
-}
-void delay(uint32_t time) {
-  std::this_thread::sleep_for(std::chrono::milliseconds(time));
-}
-#else
-#include "Esp.h"
-#endif
+#include "driver/device.hpp"
 
 static auto panicTarget() -> iop::StaticString {
   return iop::StaticString(F("PANIC"));

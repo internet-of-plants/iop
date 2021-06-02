@@ -16,14 +16,6 @@ auto CertStore::findHashedTA(void *ctx, void *hashed_dn, size_t len)
     -> const br_x509_trust_anchor * {
   IOP_TRACE();
 
-  #ifdef IOP_DESKTOP
-  (void) ctx;
-  (void) hashed_dn;
-  (void) len;
-
-class Api;
-  return nullptr;
-  #else
   auto *cs = static_cast<CertStore *>(ctx);
 
   if (cs == nullptr)
@@ -59,7 +51,6 @@ class Api;
   }
 
   return nullptr;
-  #endif
 }
 
 void CertStore::freeHashedTA(void *ctx, const br_x509_trust_anchor *ta) {
@@ -71,12 +62,8 @@ void CertStore::freeHashedTA(void *ctx, const br_x509_trust_anchor *ta) {
 
 void CertStore::installCertStore(br_x509_minimal_context *ctx) {
   IOP_TRACE();
-  #ifdef IOP_DESKTOP
-  (void) ctx;
-  #else
   auto *ptr = static_cast<void *>(this);
   br_x509_minimal_set_dynamic(ctx, ptr, findHashedTA, freeHashedTA);
-  #endif
 }
 
 Cert::Cert(const uint8_t *cert, const uint8_t *index,

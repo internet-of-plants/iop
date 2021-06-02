@@ -2,50 +2,12 @@
 
 #ifndef IOP_SERVER_DISABLED
 
-#ifdef IOP_DESKTOP
 #include "driver/server.hpp"
-
-enum class DNSReplyCode
-{
-  NoError = 0,
-  FormError = 1,
-  ServerFailure = 2,
-  NonExistentDomain = 3,
-  NotImplemented = 4,
-  Refused = 5,
-  YXDomain = 6,
-  YXRRSet = 7,
-  NXRRSet = 8
-};
-class DNSServer {
-public:
-  void setErrorReplyCode(DNSReplyCode code) {
-    (void) code;
-  }
-  void stop() {}
-  void start(uint32_t port, const __FlashStringHelper *match, std::string ip) {
-    (void) port;
-    (void) match;
-    (void) ip;
-  }
-  void processNextRequest() {}
-};
-class Wifi {
-public:
-  std::string softAPIP() {
-    return "127.0.0.1";
-  }
-};
-static Wifi WiFi;
-
-static unsigned long millis() { return 100; }
-#else
-#include <DNSServer.h>
-#include <ESP8266WebServer.h>
-#endif
+#include "driver/wifi.hpp"
+#include "driver/time.hpp"
 
 #include "configuration.hpp"
-#include "core/interrupt.hpp"
+#include "driver/interrupt.hpp"
 #include "core/network.hpp"
 #include "flash.hpp"
 #include "api.hpp"
@@ -54,6 +16,9 @@ constexpr const uint64_t intervalTryFlashWifiCredentialsMillis =
     60 * 60 * 1000; // 1 hour
 
 constexpr const uint64_t intervalTryHardcodedWifiCredentialsMillis =
+    60 * 60 * 1000; // 1 hour
+
+constexpr const uint64_t intervalTryHardcodedIopCredentialsMillis =
     60 * 60 * 1000; // 1 hour
 
 auto pageHTMLStart() -> iop::StaticString {
@@ -256,6 +221,7 @@ void CredentialsServer::setup() const noexcept {
 
     s->setContentLength(len);
 
+
     s->send_P(HTTP_CODE_OK, PSTR("text/html"), pageHTMLStart().asCharPtr());
 
     if (mustConnect) {
@@ -271,6 +237,7 @@ void CredentialsServer::setup() const noexcept {
     }
 
     s->sendContent_P(script().asCharPtr());
+    
     s->sendContent_P(pageHTMLEnd().asCharPtr());
     iop::Log::print(F("[INFO] [RAW] SERVER_CALLBACK: Served HTML\n"),
       iop::LogLevel::DEBUG, iop::LogType::STARTEND);
@@ -283,7 +250,6 @@ void CredentialsServer::start() noexcept {
     this->isServerOpen = true;
     this->logger.info(F("Setting our own wifi access point"));
 
-    #ifndef IOP_DESKTOP
     // TODO: how to mock it in a reasonable way?
     WiFi.mode(WIFI_AP_STA);
     delay(1);
@@ -307,9 +273,6 @@ void CredentialsServer::start() noexcept {
     WiFi.softAP(ssid.c_str(), "le$memester#passwordz");
     
     const auto ip = WiFi.softAPIP().toString();
-    #else
-    const std::string ip = "127.0.0.1";
-    #endif
     
     server.begin();
 
@@ -328,10 +291,8 @@ void CredentialsServer::close() noexcept {
     dnsServer.stop();
     server.close();
 
-    #ifndef IOP_DESKTOP
     WiFi.mode(WIFI_STA);
     delay(1);
-    #endif
   }
 }
 
@@ -369,7 +330,6 @@ auto CredentialsServer::connect(iop::StringView ssid,
     -> void {
   IOP_TRACE();
   this->logger.info(F("Connect: "), ssid);
-  #ifndef IOP_DESKTOP
   if (wifi_station_get_connect_status() == STATION_CONNECTING) {
     const iop::InterruptLock _guard;
     wifi_station_disconnect();
@@ -392,7 +352,6 @@ auto CredentialsServer::connect(iop::StringView ssid,
     this->logger.error(F("Invalid wifi credentials ("), statusStr, F("): "),
                        std::move(ssid));
   }
-  #endif
 }
 
 auto CredentialsServer::authenticate(iop::StringView username,
@@ -400,15 +359,11 @@ auto CredentialsServer::authenticate(iop::StringView username,
                                      const Api &api) const noexcept
     -> std::optional<AuthToken> {
   IOP_TRACE();
-  #ifndef IOP_DESKTOP
   WiFi.mode(WIFI_STA);
-  #endif
 
   auto authToken = api.authenticate(username, std::move(password));
   
-  #ifndef IOP_DESKTOP
   WiFi.mode(WIFI_AP_STA);
-  #endif
   this->logger.info(F("Tried to authenticate"));
   if (IS_ERR(authToken)) {
     const auto &status = UNWRAP_ERR_REF(authToken);
@@ -500,6 +455,17 @@ auto CredentialsServer::serve(const std::optional<WifiCredentials> &storedWifi,
     const auto &ssid = iop::unwrap_ref(wifiNetworkName(), IOP_CTX());
     const auto &psk = iop::unwrap_ref(wifiPassword(), IOP_CTX());
     this->connect(ssid.toStdString(), psk.toStdString());
+  }
+
+  const auto hasHardcodedIopCreds = iopEmail().has_value() && iopPassword().has_value();
+  if (!isConnected && hasHardcodedIopCreds && this->nextTryHardcodedIopCredentials <= now) {
+    this->nextTryHardcodedIopCredentials = now + intervalTryHardcodedIopCredentialsMillis;
+
+    this->logger.info(F("Trying hardcoded iop credentials"));
+
+    const auto &email = iop::unwrap_ref(iopEmail(), IOP_CTX());
+    const auto &password = iop::unwrap_ref(iopPassword(), IOP_CTX());
+    this->authenticate(email.toStdString(), password.toStdString(), api);
   }
 
   // Give processing time to the servers

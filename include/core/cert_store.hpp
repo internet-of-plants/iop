@@ -4,28 +4,7 @@
 #include "core/memory.hpp"
 #include <optional>
 
-#ifdef IOP_DESKTOP
-class br_x509_minimal_context;
-class br_x509_trust_anchor;
-class br_x509_minimal_context;
-
-namespace BearSSL {
-class CertStoreBase {
-  public:
-    virtual ~CertStoreBase() {}
-
-    // Installs the cert store into the X509 decoder (normally via static function callbacks)
-    virtual void installCertStore(br_x509_minimal_context *ctx) = 0;
-};
-        
-class X509List {
-  uint8_t dummy;
-};
-} // namespace BearSSL
-
-#else
-#include "CertStoreBearSSL.h"
-#endif
+#include "driver/cert_store.hpp"
 
 namespace iop {
 

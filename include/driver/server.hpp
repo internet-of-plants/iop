@@ -1,11 +1,40 @@
-#include "core/utils.hpp"
-
-#ifndef IOP_ONLINE
-#define IOP_DRIVER_SERVER
-#endif
-
 #ifndef IOP_DRIVER_SERVER
 #define IOP_DRIVER_SERVER
+
+#ifndef IOP_DESKTOP
+#include <DNSServer.h>
+#include <ESP8266WebServer.h>
+#include <user_interface.h>
+#else
+#include "core/string/static.hpp"
+#include "core/string/cow.hpp"
+enum class DNSReplyCode
+{
+  NoError = 0,
+  FormError = 1,
+  ServerFailure = 2,
+  NonExistentDomain = 3,
+  NotImplemented = 4,
+  Refused = 5,
+  YXDomain = 6,
+  YXRRSet = 7,
+  NXRRSet = 8
+};
+class DNSServer {
+public:
+  void setErrorReplyCode(DNSReplyCode code) {
+    (void) code;
+  }
+  void stop() {}
+  void start(uint32_t port, const __FlashStringHelper *match, iop::CowString ip) {
+    (void) port;
+    (void) match;
+    (void) ip;
+  }
+  void processNextRequest() {}
+};
+
+#include "driver/wifi.hpp"
 
 #include <memory>
 #include <functional>
@@ -15,6 +44,7 @@
 #include "core/string/fixed.hpp"
 #include <optional>
 #include "core/log.hpp"
+#include "core/utils.hpp"
 
 #include <iostream>
 
@@ -30,19 +60,27 @@
 #include <thread>
 #include <chrono>
 
-const static iop::Log logger(iop::LogLevel::WARN, F("HTTP Client"));
+const static iop::Log logger(iop::LogLevel::DEBUG, F("HTTP Server"));
 
-void close_(uint32_t fd) noexcept {
+static void close_(uint32_t fd) noexcept {
   close(fd);
 }
 
 static int send_(uint32_t fd, const char * msg, const size_t len) noexcept {
-  if (iop::Log::isTracing()) iop::Log::print(msg, iop::LogLevel::TRACE, iop::LogType::CONTINUITY);
-  return write(fd, msg, len);
+  if (iop::Log::isTracing()) iop::Log::print(msg, iop::LogLevel::TRACE, iop::LogType::STARTEND);
+  int sent = 0;
+  uint64_t count = 0;
+  while ((sent = write(fd, msg, len)) < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+    iop_assert(count++ < 1000000, F("Waited too long"));
+    using namespace std::chrono_literals;
+    std::this_thread::sleep_for(50ms);
+  }
+  iop_assert(sent > 0, std::string("Sent failed (") + std::to_string(sent) + ") [" + std::to_string(errno) + "] " +  strerror(errno) + ": " + msg);
+  return sent;
 }
 
 namespace iop {
-std::string httpCodeToString(const int code) {
+static std::string httpCodeToString(const int code) {
   if (code == 200) {
     return "OK";
   } else if (code == 302) {
@@ -219,7 +257,6 @@ public:
         const char* ptr = buff.get() + buff.indexOf(F("\n")) + 1;
         memmove(buffer.asMut(), ptr, strlen(ptr) + 1);
       }
-      iop_assert(this->currentRoute.length() > 0, F("Route is None"));
       logger.debug(F("Headers + Payload: "), buff);
 
       while (len > 0 && buff.length() > 0 && !isPayload) {
@@ -263,7 +300,7 @@ public:
       break;
     }
 
-    logger.debug(F("Close client"));
+    logger.debug(F("Close connection"));
     this->endRequest();
   }
 
@@ -422,9 +459,12 @@ public:
     
     if (iop::Log::isTracing())
       iop::Log::print(F(""), iop::LogLevel::TRACE, iop::LogType::START);
-    iop_assert(send_(fd, content, strlen(content)) <= 0, F("Send failed"));
+    send_(fd, content, strlen(content));
+
     if (iop::Log::isTracing())
       iop::Log::print(F(""), iop::LogLevel::TRACE, iop::LogType::END);
   }
 };
+#endif
+
 #endif

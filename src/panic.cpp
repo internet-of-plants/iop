@@ -4,24 +4,7 @@
 #include "core/static_runner.hpp"
 #include "flash.hpp"
 
-#ifdef IOP_DESKTOP
-#include <thread>
-#include <cstdlib>
-#include <chrono>
-class Esp {
-public:
-  void deepSleep(uint32_t microsecs) {
-    std::this_thread::sleep_for(std::chrono::microseconds(microsecs));
-  }
-};
-static Esp ESP;
-
-#include <iostream>
-static void __panic_func(const char *file, uint16_t line, const char *func) noexcept __attribute__((noreturn));
-void __panic_func(const char *file, uint16_t line, const char *func) noexcept {
-  std::abort();
-}
-#endif
+#include "driver/device.hpp"
 
 static auto panicTarget() -> iop::StaticString {
   return iop::StaticString(F("PANIC"));
@@ -138,12 +121,10 @@ static void halt(const iop::StringView &msg,
       break;
     }
 
-    #ifndef IOP_DESKTOP
     if (WiFi.getMode() == WIFI_OFF) {
       logger.crit(F("WiFi is disabled, unable to recover"));
       break;
     }
-    #endif
 
     if (iop::Network::isConnected()) {
       if (!reportedPanic)
@@ -160,13 +141,11 @@ static void halt(const iop::StringView &msg,
       ESP.deepSleep(oneHourUs);
     }
 
-    #ifndef IOP_DESKTOP
     // Let's allow the wifi to reconnect
     WiFi.forceSleepWake();
     WiFi.mode(WIFI_STA);
     WiFi.reconnect();
     WiFi.waitForConnectResult();
-    #endif
   }
 
   ESP.deepSleep(0);
@@ -179,4 +158,6 @@ static void halt(const iop::StringView &msg,
 static iop::PanicHook hook(iop::PanicHook::defaultViewPanic,
                            iop::PanicHook::defaultStaticPanic,
                            iop::PanicHook::defaultEntry, halt);
+#ifndef UNIT_TEST
 static auto hookSetter = iop::StaticRunner([] { iop::setPanicHook(hook); });
+#endif

@@ -1,26 +1,11 @@
 #ifndef IOP_CORE_STRING_STATIC_HPP
 #define IOP_CORE_STRING_STATIC_HPP
 
+#include "driver/string.hpp"
+
 #include <stddef.h>
 #include <string.h>
 #include <string>
-
-#ifdef IOP_DESKTOP
-// Is this the best adaptation?
-#define PSTR(x) x
-
-class __FlashStringHelper;
-#define PROGMEM 
-#define FPSTR(pstr_pointer) (reinterpret_cast<const __FlashStringHelper *>(pstr_pointer))
-#define F(string_literal) (FPSTR(PSTR(string_literal)))
-#define PGM_P const char *
-#define strstr_P(a, b) strstr(a, b)
-#define strlen_P(a) strlen(a)
-#define memmove_P(dest, orig, len) memmove((void *) dest, (const void *) orig, len)
-#define strcmp_P(a, b) strcmp(a, b)
-#else
-#include "WString.h"
-#endif
 
 namespace iop {
 class StringView;

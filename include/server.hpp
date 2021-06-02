@@ -1,18 +1,7 @@
 #ifndef IOP_SERVER_HPP
 #define IOP_SERVER_HPP
 
-#ifdef IOP_DESKTOP
-typedef enum {
-    STATION_IDLE = 0,
-    STATION_CONNECTING,
-    STATION_WRONG_PASSWORD,
-    STATION_NO_AP_FOUND,
-    STATION_CONNECT_FAIL,
-    STATION_GOT_IP
-} station_status_t;
-#else
-#include <user_interface.h>
-#endif
+#include "driver/server.hpp"
 
 #include "core/utils.hpp"
 #include "models.hpp"
@@ -44,6 +33,7 @@ private:
 
   iop::esp_time nextTryFlashWifiCredentials = 0;
   iop::esp_time nextTryHardcodedWifiCredentials = 0;
+  iop::esp_time nextTryHardcodedIopCredentials = 0;
   bool isServerOpen = false;
 
   void start() noexcept;

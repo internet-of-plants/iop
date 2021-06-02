@@ -1,9 +1,7 @@
 #include "core/tracer.hpp"
 #include "core/log.hpp"
 
-#ifndef IOP_DESKTOP
-#include "Esp.h"
-#endif
+#include "driver/device.hpp"
 
 namespace iop {
 Tracer::Tracer(CodePoint point) noexcept : point(std::move(point)) {
@@ -19,7 +17,6 @@ Tracer::Tracer(CodePoint point) noexcept : point(std::move(point)) {
   Log::print(this->point.func().get(), LogLevel::TRACE, LogType::CONTINUITY);
   Log::print(F(", at file "), LogLevel::TRACE, LogType::CONTINUITY);
   Log::print(this->point.file().get(), LogLevel::TRACE, LogType::CONTINUITY);
-  #ifndef IOP_DESKTOP
   Log::print(F("\n[TRACE] TRACER: Free memory: HEAP = "), LogLevel::TRACE,
              LogType::CONTINUITY);
   Log::print(std::to_string(ESP.getFreeHeap()).c_str(), LogLevel::TRACE,
@@ -34,7 +31,6 @@ Tracer::Tracer(CodePoint point) noexcept : point(std::move(point)) {
   Log::print(F(", HEAP FRAGMENTATION = "), LogLevel::TRACE, LogType::CONTINUITY);
   Log::print(std::to_string(ESP.getHeapFragmentation()).c_str(), LogLevel::TRACE,
              LogType::CONTINUITY);
-  #endif
   Log::print(F("\n"), LogLevel::TRACE, LogType::END);
   Log::flush();
 }

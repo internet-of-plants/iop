@@ -8,24 +8,7 @@
 
 #include <optional>
 
-#ifdef IOP_DESKTOP
-#include "driver/time.hpp"
-
-class Esp {
-public:
-  uint16_t getVcc() { return 400; }
-};
-static Esp ESP;
-
-#define LED_BUILTIN 0
-#define OUTPUT 1
-
-void pinMode(uint8_t pin, uint8_t mode) {
-  (void) pin;
-  (void) mode;
-}
-void yield() {}
-#endif
+#include "driver/device.hpp"
 
 // TODO: log restart reason Esp::getResetInfoPtr()
 
@@ -177,7 +160,6 @@ private:
       break;
     case InterruptEvent::ON_CONNECTION:
 #ifdef IOP_ONLINE
-#ifndef IOP_DESKTOP
       const auto ip = WiFi.localIP().toString();
       const auto status = std::to_string(wifi_station_get_connect_status());
       this->logger.debug(F("WiFi connected ("), iop::UnsafeRawString(ip.c_str()), F("): "), status);
@@ -199,7 +181,6 @@ private:
       const auto psk = NetworkPassword::fromBytesUnsafe(ptr, len);
 
       this->flash.writeWifiConfig(WifiCredentials(ssid, psk));
-#endif
 #endif
       (void)2; // Satisfies linter
       break;
@@ -315,18 +296,3 @@ void setup() {
 void loop() {
   iop::unwrap_mut(eventLoop, IOP_CTX()).loop();
 }
-
-#ifdef IOP_DESKTOP
-#ifndef UNIT_TEST
-#include <unistd.h>
-#include <iostream>
-int main(int argc, char** argv) {
-  setup();
-  while (true) {
-    loop();
-    usleep(100);
-  }
-  return 0;
-}
-#endif
-#endif

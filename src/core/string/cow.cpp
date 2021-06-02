@@ -9,6 +9,13 @@ auto CowString::borrow() const noexcept -> StringView {
   return UNWRAP_ERR_REF(storage);
 }
 
+auto CowString::toString() noexcept -> std::string {
+  if (IS_OK(this->storage)) {
+      return UNWRAP_OK_REF(this->storage).get();
+  }
+  return UNWRAP_ERR_REF(this->storage);
+}
+
 auto CowString::toMut() noexcept -> std::string & {
   if (IS_OK(this->storage)) {
       std::string msg(UNWRAP_OK_MUT(this->storage).get());
