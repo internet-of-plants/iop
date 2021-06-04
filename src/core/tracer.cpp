@@ -1,6 +1,7 @@
 #include "core/tracer.hpp"
 #include "core/log.hpp"
 
+#include <string>
 #include "driver/device.hpp"
 
 namespace iop {

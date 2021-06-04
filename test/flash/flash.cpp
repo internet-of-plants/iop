@@ -21,8 +21,8 @@ void wifiConfig() {
   const auto bruh = reinterpret_cast<const uint8_t*>("Bruh");
   const WifiCredentials creds(NetworkName::fromBytesUnsafe(bruh, 4), NetworkPassword::fromBytesUnsafe(bruh, 4));
   flash.writeWifiConfig(creds);
-  TEST_ASSERT(iop::unwrap_ref(flash.readWifiConfig(), IOP_CTX()).ssid.asString().borrow() == creds.ssid.asString());
-  TEST_ASSERT(iop::unwrap_ref(flash.readWifiConfig(), IOP_CTX()).password.asString().borrow() == creds.password.asString());
+  TEST_ASSERT(iop::unwrap_ref(flash.readWifiConfig(), IOP_CTX()).ssid.asString().borrow() == creds.ssid.asString().borrow());
+  TEST_ASSERT(iop::unwrap_ref(flash.readWifiConfig(), IOP_CTX()).password.asString().borrow() == creds.password.asString().borrow());
   flash.removeWifiConfig();
   TEST_ASSERT(!flash.readWifiConfig().has_value());
 }

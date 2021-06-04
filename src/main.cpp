@@ -162,7 +162,7 @@ private:
 #ifdef IOP_ONLINE
       const auto ip = WiFi.localIP().toString();
       const auto status = std::to_string(wifi_station_get_connect_status());
-      this->logger.debug(F("WiFi connected ("), ip, F("): "), status);
+      this->logger.debug(F("WiFi connected ("), iop::to_view(ip), F("): "), status);
 
       struct station_config config = {0};
       wifi_station_get_config(&config);

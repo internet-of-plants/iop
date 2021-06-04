@@ -15,10 +15,8 @@ auto CowString::toString() const noexcept -> std::string {
 }
 
 auto CowString::toMut() noexcept -> std::string & {
-  if (iop::is_ok(this->storage)) {
-      std::string msg(iop::unwrap_ok_ref(this->storage, IOP_CTX()).begin());
-      this->storage = std::move(msg);
-  }
+  if (iop::is_ok(this->storage))
+      this->storage = std::string(iop::unwrap_ok_ref(this->storage, IOP_CTX()));
   return iop::unwrap_err_mut(this->storage, IOP_CTX());
 }
 

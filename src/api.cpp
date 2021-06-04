@@ -3,6 +3,7 @@
 #include "core/string/cow.hpp"
 #include "generated/certificates.hpp"
 #include "utils.hpp"
+#include <string>
 
 static iop::CertStore certStore(generated::certList);
 
@@ -76,11 +77,11 @@ auto Api::reportPanic(const AuthToken &authToken,
 
     if (!maybeJson.has_value()) {
       if (truncatedMessage.has_value()) {
-        auto msg = iop::unwrap(truncatedMessage, IOP_CTX());
+        auto &msg = iop::unwrap_mut(truncatedMessage, IOP_CTX());
         if (msg.length() == 0) break;
-        iop::unwrap_mut(truncatedMessage, IOP_CTX()).resize(msg.length() / 2);
+        msg.resize(msg.length() / 2);
       } else {
-        truncatedMessage = std::make_optional(std::string(event.msg, 0, event.msg.length() / 2));
+        truncatedMessage.emplace(event.msg.begin(), event.msg.length() / 2);
       }
       continue;
     }

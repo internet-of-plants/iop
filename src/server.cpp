@@ -280,7 +280,7 @@ void CredentialsServer::start() noexcept {
     // Makes it a captive portal (redirects all wifi trafic to it)
     dnsServer.start(dnsPort, F("*"), WiFi.softAPIP());
 
-    this->logger.info(F("Opened captive portal: "), ip);
+    this->logger.info(F("Opened captive portal: "), iop::to_view(ip));
   }
 }
 

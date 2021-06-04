@@ -184,7 +184,7 @@ auto Network::httpRequest(const HttpMethod method_,
   http.addHeader(F("BIGGEST_FREE_BLOCK"), std::to_string(ESP.getMaxFreeBlockSize()).c_str());
 
   if (!http.begin(Network::wifiClient(), uri)) {
-    this->logger.warn(F("Failed to begin http connection to "), uri);
+    this->logger.warn(F("Failed to begin http connection to "), iop::to_view(uri));
     return Response(NetworkStatus::CONNECTION_ISSUES);
   }
   this->logger.trace(F("Began HTTP connection"));
@@ -224,7 +224,7 @@ auto Network::httpRequest(const HttpMethod method_,
     // origin is trusted. If it's there it's supposed to be there.
     auto payload = http.getString();
     http.end();
-    this->logger.debug(F("Payload (") , std::to_string(payload.length()), F("): "), payload);
+    this->logger.debug(F("Payload (") , std::to_string(payload.length()), F("): "), iop::to_view(payload));
     // TODO: every response occupies 2x the size because we convert String -> std::string
     return Response(iop::unwrap_ref(maybeApiStatus, IOP_CTX()), std::string(payload.c_str()));
   }
@@ -429,18 +429,18 @@ Response::Response(const NetworkStatus &status) noexcept
   IOP_TRACE();
 }
 Response::Response(const NetworkStatus &status, std::string payload) noexcept
-    : status(status), payload(std::move(payload)) {
+    : status(status), payload(payload) {
   IOP_TRACE();
 }
 Response::Response(Response &&resp) noexcept
     : status(resp.status), payload(std::optional<std::string>()) {
   IOP_TRACE();
-  this->payload = std::move(resp.payload);
+  this->payload.swap(resp.payload);
 }
 auto Response::operator=(Response &&resp) noexcept -> Response & {
   IOP_TRACE();
   this->status = resp.status;
-  this->payload = std::move(resp.payload);
+  this->payload.swap(resp.payload);
   return *this;
 }
 

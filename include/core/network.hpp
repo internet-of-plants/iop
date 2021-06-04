@@ -2,6 +2,8 @@
 #define IOP_NETWORK_HPP
 
 #include <variant>
+#include <optional>
+#include <string>
 #include "driver/client.hpp"
 #include "core/cert_store.hpp"
 #include "core/log.hpp"
