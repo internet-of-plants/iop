@@ -5,6 +5,7 @@
 
 #include "driver/device.hpp"
 #include "driver/client.hpp"
+#include "core/panic.hpp"
 
 const static iop::UpgradeHook defaultHook(iop::UpgradeHook::defaultHook);
 
@@ -13,7 +14,26 @@ static std::optional<iop::CertStore> maybeCertStore;
 
 namespace iop {
 void UpgradeHook::defaultHook() noexcept { IOP_TRACE(); }
-
+UpgradeHook::UpgradeHook(UpgradeScheduler scheduler) noexcept
+    : schedule(std::move(scheduler)) {
+  IOP_TRACE();
+}
+Network::~Network() noexcept { IOP_TRACE(); }
+Network::Network(Network const &other) : uri_(other.uri_), logger(other.logger) {
+  IOP_TRACE();
+}
+auto Network::operator=(Network const &other) -> Network & {
+    IOP_TRACE();
+    if (this == &other)
+      return *this;
+    this->uri_ = other.uri_;
+    this->logger = other.logger;
+    return *this;
+  }
+Network::Network(StaticString uri, const LogLevel &logLevel) noexcept
+  : uri_(std::move(uri)), logger(logLevel, F("NETWORK")) {
+IOP_TRACE();
+}
 void Network::setCertStore(iop::CertStore store) noexcept {
   maybeCertStore = std::make_optional(std::move(store));
 }
@@ -109,9 +129,9 @@ auto Network::wifiClient() noexcept -> WiFiClient & { return client; }
 // Returns Response if it can understand what the server sent, int is the raw
 // response given by ESP8266HTTPClient
 auto Network::httpRequest(const HttpMethod method_,
-                          const std::optional<StringView> &token, StringView path,
-                          const std::optional<StringView> &data) const noexcept
-    -> Result<Response, int> {
+                          const std::optional<std::string_view> &token, std::string_view path,
+                          const std::optional<std::string_view> &data) const noexcept
+    -> std::variant<Response, int> {
   IOP_TRACE();
   Network::setup();
 
@@ -119,13 +139,13 @@ auto Network::httpRequest(const HttpMethod method_,
     return Response(NetworkStatus::CONNECTION_ISSUES);
 
   #ifdef IOP_DESKTOP
-  const auto uri = this->uri().toStdString() + path.get();
+  const auto uri = this->uri().toStdString() + path.begin();
   #else
-  const auto uri = String(this->uri().get()) + path.get();
+  const auto uri = String(this->uri().get()) + path.begin();
   #endif
   const auto method = iop::unwrap_ref(methodToString(method_), IOP_CTX());
 
-  auto data_ = emptyStringView;
+  std::string_view data_;
   if (data.has_value())
     data_ = iop::unwrap_ref(data, IOP_CTX());
 
@@ -139,7 +159,7 @@ auto Network::httpRequest(const HttpMethod method_,
   if (token.has_value()) {
     const auto tok = iop::unwrap_ref(token, IOP_CTX());
     this->logger.debug(F("Token: "), tok);
-    http.setAuthorization(tok.get());
+    http.setAuthorization(tok.begin());
   } else {
     // We have to clear the authorization, it persists between requests
     http.setAuthorization("");
@@ -169,7 +189,7 @@ auto Network::httpRequest(const HttpMethod method_,
   }
   this->logger.trace(F("Began HTTP connection"));
 
-  const auto *const data__ = reinterpret_cast<const uint8_t *>(data_.get());
+  const auto *const data__ = reinterpret_cast<const uint8_t *>(data_.begin());
 
   this->logger.debug(F("Making HTTP request"));
   const auto code =
@@ -204,7 +224,7 @@ auto Network::httpRequest(const HttpMethod method_,
     // origin is trusted. If it's there it's supposed to be there.
     auto payload = http.getString();
     http.end();
-    this->logger.debug(F("Payload (") , std::to_string(payload.length()), F("): "), UnsafeRawString(payload.c_str()));
+    this->logger.debug(F("Payload (") , std::to_string(payload.length()), F("): "), payload);
     // TODO: every response occupies 2x the size because we convert String -> std::string
     return Response(iop::unwrap_ref(maybeApiStatus, IOP_CTX()), std::string(payload.c_str()));
   }
@@ -228,9 +248,9 @@ auto Network::isConnected() noexcept -> bool {
   return true;
 }
 auto Network::httpRequest(const HttpMethod method,
-                          const std::optional<StringView> &token, StringView path,
-                          const std::optional<StringView> &data) const noexcept
-    -> Result<Response, int> {
+                          const std::optional<std::string_view> &token, std::string_view path,
+                          const std::optional<std::string_view> &data) const noexcept
+    -> std::variant<Response, int> {
   (void)*this;
   (void)token;
   (void)method;
@@ -241,35 +261,35 @@ auto Network::httpRequest(const HttpMethod method,
 }
 #endif
 
-auto Network::httpPut(StringView token, StaticString path,
-                      StringView data) const noexcept -> Result<Response, int> {
+auto Network::httpPut(std::string_view token, StaticString path,
+                      std::string_view data) const noexcept -> std::variant<Response, int> {
   IOP_TRACE();
   return this->httpRequest(HttpMethod::PUT, std::make_optional(std::move(token)),
                            std::move(path).toStdString(),
                            std::make_optional(std::move(data)));
 }
 
-auto Network::httpPost(StringView token, const StaticString path,
-                       StringView data) const noexcept
-    -> Result<Response, int> {
+auto Network::httpPost(std::string_view token, const StaticString path,
+                       std::string_view data) const noexcept
+    -> std::variant<Response, int> {
   IOP_TRACE();
   return this->httpRequest(HttpMethod::POST, std::make_optional(std::move(token)),
                            std::move(path).toStdString(),
                            std::make_optional(std::move(data)));
 }
 
-auto Network::httpPost(StringView token, StringView path,
-                       StringView data) const noexcept
-    -> Result<Response, int> {
+auto Network::httpPost(std::string_view token, std::string_view path,
+                       std::string_view data) const noexcept
+    -> std::variant<Response, int> {
   IOP_TRACE();
   return this->httpRequest(HttpMethod::POST, std::make_optional(std::move(token)),
                            std::move(path), std::make_optional(std::move(data)));
 }
 
-auto Network::httpPost(StaticString path, StringView data) const noexcept
-    -> Result<Response, int> {
+auto Network::httpPost(StaticString path, std::string_view data) const noexcept
+    -> std::variant<Response, int> {
   IOP_TRACE();
-  return this->httpRequest(HttpMethod::POST, std::optional<StringView>(),
+  return this->httpRequest(HttpMethod::POST, std::optional<std::string_view>(),
                            std::move(path).toStdString(),
                            std::make_optional(std::move(data)));
 }

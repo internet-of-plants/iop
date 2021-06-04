@@ -3,6 +3,8 @@
 
 #ifdef IOP_DESKTOP
 #include "core/string/cow.hpp"
+#include <cstring>
+
 class IPAddress {
     private:
         uint8_t octets[4];
@@ -85,11 +87,11 @@ public:
   }
 
   iop::CowString localIP() {
-    return iop::CowString(iop::StringView(iop::UnsafeRawString("192.168.0.1")));
+    return iop::CowString(std::string_view("192.168.0.1"));
   }
 
   iop::CowString softAPIP() {
-    return iop::CowString(iop::StringView(iop::UnsafeRawString("127.0.0.1")));
+    return iop::CowString(std::string_view("127.0.0.1"));
   }
 };
 static Wifi WiFi;

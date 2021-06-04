@@ -12,10 +12,10 @@ TYPED_STORAGE(NetworkName, 32);
 TYPED_STORAGE(NetworkPassword, 64);
 
 struct PanicData {
-  iop::StringView msg;
+  std::string_view msg;
   iop::StaticString file;
   uint32_t line;
-  iop::StringView func;
+  std::string_view func;
 };
 
 class WifiCredentials {

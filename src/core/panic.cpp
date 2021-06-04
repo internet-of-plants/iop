@@ -22,7 +22,7 @@ const static iop::PanicHook defaultHook(iop::PanicHook::defaultViewPanic,
 static iop::PanicHook hook(defaultHook);
 
 namespace iop {
-void panicHandler(StringView msg, CodePoint const &point) noexcept {
+void panicHandler(std::string_view msg, CodePoint const &point) noexcept {
   IOP_TRACE();
   hook.entry(msg, point);
   hook.viewPanic(msg, point);
@@ -50,37 +50,39 @@ auto takePanicHook() noexcept -> PanicHook {
 }
 void setPanicHook(PanicHook newHook) noexcept { hook = std::move(newHook); }
 
-void PanicHook::defaultViewPanic(StringView const &msg,
+void PanicHook::defaultViewPanic(std::string_view const &msg,
                                  CodePoint const &point) noexcept {
   logger.crit(F("Line "), ::std::to_string(point.line()), F(" of file "), point.file(),
-              F(" inside "), point.func(), F(": "), msg);
+              F(" inside "), point.func(), F(": "), std::string(msg));
 }
-void PanicHook::defaultStaticPanic(StaticString const &msg,
+void PanicHook::defaultStaticPanic(iop::StaticString const &msg,
                                    CodePoint const &point) noexcept {
   logger.crit(F("Line "), ::std::to_string(point.line()), F(" of file "), point.file(),
-              F(" inside "), point.func(), F(": "), msg);
+              F(" inside "), std::string(point.func()), F(": "), msg);
 }
-void PanicHook::defaultEntry(StringView const &msg,
+void PanicHook::defaultEntry(std::string_view const &msg,
                              CodePoint const &point) noexcept {
   IOP_TRACE();
   if (isPanicking) {
     logger.crit(F("PANICK REENTRY: Line "), std::to_string(point.line()),
-                F(" of file "), point.file(), F(" inside "), point.func(),
-                F(": "), msg);
+                F(" of file "), point.file(), F(" inside "), std::string(point.func()),
+                F(": "), std::string(msg));
     iop::logMemory(logger);
     ESP.deepSleep(0);
-    __panic_func(point.file().asCharPtr(), point.line(), point.func().get());
+    // std::string_view may be non-zero terminated
+    __panic_func(point.file().asCharPtr(), point.line(), std::string(point.func()).c_str());
   }
   isPanicking = true;
 
   constexpr const uint16_t oneSecond = 1000;
   delay(oneSecond);
 }
-void PanicHook::defaultHalt(StringView const &msg,
+void PanicHook::defaultHalt(std::string_view const &msg,
                             CodePoint const &point) noexcept {
   (void)msg;
   IOP_TRACE();
   ESP.deepSleep(0);
-  __panic_func(point.file().asCharPtr(), point.line(), point.func().get());
+  // std::string_view may be non-zero terminated
+  __panic_func(point.file().asCharPtr(), point.line(), std::string(point.func()).c_str());
 }
 } // namespace iop

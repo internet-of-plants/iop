@@ -1,7 +1,6 @@
 #ifndef IOP_CORE_LOG_HPP
 #define IOP_CORE_LOG_HPP
 
-#include "core/string/view.hpp"
 #include "driver/log.hpp"
 #include <functional>
 
@@ -134,7 +133,7 @@ public:
   // "Recursive" variadic function
   template <typename... Args>
   void log_recursive(const LogLevel &level, const bool first,
-                     const StringView msg, const Args &...args) const noexcept {
+                     const std::string_view msg, const Args &...args) const noexcept {
     if (first) {
       this->log(level, msg, LogType::START, emptyStaticString);
     } else {
@@ -146,7 +145,7 @@ public:
   // Terminator
   template <typename... Args>
   void log_recursive(const LogLevel &level, const bool first,
-                     const StringView msg) const noexcept {
+                     const std::string_view msg) const noexcept {
     if (first) {
       this->log(level, msg, LogType::STARTEND, defaultLineTermination());
     } else {
@@ -161,7 +160,7 @@ public:
   void log(const LogLevel &level, const StaticString &msg,
            const LogType &logType,
            const StaticString &lineTermination) const noexcept;
-  void log(const LogLevel &level, const StringView &msg, const LogType &logType,
+  void log(const LogLevel &level, const std::string_view &msg, const LogType &logType,
            const StaticString &lineTermination) const noexcept;
 
   ~Log() = default;

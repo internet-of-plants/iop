@@ -1,12 +1,17 @@
 #ifndef IOP_CORE_STORAGE_HPP
 #define IOP_CORE_STORAGE_HPP
 
+#include "core/tracer.hpp"
 #include "core/log.hpp"
 #include "core/memory.hpp"
-#include "core/result.hpp"
 #include "core/string/cow.hpp"
+#include "core/panic.hpp"
 
 namespace iop {
+auto isPrintable(const char ch) noexcept -> bool;
+auto isAllPrintable(const std::string_view txt) noexcept -> bool;
+auto scapeNonPrintable(const std::string_view txt) noexcept -> CowString;
+
 enum class ParseError { TOO_BIG, NON_PRINTABLE };
 
 /// Fixed size storage. Heap allocated (std::shared_ptr) std::array that has an
@@ -14,7 +19,7 @@ enum class ParseError { TOO_BIG, NON_PRINTABLE };
 /// prevent expensive copies and because our stack is so little It creates the
 /// perfect environment to copy bounded data around without dynamic storages
 /// Implements a fromString and fromStringTruncating (properly handling missing
-/// 0 terminators) And can be accessed as StringView by the asString method
+/// 0 terminators) And can be accessed as std::string_view by the asString method
 ///
 /// Used by FixedString<SIZE> and our structures stored in flash (check
 /// models.hpp) providing a out of the box way to access flash while being
@@ -26,7 +31,8 @@ enum class ParseError { TOO_BIG, NON_PRINTABLE };
 template <uint16_t SIZE> class Storage {
 public:
   static constexpr const size_t size = SIZE;
-  using InnerStorage = std::array<uint8_t, SIZE + 1>;
+  // We use char instead of uint8_t because char* can of alias to anything
+  using InnerStorage = std::array<char, SIZE + 1>;
 
 private:
   std::shared_ptr<InnerStorage> val;
@@ -56,7 +62,7 @@ private:
         break;
       }
       const auto ch = static_cast<char>(byte);
-      if (StringView::isPrintable(ch)) {
+      if (iop::isPrintable(ch)) {
         Log::print(std::to_string(ch).c_str(), LogLevel::TRACE, LogType::CONTINUITY);
       } else {
         Log::print(F("<\\"), LogLevel::TRACE, LogType::CONTINUITY);
@@ -114,12 +120,12 @@ public:
   }
   auto constPtr() const noexcept -> const uint8_t * {
     this->printTrace();
-    return this->val->data();
+    return reinterpret_cast<const uint8_t *>(this->val->data());
   }
   auto mutPtr() noexcept -> uint8_t * {
     IOP_TRACE();
     this->printTrace();
-    return this->val->data();
+    return reinterpret_cast<uint8_t *>(this->val->data());
   }
   void clear() noexcept {
     IOP_TRACE();
@@ -129,15 +135,13 @@ public:
     IOP_TRACE();
     this->printTrace();
     const auto ptr = reinterpret_cast<const char *>(this->val->data());
-    const StringView str = UnsafeRawString(ptr);
-    return str.isAllPrintable();
+    return iop::isAllPrintable(ptr);
   }
   auto asString() const noexcept -> CowString {
     IOP_TRACE();
     this->printTrace();
     const auto ptr = reinterpret_cast<const char *>(this->val->data());
-    const auto raw = UnsafeRawString(ptr);
-    return StringView(raw).scapeNonPrintable();
+    return iop::scapeNonPrintable(ptr);
   }
   auto asSharedArray() const noexcept -> std::shared_ptr<InnerStorage> {
     IOP_TRACE();
@@ -158,12 +162,12 @@ public:
 
     return val;
   }
-  static auto fromString(StringView str) noexcept
-      -> iop::Result<Storage<SIZE>, ParseError> {
+  static auto fromString(std::string_view str) noexcept
+      -> std::variant<Storage<SIZE>, ParseError> {
     IOP_TRACE();
 
     uint8_t len = 0;
-    while (len < SIZE && str.get()[len] != 0) {
+    while (len < SIZE && str.begin()[len] != 0) {
       len++;
     }
 
@@ -171,7 +175,7 @@ public:
       return ParseError::TOO_BIG;
 
     auto val = Storage<SIZE>::empty();
-    strncpy(reinterpret_cast<char *>(val.mutPtr()), std::move(str).get(), len);
+    strncpy(reinterpret_cast<char *>(val.mutPtr()), std::move(str).begin(), len);
     val.printTrace();
     if (!val.isAllPrintable())
       return ParseError::NON_PRINTABLE;
@@ -244,13 +248,13 @@ public:
                                 const size_t len) noexcept -> name##_class {   \
       return name##_class(InnerStorage::fromBytesUnsafe(b, len));              \
     }                                                                          \
-    static auto fromString(iop::StringView str) noexcept                       \
-        -> iop::Result<name##_class, iop::ParseError> {                        \
+    static auto fromString(std::string_view str) noexcept                      \
+        -> std::variant<name##_class, iop::ParseError> {                       \
       IOP_TRACE();                                                             \
       auto val = InnerStorage::fromString(std::move(str));                     \
-      if (IS_OK(val))                                                          \
-        return name##_class(UNWRAP_OK(val));                                   \
-      return UNWRAP_ERR(val);                                                  \
+      if (std::holds_alternative<iop::Storage<size>>(val))                     \
+        return name##_class(std::move(std::get<iop::Storage<size>>(val)));     \
+      return std::get<iop::ParseError>(val);                                   \
     }                                                                          \
   };                                                                           \
   using name = name##_class; // NOLINT bugprone-macro-parentheses

@@ -38,10 +38,10 @@ private:
 
   void start() noexcept;
   /// Connects to WiFi
-  auto connect(iop::StringView ssid, iop::StringView password) const noexcept
+  auto connect(std::string_view ssid, std::string_view password) const noexcept
       -> void;
   /// Uses IoP credentials to generate an authentication token for the device
-  auto authenticate(iop::StringView username, iop::StringView password,
+  auto authenticate(std::string_view username, std::string_view password,
                     const Api &api) const noexcept -> std::optional<AuthToken>;
 
 public:

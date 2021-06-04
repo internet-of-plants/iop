@@ -70,23 +70,21 @@ Most decisions are listed here. If you find some other questionable decision ple
 
     This is a big problem in multi-core systems, as the statics have to actually be thread-locals (or when using preemptive/time-slicing schedulers). So be ware if trying to port it to ESP32 (or to ESP8266 FreeRTOS SDK).
     
-    We tend to allocate most big things that can't be static, instead of putting it on the stack. Always using smart-pointers (std::unique_ptr, std::shared_ptr, FixedString<SIZE>, Storage<SIZE>...).
+    We tend to allocate most big things that can't be static, instead of putting it on the stack. Always using smart-pointers (`std::unique_ptr`, `std::shared_ptr`, `iop::FixedString<SIZE>`, `iop::Storage<SIZE>`...).
 
 - Avoiding moves
 
-    Since cpp doesn't have destructive moves, it can leave our code in an invalid state. Either with a nulled `std::{unique,shared}_ptr`, or with an empty `Result<T, E>`, for example. And since those abstractions are heavily used throughout the code we don't want a human mistake to cause UB, panic or raise exceptions. But even a wrongly moved-out `Option<T>` can cause logical errors.
+    Since cpp doesn't have destructive moves, it can leave our code in an invalid state. Either with a nulled `std::{unique,shared}_ptr`, for example. And since those abstractions are heavily used throughout the code we don't want a human mistake to cause UB, panic or raise exceptions. But even a wrongly moved-out `std::optional<T>` can cause logical errors.
 
-    To avoid that we try not to move out, getting references when we can. For example using `UNWRAP(_OK,_ERR)_{REF,MUT}`. But you have to be careful to make sure that the reference doesn't outlive its storage (as always). Instead of `UNWRAP_{OK,ERR}`, that move out, although they can be very useful, like moving-out to return the inner value.
+    To avoid that we try not to move out, getting references when we can. For example using `iop::unwrap_{ok,err}_(ref,mut)` for `std::optional<T>` and `std::variant<T, E>`. But you have to be careful to make sure that the reference doesn't outlive its storage (as always). If a move is helpful, move the inner type out, keeping its variant intact.
 
-    We also hijack moves when we can, to make them operate like copies. For example using the `TYPED_STORAGE(SIZE)`, `Storage<SIZE>` and `FixedString<SIZE>` types. They all wrap a `std::shared_ptr` and moving actually copies, a very cheap copy.
+    We also hijack moves when we can, to make them operate like copies. For example using the `TYPED_STORAGE(SIZE)`, `iop::Storage<SIZE>` and `iop::FixedString<SIZE>` types. They all wrap a `std::shared_ptr` and moving actually copies, a very cheap copy.
 
-    For `Result<T, E>` you should not use its methods, but only the macros defined in `result.hpp`, like `UNWRAP_{OK,ERR}(_REF,_MUT)`, `IS_{OK,ERR}`, `RESULT_{OK,ERR}`, etc. All methods have a macro alternative, that checks for an emptied Result and properly reports the invalid access location. This makes impossible to debugs errors caused by moved-out-from values, into easily debuggable ones.
+- No exceptions, but we halt using the `iop_panic` macro
 
-- No exceptions, but we halt using the `panic_` macro
+    Most errors should be propagated with `std::variant<T, E>` or even an `std::optional<T>`. Exceptions should not happen. And critical errors, that can't be recovered from, should panic as the last stand between us and UB. With the `iop_panic(F("Explanation of what went wrong..."))` macro.
 
-    Most errors should be propagated with `Result<T, E>` or even an `Option<T>`. Exceptions should not happen. And critical errors, that can't be recovered, working as the last stand between us and UB should panic with the `panic_(F("Explanation of what went wrong..."))` macro.
-
-    We don't want to pay the overhead for exceptions. Nor have alternatives code paths. Either works and reports the error with the return type. Or `iop_panic(F("Message...))` on complete failure, with no turning back. `iop_panic` logs the critical error, reports it through the network to the main server if it can, and keeps asking the server for updates.
+    We don't want to pay the overhead for exceptions. Nor have alternatives code paths. It either works and reports the error with the return type. Or `iop_panic(F("Message...))` and halt, with no turning back. `iop_panic` logs the critical error, reports it through the network to the main server if it can, and keeps asking the server for updates. If network is available and working, when an update is provided it will download it and reboot.
 
     We have future plans to improve this, but we should never panic. Panics should be a way to avoid UB when everything went wrong, and quickly fix when detected.
 
@@ -100,12 +98,12 @@ Most decisions are listed here. If you find some other questionable decision ple
 
     There are a few situations where we check for the same runtime problem multiple times. In some places that happens to improve logging. So we can know exactly where the problem happened.
     
-    It also happens a lot with `Result<T, E>` and `Option<T>`, because we have to check their state (with `.isSome()`, `IS_OK(res)`, ...) and then unwrap them to move out the inner value (which also checks, panicking if the wanted value is not there).
+    It also happens a lot with `std::variant<T, E>` and `std::optional<T>`, because we have to check their state (with `iop::is_err`, `iop::is_ok`, `std::optional<T>::has_value`) and then unwrap them to move out the inner value (with `iop::unwrap_{ok,err}_(ref,mut)` which checks again, panicking if the wanted value is not there).
     
     That's because cpp forces our hand by not having proper sum types with proper pattern matching. The mainstream solutions is just borrowing a pointer, that is null if not available. And force the check onto the user (at the cost of UB if the user makes a mistake), or they check like we do and throw an exception or just plainly cause UB if you try to get a value that's not there. Since UB is considered unnaccetable by us we check by default, panicking in case of a problem. Theoretically we could make zero-runtime-overhead `unsafe_` prefixed alternatives to signal the programmer took extra care, but you would have to convince the community that it will cause significant performance improvements. And that this improvement is important. Since performance is hardly this project's bottleneck: we wish you good luck (or fork).
 
-    `std::variant` uses `get_if` returning `nullptr` if empty, we could mimick its api with something like
+    `std::variant` by default uses `get_if` returning `nullptr` if empty, we could mimick its api with something like
 
     `if (auto *value = result.get_if_ok())`
 
-    It's fairly ergonomic but if used outside of an if, because of developer mistake, we are in for trouble. Therefore we prefer the extra checks (that sometimes the compiler can optimize out), than risking developer mistake causing big problems. So we don't provide an API like this.
+    It's fairly ergonomic but if used outside of an if, because of developer mistake, we are in for trouble. Therefore we prefer the extra checks (that sometimes the compiler can optimize out), than risking developer mistake causing big problems. So we don't allow the usage of this API, use unwrap functions.

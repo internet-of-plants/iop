@@ -79,7 +79,7 @@ void Log::log(const LogLevel &level, const StaticString &msg,
   Log::flush();
 }
 
-void Log::log(const LogLevel &level, const StringView &msg,
+void Log::log(const LogLevel &level, const std::string_view &msg,
               const LogType &logType,
               const StaticString &lineTermination) const noexcept {
   if (this->level_ > level)
@@ -87,7 +87,7 @@ void Log::log(const LogLevel &level, const StringView &msg,
 
   Log::flush();
   this->printLogType(logType, level);
-  Log::print(msg.get(), level, LogType::CONTINUITY);
+  Log::print(msg.begin(), level, LogType::CONTINUITY);
   Log::print(lineTermination.get(), level, LogType::END);
   Log::flush();
 }

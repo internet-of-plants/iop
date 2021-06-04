@@ -1,7 +1,11 @@
 #ifndef IOP_CORE_TRACER_HPP
 #define IOP_CORE_TRACER_HPP
 
-#include "core/string/view.hpp"
+#include "core/string/static.hpp"
+
+#define IOP_FILE iop::StaticString(FPSTR(__FILE__))
+#define IOP_LINE (uint32_t) __LINE__
+#define IOP_FUNC std::string_view(__PRETTY_FUNCTION__)
 
 /// Returns CodePoint object pointing to the caller
 /// this is useful to track callers of functions that can panic
@@ -18,15 +22,15 @@ namespace iop {
 class CodePoint {
   StaticString file_;
   uint32_t line_;
-  StringView func_;
+  std::string_view func_;
 
 public:
   // Use the IOP_CODE_POINT() macro to construct CodePoint
-  CodePoint(StaticString file, uint32_t line, StringView func) noexcept
+  CodePoint(StaticString file, uint32_t line, std::string_view func) noexcept
       : file_(std::move(file)), line_(line), func_(std::move(func)) {}
   auto file() const noexcept -> StaticString { return this->file_; }
   auto line() const noexcept -> uint32_t { return this->line_; }
-  auto func() const noexcept -> StringView { return this->func_; }
+  auto func() const noexcept -> std::string_view { return this->func_; }
 
   ~CodePoint() noexcept = default;
   CodePoint(const CodePoint &other) noexcept = default;

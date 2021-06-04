@@ -7,24 +7,24 @@
 namespace iop {
 class PanicHook {
 public:
-  using ViewPanic = std::function<void(StringView const &, CodePoint const &)>;
+  using ViewPanic = std::function<void(std::string_view const &, CodePoint const &)>;
   using StaticPanic =
       std::function<void(StaticString const &, CodePoint const &)>;
-  using Entry = std::function<void(StringView const &, CodePoint const &)>;
-  using Halt = std::function<void(StringView const &, CodePoint const &)>;
+  using Entry = std::function<void(std::string_view const &, CodePoint const &)>;
+  using Halt = std::function<void(std::string_view const &, CodePoint const &)>;
 
   ViewPanic viewPanic;
   StaticPanic staticPanic;
   Entry entry;
   Halt halt;
 
-  static void defaultViewPanic(StringView const &msg,
+  static void defaultViewPanic(std::string_view const &msg,
                                CodePoint const &point) noexcept;
   static void defaultStaticPanic(StaticString const &msg,
                                  CodePoint const &point) noexcept;
-  static void defaultEntry(StringView const &msg,
+  static void defaultEntry(std::string_view const &msg,
                            CodePoint const &point) noexcept;
-  static void defaultHalt(StringView const &msg,
+  static void defaultHalt(std::string_view const &msg,
                           CodePoint const &point) noexcept
       __attribute__((noreturn));
 
@@ -44,7 +44,7 @@ void setPanicHook(PanicHook hook) noexcept;
 /// Serial)
 auto takePanicHook() noexcept -> PanicHook;
 
-void panicHandler(StringView msg, CodePoint const &point) noexcept
+void panicHandler(std::string_view msg, CodePoint const &point) noexcept
     __attribute__((noreturn));
 void panicHandler(StaticString msg, CodePoint const &point) noexcept
     __attribute__((noreturn));
@@ -54,7 +54,7 @@ void panicHandler(StaticString msg, CodePoint const &point) noexcept
 /// If any update is available it's installed and reboots.
 ///
 /// Sent: Message + Line + Function + File
-#define iop_panic(msg) iop::panicHandler((msg), IOP_CODE_POINT())
+#define iop_panic(msg) iop::panicHandler((msg), IOP_CTX())
 
 /// Calls `iop_panic` with provided message if condition is false
 #define iop_assert(cond, msg)                                                  \

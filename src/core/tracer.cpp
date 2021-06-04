@@ -14,7 +14,7 @@ Tracer::Tracer(CodePoint point) noexcept : point(std::move(point)) {
   Log::print(std::to_string(this->point.line()).c_str(), LogLevel::TRACE,
              LogType::CONTINUITY);
   Log::print(F(", in function "), LogLevel::TRACE, LogType::CONTINUITY);
-  Log::print(this->point.func().get(), LogLevel::TRACE, LogType::CONTINUITY);
+  Log::print(this->point.func().begin(), LogLevel::TRACE, LogType::CONTINUITY);
   Log::print(F(", at file "), LogLevel::TRACE, LogType::CONTINUITY);
   Log::print(this->point.file().get(), LogLevel::TRACE, LogType::CONTINUITY);
   Log::print(F("\n[TRACE] TRACER: Free memory: HEAP = "), LogLevel::TRACE,
@@ -44,7 +44,7 @@ Tracer::~Tracer() noexcept {
   Log::print(std::to_string(this->point.line()).c_str(), LogLevel::TRACE,
              LogType::CONTINUITY);
   Log::print(F(", in function "), LogLevel::TRACE, LogType::CONTINUITY);
-  Log::print(this->point.func().get(), LogLevel::TRACE, LogType::CONTINUITY);
+  Log::print(this->point.func().begin(), LogLevel::TRACE, LogType::CONTINUITY);
   Log::print(F(", at file "), LogLevel::TRACE, LogType::CONTINUITY);
   Log::print(this->point.file().get(), LogLevel::TRACE, LogType::CONTINUITY);
   Log::print(F("\n"), LogLevel::TRACE, LogType::END);

@@ -65,11 +65,11 @@ auto Api::reportPanic(const AuthToken &authToken,
     const auto make = [event, &truncatedMessage](JsonDocument &doc) {
       doc["file"] = event.file.toStdString();
       doc["line"] = event.line;
-      doc["func"] = event.func.get();
+      doc["func"] = event.func.begin();
       if (truncatedMessage.has_value()) {
         doc["msg"] = iop::unwrap_ref(truncatedMessage, IOP_CTX());
       } else {
-        doc["msg"] = event.msg.get();
+        doc["msg"] = event.msg.begin();
       }
     };
     maybeJson = this->makeJson<bytes>(F("Api::reportPanic"), make);
@@ -78,9 +78,9 @@ auto Api::reportPanic(const AuthToken &authToken,
       if (truncatedMessage.has_value()) {
         auto msg = iop::unwrap(truncatedMessage, IOP_CTX());
         if (msg.length() == 0) break;
-        truncatedMessage = std::make_optional(std::string(msg, 0, msg.length() / 2));
+        iop::unwrap_mut(truncatedMessage, IOP_CTX()).resize(msg.length() / 2);
       } else {
-        truncatedMessage = std::make_optional(std::string(event.msg.get(), 0, event.msg.length() / 2));
+        truncatedMessage = std::make_optional(std::string(event.msg, 0, event.msg.length() / 2));
       }
       continue;
     }
@@ -92,15 +92,15 @@ auto Api::reportPanic(const AuthToken &authToken,
   const auto &json = iop::unwrap(maybeJson, IOP_CTX());
 
   const auto token = authToken.asString();
-  const auto maybeResp = this->network().httpPost(token, F("/v1/panic"), json);
+  const auto maybeResp = this->network().httpPost(token.get(), F("/v1/panic"), json.get());
 
 #ifndef IOP_MOCK_MONITOR
-  if (IS_ERR(maybeResp)) {
-    const auto code = std::to_string(UNWRAP_ERR_REF(maybeResp));
+  if (iop::is_err(maybeResp)) {
+    const auto code = std::to_string(iop::unwrap_err_ref(maybeResp, IOP_CTX()));
     this->logger.error(F("Unexpected response at Api::reportPanic: "), code);
     return iop::NetworkStatus::BROKEN_SERVER;
   }
-  return UNWRAP_OK_REF(maybeResp).status;
+  return iop::unwrap_ok_ref(maybeResp, IOP_CTX()).status;
 #else
   return iop::NetworkStatus::OK;
 #endif
@@ -126,51 +126,51 @@ auto Api::registerEvent(const AuthToken &authToken,
   const auto &json = iop::unwrap(maybeJson, IOP_CTX());
 
   const auto token = authToken.asString();
-  const auto maybeResp = this->network().httpPost(token, F("/v1/event"), json);
+  const auto maybeResp = this->network().httpPost(token.get(), F("/v1/event"), json.get());
 
 #ifndef IOP_MOCK_MONITOR
-  if (IS_ERR(maybeResp)) {
-    const auto code = std::to_string(UNWRAP_ERR_REF(maybeResp));
+  if (iop::is_err(maybeResp)) {
+    const auto code = std::to_string(iop::unwrap_err_ref(maybeResp, IOP_CTX()));
     this->logger.error(F("Unexpected response at Api::registerEvent: "), code);
     return iop::NetworkStatus::BROKEN_SERVER;
   }
-  return UNWRAP_OK_REF(maybeResp).status;
+  return iop::unwrap_ok_ref(maybeResp, IOP_CTX()).status;
 #else
   return iop::NetworkStatus::OK;
 #endif
 }
 #include <iostream>
-auto Api::authenticate(iop::StringView username,
-                       iop::StringView password) const noexcept
-    -> iop::Result<AuthToken, iop::NetworkStatus> {
+auto Api::authenticate(std::string_view username,
+                       std::string_view password) const noexcept
+    -> std::variant<AuthToken, iop::NetworkStatus> {
   IOP_TRACE();
 
-  this->logger.debug(F("Authenticate IoP user: "), username);
+  this->logger.debug(F("Authenticate IoP user: "), std::string(username));
 
-  if (username.isEmpty() || password.isEmpty()) {
+  if (!username.length() || !password.length()) {
     this->logger.debug(F("Empty username or password, at Api::authenticate"));
     return iop::NetworkStatus::FORBIDDEN;
   }
 
   const auto make = [username, password](JsonDocument &doc) {
-    doc["email"] = std::move(username).get();
-    doc["password"] = std::move(password).get();
+    doc["email"] = std::move(username).begin();
+    doc["password"] = std::move(password).begin();
   };
   auto maybeJson = this->makeJson<1024>(F("Api::authenticate"), make);
   if (!maybeJson.has_value())
     return iop::NetworkStatus::CLIENT_BUFFER_OVERFLOW;
   const auto &json = iop::unwrap(maybeJson, IOP_CTX());
 
-  auto maybeResp = this->network().httpPost(F("/v1/user/login"), json);
+  auto maybeResp = this->network().httpPost(F("/v1/user/login"), json.get());
 
 #ifndef IOP_MOCK_MONITOR
-  if (IS_ERR(maybeResp)) {
-    const auto code = std::to_string(UNWRAP_ERR_REF(maybeResp));
+  if (iop::is_err(maybeResp)) {
+    const auto code = std::to_string(iop::unwrap_err_ref(maybeResp, IOP_CTX()));
     this->logger.error(F("Unexpected response at Api::authenticate: "), code);
     return iop::NetworkStatus::BROKEN_SERVER;
   }
 
-  const auto resp = UNWRAP_OK(maybeResp);
+  const auto resp = std::move(iop::unwrap_ok_mut(maybeResp, IOP_CTX()));
 
   if (resp.status != iop::NetworkStatus::OK) {
     return resp.status;
@@ -183,18 +183,18 @@ auto Api::authenticate(iop::StringView username,
 
   const auto &payload = iop::unwrap_ref(resp.payload, IOP_CTX());
   auto result = AuthToken::fromString(payload);
-  if (IS_ERR(result)) {
+  if (iop::is_err(result)) {
     const auto lengthStr = std::to_string(payload.length());
 
     const iop::StaticString parseErr(F("Unprintable payload, this isn't supported: "));
-    const auto &ref = UNWRAP_ERR_REF(result);
+    const auto &ref = iop::unwrap_err_ref(result, IOP_CTX());
     switch (ref) {
     case iop::ParseError::TOO_BIG:
       this->logger.error(F("Auth token is too big: size = "), lengthStr);
       return iop::NetworkStatus::BROKEN_SERVER;
     case iop::ParseError::NON_PRINTABLE:
       this->logger.error(parseErr,
-                         iop::StringView(payload).scapeNonPrintable());
+                         iop::to_view(iop::scapeNonPrintable(payload)));
       return iop::NetworkStatus::BROKEN_SERVER;
     }
     this->logger.error(F("Unexpected ParseError: "),
@@ -202,28 +202,28 @@ auto Api::authenticate(iop::StringView username,
     return iop::NetworkStatus::BROKEN_SERVER;
   }
 
-  return UNWRAP_OK(result);
+  return iop::unwrap_ok_mut(result, IOP_CTX());
 #else
   return AuthToken::empty();
 #endif
 }
 
 auto Api::registerLog(const AuthToken &authToken,
-                      iop::StringView log) const noexcept
+                      std::string_view log) const noexcept
     -> iop::NetworkStatus {
   IOP_TRACE();
   const auto token = authToken.asString();
-  this->logger.debug(F("Register log. Token: "), token, F(". Log: "), log);
-  auto maybeResp = this->network().httpPost(token, F("/v1/log"), std::move(log));
+  this->logger.debug(F("Register log. Token: "), iop::to_view(token), F(". Log: "), log);
+  auto maybeResp = this->network().httpPost(token.get(), F("/v1/log"), std::move(log));
 
 #ifndef IOP_MOCK_MONITOR
-  if (IS_ERR(maybeResp)) {
-    const auto code = std::to_string(UNWRAP_ERR_REF(maybeResp));
+  if (iop::is_err(maybeResp)) {
+    const auto code = std::to_string(iop::unwrap_err_ref(maybeResp, IOP_CTX()));
     this->logger.error(F("Unexpected response at Api::registerLog: "), code);
     return iop::NetworkStatus::BROKEN_SERVER;
   }
 
-  return UNWRAP_OK(maybeResp).status;
+  return iop::unwrap_ok_ref(maybeResp, IOP_CTX()).status;
 #else
   return iop::NetworkStatus::OK;
 #endif
@@ -272,14 +272,14 @@ switch (result) {
   #ifndef IOP_DESKTOP
     // TODO(pc): properly handle ESPhttpUpdate.getLastError()
     this->logger.error(F("Update failed: "),
-                       iop::UnsafeRawString(ESPhttpUpdate.getLastErrorString().c_str()));
+                       iop::to_view(ESPhttpUpdate.getLastErrorString()));
   #endif
     return iop::NetworkStatus::BROKEN_SERVER;
   }
   #ifndef IOP_DESKTOP
   // TODO(pc): properly handle ESPhttpUpdate.getLastError()
   this->logger.error(F("Update failed (UNKNOWN): "),
-                     iop::UnsafeRawString(ESPhttpUpdate.getLastErrorString().c_str()));
+                     iop::to_view(ESPhttpUpdate.getLastErrorString()));
   #endif
   #endif
   return iop::NetworkStatus::BROKEN_SERVER;
@@ -314,9 +314,9 @@ auto Api::registerEvent(const AuthToken &token,
   IOP_TRACE();
   return iop::NetworkStatus::OK;
 }
-auto Api::authenticate(iop::StringView username,
-                       iop::StringView password) const noexcept
-    -> iop::Result<AuthToken, iop::NetworkStatus> {
+auto Api::authenticate(std::string_view username,
+                       std::string_view password) const noexcept
+    -> std::variant<AuthToken, iop::NetworkStatus> {
   (void)*this;
   (void)std::move(username);
   (void)std::move(password);
@@ -324,7 +324,7 @@ auto Api::authenticate(iop::StringView username,
   return AuthToken::empty();
 }
 auto Api::registerLog(const AuthToken &authToken,
-                      iop::StringView log) const noexcept
+                      std::string_view log) const noexcept
     -> iop::NetworkStatus {
   (void)*this;
   (void)authToken;

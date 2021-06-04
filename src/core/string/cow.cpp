@@ -1,46 +1,44 @@
 #include "core/string/cow.hpp"
+#include "core/tracer.hpp"
+#include "core/utils.hpp"
 
 namespace iop {
-auto CowString::borrow() const noexcept -> StringView {
+auto CowString::borrow() const noexcept -> std::string_view {
   IOP_TRACE();
-  if (IS_OK(storage)) {
-    return UNWRAP_OK_REF(storage);
-  }
-  return UNWRAP_ERR_REF(storage);
+  if (iop::is_ok(this->storage))
+    return iop::unwrap_ok_ref(this->storage, IOP_CTX());
+  return iop::unwrap_err_ref(this->storage, IOP_CTX());
 }
 
-auto CowString::toString() noexcept -> std::string {
-  if (IS_OK(this->storage)) {
-      return UNWRAP_OK_REF(this->storage).get();
-  }
-  return UNWRAP_ERR_REF(this->storage);
+auto CowString::toString() const noexcept -> std::string {
+  return std::string(this->borrow());
 }
 
 auto CowString::toMut() noexcept -> std::string & {
-  if (IS_OK(this->storage)) {
-      std::string msg(UNWRAP_OK_MUT(this->storage).get());
-      this->storage = iop::Result<StringView, std::string>(std::move(msg));
+  if (iop::is_ok(this->storage)) {
+      std::string msg(iop::unwrap_ok_ref(this->storage, IOP_CTX()).begin());
+      this->storage = std::move(msg);
   }
-  return UNWRAP_ERR_MUT(this->storage);
+  return iop::unwrap_err_mut(this->storage, IOP_CTX());
 }
 
 CowString::CowString(CowString const &other) noexcept
-    : storage(emptyStringView) {
+    : storage(std::string_view()) {
   IOP_TRACE();
-  if (IS_OK(other.storage)) {
-    this->storage = UNWRAP_OK_REF(other.storage);
+  if (iop::is_ok(other.storage)) {
+    this->storage = iop::unwrap_ok_ref(other.storage, IOP_CTX());
   } else {
-    this->storage = UNWRAP_ERR_REF(other.storage);
+    this->storage = iop::unwrap_err_ref(other.storage, IOP_CTX());
   }
 }
 
 // NOLINTNEXTLINE cert-oop54-cpp
 auto CowString::operator=(CowString const &other) noexcept -> CowString & {
   IOP_TRACE();
-  if (IS_OK(other.storage)) {
-    this->storage = UNWRAP_OK_REF(other.storage);
+  if (iop::is_ok(other.storage)) {
+    this->storage = iop::unwrap_ok_ref(other.storage, IOP_CTX());
   } else {
-    this->storage = UNWRAP_ERR_REF(other.storage);
+    this->storage = iop::unwrap_err_ref(other.storage, IOP_CTX());
   }
   return *this;
 }

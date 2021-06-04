@@ -164,7 +164,7 @@ public:
     memset(address.sin_zero, '\0', sizeof(address.sin_zero));
 
     if (bind(fd, (struct sockaddr* )&address, sizeof(address)) < 0) {
-      logger.error(F("Unable to bind socket ("), std::to_string(errno), F("): "), iop::UnsafeRawString(strerror(errno)));
+      logger.error(F("Unable to bind socket ("), std::to_string(errno), F("): "), strerror(errno));
       return;
     }
 
@@ -193,7 +193,7 @@ public:
       if (client == 0) {
         logger.error(F("Client fd is zero"));
       } else if (errno != EAGAIN && errno != EWOULDBLOCK) {
-        logger.error(F("Error accepting connection ("), std::to_string(errno), F("): "), iop::UnsafeRawString(strerror(errno)));
+        logger.error(F("Error accepting connection ("), std::to_string(errno), F("): "), strerror(errno));
       }
       return;
     }
@@ -218,7 +218,7 @@ public:
           std::this_thread::sleep_for(50ms);
           continue;
         } else {
-          logger.error(F("Error reading from socket: "), std::to_string(errno), F("): "), iop::UnsafeRawString(strerror(errno)));
+          logger.error(F("Error reading from socket: "), std::to_string(errno), F("): "), strerror(errno));
           this->endRequest();
           return;
         }
@@ -231,19 +231,19 @@ public:
       }
       logger.debug(F("Read: ("), std::to_string(len), F(") ["), std::to_string(buffer.length()));
 
-      iop::StringView buff(buffer);
+      std::string_view buff(buffer.get());
       if (len > 0 && firstLine) {
-        if (buff.contains(F("POST"))) {
-          const ssize_t space = iop::StringView(iop::UnsafeRawString(buff.get() + 5)).indexOf(F(" "));
-          this->currentRoute = std::string(buff.get() + 5, space);
+        if (buff.find("POST") >= 0) {
+          const ssize_t space = std::string_view(buff.begin() + 5).find(" ");
+          this->currentRoute = std::string(buff.begin() + 5, space);
           logger.debug(F("POST: "), this->currentRoute);
-        } else if (buff.contains(F("GET"))) {
-          const ssize_t space = iop::StringView(iop::UnsafeRawString(buff.get() + 4)).indexOf(F(" "));
-          this->currentRoute = std::string(buff.get() + 4, space);
+        } else if (buff.find("GET") >= 0) {
+          const ssize_t space = std::string_view(buff.begin() + 4).find(" ");
+          this->currentRoute = std::string(buff.begin() + 4, space);
           logger.debug(F("GET: "), this->currentRoute);
-        } else if (buff.contains(F("OPTIONS"))) {
-          const ssize_t space = iop::StringView(iop::UnsafeRawString(buff.get() + 7)).indexOf(F(" "));
-          this->currentRoute = std::string(buff.get() + 7, space);
+        } else if (buff.find("OPTIONS") >= 0) {
+          const ssize_t space = std::string_view(buff.begin() + 7).find(" ");
+          this->currentRoute = std::string(buff.begin() + 7, space);
           logger.debug(F("OPTIONS: "), this->currentRoute);
         } else {
           logger.error(F("HTTP Method not found: "), buff);
@@ -252,9 +252,9 @@ public:
         }
         firstLine = false;
         
-        iop_assert(buff.contains(F("\n")), iop::StaticString(F("First: ")).toStdString() + std::to_string(buff.length()) + iop::StaticString(F(" bytes don't contain newline, the path is too long\n")).toStdString());
+        iop_assert(buff.find("\n") >= 0, iop::StaticString(F("First: ")).toStdString() + std::to_string(buff.length()) + iop::StaticString(F(" bytes don't contain newline, the path is too long\n")).toStdString());
         logger.debug(F("Found first line"));
-        const char* ptr = buff.get() + buff.indexOf(F("\n")) + 1;
+        const char* ptr = buff.begin() + buff.find("\n") + 1;
         memmove(buffer.asMut(), ptr, strlen(ptr) + 1);
       }
       logger.debug(F("Headers + Payload: "), buff);
@@ -262,25 +262,25 @@ public:
       while (len > 0 && buff.length() > 0 && !isPayload) {
         // TODO: if empty line is split into two reads (because of buff len) we are screwed
         //  || buff.contains(F("\n\n")) || buff.contains(F("\n\r\n"))
-        if (buff.contains(F("\r\n")) && buff.indexOf(F("\r\n")) == buff.indexOf(F("\r\n\r\n"))) {
+        if (buff.find("\r\n") >= 0 && buff.find("\r\n") == buff.find("\r\n\r\n")) {
           isPayload = true;
 
-          const char* ptr = buff.get() + buff.indexOf(F("\r\n\r\n")) + 4;
+          const char* ptr = buff.begin() + buff.find("\r\n\r\n") + 4;
           memmove(buffer.asMut(), ptr, strlen(ptr) + 1);
-          if (!buff.contains(F("\n"))) continue;
-        } else if (!buff.contains(F("\r\n"))) {
+          if (buff.find("\n") < 0) continue;
+        } else if (buff.find("\r\n") < 0) {
           iop_panic(F("Bad code"));
         } else {
-          const char* ptr = buff.get() + buff.indexOf(F("\r\n")) + 2;
+          const char* ptr = buff.begin() + buff.find("\r\n") + 2;
           memmove(buffer.asMut(), ptr, strlen(ptr) + 1);
           // TODO: could this enter in a infinite loop?
-          if (!buff.contains(F("\n"))) continue;
+          if (buff.find("\n") < 0) continue;
         }
       }
 
-      logger.debug(F("Payload ("), std::to_string(buff.length()), F(") ["), std::to_string(len), F("]: "), buffer);
+      logger.debug(F("Payload ("), std::to_string(buff.length()), F(") ["), std::to_string(len), F("]: "), buff);
 
-      this->currentPayload += buff.get();
+      this->currentPayload += buff;
 
       // TODO: For some weird reason `read` is blocking if we try to read after EOF
       // But it's not clear what will happen if EOF is exactly at buffer.size
@@ -332,7 +332,7 @@ public:
   }
 
 
-  static auto percentDecode(const iop::StringView input) -> std::optional<std::string> {
+  static auto percentDecode(const std::string_view input) -> std::optional<std::string> {
     logger.debug(F("Decode: "), input);
     static const char tbl[256] = {
       -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
@@ -355,7 +355,7 @@ public:
     std::string out;
     out.reserve(input.length());
     char c = '\0';
-    const char *in = input.get();
+    const char *in = input.begin();
     while((c = *in++) != '\0') {
       if(c == '%') {
         const auto v1 = tbl[(unsigned char)*in++];
@@ -373,33 +373,33 @@ public:
   // get request argument value by name
   std::string arg(iop::StaticString name) const {
     IOP_TRACE();
-    iop::StringView view(this->currentPayload);
+    std::string_view view(this->currentPayload);
 
     const size_t argEncodingLen = 2 + name.length(); // len('&') + len('=') + len(name)
-    ssize_t index = view.indexOf(std::string("&") + name.asCharPtr() + "=");
-    if (index < 0) index = view.indexOf(std::string("?") + name.asCharPtr() + "=");
+    ssize_t index = view.find(std::string("&") + name.asCharPtr() + "=");
+    if (index < 0) index = view.find(std::string("?") + name.asCharPtr() + "=");
     if (index < 0) return "";
 
-    const ssize_t end = iop::StringView(iop::UnsafeRawString(view.get() + index + argEncodingLen)).indexOf(F("&"));
+    const ssize_t end = view.substr(index + argEncodingLen).find("&");
 
     if (end < 0) {
-      const auto msg = iop::UnsafeRawString(view.get() + index + argEncodingLen);
+      const auto msg = view.substr(index + argEncodingLen);
       const auto decoded = ESP8266WebServer::percentDecode(msg);
-      logger.debug(decoded.has_value() ? decoded.value() : "No value");
+      logger.debug(decoded.value_or("No value"));
       return decoded.value_or("");
     }
 
-    const auto msg = std::string(view.get() + index + argEncodingLen, end);
+    const auto msg = view.substr(index + argEncodingLen, end);
     const auto decoded = ESP8266WebServer::percentDecode(msg);
-    logger.debug(decoded.has_value() ? decoded.value() : "No value");
+    logger.debug(decoded.value_or("No value"));
     return decoded.value_or("");
   }
   // check if argument exists
   bool hasArg(iop::StaticString name) const {
     IOP_TRACE();
-    iop::StringView view(this->currentPayload);
-    const auto ret = view.contains(std::string("&") + name.asCharPtr() + "=")
-      || view.contains(std::string("?") + name.asCharPtr() + "=");
+    std::string_view view(this->currentPayload);
+    const auto ret = view.find(std::string("&") + name.asCharPtr() + "=") >= 0
+      || view.find(std::string("?") + name.asCharPtr() + "=") >= 0;
     logger.debug(F("Has Arg ("), name, F("): "), std::to_string(ret));
     return ret;
   }
@@ -455,7 +455,7 @@ public:
     IOP_TRACE();
     if (!this->currentClient.has_value()) return;
     const int32_t fd = iop::unwrap_ref(this->currentClient, IOP_CTX());
-    logger.debug(F("Send Content ("), std::to_string(strlen(content)), F("): "), iop::UnsafeRawString(content));
+    logger.debug(F("Send Content ("), std::to_string(strlen(content)), F("): "), content);
     
     if (iop::Log::isTracing())
       iop::Log::print(F(""), iop::LogLevel::TRACE, iop::LogType::START);

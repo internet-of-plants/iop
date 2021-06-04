@@ -2,6 +2,7 @@
 
 #ifndef IOP_SERVER_DISABLED
 
+#include "core/utils.hpp"
 #include "driver/server.hpp"
 #include "driver/wifi.hpp"
 #include "driver/time.hpp"
@@ -261,7 +262,7 @@ void CredentialsServer::start() noexcept {
 
     WiFi.softAPConfig(staticIp, staticIp, mask);
 
-    const static auto hash = iop::macAddress().asString().borrow().hash();
+    const static auto hash = iop::hashString(iop::macAddress().asString().borrow());
     const auto ssid = std::string("iop-") + std::to_string(hash);
 
     // TODO(pc): the password should be random (passed at compile time)
@@ -325,17 +326,17 @@ auto CredentialsServer::statusToString(const station_status_t status)
   return ret;
 }
 
-auto CredentialsServer::connect(iop::StringView ssid,
-                                iop::StringView password) const noexcept
+auto CredentialsServer::connect(std::string_view ssid,
+                                std::string_view password) const noexcept
     -> void {
   IOP_TRACE();
-  this->logger.info(F("Connect: "), ssid);
+  this->logger.info(F("Connect: "), std::string(ssid));
   if (wifi_station_get_connect_status() == STATION_CONNECTING) {
     const iop::InterruptLock _guard;
     wifi_station_disconnect();
   }
 
-  WiFi.begin(ssid.get(), std::move(password).get());
+  WiFi.begin(ssid.begin(), std::move(password).begin());
 
   if (WiFi.waitForConnectResult() == -1) {
     this->logger.error(F("Wifi authentication timed out"));
@@ -350,12 +351,12 @@ auto CredentialsServer::connect(iop::StringView ssid,
 
     const auto statusStr = iop::unwrap(maybeStatusStr, IOP_CTX());
     this->logger.error(F("Invalid wifi credentials ("), statusStr, F("): "),
-                       std::move(ssid));
+                       std::string(std::move(ssid)));
   }
 }
 
-auto CredentialsServer::authenticate(iop::StringView username,
-                                     iop::StringView password,
+auto CredentialsServer::authenticate(std::string_view username,
+                                     std::string_view password,
                                      const Api &api) const noexcept
     -> std::optional<AuthToken> {
   IOP_TRACE();
@@ -365,8 +366,8 @@ auto CredentialsServer::authenticate(iop::StringView username,
   
   WiFi.mode(WIFI_AP_STA);
   this->logger.info(F("Tried to authenticate"));
-  if (IS_ERR(authToken)) {
-    const auto &status = UNWRAP_ERR_REF(authToken);
+  if (iop::is_err(authToken)) {
+    const auto &status = iop::unwrap_err_ref(authToken, IOP_CTX());
 
     switch (status) {
     case iop::NetworkStatus::FORBIDDEN:
@@ -393,7 +394,7 @@ auto CredentialsServer::authenticate(iop::StringView username,
     this->logger.crit(F("CredentialsServer::authenticate bad status: "), str);
     return std::optional<AuthToken>();
   }
-  return std::make_optional(UNWRAP_OK(authToken));
+  return std::make_optional(std::move(iop::unwrap_ok_mut(authToken, IOP_CTX())));
 }
 
 auto CredentialsServer::serve(const std::optional<WifiCredentials> &storedWifi,
@@ -437,7 +438,7 @@ auto CredentialsServer::serve(const std::optional<WifiCredentials> &storedWifi,
 
     const auto &stored = iop::unwrap_ref(storedWifi, IOP_CTX());
     this->logger.info(F("Trying wifi credentials stored in flash"));
-    this->connect(stored.ssid.asString(), stored.password.asString());
+    this->connect(stored.ssid.asString().get(), stored.password.asString().get());
 
     // WiFi Credentials hardcoded at "configuration.hpp"
     //

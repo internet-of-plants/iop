@@ -49,12 +49,12 @@ auto Flash::readAuthToken() const noexcept -> const std::optional<AuthToken> & {
   const auto tok = token.asString();
   // AuthToken must be printable US-ASCII (to be stored in HTTP headers))
   if (!token.isAllPrintable()) {
-    this->logger.error(F("Auth token was non printable: "), tok);
+    this->logger.error(F("Auth token was non printable: "), iop::to_view(tok));
     this->removeAuthToken();
     return authToken;
   }
 
-  this->logger.trace(F("Found Auth token: "), tok);
+  this->logger.trace(F("Found Auth token: "), iop::to_view(tok));
 
   // Updates cache
   authToken.emplace(std::move(token));
@@ -91,7 +91,7 @@ void Flash::writeAuthToken(const AuthToken &token) const noexcept {
     }
   }
 
-  this->logger.info(F("Writing auth token to storage: "), token.asString());
+  this->logger.info(F("Writing auth token to storage: "), iop::to_view(token.asString()));
 
   // Updates cache
   authToken.emplace(token);
@@ -125,7 +125,7 @@ auto Flash::readWifiConfig() const noexcept
   const auto psk = NetworkPassword::fromBytesUnsafe(ptr, NetworkPassword::size);
 
   const auto ssidStr = ssid.asString();
-  this->logger.trace(F("Found network credentials: "), ssidStr);
+  this->logger.trace(F("Found network credentials: "), iop::to_view(ssidStr));
 
   // Updates cache
   wifiCredentials.emplace(ssid, psk);
@@ -165,7 +165,7 @@ void Flash::writeWifiConfig(const WifiCredentials &config) const noexcept {
   }
 
   this->logger.info(F("Writing network credentials to storage: "),
-                    config.ssid.asString());
+                    iop::to_view(config.ssid.asString()));
 
   // Updates cache
   wifiCredentials.emplace(config);

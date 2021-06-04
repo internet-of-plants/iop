@@ -2,6 +2,7 @@
 #define IOP_DRIVER_STRING_STATIC_HPP
 
 #ifdef IOP_DESKTOP
+#include <cstring>
 #define PSTR(x) reinterpret_cast<const char*>(x)
 
 class __FlashStringHelper;

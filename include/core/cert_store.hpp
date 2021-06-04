@@ -1,9 +1,7 @@
 #ifndef IOP_CORE_CERTSTORE_HPP
 #define IOP_CORE_CERTSTORE_HPP
 
-#include "core/memory.hpp"
 #include <optional>
-
 #include "driver/cert_store.hpp"
 
 namespace iop {

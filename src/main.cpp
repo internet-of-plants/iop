@@ -162,7 +162,7 @@ private:
 #ifdef IOP_ONLINE
       const auto ip = WiFi.localIP().toString();
       const auto status = std::to_string(wifi_station_get_connect_status());
-      this->logger.debug(F("WiFi connected ("), iop::UnsafeRawString(ip.c_str()), F("): "), status);
+      this->logger.debug(F("WiFi connected ("), ip, F("): "), status);
 
       struct station_config config = {0};
       wifi_station_get_config(&config);
@@ -174,7 +174,7 @@ private:
       const auto ssid = NetworkName::fromBytesUnsafe(ptr, len);
 
       const auto ssidStr = ssid.asString();
-      this->logger.info(F("Connected to network: "), ssidStr);
+      this->logger.info(F("Connected to network: "), iop::to_view(ssidStr));
 
       len = sizeof(config.password);
       ptr = static_cast<uint8_t *>(config.password);

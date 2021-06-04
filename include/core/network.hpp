@@ -1,11 +1,10 @@
 #ifndef IOP_NETWORK_HPP
 #define IOP_NETWORK_HPP
 
+#include <variant>
+#include "driver/client.hpp"
 #include "core/cert_store.hpp"
 #include "core/log.hpp"
-#include "core/result.hpp"
-
-#include "driver/client.hpp"
 
 namespace iop {
 /// Higher level error reporting. Lower level is logged
@@ -27,16 +26,10 @@ enum class HttpMethod;
 class UpgradeHook {
 public:
   using UpgradeScheduler = std::function<void()>;
-
   UpgradeScheduler schedule;
 
-  // Noop
-  static void defaultHook() noexcept;
-
-  explicit UpgradeHook(UpgradeScheduler scheduler) noexcept
-      : schedule(std::move(scheduler)) {
-    IOP_TRACE();
-  }
+  explicit UpgradeHook(UpgradeScheduler scheduler) noexcept;
+  static void defaultHook() noexcept; // Noop
 };
 
 /// General lower level client network API, that is focused on our need.
@@ -55,10 +48,7 @@ class Network {
   Log logger;
 
 public:
-  Network(StaticString uri, const LogLevel &logLevel) noexcept
-      : uri_(std::move(uri)), logger(logLevel, F("NETWORK")) {
-    IOP_TRACE();
-  }
+  Network(StaticString uri, const LogLevel &logLevel) noexcept;
   auto setup() const noexcept -> void;
   auto uri() const noexcept -> StaticString { return this->uri_; };
 
@@ -76,22 +66,22 @@ public:
   static void disconnect() noexcept;
   static auto isConnected() noexcept -> bool;
 
-  auto httpPut(StringView token, StaticString path,
-               StringView data) const noexcept
-      -> Result<Response, int>;
-  auto httpPost(StringView token, StringView path,
-                StringView data) const noexcept
-      -> Result<Response, int>;
-  auto httpPost(StringView token, StaticString path,
-                StringView data) const noexcept
-      -> Result<Response, int>;
-  auto httpPost(StaticString path, StringView data) const noexcept
-      -> Result<Response, int>;
+  auto httpPut(std::string_view token, StaticString path,
+               std::string_view data) const noexcept
+      -> std::variant<Response, int>;
+  auto httpPost(std::string_view token, std::string_view path,
+                std::string_view data) const noexcept
+      -> std::variant<Response, int>;
+  auto httpPost(std::string_view token, StaticString path,
+                std::string_view data) const noexcept
+      -> std::variant<Response, int>;
+  auto httpPost(StaticString path, std::string_view data) const noexcept
+      -> std::variant<Response, int>;
 
-  auto httpRequest(HttpMethod method, const std::optional<StringView> &token,
-                   StringView path,
-                   const std::optional<StringView> &data) const noexcept
-      -> Result<Response, int>;
+  auto httpRequest(HttpMethod method, const std::optional<std::string_view> &token,
+                   std::string_view path,
+                   const std::optional<std::string_view> &data) const noexcept
+      -> std::variant<Response, int>;
 
   static auto rawStatusToString(const RawStatus &status) noexcept
       -> StaticString;
@@ -102,19 +92,10 @@ public:
   auto apiStatus(const RawStatus &raw) const noexcept
       -> std::optional<NetworkStatus>;
 
-  ~Network() noexcept { IOP_TRACE(); }
-  Network(Network const &other) : uri_(other.uri_), logger(other.logger) {
-    IOP_TRACE();
-  }
+  ~Network() noexcept;
+  Network(Network const &other);
   Network(Network &&other) = delete;
-  auto operator=(Network const &other) -> Network & {
-    IOP_TRACE();
-    if (this == &other)
-      return *this;
-    this->uri_ = other.uri_;
-    this->logger = other.logger;
-    return *this;
-  }
+  auto operator=(Network const &other) -> Network &;
   auto operator=(Network &&other) -> Network & = delete;
 };
 

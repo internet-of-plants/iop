@@ -2,6 +2,8 @@
 #define IOP_DRIVER_CERTSTORE_HPP
 
 #ifdef IOP_DESKTOP
+#include <cstdint>
+#include <stddef.h>
 #define memcpy_P memcpy
 #define memcmp_P memcmp
 class br_x509_minimal_context;

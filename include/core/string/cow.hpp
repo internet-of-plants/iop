@@ -1,7 +1,9 @@
 #ifndef IOP_CORE_STRING_COW_HPP
 #define IOP_CORE_STRING_COW_HPP
 
-#include "core/result.hpp"
+#include <variant>
+#include <string_view>
+#include <string>
 
 namespace iop {
 /// Copy on write string
@@ -12,19 +14,16 @@ namespace iop {
 /// We could support other types with templates, but we can't ensure they have
 /// a borrowed/owned relationship
 class CowString {
-  // We use `iop::Result` although the semantics isn't right, to avoid
-  // reimplementing sum-types here. And we don't need the complexity of
-  // std::variant like types.
-  iop::Result<StringView, std::string> storage;
+  std::variant<std::string_view, std::string> storage;
 
 public:
   explicit CowString(std::string str) noexcept : storage(std::move(str)) {}
-  explicit CowString(StringView str) noexcept : storage(std::move(str)) {}
+  explicit CowString(std::string_view str) noexcept : storage(std::move(str)) {}
 
-  auto borrow() const noexcept -> StringView;
-  auto get() const noexcept -> const char * { return this->borrow().get(); }
+  auto borrow() const noexcept -> std::string_view;
+  auto get() const noexcept -> const char * { return this->borrow().begin(); }
   auto toMut() noexcept -> std::string &;
-  auto toString() noexcept -> std::string;
+  auto toString() const noexcept -> std::string;
 
   ~CowString() noexcept = default;
   CowString(CowString const &other) noexcept;

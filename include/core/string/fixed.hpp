@@ -49,12 +49,8 @@ public:
     return this->length() == 0;
   }
 
-  auto operator*() const noexcept -> StringView {
-    return UnsafeRawString(this->get());
-  }
-
   static auto fromStorage(Storage<SIZE> other) noexcept
-      -> Result<FixedString<SIZE>, ParseError> {
+      -> std::variant<FixedString<SIZE>, ParseError> {
     IOP_TRACE();
 
     auto val = FixedString<SIZE>(other);
@@ -63,13 +59,13 @@ public:
     return val;
   }
 
-  static auto fromString(const StringView str) noexcept
-      -> Result<FixedString<SIZE>, ParseError> {
+  static auto fromString(const std::string_view str) noexcept
+      -> std::variant<FixedString<SIZE>, ParseError> {
     IOP_TRACE();
     auto val = Storage<SIZE>::fromString(std::move(str));
-    if (IS_OK(val))
-      return FixedString<SIZE>(UNWRAP_OK(val));
-    return UNWRAP_ERR(val);
+    if (std::holds_alternative<Storage<SIZE>>(val))
+      return FixedString<SIZE>(std::move(std::get<Storage<SIZE>>(val, IOP_CTX())));
+    return std::get<ParseError>(val, IOP_CTX());
   }
 
   ~FixedString<SIZE>() noexcept { IOP_TRACE(); }

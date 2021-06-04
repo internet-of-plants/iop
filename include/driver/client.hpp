@@ -230,14 +230,14 @@ public:
     
     auto status = std::make_optional(1000);
     auto *buffStart = buffer.asMut();
-    iop::StringView buff(buffer);
+    std::string_view buff(buffer.get());
     while (true) {
       clientDriverLogger.debug(F("Try read: "), std::to_string(buffer.length()));
 
       buffStart += buffer.length();
       if (buffer.length() < buffer.size &&
           (size = read(fd, buffStart, buffer.size - buffer.length())) < 0) {
-        clientDriverLogger.error(F("Error reading from socket ("), std::to_string(size), F("): "), std::to_string(errno), F(" - "), iop::UnsafeRawString(strerror(errno))); 
+        clientDriverLogger.error(F("Error reading from socket ("), std::to_string(size), F("): "), std::to_string(errno), F(" - "), strerror(errno)); 
         close(fd);
         return 500;
       }
@@ -251,9 +251,9 @@ public:
       
       clientDriverLogger.debug(F("Buffer: "), buff);
       //if (!buff.contains(F("\n"))) continue;
-      clientDriverLogger.debug(F("Read: ("), std::to_string(size), F(") ["), std::to_string(buffer.length()), F("]: "), std::string(buffer.get()).substr(0, buff.indexOf(F("\n"))));
+      clientDriverLogger.debug(F("Read: ("), std::to_string(size), F(") ["), std::to_string(buffer.length()), F("]: "), std::string(buffer.get()).substr(0, buff.find("\n")));
 
-      if (firstLine && !buff.contains(F("\n"))) continue;
+      if (firstLine && buff.find("\n") < 0) continue;
 
       if (firstLine && size < 10) { // len("HTTP/1.1 ") = 9
         clientDriverLogger.error(F("Error reading first line: "), std::to_string(size));
@@ -263,18 +263,18 @@ public:
       if (firstLine && size > 0) {
         clientDriverLogger.debug(F("Found first line: "));
 
-        const iop::StringView statusStr(iop::UnsafeRawString(buffer.get() + 9)); // len("HTTP/1.1 ") = 9
-        const auto codeEnd = statusStr.indexOf(F(" "));
+        const std::string_view statusStr(buffer.get() + 9); // len("HTTP/1.1 ") = 9
+        const auto codeEnd = statusStr.find(" ");
         if (codeEnd == -1) {
-          clientDriverLogger.error(F("Bad server: "), statusStr, F(" -- "), buffer);
+          clientDriverLogger.error(F("Bad server: "), statusStr, F(" -- "), buff);
           return 500;
         }
         //iop_assert(buff.contains(F("\n")), iop::StaticString(F("First: ")).toStdString() + std::to_string(buffer.length()) + iop::StaticString(F(" bytes don't contain newline, the path is too long\n")).toStdString());
-        status = std::make_optional(atoi(std::string(statusStr.get(), 0, codeEnd).c_str()));
+        status = std::make_optional(atoi(std::string(statusStr.begin(), 0, codeEnd).c_str()));
         clientDriverLogger.debug(F("Status: "), std::to_string(status.value_or(500)));
         firstLine = false;
 
-        const char* ptr = buff.get() + buff.indexOf(F("\n")) + 1;
+        const char* ptr = buff.begin() + buff.find("\n") + 1;
         memmove(buffer.asMut(), ptr, strlen(ptr) + 1);
       }
       if (!status.has_value()) {
@@ -283,21 +283,21 @@ public:
       }
       clientDriverLogger.debug(F("Buffer: "), buff);
       //if (!buff.contains(F("\n"))) continue;
-      clientDriverLogger.debug(F("Headers + Payload: "), std::string(buffer.get()).substr(0, buff.indexOf(F("\n"))));
+      clientDriverLogger.debug(F("Headers + Payload: "), std::string(buffer.get()).substr(0, buff.find("\n")));
 
       while (len > 0 && buffer.length() > 0 && !isPayload) {
         // TODO: if empty line is split into t  wo reads (because of buff len) we are screwed
         //  || buff.contains(F("\n\n")) || buff.contains(F("\n\r\n"))
-        if (buff.indexOf(F("\r\n")) == 0) {
+        if (buff.find("\r\n") == 0) {
           clientDriverLogger.debug(F("Found Payload"));
           isPayload = true;
 
-          const char* ptr = buff.get() + buff.indexOf(F("\r\n")) + 2;
+          const char* ptr = buff.begin() + buff.find("\r\n") + 2;
           memmove(buffer.asMut(), ptr, strlen(ptr) + 1);
           continue;
-        } else if (!buff.contains(F("\r\n"))) {
+        } else if (buff.find("\r\n") < 0) {
           iop_panic(F("Bad software bruh"));
-        } else if (buff.contains(F("\r\n"))) {
+        } else if (buff.find("\r\n") >= 0) {
           clientDriverLogger.debug(F("Found headers (buffer length: "), std::to_string(buff.length()), F(")"));
           auto found = false;
           for (const auto &key: this->headersToCollect) {
@@ -311,33 +311,36 @@ public:
               continue;
 
             found = true;
-            iop::StringView valueView(buff.get() + key.length() + 1); // ":"
-            if (*valueView.get() == ' ') valueView = iop::StringView(valueView.get() + 1);
+            auto valueView = buff.substr(key.length() + 1); // ":"
+            while (*valueView.begin() == ' ') valueView = valueView.substr(1);
 
-            iop_assert(valueView.contains(F("\r\n")), F("Must contain endline"));
-            const std::string value(valueView.get(), 0, valueView.indexOf(F("\r\n")));
+            iop_assert(valueView.find("\r\n") >= 0, F("Must contain endline"));
+            const std::string value(valueView, 0, valueView.find("\r\n"));
             clientDriverLogger.debug(F("Found header "), key, F(" = "), value, F("\n"));
             this->responseHeaders.emplace(key, value);
 
-            iop_assert(buff.contains(F("\r\n")), F("Must contain endline"));
-            const char* ptr = buff.get() + buff.indexOf(F("\r\n")) + 2;
+            iop_assert(buff.find("\r\n") > 0, F("Must contain endline"));
+            const char* ptr = buff.begin() + buff.find("\r\n") + 2;
             memmove(buffer.asMut(), ptr, strlen(ptr) + 1);
-            if (!buff.contains(F("\n"))) iop_panic(F("Fuuuc")); //continue;
+            if (buff.find("\n") < 0) iop_panic(F("Fuuuc")); //continue;
           }
-          //if (!buff.contains(F("\n"))) continue;
-          clientDriverLogger.debug(F("Buffer: "), std::string(buffer.get()).substr(0, buff.indexOf(F("\n"))));
-          clientDriverLogger.debug(F("Skipping header ("), std::to_string(buff.indexOf(F("\r\n"))), F(")"));
-          const char* ptr = buff.get() + buff.indexOf(F("\r\n")) + 2;
+          if (buff.find("\n") < 0) {
+            clientDriverLogger.warn(F("Newline missing in buffer: "), buff);
+            return 500;
+          }
+          clientDriverLogger.debug(F("Buffer: "), std::string(buffer.get()).substr(0, buff.find("\n")));
+          clientDriverLogger.debug(F("Skipping header ("), std::string_view(buff).substr(0, buff.find("\r\n")), F(")"));
+          const char* ptr = buff.begin() + buff.find("\r\n") + 2;
           memmove(buffer.asMut(), ptr, strlen(ptr) + 1);
-          if (!buff.contains(F("\n"))) iop_panic(F("Fuuk")); //continue;
+            if (buff.find("\n") < 0) iop_panic(F("Fuuk")); //continue;
         } else {
           iop_panic(F("Press F to pay respect"));
         }
       }
 
-      clientDriverLogger.debug(F("Payload ("), std::to_string(buff.length()), F(") ["), std::to_string(size), F("]: "), std::string(buffer.get()).substr(0, buff.contains(F("\n")) ? buff.indexOf(F("\n")) : buffer.length()));
+      clientDriverLogger.debug(F("Payload ("), std::to_string(buff.length()), F(") ["), std::to_string(size), F("]: "), std::string(buffer.get()).substr(0, buff.find("\n") < 0 ? buff.find("\n") : buffer.length()));
 
-      this->responsePayload += buff.get();
+      this->responsePayload += buff;
 
       // TODO: For some weird reason `read` is blocking if we try to read after EOF
       // But it's not clear what will happen if EOF is exactly at buffer.size
@@ -364,7 +367,7 @@ public:
     this->uri = uri_;
     (void) client;
 
-    iop::StringView uri(uri_);
+    std::string_view uri(uri_);
      
     struct sockaddr_in serv_addr;
     int32_t fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -373,26 +376,26 @@ public:
       return false;
     }
 
-    iop_assert(uri.indexOf(F("http://")) == 0, F("Protocol must be http (no SSL)"));
-    uri = iop::StringView(iop::UnsafeRawString(uri.get() + 7));
+    iop_assert(uri.find(iop::StaticString(F("http://")).toStdString()) < 0, F("Protocol must be http (no SSL)"));
+    uri = std::string_view(uri.begin() + 7);
     
-    const auto portIndex = uri.indexOf(F(":"));
+    const auto portIndex = uri.find(iop::StaticString(F(":")).toStdString());
     uint16_t port = 443;
     if (portIndex != -1) {
-      auto end = iop::StringView(iop::UnsafeRawString(uri.get() + portIndex + 1)).indexOf(F("/"));
+      auto end = uri.substr(portIndex + 1).find("/");
       if (end == -1) end = uri.length();
-      port = atoi(std::string(uri.get(), portIndex + 1, end).c_str());
+      port = atoi(std::string(uri.begin(), portIndex + 1, end).c_str());
     }
     clientDriverLogger.debug(F("Port: "), std::to_string(port));
 
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(port);
 
-    auto end = uri.indexOf(F(":"));
-    if (end == -1) end = uri.indexOf(F("/"));
+    auto end = uri.find(":");
+    if (end == -1) end = uri.find("/");
     if (end == -1) end = uri.length();
     
-    const auto host = std::string(uri.get(), 0, end);
+    const auto host = std::string(uri.begin(), 0, end);
     // Convert IPv4 and IPv6 addresses from text to binary form
     if(inet_pton(AF_INET, host.c_str(), &serv_addr.sin_addr) <= 0) {
       close(fd);

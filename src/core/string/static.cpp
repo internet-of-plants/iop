@@ -1,5 +1,6 @@
 #include "core/string/static.hpp"
 #include "core/tracer.hpp"
+#include <string>
 
 namespace iop {
 /*
@@ -30,7 +31,7 @@ auto StaticString::get() const noexcept -> const __FlashStringHelper * {
   // IOP_TRACE();
   return this->str;
 }
-auto StaticString::contains(StringView needle) const noexcept -> bool {
+auto StaticString::contains(std::string_view needle) const noexcept -> bool {
   IOP_TRACE();
   /*
   if (!Log::isTracing()) {
@@ -43,7 +44,7 @@ auto StaticString::contains(StringView needle) const noexcept -> bool {
   */
   std::string msg(this->length(), '\0');
   memmove_P(&msg.front(), this->asCharPtr(), this->length());
-  return strstr(msg.c_str(), std::move(needle).get()) !=
+  return strstr(msg.c_str(), std::move(needle).begin()) !=
          nullptr;
 }
 auto StaticString::contains(StaticString needle) const noexcept -> bool {
@@ -77,9 +78,7 @@ auto StaticString::isEmpty() const noexcept -> bool {
 }
 // Be careful when calling this function, if you pass PGM_P to a function that
 // expects a regular char* a hardware exception may happen, PROGMEM data needs
-// to be read in 32 bits alignment, this has caused trouble in tha past and
-// may still do It's why StringView doesn't have a constructor for
-// StaticString
+// to be read in 32 bits alignment, this has caused trouble in the past
 auto StaticString::asCharPtr() const noexcept -> PGM_P {
   //IOP_TRACE();
   // NOLINT *-pro-type-reinterpret-cast

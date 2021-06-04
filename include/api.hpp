@@ -60,9 +60,9 @@ public:
   /// CONNECTION_ISSUES: problems with connection, retry later?
   /// CLIENT_BUFFER_OVERFLOW: something is very broken with this method's code
   /// BROKEN_SERVER: just wait until server is fixed
-  auto authenticate(iop::StringView username,
-                    iop::StringView password) const noexcept
-      -> iop::Result<AuthToken, iop::NetworkStatus>;
+  auto authenticate(std::string_view username,
+                    std::string_view password) const noexcept
+      -> std::variant<AuthToken, iop::NetworkStatus>;
 
   /// Reports panicHandler message to server. Possible responses:
   ///
@@ -72,7 +72,7 @@ public:
   /// CLIENT_BUFFER_OVERFLOW: something is very broken with this method's code
   /// BROKEN_SERVER: must wait until server is fixeds
   auto registerLog(const AuthToken &authToken,
-                   iop::StringView log) const noexcept -> iop::NetworkStatus;
+                   std::string_view log) const noexcept -> iop::NetworkStatus;
 
   /// Tries to update. Restarts on success. Returns OK if no updates are
   /// available

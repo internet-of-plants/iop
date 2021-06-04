@@ -7,6 +7,7 @@
 #include <iostream>
 #include <errno.h>
 #include "configuration.hpp"
+#include "core/panic.hpp"
 
 #include "utils.hpp"
 
