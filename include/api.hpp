@@ -109,13 +109,12 @@ private:
       -> std::optional<iop::FixedString<SIZE>> {
     IOP_TRACE();
     
-    static auto doc = iop::try_make_unique<StaticJsonDocument<SIZE>>();
+    auto doc = iop::try_make_unique<StaticJsonDocument<SIZE>>();
     if (!doc) {
       this->logger.error(F("Unable to allocate "), std::to_string(SIZE),
                          F(" bytes at Api::makeJson for "), name);
       return std::optional<iop::FixedString<SIZE>>();
     }
-    doc->clear();
     func(*doc);
 
     if (doc->overflowed()) {
@@ -124,8 +123,7 @@ private:
       return std::optional<iop::FixedString<SIZE>>();
     }
 
-    static auto fixed = iop::FixedString<SIZE>::empty();
-    fixed.clear();
+    auto fixed = iop::FixedString<SIZE>::empty();
     serializeJson(*doc, fixed.asMut(), fixed.size);
     //this->logger.debug(F("Json: "), *fixed);
     return std::make_optional(fixed);
