@@ -25,9 +25,9 @@ public:
   }
 };
 #else
-#include "DHT.h"
-#include "DallasTemperature.h"
-#include "OneWire.h"
+#include <DHT.h>
+#include <DallasTemperature.h>
+#include <OneWire.h>
 #endif
 
 #endif
