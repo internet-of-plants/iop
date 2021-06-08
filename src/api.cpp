@@ -66,6 +66,7 @@ auto Api::reportPanic(const AuthToken &authToken,
     const auto make = [event, &truncatedMessage](JsonDocument &doc) {
       doc["file"] = event.file.toStdString();
       doc["line"] = event.line;
+      // TODO: when ArduinoJson provides support for string_view we should stop this `.begin()` nonsense
       doc["func"] = event.func.begin();
       if (truncatedMessage.has_value()) {
         doc["msg"] = iop::unwrap_ref(truncatedMessage, IOP_CTX());
