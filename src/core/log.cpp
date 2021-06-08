@@ -135,7 +135,11 @@ LogHook::defaultViewPrinter(const char *str, const LogLevel level, const iop::Lo
 void IRAM_ATTR
 LogHook::defaultSetuper(const iop::LogLevel level) noexcept {
   isTracing_ |= level == iop::LogLevel::TRACE;
-  logSetup(level);
+  static bool hasInitialized = false;
+  const auto shouldInitialize = !hasInitialized;
+  hasInitialized = true;
+  if (shouldInitialize)
+    logSetup(level);
 }
 void LogHook::defaultFlusher() noexcept {
 #ifdef IOP_SERIAL
