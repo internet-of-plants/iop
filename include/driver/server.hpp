@@ -60,7 +60,7 @@ public:
 #include <thread>
 #include <chrono>
 
-const static iop::Log logger(iop::LogLevel::DEBUG, F("HTTP Server"));
+const static iop::Log logger(iop::LogLevel::WARN, F("HTTP Server"));
 
 static void close_(uint32_t fd) noexcept {
   close(fd);
@@ -256,6 +256,7 @@ public:
         logger.debug(F("Found first line"));
         const char* ptr = buff.begin() + buff.find("\n") + 1;
         memmove(buffer.asMut(), ptr, strlen(ptr) + 1);
+        buff = buffer.get();
       }
       logger.debug(F("Headers + Payload: "), buff);
 
@@ -267,12 +268,14 @@ public:
 
           const char* ptr = buff.begin() + buff.find("\r\n\r\n") + 4;
           memmove(buffer.asMut(), ptr, strlen(ptr) + 1);
+          buff = buffer.get();
           if (buff.find("\n") < 0) continue;
         } else if (buff.find("\r\n") < 0) {
           iop_panic(F("Bad code"));
         } else {
           const char* ptr = buff.begin() + buff.find("\r\n") + 2;
           memmove(buffer.asMut(), ptr, strlen(ptr) + 1);
+          buff = buffer.get();
           // TODO: could this enter in a infinite loop?
           if (buff.find("\n") < 0) continue;
         }
@@ -356,7 +359,7 @@ public:
     out.reserve(input.length());
     char c = '\0';
     const char *in = input.begin();
-    while((c = *in++) != '\0') {
+    while((c = *in++) && in - input.begin() <= input.length()) {
       if(c == '%') {
         const auto v1 = tbl[(unsigned char)*in++];
         const auto v2 = tbl[(unsigned char)*in++];
@@ -376,20 +379,20 @@ public:
     std::string_view view(this->currentPayload);
 
     const size_t argEncodingLen = 2 + name.length(); // len('&') + len('=') + len(name)
-    ssize_t index = view.find(std::string("&") + name.asCharPtr() + "=");
-    if (index < 0) index = view.find(std::string("?") + name.asCharPtr() + "=");
+    ssize_t index = view.find(name.toStdString() + "=");
+    if (index != 0) index = view.find(std::string("&") + name.asCharPtr() + "=");
     if (index < 0) return "";
+    view = view.substr(index + argEncodingLen);
 
-    const ssize_t end = view.substr(index + argEncodingLen).find("&");
+    const ssize_t end = view.find("&");
 
     if (end < 0) {
-      const auto msg = view.substr(index + argEncodingLen);
-      const auto decoded = ESP8266WebServer::percentDecode(msg);
+      const auto decoded = ESP8266WebServer::percentDecode(view);
       logger.debug(decoded.value_or("No value"));
       return decoded.value_or("");
     }
 
-    const auto msg = view.substr(index + argEncodingLen, end);
+    const auto msg = view.substr(0, end);
     const auto decoded = ESP8266WebServer::percentDecode(msg);
     logger.debug(decoded.value_or("No value"));
     return decoded.value_or("");

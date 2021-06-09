@@ -11,14 +11,14 @@ static pthread_mutex_t lock;
 void logSetup(const iop::LogLevel &level) noexcept {
     iop_assert(pthread_mutex_init(&lock, NULL) == 0, F("Mutex init failed"));
 }
-void logPrint(const char *msg) noexcept {
+void logPrint(const std::string_view msg) noexcept {
     pthread_mutex_lock(&lock);
     std::cout << msg;
     pthread_mutex_unlock(&lock);
 }
-void logPrint(const __FlashStringHelper *msg) noexcept {
+void logPrint(const iop::StaticString msg) noexcept {
     pthread_mutex_lock(&lock);
-    std::cout << reinterpret_cast<const char*>(msg);
+    std::cout << msg.asCharPtr();
     pthread_mutex_unlock(&lock);
 }
 void logFlush() noexcept { 
@@ -41,11 +41,11 @@ void logSetup(const iop::LogLevel &level) noexcept {
     while (!Serial && millis() < end)
         yield();
 }
-void logPrint(const __FlashStringHelper *msg) noexcept {
-    Serial.print(msg);
+void logPrint(const iop::StaticString msg) noexcept {
+    Serial.print(msg.get());
 }
-void logPrint(const char *msg) noexcept {
-    Serial.print(msg);
+void logPrint(const std::string_view msg) noexcept {
+    Serial.write(reinterpret_cast<const uint8_t*>(msg.begin()), msg.length());
 }
 void logFlush() noexcept {
     Serial.flush();

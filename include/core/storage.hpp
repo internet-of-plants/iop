@@ -52,7 +52,7 @@ private:
     Log::print(F("Storage<"), LogLevel::TRACE, LogType::START);
     Log::print(std::to_string(SIZE).c_str(), LogLevel::TRACE, LogType::CONTINUITY);
     Log::print(F(">["), LogLevel::TRACE, LogType::CONTINUITY);
-    Log::print(std::to_string(this->val.use_count()).c_str(), LogLevel::TRACE,
+    Log::print(std::to_string(this->val.use_count()), LogLevel::TRACE,
                LogType::CONTINUITY);
     Log::print(F("]("), LogLevel::TRACE, LogType::CONTINUITY);
     uint16_t count = 0;

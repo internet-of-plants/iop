@@ -21,15 +21,6 @@ const uint8_t dhtVersion = 22; // DHT22
 /// Time between measurements
 const iop::esp_time interval = 180 * 1000;
 
-/// It should be prefixed with https in production. Do not use plain http in
-/// production!
-///
-/// But if using plain http: Undefine IOP_SSL at `core/utils.hpp`,
-/// otherwise it won't work
-static auto uri() -> iop::StaticString {
-    return iop::StaticString(F("https://iop-monitor-server.tk:4001/v1"));
-}
-
 /// The fields bellow should be empty. Filling them will be counter productive
 /// It's only here to speedup some debugging
 ///
@@ -47,6 +38,19 @@ static auto iopEmail() -> std::optional<iop::StaticString> {
 }
 static auto iopPassword() -> std::optional<iop::StaticString> {
     return std::optional<iop::StaticString>();
+}
+
+/// It should be prefixed with https in production. Do not use plain http in
+/// production!
+///
+/// But if using plain http: Undefine IOP_SSL at `core/utils.hpp`,
+/// otherwise it won't work
+static auto uri() -> iop::StaticString {
+    #ifdef IOP_DESKTOP
+    return iop::StaticString(F("http://127.0.0.1:4001"));
+    #else
+    return iop::StaticString(F("https://iop-monitor-server.tk:4001"));
+    #endif
 }
 
 #endif

@@ -11,9 +11,9 @@ enum class LogType { START, CONTINUITY, STARTEND, END };
 
 class LogHook {
 public:
-  using ViewPrinter = std::function<void(const char *, LogLevel, LogType)>;
+  using ViewPrinter = std::function<void(std::string_view, LogLevel, LogType)>;
   using StaticPrinter =
-      std::function<void(const __FlashStringHelper *, LogLevel, LogType)>;
+      std::function<void(StaticString, LogLevel, LogType)>;
   using Setuper = std::function<void(LogLevel)>;
   using Flusher = std::function<void()>;
 
@@ -29,10 +29,10 @@ public:
 
   /// Prints log to Serial.
   /// May be called from interrupt because it's the default tracing printer
-  static void defaultViewPrinter(const char *str, LogLevel level, LogType type) noexcept;
+  static void defaultViewPrinter(std::string_view, LogLevel level, LogType type) noexcept;
   /// Prints log to Serial.
   /// May be called from interrupt because it's the default tracing printer
-  static void defaultStaticPrinter(const __FlashStringHelper *str, LogLevel level,
+  static void defaultStaticPrinter(StaticString, LogLevel level,
                                    LogType type) noexcept;
   static void defaultSetuper(iop::LogLevel level) noexcept;
   static void defaultFlusher() noexcept;
@@ -100,9 +100,9 @@ public:
     this->log_recursive(LogLevel::CRIT, true, args...);
   }
 
-  static void print(const __FlashStringHelper *progmem, LogLevel level,
+  static void print(StaticString progmem, LogLevel level,
                     LogType kind) noexcept;
-  static void print(const char *view, LogLevel level, LogType kind) noexcept;
+  static void print(std::string_view view, LogLevel level, LogType kind) noexcept;
   static void flush() noexcept;
   static void setup(LogLevel level) noexcept;
 

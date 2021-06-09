@@ -18,7 +18,7 @@ static iop::LogHook hook = defaultHook;
 namespace iop {
 void IRAM_ATTR Log::setup(LogLevel level) noexcept { hook.setup(level); }
 void Log::flush() noexcept { hook.flush(); }
-void IRAM_ATTR Log::print(const char *view, const LogLevel level,
+void IRAM_ATTR Log::print(const std::string_view view, const LogLevel level,
                                 const LogType kind) noexcept {
   Log::setup(level);
   if (level > LogLevel::TRACE)
@@ -26,7 +26,7 @@ void IRAM_ATTR Log::print(const char *view, const LogLevel level,
   else
     hook.traceViewPrint(view, level, kind);
 }
-void IRAM_ATTR Log::print(const __FlashStringHelper *progmem,
+void IRAM_ATTR Log::print(const StaticString progmem,
                                 const LogLevel level,
                                 const LogType kind) noexcept {
   Log::setup(level);
@@ -74,8 +74,8 @@ void Log::log(const LogLevel &level, const StaticString &msg,
 
   Log::flush();
   this->printLogType(logType, level);
-  Log::print(msg.get(), level, LogType::CONTINUITY);
-  Log::print(lineTermination.get(), level, LogType::END);
+  Log::print(msg, level, LogType::CONTINUITY);
+  Log::print(lineTermination, level, LogType::END);
   Log::flush();
 }
 
@@ -87,8 +87,8 @@ void Log::log(const LogLevel &level, const std::string_view &msg,
 
   Log::flush();
   this->printLogType(logType, level);
-  Log::print(msg.begin(), level, LogType::CONTINUITY);
-  Log::print(lineTermination.get(), level, LogType::END);
+  Log::print(msg, level, LogType::CONTINUITY);
+  Log::print(lineTermination, level, LogType::END);
   Log::flush();
 }
 
@@ -113,7 +113,7 @@ auto Log::levelToString(const LogLevel level) const noexcept -> StaticString {
 }
 
 void IRAM_ATTR LogHook::defaultStaticPrinter(
-    const __FlashStringHelper *str, const LogLevel level, const iop::LogType type) noexcept {
+    const StaticString str, const LogLevel level, const iop::LogType type) noexcept {
 #ifdef IOP_SERIAL
   logPrint(str);
 #else
@@ -123,7 +123,7 @@ void IRAM_ATTR LogHook::defaultStaticPrinter(
   (void)level;
 }
 void IRAM_ATTR
-LogHook::defaultViewPrinter(const char *str, const LogLevel level, const iop::LogType type) noexcept {
+LogHook::defaultViewPrinter(const std::string_view str, const LogLevel level, const iop::LogType type) noexcept {
 #ifdef IOP_SERIAL
   logPrint(str);
 #else

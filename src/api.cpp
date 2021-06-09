@@ -141,7 +141,6 @@ auto Api::registerEvent(const AuthToken &authToken,
   return iop::NetworkStatus::OK;
 #endif
 }
-#include <iostream>
 auto Api::authenticate(std::string_view username,
                        std::string_view password) const noexcept
     -> std::variant<AuthToken, iop::NetworkStatus> {

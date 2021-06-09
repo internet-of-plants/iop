@@ -12,8 +12,8 @@ enum class LogLevel;
 }
 
 void logSetup(const iop::LogLevel &level) noexcept;
-void logPrint(const char *msg) noexcept;
-void logPrint(const __FlashStringHelper *msg) noexcept;
+void logPrint(const std::string_view msg) noexcept;
+void logPrint(const iop::StaticString msg) noexcept;
 void logFlush() noexcept;
 
 #endif

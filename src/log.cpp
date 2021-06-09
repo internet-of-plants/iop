@@ -7,10 +7,10 @@
 
 #include "driver/time.hpp"
 
-static void staticPrinter(const __FlashStringHelper *str,
+static void staticPrinter(const iop::StaticString str,
                           iop::LogLevel level, 
                           iop::LogType kind) noexcept;
-static void viewPrinter(const char *str, iop::LogLevel level, iop::LogType kind) noexcept;
+static void viewPrinter(const std::string_view, iop::LogLevel level, iop::LogType kind) noexcept;
 static void setuper(iop::LogLevel level) noexcept;
 static void flusher() noexcept;
 
@@ -77,12 +77,12 @@ void reportLog() noexcept {
   currentLog.clear();
 }
 
-static void staticPrinter(const __FlashStringHelper *str,
+static void staticPrinter(const iop::StaticString str,
                           const iop::LogLevel level,
                           const iop::LogType kind) noexcept {
   iop::LogHook::defaultStaticPrinter(str, level, kind);
 
-  const auto charArray = reinterpret_cast<PGM_P>(str);
+  const auto charArray = str.asCharPtr();
   if (logNetwork && level >= iop::LogLevel::CRIT) {
     currentLog += charArray;
     byteRate.addBytes(strlen_P(charArray));
@@ -90,12 +90,12 @@ static void staticPrinter(const __FlashStringHelper *str,
       reportLog();
   }
 }
-static void viewPrinter(const char *str, const iop::LogLevel level, const iop::LogType kind) noexcept {
+static void viewPrinter(const std::string_view str, const iop::LogLevel level, const iop::LogType kind) noexcept {
   iop::LogHook::defaultViewPrinter(str, level, kind);
 
   if (logNetwork && level >= iop::LogLevel::CRIT) {
     currentLog += str;
-    byteRate.addBytes(strlen(str));
+    byteRate.addBytes(str.length());
     if (kind == iop::LogType::END || kind == iop::LogType::STARTEND)
       reportLog();
   }

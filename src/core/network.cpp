@@ -149,7 +149,7 @@ auto Network::httpRequest(const HttpMethod method_,
   if (data.has_value())
     data_ = iop::unwrap_ref(data, IOP_CTX());
 
-  this->logger.info(method, F(", data length: "), std::to_string(data_.length()));
+  this->logger.info(method, F(" to "), path, F(", data length: "), std::to_string(data_.length()));
 
   // TODO: this may log sensitive information, network logging is currently
   // capped at info because of that, right
