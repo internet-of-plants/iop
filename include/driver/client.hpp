@@ -6,7 +6,6 @@
 #include "ESP8266HTTPClient.h"
 #else
 #include "driver/wifi.hpp"
-class WiFiClient;
 
 #define HTTPC_ERROR_CONNECTION_FAILED   (-1)
 #define HTTPC_ERROR_SEND_HEADER_FAILED  (-2)
@@ -38,8 +37,10 @@ class WiFiClient;
 #include <unistd.h>
 #include <stdlib.h>
 #include <iostream>
+#include "core/lazy.hpp"
+#include "driver/cert_store.hpp"
 
-const static iop::Log clientDriverLogger(iop::LogLevel::WARN, F("HTTP Client"));
+static iop::Lazy<iop::Log> clientDriverLogger([]() { return iop::Log(iop::LogLevel::WARN, F("HTTP Client")); });
 
 static int send__(uint32_t fd, const char * msg, const size_t len) noexcept {
   if (iop::Log::isTracing())
@@ -134,6 +135,8 @@ class WiFiClient {
 public:
   void setNoDelay(bool b) {}
   void setSync(bool b) {}
+  void setInsecure() const noexcept {}
+  void setCertStore(const BearSSL::CertStoreBase *base) const noexcept {}
 };
 
 class HTTPClient {
@@ -196,10 +199,10 @@ public:
     this->responsePayload.clear();
 
     const std::string_view path(this->uri.c_str() + this->uri.find("/", this->uri.find("://") + 3));
-    clientDriverLogger.debug(F("Send request to "), std::string(path));
+    clientDriverLogger->debug(F("Send request to "), std::string(path));
 
     uint32_t fd = iop::unwrap_ref(this->currentFd, IOP_CTX());
-    if (clientDriverLogger.level() == iop::LogLevel::TRACE || iop::Log::isTracing())
+    if (clientDriverLogger->level() == iop::LogLevel::TRACE || iop::Log::isTracing())
       iop::Log::print(F(""), iop::LogLevel::TRACE, iop::LogType::START);
     send__(fd, method.c_str(), method.length());
     send__(fd, " ", 1);
@@ -217,9 +220,9 @@ public:
     }
     send__(fd, "\r\n", 2);
     send__(fd, (char*)data, len);
-    if (clientDriverLogger.level() == iop::LogLevel::TRACE || iop::Log::isTracing())
+    if (clientDriverLogger->level() == iop::LogLevel::TRACE || iop::Log::isTracing())
       iop::Log::print(F(""), iop::LogLevel::TRACE, iop::LogType::END);
-    clientDriverLogger.debug(F("Sent data"));
+    clientDriverLogger->debug(F("Sent data"));
     
     auto buffer = iop::FixedString<5096>::empty();
     
@@ -230,46 +233,46 @@ public:
     auto status = std::make_optional(1000);
     std::string_view buff(buffer.get());
     while (true) {
-      clientDriverLogger.debug(F("Try read: "), std::to_string(buffer.length()));
+      clientDriverLogger->debug(F("Try read: "), std::to_string(buffer.length()));
 
       if (buffer.length() < buffer.size &&
           (size = read(fd, buffer.asMut() + buffer.length(), buffer.size - buffer.length())) < 0) {
-        clientDriverLogger.error(F("Error reading from socket ("), std::to_string(size), F("): "), std::to_string(errno), F(" - "), strerror(errno)); 
+        clientDriverLogger->error(F("Error reading from socket ("), std::to_string(size), F("): "), std::to_string(errno), F(" - "), strerror(errno)); 
         close(fd);
         return 500;
       }
       buff = buffer.get();
-      clientDriverLogger.debug(F("Len: "), std::to_string(size));
+      clientDriverLogger->debug(F("Len: "), std::to_string(size));
       if (firstLine && size == 0) {
         close(fd);
-        clientDriverLogger.warn(F("Empty request: "), std::to_string(fd), F(" "), std::string(reinterpret_cast<const char*>(data), len));
+        clientDriverLogger->warn(F("Empty request: "), std::to_string(fd), F(" "), std::string(reinterpret_cast<const char*>(data), len));
         return status.value_or(500);
         //continue;
       }
       
-      clientDriverLogger.debug(F("Buffer: "), buff.substr(0, buff.find("\n") - 1));
+      clientDriverLogger->debug(F("Buffer: "), buff.substr(0, buff.find("\n") - 1));
       //if (!buff.contains(F("\n"))) continue;
-      clientDriverLogger.debug(F("Read: ("), std::to_string(size), F(") ["), std::to_string(buffer.length()), F("]: "), std::string(buffer.get()).substr(0, buff.find("\n")));
+      clientDriverLogger->debug(F("Read: ("), std::to_string(size), F(") ["), std::to_string(buffer.length()), F("]: "), std::string(buffer.get()).substr(0, buff.find("\n")));
 
       if (firstLine && buff.find("\n") < 0) continue;
 
       if (firstLine && size < 10) { // len("HTTP/1.1 ") = 9
-        clientDriverLogger.error(F("Error reading first line: "), std::to_string(size));
+        clientDriverLogger->error(F("Error reading first line: "), std::to_string(size));
         return 500;
       }
 
       if (firstLine && size > 0) {
-        clientDriverLogger.debug(F("Found first line: "));
+        clientDriverLogger->debug(F("Found first line: "));
 
         const std::string_view statusStr(buffer.get() + 9); // len("HTTP/1.1 ") = 9
         const auto codeEnd = statusStr.find(" ");
         if (codeEnd == -1) {
-          clientDriverLogger.error(F("Bad server: "), statusStr, F(" -- "), buff);
+          clientDriverLogger->error(F("Bad server: "), statusStr, F(" -- "), buff);
           return 500;
         }
         //iop_assert(buff.contains(F("\n")), iop::StaticString(F("First: ")).toStdString() + std::to_string(buffer.length()) + iop::StaticString(F(" bytes don't contain newline, the path is too long\n")).toStdString());
         status = std::make_optional(atoi(std::string(statusStr.begin(), 0, codeEnd).c_str()));
-        clientDriverLogger.debug(F("Status: "), std::to_string(status.value_or(500)));
+        clientDriverLogger->debug(F("Status: "), std::to_string(status.value_or(500)));
         firstLine = false;
 
         const char* ptr = buff.begin() + buff.find("\n") + 1;
@@ -277,18 +280,18 @@ public:
         buff = buffer.get();
       }
       if (!status.has_value()) {
-        clientDriverLogger.error(F("No status"));
+        clientDriverLogger->error(F("No status"));
         return 500;
       }
-      clientDriverLogger.debug(F("Buffer: "), buff.substr(0, buff.find("\n") - 1));
+      clientDriverLogger->debug(F("Buffer: "), buff.substr(0, buff.find("\n") - 1));
       //if (!buff.contains(F("\n"))) continue;
-      clientDriverLogger.debug(F("Headers + Payload: "), std::string(buffer.get()).substr(0, buff.find("\n")));
+      clientDriverLogger->debug(F("Headers + Payload: "), std::string(buffer.get()).substr(0, buff.find("\n")));
 
       while (len > 0 && buffer.length() > 0 && !isPayload) {
         // TODO: if empty line is split into t  wo reads (because of buff len) we are screwed
         //  || buff.contains(F("\n\n")) || buff.contains(F("\n\r\n"))
         if (buff.find("\r\n") == 0) {
-          clientDriverLogger.debug(F("Found Payload"));
+          clientDriverLogger->debug(F("Found Payload"));
           isPayload = true;
 
           const char* ptr = buff.begin() + buff.find("\r\n") + 2;
@@ -298,7 +301,7 @@ public:
         } else if (buff.find("\r\n") < 0) {
           iop_panic(F("Bad software bruh"));
         } else if (buff.find("\r\n") >= 0) {
-          clientDriverLogger.debug(F("Found headers (buffer length: "), std::to_string(buff.length()), F(")"));
+          clientDriverLogger->debug(F("Found headers (buffer length: "), std::to_string(buff.length()), F(")"));
           auto found = false;
           for (const auto &key: this->headersToCollect) {
             if (buff.length() < key.length()) continue;
@@ -306,7 +309,7 @@ public:
             // Headers can't be UTF8 so we cool
             std::transform(headerKey.begin(), headerKey.end(), headerKey.begin(),
               [](unsigned char c){ return std::tolower(c); });
-            clientDriverLogger.debug(headerKey, F(" == "), key);
+            clientDriverLogger->debug(headerKey, F(" == "), key);
             if (headerKey != key)
               continue;
 
@@ -316,7 +319,7 @@ public:
 
             iop_assert(valueView.find("\r\n") >= 0, F("Must contain endline"));
             const std::string value(valueView, 0, valueView.find("\r\n"));
-            clientDriverLogger.debug(F("Found header "), key, F(" = "), value, F("\n"));
+            clientDriverLogger->debug(F("Found header "), key, F(" = "), value, F("\n"));
             this->responseHeaders.emplace(key, value);
 
             iop_assert(buff.find("\r\n") > 0, F("Must contain endline"));
@@ -326,11 +329,11 @@ public:
             if (buff.find("\n") < 0) iop_panic(F("Fuuuc")); //continue;
           }
           if (buff.find("\n") < 0) {
-            clientDriverLogger.warn(F("Newline missing in buffer: "), buff);
+            clientDriverLogger->warn(F("Newline missing in buffer: "), buff);
             return 500;
           }
-          clientDriverLogger.debug(F("Buffer: "), buff.substr(0, buff.find("\n") - 1));
-          clientDriverLogger.debug(F("Skipping header ("), buff.substr(0, buff.find("\n") - 1), F(")"));
+          clientDriverLogger->debug(F("Buffer: "), buff.substr(0, buff.find("\n") - 1));
+          clientDriverLogger->debug(F("Skipping header ("), buff.substr(0, buff.find("\n") - 1), F(")"));
           const char* ptr = buff.begin() + buff.find("\r\n") + 2;
           memmove(buffer.asMut(), ptr, strlen(ptr) + 1);
           buff = buffer.get();
@@ -340,7 +343,7 @@ public:
         }
       }
 
-      clientDriverLogger.debug(F("Payload ("), std::to_string(buff.length()), F(") ["), std::to_string(size), F("]: "), std::string(buffer.get()).substr(0, buff.find("\n") < 0 ? buff.find("\n") : buffer.length()));
+      clientDriverLogger->debug(F("Payload ("), std::to_string(buff.length()), F(") ["), std::to_string(size), F("]: "), std::string(buffer.get()).substr(0, buff.find("\n") < 0 ? buff.find("\n") : buffer.length()));
 
       this->responsePayload += buff;
 
@@ -354,9 +357,9 @@ public:
       break;
     }
 
-    clientDriverLogger.debug(F("Close client: "), std::to_string(fd), F(" "), std::string(reinterpret_cast<const char*>(data), len));
+    clientDriverLogger->debug(F("Close client: "), std::to_string(fd), F(" "), std::string(reinterpret_cast<const char*>(data), len));
     close(fd);
-    clientDriverLogger.info(F("Status: "), std::to_string(status.value_or(500)));
+    clientDriverLogger->info(F("Status: "), std::to_string(status.value_or(500)));
     return iop::unwrap(status, IOP_CTX());
   }
 
@@ -374,7 +377,7 @@ public:
     struct sockaddr_in serv_addr;
     int32_t fd = socket(AF_INET, SOCK_STREAM, 0);
     if (fd < 0) {
-      clientDriverLogger.error(F("Unable to open socket"));
+      clientDriverLogger->error(F("Unable to open socket"));
       return false;
     }
 
@@ -388,7 +391,7 @@ public:
       if (end == -1) end = uri.length();
       port = atoi(std::string(uri.begin(), portIndex + 1, end).c_str());
     }
-    clientDriverLogger.debug(F("Port: "), std::to_string(port));
+    clientDriverLogger->debug(F("Port: "), std::to_string(port));
 
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(port);
@@ -401,17 +404,17 @@ public:
     // Convert IPv4 and IPv6 addresses from text to binary form
     if(inet_pton(AF_INET, host.c_str(), &serv_addr.sin_addr) <= 0) {
       close(fd);
-      clientDriverLogger.error(F("Address not supported: "), host);
+      clientDriverLogger->error(F("Address not supported: "), host);
       return false;
     }
 
     int32_t connection = connect(fd, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
     if (connection < 0) {
-      clientDriverLogger.error(F("Unnable to connect: "), std::to_string(connection));
+      clientDriverLogger->error(F("Unnable to connect: "), std::to_string(connection));
       close(fd);
       return false;
     }
-    clientDriverLogger.debug(F("Began connection: "), uri);
+    clientDriverLogger->debug(F("Began connection: "), uri);
     this->currentFd = std::make_optional(fd);
     return true;
   }

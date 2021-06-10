@@ -5,6 +5,8 @@
 #include "sensors.hpp"
 #include "server.hpp"
 #include "api.hpp"
+#include "utils.hpp"
+#include "core/lazy.hpp"
 
 #include <optional>
 
@@ -31,6 +33,8 @@ public:
     IOP_TRACE();
     pinMode(LED_BUILTIN, OUTPUT);
 
+    network_logger::setup();
+    panic::setup();
     Flash::setup();
     reset::setup();
     this->sensors.setup();
@@ -284,15 +288,12 @@ public:
   }
 };
 
-// Avoid static initialization being run before logging is setup
-static std::optional<EventLoop> eventLoop;
+static iop::Lazy<EventLoop> eventLoop([]() { return EventLoop(uri(), logLevel); });
 void setup() {
-  iop::Log::setup(logLevel);
   IOP_TRACE();
-  eventLoop.emplace(uri(), logLevel);
-  iop::unwrap_mut(eventLoop, IOP_CTX()).setup();
+  eventLoop->setup();
 }
 
 void loop() {
-  iop::unwrap_mut(eventLoop, IOP_CTX()).loop();
+  eventLoop->loop();
 }

@@ -59,8 +59,9 @@ public:
 #include <errno.h>
 #include <thread>
 #include <chrono>
+#include "core/lazy.hpp"
 
-const static iop::Log logger(iop::LogLevel::WARN, F("HTTP Server"));
+static iop::Lazy<iop::Log> logger([]() { return iop::Log(iop::LogLevel::WARN, F("HTTP Server")); });
 
 static void close_(uint32_t fd) noexcept {
   close(fd);
@@ -140,17 +141,17 @@ public:
 
     int32_t fd = 0;
     if ((fd = socket(AF_INET, SOCK_STREAM, 0)) <= 0) {
-      logger.error(F("Unable to open socket"));
+      logger->error(F("Unable to open socket"));
       return;
     }
     
     int flags = fcntl(fd, F_GETFL, 0);
     if (flags == -1) {
-      logger.error(F("fnctl get failed: "), std::to_string(flags));
+      logger->error(F("fnctl get failed: "), std::to_string(flags));
       return;
     }
     if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) != 0) {
-      logger.error(F("fnctl set failed"));
+      logger->error(F("fnctl set failed"));
       return;
     }
 
@@ -164,15 +165,15 @@ public:
     memset(address.sin_zero, '\0', sizeof(address.sin_zero));
 
     if (bind(fd, (struct sockaddr* )&address, sizeof(address)) < 0) {
-      logger.error(F("Unable to bind socket ("), std::to_string(errno), F("): "), strerror(errno));
+      logger->error(F("Unable to bind socket ("), std::to_string(errno), F("): "), strerror(errno));
       return;
     }
 
     if (listen(fd, 100) < 0) {
-      logger.error(F("Unable to listen socket"));
+      logger->error(F("Unable to listen socket"));
       return;
     }
-    logger.info(F("Listening to port "), std::to_string(this->port));
+    logger->info(F("Listening to port "), std::to_string(this->port));
 
     this->maybeAddress = std::make_optional(address);
   }
@@ -191,13 +192,13 @@ public:
     int32_t client = 0;
     if ((client = accept(fd, (struct sockaddr *)&address, &addr_len)) <= 0) {
       if (client == 0) {
-        logger.error(F("Client fd is zero"));
+        logger->error(F("Client fd is zero"));
       } else if (errno != EAGAIN && errno != EWOULDBLOCK) {
-        logger.error(F("Error accepting connection ("), std::to_string(errno), F("): "), strerror(errno));
+        logger->error(F("Error accepting connection ("), std::to_string(errno), F("): "), strerror(errno));
       }
       return;
     }
-    logger.debug(F("Accepted connection: "), std::to_string(client));
+    logger->debug(F("Accepted connection: "), std::to_string(client));
     this->currentClient = std::make_optional(client);
 
     bool firstLine = true;
@@ -206,59 +207,59 @@ public:
     auto buffer = Buffer::empty();
     auto *start = buffer.asMut();
     while (true) {
-      logger.debug(F("Try read: "), std::to_string(buffer.length()));
+      logger->debug(F("Try read: "), std::to_string(buffer.length()));
 
       ssize_t len = 0;
       start += buffer.length();
       if (buffer.length() < buffer.size &&
           (len = read(client, start, buffer.size - buffer.length())) < 0) {
-        logger.error(F("Read error: "), std::to_string(len));
+        logger->error(F("Read error: "), std::to_string(len));
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
           using namespace std::chrono_literals;
           std::this_thread::sleep_for(50ms);
           continue;
         } else {
-          logger.error(F("Error reading from socket: "), std::to_string(errno), F("): "), strerror(errno));
+          logger->error(F("Error reading from socket: "), std::to_string(errno), F("): "), strerror(errno));
           this->endRequest();
           return;
         }
       }
-      logger.debug(F("Len: "), std::to_string(len));
+      logger->debug(F("Len: "), std::to_string(len));
       if (firstLine == true && len == 0) {
-        logger.error(F("Empty request"));
+        logger->error(F("Empty request"));
         this->endRequest();
         return;
       }
-      logger.debug(F("Read: ("), std::to_string(len), F(") ["), std::to_string(buffer.length()));
+      logger->debug(F("Read: ("), std::to_string(len), F(") ["), std::to_string(buffer.length()));
 
       std::string_view buff(buffer.get());
       if (len > 0 && firstLine) {
         if (buff.find("POST") >= 0) {
           const ssize_t space = std::string_view(buff.begin() + 5).find(" ");
           this->currentRoute = std::string(buff.begin() + 5, space);
-          logger.debug(F("POST: "), this->currentRoute);
+          logger->debug(F("POST: "), this->currentRoute);
         } else if (buff.find("GET") >= 0) {
           const ssize_t space = std::string_view(buff.begin() + 4).find(" ");
           this->currentRoute = std::string(buff.begin() + 4, space);
-          logger.debug(F("GET: "), this->currentRoute);
+          logger->debug(F("GET: "), this->currentRoute);
         } else if (buff.find("OPTIONS") >= 0) {
           const ssize_t space = std::string_view(buff.begin() + 7).find(" ");
           this->currentRoute = std::string(buff.begin() + 7, space);
-          logger.debug(F("OPTIONS: "), this->currentRoute);
+          logger->debug(F("OPTIONS: "), this->currentRoute);
         } else {
-          logger.error(F("HTTP Method not found: "), buff);
+          logger->error(F("HTTP Method not found: "), buff);
           this->endRequest();
           return;
         }
         firstLine = false;
         
         iop_assert(buff.find("\n") >= 0, iop::StaticString(F("First: ")).toStdString() + std::to_string(buff.length()) + iop::StaticString(F(" bytes don't contain newline, the path is too long\n")).toStdString());
-        logger.debug(F("Found first line"));
+        logger->debug(F("Found first line"));
         const char* ptr = buff.begin() + buff.find("\n") + 1;
         memmove(buffer.asMut(), ptr, strlen(ptr) + 1);
         buff = buffer.get();
       }
-      logger.debug(F("Headers + Payload: "), buff);
+      logger->debug(F("Headers + Payload: "), buff);
 
       while (len > 0 && buff.length() > 0 && !isPayload) {
         // TODO: if empty line is split into two reads (because of buff len) we are screwed
@@ -281,7 +282,7 @@ public:
         }
       }
 
-      logger.debug(F("Payload ("), std::to_string(buff.length()), F(") ["), std::to_string(len), F("]: "), buff);
+      logger->debug(F("Payload ("), std::to_string(buff.length()), F(") ["), std::to_string(len), F("]: "), buff);
 
       this->currentPayload += buff;
 
@@ -293,17 +294,17 @@ public:
       if (len > 0 && buff.length() > 0 && len == buffer.size)
         continue;
 
-      logger.debug(F("Route: "), this->currentRoute);
+      logger->debug(F("Route: "), this->currentRoute);
       if (this->router.count(this->currentRoute) != 0) {
         this->router.at(this->currentRoute)();
       } else {
-        logger.debug(F("Route not found"));
+        logger->debug(F("Route not found"));
         this->notFoundHandler();
       }
       break;
     }
 
-    logger.debug(F("Close connection"));
+    logger->debug(F("Close connection"));
     this->endRequest();
   }
 
@@ -336,7 +337,7 @@ public:
 
 
   static auto percentDecode(const std::string_view input) -> std::optional<std::string> {
-    logger.debug(F("Decode: "), input);
+    logger->debug(F("Decode: "), input);
     static const char tbl[256] = {
       -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
       -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
@@ -388,13 +389,13 @@ public:
 
     if (end < 0) {
       const auto decoded = ESP8266WebServer::percentDecode(view);
-      logger.debug(decoded.value_or("No value"));
+      logger->debug(decoded.value_or("No value"));
       return decoded.value_or("");
     }
 
     const auto msg = view.substr(0, end);
     const auto decoded = ESP8266WebServer::percentDecode(msg);
-    logger.debug(decoded.value_or("No value"));
+    logger->debug(decoded.value_or("No value"));
     return decoded.value_or("");
   }
   // check if argument exists
@@ -403,7 +404,7 @@ public:
     std::string_view view(this->currentPayload);
     const auto ret = view.find(std::string("&") + name.asCharPtr() + "=") >= 0
       || view.find(std::string("?") + name.asCharPtr() + "=") >= 0;
-    logger.debug(F("Has Arg ("), name, F("): "), std::to_string(ret));
+    logger->debug(F("Has Arg ("), name, F("): "), std::to_string(ret));
     return ret;
   }
 
@@ -458,7 +459,7 @@ public:
     IOP_TRACE();
     if (!this->currentClient.has_value()) return;
     const int32_t fd = iop::unwrap_ref(this->currentClient, IOP_CTX());
-    logger.debug(F("Send Content ("), std::to_string(strlen(content)), F("): "), content);
+    logger->debug(F("Send Content ("), std::to_string(strlen(content)), F("): "), content);
     
     if (iop::Log::isTracing())
       iop::Log::print(F(""), iop::LogLevel::TRACE, iop::LogType::START);

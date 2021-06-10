@@ -31,9 +31,7 @@ public:
   PanicHook(ViewPanic view, StaticPanic progmem, Entry entry,
             Halt halt) noexcept
       : viewPanic(std::move(view)), staticPanic(std::move(progmem)),
-        entry(std::move(entry)), halt(std::move(halt)) {
-    IOP_TRACE();
-  }
+        entry(std::move(entry)), halt(std::move(halt)) {}
 };
 
 /// Replaces current hook for this. Very useful to support panics that report to

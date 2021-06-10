@@ -2,7 +2,7 @@
 #define IOP_CONFIGURATION_HPP
 
 #include "core/log.hpp"
-#include "core/pins.hpp"
+#include "driver/pins.hpp"
 #include "utils.hpp"
 #include <optional>
 

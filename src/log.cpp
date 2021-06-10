@@ -2,6 +2,7 @@
 #include "core/static_runner.hpp"
 #include "configuration.hpp"
 #include "utils.hpp" // Imports IOP_SERIAL if available
+#include "core/lazy.hpp"
 
 #ifdef IOP_NETWORK_LOGGING
 
@@ -16,11 +17,12 @@ static void flusher() noexcept;
 
 static iop::LogHook hook(viewPrinter, staticPrinter, setuper, flusher);
 
-// Other static variables may be constructed before this. So their
-// construction will use the default logger. Even if you disabled logging.
-// You should not use globaol static variables, and if so lazily instantiate
-// them
-static auto hookSetter = iop::StaticRunner([] { iop::Log::setHook(hook); });
+namespace network_logger {
+  void setup() noexcept {
+    iop::Log::setHook(hook);
+    iop::Log::setup(logLevel);
+  }
+}
 
 #include "api.hpp"
 #include "flash.hpp"
@@ -60,18 +62,18 @@ static std::string currentLog;
 // TODO(pc): use ByteRate to allow grouping messages before sending, or reuse
 // the TCP connection to many
 
-static Api api(uri(), iop::LogLevel::WARN);
-static Flash flash(iop::LogLevel::WARN);
+static iop::Lazy<Api> api([]() { return Api(uri(), iop::LogLevel::WARN); });
+static iop::Lazy<Flash> flash([]() { return Flash(iop::LogLevel::WARN); });
 
 static bool logNetwork = true;
 void reportLog() noexcept {
   if (!logNetwork || !currentLog.length())
     return;
 
-  const auto maybeToken = flash.readAuthToken();
+  const auto maybeToken = flash->readAuthToken();
   if (maybeToken.has_value()) {
     logNetwork = false;
-    api.registerLog(iop::unwrap_ref(maybeToken, IOP_CTX()), currentLog);
+    api->registerLog(iop::unwrap_ref(maybeToken, IOP_CTX()), currentLog);
     logNetwork = true;
   }
   currentLog.clear();
@@ -103,5 +105,11 @@ static void viewPrinter(const std::string_view str, const iop::LogLevel level, c
 static void flusher() noexcept { iop::LogHook::defaultFlusher(); }
 static void setuper(iop::LogLevel level) noexcept {
   iop::LogHook::defaultSetuper(level);
+}
+#else
+namespace network_logger {
+  void setup() noexcept {
+    iop::Log::setup(logLevel);
+  }
 }
 #endif

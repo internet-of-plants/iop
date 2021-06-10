@@ -52,6 +52,13 @@
 enum class InterruptEvent { NONE, FACTORY_RESET, ON_CONNECTION, MUST_UPGRADE };
 constexpr static const uint8_t interruptVariants = 4;
 
+namespace panic {
+  void setup() noexcept;
+}
+namespace network_logger {
+  void setup() noexcept;
+}
+
 namespace utils {
 void scheduleInterrupt(InterruptEvent ev) noexcept;
 auto descheduleInterrupt() noexcept -> InterruptEvent;

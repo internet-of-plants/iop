@@ -1,5 +1,6 @@
 #include "core/network.hpp"
 #include "core/utils.hpp"
+#include "core/lazy.hpp"
 
 #ifdef IOP_ONLINE
 
@@ -82,6 +83,12 @@ auto Network::setup() const noexcept -> void {
 
   client.setNoDelay(false);
   client.setSync(true);
+
+#ifndef IOP_NOSSL
+  if (maybeCertStore.has_value())
+    client.setCertStore(&iop::unwrap_ref(maybeCertStore, IOP_CTX()));
+  client.setInsecure(); // TODO: remove this (what the frick)
+#endif
 
   WiFi.persistent(true);
   WiFi.setAutoReconnect(true);

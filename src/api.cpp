@@ -3,9 +3,10 @@
 #include "core/string/cow.hpp"
 #include "generated/certificates.hpp"
 #include "utils.hpp"
+#include "core/lazy.hpp"
 #include <string>
 
-static iop::CertStore certStore(generated::certList);
+static iop::Lazy<iop::CertStore> certStore([]() { return iop::CertStore(generated::certList); });
 
 // TODO: have an endpoint to report non 200 response
 // TODO: have an endpoint to report CLIENT_BUFFER_OVERFLOWS

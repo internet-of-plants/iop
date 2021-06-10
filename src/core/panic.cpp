@@ -2,15 +2,13 @@
 #include "core/log.hpp"
 #include "core/tracer.hpp"
 #include "core/utils.hpp"
+#include "core/lazy.hpp"
 
 #include <iostream>
 
 #include "driver/device.hpp"
 
-static auto panicTarget() -> iop::StaticString {
-  return iop::StaticString(F("PANIC"));
-}
-const static iop::Log logger(iop::LogLevel::CRIT, panicTarget());
+static iop::Lazy<iop::Log> logger([]() { return iop::Log(iop::LogLevel::CRIT, F("PANIC")); });
 
 static bool isPanicking = false;
 
@@ -52,22 +50,22 @@ void setPanicHook(PanicHook newHook) noexcept { hook = std::move(newHook); }
 
 void PanicHook::defaultViewPanic(std::string_view const &msg,
                                  CodePoint const &point) noexcept {
-  logger.crit(F("Line "), ::std::to_string(point.line()), F(" of file "), point.file(),
+  logger->crit(F("Line "), ::std::to_string(point.line()), F(" of file "), point.file(),
               F(" inside "), point.func(), F(": "), std::string(msg));
 }
 void PanicHook::defaultStaticPanic(iop::StaticString const &msg,
                                    CodePoint const &point) noexcept {
-  logger.crit(F("Line "), ::std::to_string(point.line()), F(" of file "), point.file(),
+  logger->crit(F("Line "), ::std::to_string(point.line()), F(" of file "), point.file(),
               F(" inside "), std::string(point.func()), F(": "), msg);
 }
 void PanicHook::defaultEntry(std::string_view const &msg,
                              CodePoint const &point) noexcept {
   IOP_TRACE();
   if (isPanicking) {
-    logger.crit(F("PANICK REENTRY: Line "), std::to_string(point.line()),
+    logger->crit(F("PANICK REENTRY: Line "), std::to_string(point.line()),
                 F(" of file "), point.file(), F(" inside "), std::string(point.func()),
                 F(": "), std::string(msg));
-    iop::logMemory(logger);
+    iop::logMemory(*logger);
     ESP.deepSleep(0);
     // std::string_view may be non-zero terminated
     __panic_func(point.file().asCharPtr(), point.line(), std::string(point.func()).c_str());
