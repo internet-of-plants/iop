@@ -289,11 +289,5 @@ public:
 };
 
 static iop::Lazy<EventLoop> eventLoop([]() { return EventLoop(uri(), logLevel); });
-void setup() {
-  IOP_TRACE();
-  eventLoop->setup();
-}
-
-void loop() {
-  eventLoop->loop();
-}
+void setup() { eventLoop->setup(); }
+void loop() { eventLoop->loop(); }
