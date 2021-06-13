@@ -92,7 +92,7 @@ void HttpServer::begin() noexcept {
   memset(address.sin_zero, '\0', sizeof(address.sin_zero));
 
   if (bind(fd, (struct sockaddr* )&address, sizeof(address)) < 0) {
-    logger->error(F("Unable to bind socket ("), std::to_string(errno), F("): "), strerror(errno));
+    iop_panic(std::string("Unable to bind socket (") + std::to_string(errno) + "): " + strerror(errno));
     return;
   }
 
@@ -307,24 +307,25 @@ std::optional<std::string> HttpConnection::arg(const iop::StaticString name) con
   IOP_TRACE();
   std::string_view view(this->currentPayload);
 
-  const size_t argEncodingLen = 2 + name.length(); // len('&') + len('=') + len(name)
+  size_t argEncodingLen = 1 + name.length(); // len(name) + len('=')
   size_t index = view.find(name.toStdString() + "=");
   if (index != 0) index = view.find(std::string("&") + name.asCharPtr() + "=");
-  if (index == view.npos) return "";
+  if (index == view.npos) return std::optional<std::string>();
+  if (index != 0) argEncodingLen++; // + len('&')
   view = view.substr(index + argEncodingLen);
 
-  const ssize_t end = view.find("&");
+  const size_t end = view.find("&");
 
-  if (end < 0) {
+  if (end == view.npos) {
     const auto decoded = percentDecode(view);
     logger->debug(decoded.value_or("No value"));
-    return decoded.value_or("");
+    return decoded;
   }
 
   const auto msg = view.substr(0, end);
   const auto decoded = percentDecode(msg);
   logger->debug(decoded.value_or("No value"));
-  return decoded.value_or("");
+  return decoded;
 }
 
 void HttpConnection::send(uint16_t code, iop::StaticString contentType, iop::StaticString content) const noexcept {

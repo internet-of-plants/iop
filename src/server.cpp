@@ -162,8 +162,8 @@ void CredentialsServer::setup() const noexcept {
       const auto &ssid = iop::unwrap_ref(maybeSsid, IOP_CTX());
       const auto &psk = iop::unwrap_ref(maybePsk, IOP_CTX());
       logger.debug(F("SSID: "), ssid);
-      if (ssid.length() > 0 && psk.length() > 0)
-        credentialsWifi = std::make_optional(std::make_pair(ssid, psk));
+
+      credentialsWifi = std::make_optional(std::make_pair(ssid, psk));
     }
 
     const auto iop = conn.arg(F("iop"));
@@ -172,8 +172,9 @@ void CredentialsServer::setup() const noexcept {
     if (iop.has_value() && maybeEmail.has_value() && maybePassword.has_value()) {
       const auto &email = iop::unwrap_ref(maybeEmail, IOP_CTX());
       const auto &password = iop::unwrap_ref(maybePassword, IOP_CTX());
-      if (email.length() > 0 && password.length() > 0)
-        credentialsIop = std::make_optional(std::make_pair(email, password));
+      logger.debug(F("Email: "), email);
+
+      credentialsIop = std::make_optional(std::make_pair(email, password));
     }
 
     conn.sendHeader(F("Location"), F("/"));
@@ -292,7 +293,7 @@ auto CredentialsServer::connect(std::string_view ssid,
                                 std::string_view password) const noexcept
     -> void {
   IOP_TRACE();
-  this->logger.info(F("Connect: "), std::string(ssid));
+  this->logger.info(F("Connect: "), ssid);
   if (driver::wifi.status() == driver::StationStatus::CONNECTING) {
     const iop::InterruptLock _guard;
     driver::wifi.stationDisconnect();
@@ -312,8 +313,7 @@ auto CredentialsServer::connect(std::string_view ssid,
       return; // It already will be logged by statusToString;
 
     const auto statusStr = iop::unwrap(maybeStatusStr, IOP_CTX());
-    this->logger.error(F("Invalid wifi credentials ("), statusStr, F("): "),
-                       std::string(std::move(ssid)));
+    this->logger.error(F("Invalid wifi credentials ("), statusStr, F("): "), std::move(ssid));
   }
 }
 
