@@ -4,7 +4,7 @@
 #ifdef IOP_SENSORS
 void Sensors::setup() noexcept {
   IOP_TRACE();
-  pinMode(this->soilResistivityPowerPin, OUTPUT);
+  gpio::gpio.mode(this->soilResistivityPower, gpio::Mode::OUTPUT);
   this->airTempAndHumiditySensor.begin();
   this->soilTemperatureSensor.begin();
 }
@@ -15,7 +15,7 @@ auto soilTemperatureCelsius(DallasTemperature &sensor) noexcept -> float;
 auto airTemperatureCelsius(DHT &dht) noexcept -> float;
 auto airHumidityPercentage(DHT &dht) noexcept -> float;
 auto airHeatIndexCelsius(DHT &dht) noexcept -> float;
-auto soilResistivityRaw(uint8_t powerPin) noexcept -> uint16_t;
+auto soilResistivityRaw(gpio::Pin power) noexcept -> uint16_t;
 } // namespace measurement
 
 auto Sensors::measure() noexcept -> Event {
@@ -29,7 +29,7 @@ auto Sensors::measure() noexcept -> Event {
           .airHeatIndexCelsius =
               measurement::airHeatIndexCelsius(this->airTempAndHumiditySensor),
           .soilResistivityRaw =
-              measurement::soilResistivityRaw(this->soilResistivityPowerPin),
+              measurement::soilResistivityRaw(this->soilResistivityPower),
           .soilTemperatureCelsius =
               measurement::soilTemperatureCelsius(this->soilTemperatureSensor),
       });
@@ -60,16 +60,16 @@ auto airHeatIndexCelsius(DHT &dht) noexcept -> float {
   return dht.computeHeatIndex();
 }
 
-auto soilResistivityRaw(const uint8_t powerPin) noexcept -> uint16_t {
+auto soilResistivityRaw(const gpio::Pin power) noexcept -> uint16_t {
   IOP_TRACE();
-  digitalWrite(powerPin, HIGH);
+  digitalWrite(static_cast<uint8_t>(power), static_cast<uint8_t>(gpio::Data::HIGH));
   delay(2000); // NOLINT *-avoid-magic-numbers
   uint16_t value1 = analogRead(A0);
   delay(500); // NOLINT *-avoid-magic-numbers
   uint16_t value2 = analogRead(A0);
   delay(500); // NOLINT *-avoid-magic-numbers
   uint16_t value = (value1 + value2 + analogRead(A0)) / 3;
-  digitalWrite(powerPin, LOW);
+  digitalWrite(static_cast<uint8_t>(power), static_cast<uint8_t>(gpio::Data::LOW));
   return value;
 }
 } // namespace measurement

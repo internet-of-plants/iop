@@ -2,8 +2,8 @@
 #define IOP_SERVER_HPP
 
 #include "driver/server.hpp"
-
-#include "core/utils.hpp"
+#include "driver/wifi.hpp"
+#include "driver/thread.hpp"
 #include "models.hpp"
 
 #include <optional>
@@ -55,7 +55,7 @@ public:
              const Api &api) noexcept -> std::optional<AuthToken>;
   void close() noexcept;
 
-  auto statusToString(station_status_t status) const noexcept
+  auto statusToString(driver::StationStatus status) const noexcept
       -> std::optional<iop::StaticString>;
 
   ~CredentialsServer() noexcept { IOP_TRACE(); }

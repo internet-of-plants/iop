@@ -15,9 +15,11 @@ static iop::Lazy<iop::CertStore> certStore([]() { return iop::CertStore(generate
 
 #include "driver/client.hpp"
 
+#ifndef IOP_DESKTOP
 static void upgradeScheduler() noexcept {
   utils::scheduleInterrupt(InterruptEvent::MUST_UPGRADE);
 }
+#endif
 
 auto Api::setup() const noexcept -> void {
   IOP_TRACE();
@@ -244,7 +246,9 @@ auto Api::upgrade(const AuthToken &token) const noexcept
   IOP_TRACE();
   this->logger.debug(F("Upgrading sketch"));
 
-  #ifndef IOP_DESKTOP
+  #ifdef IOP_DESKTOP
+  (void) token;
+  #else
   const auto tok = token.asString();
   const auto path = F("/v1/update");
 

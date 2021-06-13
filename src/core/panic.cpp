@@ -7,6 +7,7 @@
 #include <iostream>
 
 #include "driver/device.hpp"
+#include "driver/thread.hpp"
 
 static iop::Lazy<iop::Log> logger([]() { return iop::Log(iop::LogLevel::CRIT, F("PANIC")); });
 
@@ -25,9 +26,7 @@ void panicHandler(std::string_view msg, CodePoint const &point) noexcept {
   hook.entry(msg, point);
   hook.viewPanic(msg, point);
   hook.halt(msg, point);
-  std::abort();
-  while (true) {
-  } // Is this UB? It will trigger software watch-dog, but shouldn't be reached
+  driver::thisThread.panic_();
 }
 
 #include <iostream>
@@ -37,9 +36,7 @@ void panicHandler(StaticString msg, CodePoint const &point) noexcept {
   hook.entry(msg_, point);
   hook.staticPanic(msg, point);
   hook.halt(msg_, point);
-  std::abort();
-  while (true) {
-  } // Is this UB? It will trigger software watch-dog, but shouldn't be reached
+  driver::thisThread.panic_();
 }
 auto takePanicHook() noexcept -> PanicHook {
   auto old = hook;
@@ -66,21 +63,20 @@ void PanicHook::defaultEntry(std::string_view const &msg,
                 F(" of file "), point.file(), F(" inside "), std::string(point.func()),
                 F(": "), std::string(msg));
     iop::logMemory(*logger);
-    ESP.deepSleep(0);
-    // std::string_view may be non-zero terminated
-    __panic_func(point.file().asCharPtr(), point.line(), std::string(point.func()).c_str());
+    driver::device.deepSleep(0);
+    driver::thisThread.panic_();
   }
   isPanicking = true;
 
   constexpr const uint16_t oneSecond = 1000;
-  delay(oneSecond);
+  driver::thisThread.sleep(oneSecond);
 }
 void PanicHook::defaultHalt(std::string_view const &msg,
                             CodePoint const &point) noexcept {
   (void)msg;
+  (void)point;
   IOP_TRACE();
-  ESP.deepSleep(0);
-  // std::string_view may be non-zero terminated
-  __panic_func(point.file().asCharPtr(), point.line(), std::string(point.func()).c_str());
+  driver::device.deepSleep(0);
+  driver::thisThread.panic_();
 }
 } // namespace iop

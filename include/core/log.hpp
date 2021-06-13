@@ -65,6 +65,8 @@ public:
   Log(const LogLevel &level, StaticString target) noexcept
       : level_{level}, target_(std::move(target)) {}
 
+  static void shouldFlush(bool flush) noexcept;
+
   /// Replaces current hook for this. Very useful to support other logging
   /// channels, like network or flash. Default just prints to serial.
   ///

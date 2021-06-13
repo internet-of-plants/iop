@@ -2,6 +2,7 @@
 #include "core/memory.hpp"
 #include "core/panic.hpp"
 #include "core/utils.hpp"
+#include "driver/cert_store.hpp"
 
 namespace iop {
 
@@ -31,7 +32,7 @@ auto CertStore::findHashedTA(void *ctx, void *hashed_dn, size_t len)
                 + std::to_string(len));
 
   const auto &list = cs->certList;
-  for (int i = 0; i < list.count(); i++) {
+  for (uint16_t i = 0; i < list.count(); i++) {
     const auto cert = list.cert(i);
 
     if (memcmp_P(hashed_dn, cert.index, hashSize) == 0) {

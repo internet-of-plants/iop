@@ -5,7 +5,6 @@
 #include <optional>
 #include <string>
 #include "driver/client.hpp"
-#include "core/cert_store.hpp"
 #include "core/log.hpp"
 
 namespace iop {
@@ -22,6 +21,7 @@ enum class NetworkStatus {
 class Response;
 enum class RawStatus;
 enum class HttpMethod;
+class CertStore;
 
 /// If server set LAST_VERSION HTTP header is different than current sketch's
 /// md5 hash the hook is called
@@ -54,7 +54,7 @@ public:
   auto setup() const noexcept -> void;
   auto uri() const noexcept -> StaticString { return this->uri_; };
 
-  static void setCertStore(CertStore store) noexcept;
+  static void setCertStore(CertStore &store) noexcept;
 
   /// Replaces current hook for this. Very useful to support upgrades
   /// reported by the network (LAST_VERSION header different than current

@@ -5,13 +5,14 @@
 #include "core/utils.hpp"
 #include "driver/server.hpp"
 #include "driver/wifi.hpp"
-#include "driver/time.hpp"
+#include "driver/thread.hpp"
 
 #include "configuration.hpp"
 #include "driver/interrupt.hpp"
 #include "core/network.hpp"
 #include "flash.hpp"
 #include "api.hpp"
+#include "driver/device.hpp"
 
 constexpr const uint64_t intervalTryFlashWifiCredentialsMillis =
     60 * 60 * 1000; // 1 hour
@@ -139,109 +140,70 @@ auto pageHTMLEnd() -> iop::StaticString {
 static std::optional<std::pair<std::string, std::string>> credentialsWifi;
 static std::optional<std::pair<std::string, std::string>> credentialsIop;
 
-static ESP8266WebServer server;
+static driver::HttpServer server;
+//static ESP8266WebServer server;
 
-constexpr const uint8_t dnsPort = 53;
-static DNSServer dnsServer;
+static driver::CaptivePortal dnsServer;
 
 #include <iostream>
 
 void CredentialsServer::setup() const noexcept {
   IOP_TRACE();
-  dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
-
-  const auto loggerLevel = this->logger.level();
-
   // Self reference, but it's to a static
-  auto *s = &server;
-  server.on(F("/favicon.ico"), [s]() { s->send_P(HTTP_CODE_NOT_FOUND, PSTR("text/plain"), PSTR("")); });
-  server.on(F("/submit"), [s, loggerLevel]() {
+  server.on(F("/favicon.ico"), [](driver::HttpConnection &conn, iop::Log const &logger) { conn.send(HTTP_CODE_NOT_FOUND, F("text/plain"), F("")); (void) logger; });
+  server.on(F("/submit"), [](driver::HttpConnection &conn, iop::Log const &logger) {
     IOP_TRACE();
-    if (loggerLevel >= iop::LogLevel::DEBUG)
-      iop::Log::print(
-          F("[DEBUG] [RAW] SERVER_CALLBACK: Received credentials form\n"),
-          iop::LogLevel::DEBUG, iop::LogType::STARTEND);
+    logger.debug(F("Received credentials form"));
 
-    if (s->hasArg(F("wifi")) && s->hasArg(F("ssid")) &&
-        s->hasArg(F("password"))) {
-      const auto ssid = std::string(s->arg(F("ssid")).c_str());
-      const auto psk = std::string(s->arg(F("password")).c_str());
-
-      if (loggerLevel >= iop::LogLevel::DEBUG) {
-        iop::Log::print(
-            F("[DEBUG] [RAW] SERVER_CALLBACK: SSID "),
-            iop::LogLevel::DEBUG, iop::LogType::START);
-        iop::Log::print(
-            ssid.c_str(),
-            iop::LogLevel::DEBUG, iop::LogType::CONTINUITY);
-        iop::Log::print(
-            F("\n"),
-            iop::LogLevel::DEBUG, iop::LogType::END);
-      }
+    const auto wifi = conn.arg(F("wifi"));
+    const auto maybeSsid = conn.arg(F("ssid"));
+    const auto maybePsk = conn.arg(F("password"));
+    if (wifi.has_value() && maybeSsid.has_value() && maybePsk.has_value()) {
+      const auto &ssid = iop::unwrap_ref(maybeSsid, IOP_CTX());
+      const auto &psk = iop::unwrap_ref(maybePsk, IOP_CTX());
+      logger.debug(F("SSID: "), ssid);
       if (ssid.length() > 0 && psk.length() > 0)
         credentialsWifi = std::make_optional(std::make_pair(ssid, psk));
     }
 
-    if (s->hasArg(F("iop")) && s->hasArg(F("iopEmail")) &&
-        s->hasArg(F("iopPassword"))) {
-      const std::string email(s->arg(F("iopEmail")).c_str());
-      const std::string password(s->arg(F("iopPassword")).c_str());
-      if (email.length() > 0 && password.length() > 0) {
+    const auto iop = conn.arg(F("iop"));
+    const auto maybeEmail = conn.arg(F("iopEmail"));
+    const auto maybePassword = conn.arg(F("iopPassword"));
+    if (iop.has_value() && maybeEmail.has_value() && maybePassword.has_value()) {
+      const auto &email = iop::unwrap_ref(maybeEmail, IOP_CTX());
+      const auto &password = iop::unwrap_ref(maybePassword, IOP_CTX());
+      if (email.length() > 0 && password.length() > 0)
         credentialsIop = std::make_optional(std::make_pair(email, password));
-      }
     }
 
-    s->sendHeader(F("Location"), F("/"));
-    s->send_P(HTTP_CODE_FOUND, PSTR("text/plain"), PSTR(""));
+    conn.sendHeader(F("Location"), F("/"));
+    conn.send(HTTP_CODE_FOUND, F("text/plain"), F(""));
   });
 
-  server.onNotFound([s, loggerLevel]() {
+  server.onNotFound([](driver::HttpConnection &conn, iop::Log const &logger) {
     IOP_TRACE();
-    const static Flash flash(loggerLevel);
-    if (loggerLevel >= iop::LogLevel::DEBUG)
-      iop::Log::print(
-          F("[INFO] [RAW] SERVER_CALLBACK: Serving captive portal HTML\n"),
-          iop::LogLevel::DEBUG, iop::LogType::STARTEND);
+    const static Flash flash(logger.level());
+    logger.info(F("Serving captive portal"));
 
     const auto mustConnect = !iop::Network::isConnected();
     const auto needsIopAuth = !flash.readAuthToken().has_value();
 
     auto len = pageHTMLStart().length() + pageHTMLEnd().length() + script().length();
+    len += mustConnect ? wifiHTML().length() : wifiOverwriteHTML().length();
+    len += needsIopAuth ? iopHTML().length() : iopOverwriteHTML().length();
 
-    if (mustConnect) {
-      len += wifiHTML().length();
-    } else {
-      len += wifiOverwriteHTML().length();
-    }
+    conn.setContentLength(len);
+    conn.send(HTTP_CODE_OK, F("text/html"), pageHTMLStart());
 
-    if (needsIopAuth) {
-      len += iopHTML().length();
-    } else {
-      len += iopOverwriteHTML().length();
-    }
+    if (mustConnect) conn.sendData(wifiHTML());
+    else conn.sendData(wifiOverwriteHTML());
 
-    s->setContentLength(len);
+    if (needsIopAuth) conn.sendData(iopHTML());
+    else conn.sendData(iopOverwriteHTML());
 
-
-    s->send_P(HTTP_CODE_OK, PSTR("text/html"), pageHTMLStart().asCharPtr());
-
-    if (mustConnect) {
-      s->sendContent_P(wifiHTML().asCharPtr());
-    } else {
-      s->sendContent_P(wifiOverwriteHTML().asCharPtr());
-    }
-
-    if (needsIopAuth) {
-      s->sendContent_P(iopHTML().asCharPtr());
-    } else {
-      s->sendContent_P(iopOverwriteHTML().asCharPtr());
-    }
-
-    s->sendContent_P(script().asCharPtr());
-    
-    s->sendContent_P(pageHTMLEnd().asCharPtr());
-    iop::Log::print(F("[INFO] [RAW] SERVER_CALLBACK: Served HTML\n"),
-      iop::LogLevel::DEBUG, iop::LogType::STARTEND);
+    conn.sendData(script());
+    conn.sendData(pageHTMLEnd());
+    logger.debug(F("Served HTML"));
   });
 }
 
@@ -253,7 +215,7 @@ void CredentialsServer::start() noexcept {
 
     // TODO: how to mock it in a reasonable way?
     WiFi.mode(WIFI_AP_STA);
-    delay(1);
+    driver::thisThread.sleep(1);
 
     // NOLINTNEXTLINE *-avoid-magic-numbers
     const auto staticIp = IPAddress(192, 168, 1, 1);
@@ -262,7 +224,7 @@ void CredentialsServer::start() noexcept {
 
     WiFi.softAPConfig(staticIp, staticIp, mask);
 
-    const static auto hash = iop::hashString(iop::macAddress().asString().borrow());
+    const static auto hash = iop::hashString(driver::device.macAddress().asString().borrow());
     const auto ssid = std::string("iop-") + std::to_string(hash);
 
     // TODO(pc): the password should be random (passed at compile time)
@@ -278,7 +240,7 @@ void CredentialsServer::start() noexcept {
     server.begin();
 
     // Makes it a captive portal (redirects all wifi trafic to it)
-    dnsServer.start(dnsPort, F("*"), WiFi.softAPIP());
+    dnsServer.start();
 
     this->logger.info(F("Opened captive portal: "), iop::to_view(ip));
   }
@@ -289,40 +251,40 @@ void CredentialsServer::close() noexcept {
   if (this->isServerOpen) {
     this->logger.debug(F("Closing captive portal"));
     this->isServerOpen = false;
-    dnsServer.stop();
+    dnsServer.close();
     server.close();
 
     WiFi.mode(WIFI_STA);
-    delay(1);
+    driver::thisThread.sleep(1);
   }
 }
 
-auto CredentialsServer::statusToString(const station_status_t status)
+auto CredentialsServer::statusToString(const driver::StationStatus status)
     const noexcept -> std::optional<iop::StaticString> {
   std::optional<iop::StaticString> ret;
   IOP_TRACE();
   switch (status) {
-  case STATION_IDLE:
+  case driver::StationStatus::IDLE:
     ret.emplace(F("STATION_IDLE"));
     break;
-  case STATION_CONNECTING:
+  case driver::StationStatus::CONNECTING:
     ret.emplace(F("STATION_CONNECTING"));
     break;
-  case STATION_WRONG_PASSWORD:
+  case driver::StationStatus::WRONG_PASSWORD:
     ret.emplace(F("STATION_WRONG_PASSWORD"));
     break;
-  case STATION_NO_AP_FOUND:
+  case driver::StationStatus::NO_AP_FOUND:
     ret.emplace(F("STATION_NO_AP_FOUND"));
     break;
-  case STATION_CONNECT_FAIL:
+  case driver::StationStatus::CONNECT_FAIL:
     ret.emplace(F("STATION_CONNECT_FAIL"));
     break;
-  case STATION_GOT_IP:
+  case driver::StationStatus::  GOT_IP:
     ret.emplace(F("STATION_GOT_IP"));
     break;
   }
   if (!ret.has_value())
-    this->logger.error(iop::StaticString(F("Unknown status: ")).toStdString() + std::to_string(status));
+    this->logger.error(iop::StaticString(F("Unknown status: ")).toStdString() + std::to_string(static_cast<uint8_t>(status)));
   return ret;
 }
 
@@ -331,9 +293,9 @@ auto CredentialsServer::connect(std::string_view ssid,
     -> void {
   IOP_TRACE();
   this->logger.info(F("Connect: "), std::string(ssid));
-  if (wifi_station_get_connect_status() == STATION_CONNECTING) {
+  if (driver::wifi.status() == driver::StationStatus::CONNECTING) {
     const iop::InterruptLock _guard;
-    wifi_station_disconnect();
+    driver::wifi.stationDisconnect();
   }
 
   WiFi.begin(ssid.begin(), std::move(password).begin());
@@ -344,7 +306,7 @@ auto CredentialsServer::connect(std::string_view ssid,
   }
 
   if (!iop::Network::isConnected()) {
-    const auto status = wifi_station_get_connect_status();
+    const auto status = driver::wifi.status();
     auto maybeStatusStr = this->statusToString(status);
     if (!maybeStatusStr.has_value())
       return; // It already will be logged by statusToString;
@@ -403,7 +365,7 @@ auto CredentialsServer::serve(const std::optional<WifiCredentials> &storedWifi,
   IOP_TRACE();
   this->start();
 
-  const auto now = millis();
+  const auto now = driver::thisThread.now();
 
   // The user provided those informations through the web form
   // But we shouldn't act on it inside the server's callback, as callback
@@ -471,7 +433,7 @@ auto CredentialsServer::serve(const std::optional<WifiCredentials> &storedWifi,
 
   // Give processing time to the servers
   this->logger.trace(F("Serve captive portal"));
-  dnsServer.processNextRequest();
+  dnsServer.handleClient();
   server.handleClient();
   return std::optional<AuthToken>();
 }

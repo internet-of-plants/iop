@@ -2,17 +2,18 @@
 #define IOP_CONFIGURATION_HPP
 
 #include "core/log.hpp"
-#include "driver/pins.hpp"
+#include "driver/gpio.hpp"
+#include "driver/thread.hpp"
 #include "utils.hpp"
 #include <optional>
 
 /// Minimum log level to print a message (if serial is enabled)
 const auto logLevel = iop::LogLevel::INFO;
 
-const uint8_t soilTemperaturePin = D5;
-const uint8_t airTempAndHumidityPin = D6;
-const uint8_t soilResistivityPowerPin = D7;
-const uint8_t factoryResetButton = D1;
+const uint8_t soilTemperature = driver::Pin::D5;
+const uint8_t airTempAndHumidity = driver::Pin::D6;
+const uint8_t soilResistivityPower = driver::Pin::D7;
+const uint8_t factoryResetButton = driver::Pin::D1;
 
 /// Version of DHT (Digital Humidity and Temperature) sensor. (ex: DHT11 or
 /// DHT21 or DHT22...)

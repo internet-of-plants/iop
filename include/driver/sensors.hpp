@@ -1,24 +1,16 @@
 #ifndef IOP_DRIVER_SENSORS_HPP
 #define IOP_DRIVER_SENSORS_HPP
 
+#include "driver/gpio.hpp"
+
 #ifdef IOP_DESKTOP
-class OneWire {
-  uint8_t dummy;
-public:
-  OneWire(uint8_t pin) {
-    (void) pin;
-  }
+struct OneWire {
+  OneWire(uint8_t pin) { (void) pin; }
 };
-class DallasTemperature {
-  uint8_t dummy;
-public:
-  DallasTemperature(OneWire *ptr) {
-    (void) ptr;
-  }
+struct DallasTemperature {
+  DallasTemperature(OneWire *ptr) { (void) ptr; }
 };
-class DHT {
-  uint8_t dummy;
-public:
+struct DHT {
   DHT(uint8_t pin, uint8_t version) {
     (void) pin;
     (void) version;
@@ -28,6 +20,14 @@ public:
 #include <DHT.h>
 #include <DallasTemperature.h>
 #include <OneWire.h>
+#undef OUTPUT
+#undef INPUT
+#undef HIGH
+#undef LOW
+#undef RISING
+#undef FALLING
+#undef CHANGED
+#undef LED_BUILTIN
 #endif
 
 #endif

@@ -10,7 +10,7 @@
 /// completely synchronous.
 class Sensors {
 private:
-  uint8_t soilResistivityPowerPin;
+  gpio::Pin soilResistivityPower;
   // We use a shared_ptr because we have a self-reference to this and
   // DallasTemperature only copies itself. So moving would mean
   // 'soilTemperatureSensor' points to a unique_ptr that it doesn't own, so
@@ -20,15 +20,15 @@ private:
   DHT airTempAndHumiditySensor;
 
 public:
-  Sensors(const uint8_t soilResistivityPowerPin,
-          const uint8_t soilTemperaturePin, const uint8_t dhtPin,
+  Sensors(const gpio::Pin soilResistivityPower,
+          const gpio::Pin soilTemperature, const gpio::Pin dht,
           const uint8_t dhtVersion) noexcept
-      : soilResistivityPowerPin(soilResistivityPowerPin),
+      : soilResistivityPower(soilResistivityPower),
         soilTemperatureOneWireBus(
-            iop::try_make_shared<OneWire>(soilTemperaturePin)),
+            iop::try_make_shared<OneWire>(static_cast<uint8_t>(soilTemperature))),
         /* SELF_REF: this is dangerous, although allocation helps a lot. */
         soilTemperatureSensor(soilTemperatureOneWireBus.get()),
-        airTempAndHumiditySensor(dhtPin, dhtVersion) {
+        airTempAndHumiditySensor(static_cast<uint8_t>(dht), dhtVersion) {
     IOP_TRACE();
     if (!this->soilTemperatureOneWireBus)
       iop_panic(
@@ -39,7 +39,7 @@ public:
   ~Sensors() noexcept { IOP_TRACE(); }
 
   Sensors(Sensors const &other)
-      : soilResistivityPowerPin(other.soilResistivityPowerPin),
+      : soilResistivityPower(other.soilResistivityPower),
         soilTemperatureOneWireBus(other.soilTemperatureOneWireBus),
         soilTemperatureSensor(other.soilTemperatureSensor),
         airTempAndHumiditySensor(other.airTempAndHumiditySensor) {
@@ -51,7 +51,7 @@ public:
     if (this == &other)
       return *this;
 
-    this->soilResistivityPowerPin = other.soilResistivityPowerPin;
+    this->soilResistivityPower = other.soilResistivityPower;
     this->soilTemperatureOneWireBus = other.soilTemperatureOneWireBus;
     this->soilTemperatureSensor = other.soilTemperatureSensor;
     this->airTempAndHumiditySensor = other.airTempAndHumiditySensor;

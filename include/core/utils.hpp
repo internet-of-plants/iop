@@ -18,8 +18,6 @@
 // #define LOG_MEMORY
 
 namespace iop {
-using esp_time = unsigned long; // NOLINT google-runtime-int
-
 TYPED_STORAGE(MD5Hash, 32);
 TYPED_STORAGE(MacAddress, 17);
 
@@ -27,8 +25,6 @@ auto hashString(const std::string_view txt) noexcept -> uint64_t; // FNV hash
 auto isPrintable(const char ch) noexcept -> bool;
 auto isAllPrintable(const std::string_view txt) noexcept -> bool;
 auto scapeNonPrintable(const std::string_view txt) noexcept -> CowString;
-auto hashSketch() noexcept -> const MD5Hash &;
-auto macAddress() noexcept -> const MacAddress &;
 void logMemory(const Log &logger) noexcept;
 #ifndef IOP_DESKTOP
 auto to_view(const String& str) -> std::string_view;
@@ -47,6 +43,12 @@ auto is_err(std::variant<T, E> const &res) -> bool {
     return std::holds_alternative<E>(res);
 }
 
+template <typename T, typename E>
+auto unwrap_ok(std::variant<T, E> &res, const CodePoint point) -> T {
+    if (iop::is_err(res))
+        iop::panicHandler(F("unwrap_ok_ref found Error"), point); // TODO: can we improve this message?
+    return T(std::move(std::get<T>(res)));
+}
 template <typename T, typename E>
 auto unwrap_ok_ref(std::variant<T, E> const &res, const CodePoint point) -> T const & {
     if (iop::is_err(res))
@@ -70,6 +72,12 @@ auto unwrap_err_mut(std::variant<T, E> &res, const CodePoint point) -> E & {
     if (iop::is_ok(res))
         iop::panicHandler(F("unwrap_err_mut found Ok"), point); // TODO: can we improve this message?
     return std::get<E>(res);
+}
+template <typename T, typename E>
+auto ok(std::variant<T, E> res) -> std::optional<T> {
+    if (std::holds_alternative<T>(res))
+        return iop::unwrap_ok(res, IOP_CTX());
+    return std::optional<T>();
 }
 
 template <typename T>

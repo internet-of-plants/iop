@@ -5,6 +5,12 @@ static bool initialized = false;
 
 static bool isTracing_ = false;
 
+static bool shouldFlush_ = true;
+
+void iop::Log::shouldFlush(const bool flush) noexcept {
+  shouldFlush_ = flush;
+}
+
 auto iop::Log::isTracing() noexcept -> bool { 
   return isTracing_;
 }
@@ -17,7 +23,7 @@ static iop::LogHook hook = defaultHook;
 
 namespace iop {
 void IRAM_ATTR Log::setup(LogLevel level) noexcept { hook.setup(level); }
-void Log::flush() noexcept { hook.flush(); }
+void Log::flush() noexcept { if (shouldFlush_) hook.flush(); }
 void IRAM_ATTR Log::print(const std::string_view view, const LogLevel level,
                                 const LogType kind) noexcept {
   Log::setup(level);

@@ -1,41 +1,26 @@
 #ifndef IOP_DRIVER_DEVICE_HPP
 #define IOP_DRIVER_DEVICE_HPP
 
-#ifdef IOP_DESKTOP
-#include <iostream>
-#include <cstdlib>
-#include <chrono>
-#include <thread>
-#include "driver/time.hpp"
+#include <stddef.h>
+#include <stdint.h>
 
-static void yield() {}
-
-static void __panic_func(const char *file, uint16_t line, const char *func) noexcept __attribute__((noreturn));
-void __panic_func(const char *file, uint16_t line, const char *func) noexcept {
-  std::abort();
+namespace iop {
+class MD5Hash_class;
+class MacAddress_class;
 }
-class Esp {
+
+namespace driver {
+class Device {
 public:
-  uint16_t getFreeHeap() { return 1000; }
-  uint16_t getFreeContStack() { return 1000; }
-  uint16_t getMaxFreeBlockSize() { return 1000; }
-  uint16_t getHeapFragmentation() { return 0; }
-  uint16_t getFreeSketchSpace() { return 1000; }
-  void deepSleep(uint32_t microsecs) { 
-    std::this_thread::sleep_for(std::chrono::microseconds(microsecs));
-  }
-  std::string getSketchMD5() { return "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"; }
+  auto availableFlash() const noexcept -> size_t;
+  auto availableStack() const noexcept -> size_t;
+  auto availableHeap() const noexcept -> size_t;
+  auto biggestHeapBlock() const noexcept -> size_t;
+  void deepSleep(uint32_t seconds) const noexcept;
+  iop::MD5Hash_class & binaryMD5() const noexcept;
+  iop::MacAddress_class & macAddress() const noexcept;
 };
-static Esp ESP;
-#define STATION_IF 0
-static void wifi_get_macaddr(uint8_t station, uint8_t *buff) {
-  (void) station;
-  memcpy(buff, "AA:AA:AA:AA:AA:AA", 18);
+extern Device device;
 }
-#define sprintf_P sprintf
-#else
-#include "Esp.h"
-#include "user_interface.h"
-#endif
 
 #endif

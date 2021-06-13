@@ -1,12 +1,11 @@
 #include "core/log.hpp"
-#include "core/static_runner.hpp"
 #include "configuration.hpp"
 #include "utils.hpp" // Imports IOP_SERIAL if available
 #include "core/lazy.hpp"
 
 #ifdef IOP_NETWORK_LOGGING
 
-#include "driver/time.hpp"
+#include "driver/thread.hpp"
 
 static void staticPrinter(const iop::StaticString str,
                           iop::LogLevel level, 
@@ -28,27 +27,27 @@ namespace network_logger {
 #include "flash.hpp"
 
 class ByteRate {
-  uint32_t lastBytesPerMinute{0};
-  uint32_t bytes{0};
+  size_t lastBytesPerMinute{0};
+  size_t bytes{0};
   uint64_t nextReset{0};
 
 public:
   ByteRate() noexcept = default;
 
   void resetIfNeeded() noexcept {
-    constexpr const uint8_t minutes = 5;
+    constexpr const size_t minutes = 5;
     constexpr const uint32_t fiveMin = minutes * 1000 * 60;
-    this->nextReset = millis() + fiveMin;
+    this->nextReset = driver::thisThread.now() + fiveMin;
     this->lastBytesPerMinute = this->bytes / minutes;
     this->bytes = 0;
   }
 
-  void addBytes(uint16_t bytes) noexcept {
+  void addBytes(size_t bytes) noexcept {
     this->resetIfNeeded();
     this->bytes += bytes;
   }
 
-  auto bytesPerMinute() const noexcept -> uint32_t {
+  auto bytesPerMinute() const noexcept -> size_t {
     return this->lastBytesPerMinute;
   }
 };

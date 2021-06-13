@@ -11,6 +11,7 @@
 #include <optional>
 
 #include "driver/device.hpp"
+#include "driver/thread.hpp"
 
 // TODO: log restart reason Esp::getResetInfoPtr()
 
@@ -31,7 +32,7 @@ public:
   void setup() noexcept {
     this->logger.info(F("Start Setup"));
     IOP_TRACE();
-    pinMode(LED_BUILTIN, OUTPUT);
+    gpio::gpio.mode(gpio::LED_BUILTIN, gpio::Mode::OUTPUT);
 
     network_logger::setup();
     panic::setup();
@@ -59,10 +60,10 @@ public:
         break;
 
       this->handleInterrupt(ev, authToken);
-      yield();
+      driver::thisThread.yield();
     }
 
-    const auto now = millis();
+    const auto now = driver::thisThread.now();
 
     const auto isConnected = iop::Network::isConnected();
     const auto hasAuthToken = authToken.has_value();
@@ -165,24 +166,16 @@ private:
     case InterruptEvent::ON_CONNECTION:
 #ifdef IOP_ONLINE
       const auto ip = WiFi.localIP().toString();
-      const auto status = std::to_string(wifi_station_get_connect_status());
-      this->logger.debug(F("WiFi connected ("), iop::to_view(ip), F("): "), status);
+      const auto status = this->credentialsServer.statusToString(driver::wifi.status());
+      this->logger.debug(F("WiFi connected ("), iop::to_view(ip), F("): "), status.value_or(iop::StaticString(F("BadData"))));
 
-      struct station_config config = {0};
-      wifi_station_get_config(&config);
-
+      const auto config = driver::wifi.credentials();
       // We treat wifi credentials as a blob instead of worrying about encoding
 
-      size_t len = sizeof(config.ssid);
-      const auto *ptr = static_cast<uint8_t *>(config.ssid);
-      const auto ssid = NetworkName::fromBytesUnsafe(ptr, len);
-
-      const auto ssidStr = ssid.asString();
-      this->logger.info(F("Connected to network: "), iop::to_view(ssidStr));
-
-      len = sizeof(config.password);
-      ptr = static_cast<uint8_t *>(config.password);
-      const auto psk = NetworkPassword::fromBytesUnsafe(ptr, len);
+    
+      const auto ssid = NetworkName::fromBytesUnsafe(reinterpret_cast<const uint8_t*>(config.first.c_str()), config.first.length());
+      this->logger.info(F("Connected to network: "), ssid.asString().borrow());
+      const auto psk = NetworkPassword::fromBytesUnsafe(reinterpret_cast<const uint8_t*>(config.second.c_str()), config.second.length());
 
       this->flash.writeWifiConfig(WifiCredentials(ssid, psk));
 #endif
@@ -263,8 +256,8 @@ public:
   }
   ~EventLoop() noexcept { IOP_TRACE(); }
   explicit EventLoop(iop::StaticString uri, iop::LogLevel logLevel_) noexcept
-      : sensors(soilResistivityPowerPin, soilTemperaturePin,
-                airTempAndHumidityPin, dhtVersion),
+      : sensors(soilResistivityPower, soilTemperature,
+                airTempAndHumidity, dhtVersion),
         api(std::move(uri), logLevel_), credentialsServer(logLevel_),
         logger(logLevel_, F("LOOP")), flash(logLevel_), nextMeasurement(0),
         nextYieldLog(0), nextHandleConnectionLost(0) {

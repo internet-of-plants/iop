@@ -5,8 +5,11 @@
 #ifdef IOP_ONLINE
 
 #include "driver/device.hpp"
+#include "driver/thread.hpp"
 #include "driver/client.hpp"
 #include "core/panic.hpp"
+#include "core/cert_store.hpp"
+#include "string.h"
 
 const static iop::UpgradeHook defaultHook(iop::UpgradeHook::defaultHook);
 
@@ -35,8 +38,8 @@ Network::Network(StaticString uri, const LogLevel &logLevel) noexcept
   : uri_(std::move(uri)), logger(logLevel, F("NETWORK")) {
 IOP_TRACE();
 }
-void Network::setCertStore(iop::CertStore store) noexcept {
-  maybeCertStore = std::make_optional(std::move(store));
+void Network::setCertStore(iop::CertStore &store) noexcept {
+  maybeCertStore = std::make_optional(iop::CertStore(std::move(store)));
 }
 void Network::setUpgradeHook(UpgradeHook scheduler) noexcept {
   hook = std::move(scheduler);
@@ -86,7 +89,7 @@ auto Network::setup() const noexcept -> void {
 
 #ifndef IOP_NOSSL
   if (maybeCertStore.has_value())
-    client.setCertStore(&iop::unwrap_ref(maybeCertStore, IOP_CTX()));
+    client.setCertStore(&iop::unwrap_mut(maybeCertStore, IOP_CTX()));
   client.setInsecure(); // TODO: remove this (what the frick)
 #endif
 
@@ -94,7 +97,8 @@ auto Network::setup() const noexcept -> void {
   WiFi.setAutoReconnect(true);
   WiFi.setAutoConnect(true);
   WiFi.mode(WIFI_STA);
-  delay(1);
+
+  driver::thisThread.sleep(1);
   WiFi.reconnect();
 }
 
@@ -182,13 +186,12 @@ auto Network::httpRequest(const HttpMethod method_,
 
   // Authentication headers, identifies device and detects updates, perf
   // monitoring
-  http.addHeader(F("MAC_ADDRESS"), macAddress().asString().get());
-  http.addHeader(F("VERSION"), hashSketch().asString().get());
+  http.addHeader(F("MAC_ADDRESS"), driver::device.macAddress().asString().get());
+  http.addHeader(F("VERSION"), driver::device.binaryMD5().asString().get());
  
-  http.addHeader(F("FREE_STACK"), std::to_string(ESP.getFreeContStack()).c_str());
-  http.addHeader(F("FREE_HEAP"), std::to_string(ESP.getFreeHeap()).c_str());
-  http.addHeader(F("HEAP_FRAGMENTATION"), std::to_string(ESP.getHeapFragmentation()).c_str());
-  http.addHeader(F("BIGGEST_FREE_BLOCK"), std::to_string(ESP.getMaxFreeBlockSize()).c_str());
+  http.addHeader(F("FREE_STACK"), std::to_string(driver::device.availableStack()).c_str());
+  http.addHeader(F("FREE_HEAP"), std::to_string(driver::device.availableHeap()).c_str());
+  http.addHeader(F("BIGGEST_FREE_BLOCK"), std::to_string(driver::device.biggestHeapBlock()).c_str());
 
   if (!http.begin(Network::wifiClient(), uri)) {
     this->logger.warn(F("Failed to begin http connection to "), iop::to_view(uri));
@@ -205,8 +208,7 @@ auto Network::httpRequest(const HttpMethod method_,
 
   // Handle system upgrade request
   const auto upgrade = http.header(PSTR("LATEST_VERSION"));
-  if (upgrade.length() > 0 &&
-      strcmp(upgrade.c_str(), hashSketch().asString().get()) != 0) {
+  if (upgrade.length() > 0 && strcmp(upgrade.c_str(), driver::device.binaryMD5().asString().get()) != 0) {
     this->logger.info(F("Scheduled upgrade"));
     hook.schedule();
   }

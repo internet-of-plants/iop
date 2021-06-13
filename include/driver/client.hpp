@@ -38,16 +38,15 @@
 #include <stdlib.h>
 #include <iostream>
 #include "core/lazy.hpp"
-#include "driver/cert_store.hpp"
 
 static iop::Lazy<iop::Log> clientDriverLogger([]() { return iop::Log(iop::LogLevel::WARN, F("HTTP Client")); });
 
-static int send__(uint32_t fd, const char * msg, const size_t len) noexcept {
+static ssize_t send__(uint32_t fd, const char * msg, const size_t len) noexcept {
   if (iop::Log::isTracing())
     iop::Log::print(msg, iop::LogLevel::TRACE, iop::LogType::STARTEND);
   return write(fd, msg, len);
 }
-static int recv(uint32_t fd, char *msg, size_t len) {
+static ssize_t recv(uint32_t fd, char *msg, size_t len) {
   return read(fd, msg, len);
 }
 
@@ -117,10 +116,10 @@ class Stream {
 public:
   Stream(uint32_t fd): fd(fd) {}
 
-  int write(const char *msg, size_t len) {
+  ssize_t write(const char *msg, size_t len) {
     return send__(this->fd, msg, len);
   }
-  int read(char *buff, size_t len) {
+  ssize_t read(char *buff, size_t len) {
     return recv(this->fd, buff, len);
   }
 };
@@ -131,12 +130,16 @@ enum HTTPUpdateResult {
     HTTP_UPDATE_OK
 };
 
+namespace BearSSL {
+  class CertStoreBase;
+}
+
 class WiFiClient {
 public:
-  void setNoDelay(bool b) {}
-  void setSync(bool b) {}
+  void setNoDelay(bool b) { (void) b; }
+  void setSync(bool b) { (void) b; }
   void setInsecure() const noexcept {}
-  void setCertStore(const BearSSL::CertStoreBase *base) const noexcept {}
+  void setCertStore(const BearSSL::CertStoreBase *base) const noexcept { (void) base; }
 };
 
 class HTTPClient {
@@ -151,7 +154,7 @@ class HTTPClient {
 
   std::optional<int32_t> currentFd;
 public:
-  void setReuse(bool reuse) {}
+  void setReuse(bool reuse) { (void) reuse; }
   void collectHeaders(const char **headerKeys, size_t count) {
     for (uint8_t index = 0; index < count; ++index) {
         this->headersToCollect.push_back(headerKeys[index]);
@@ -190,7 +193,7 @@ public:
         [](unsigned char c){ return std::tolower(c); });
     this->headers.emplace(keyLower, value);
   }
-  void setTimeout(uint32_t ms) {}
+  void setTimeout(uint32_t ms) { (void) ms; }
   void setAuthorization(std::string auth) {
     if (auth.length() == 0) return;
     this->headers.emplace(std::string("Authorization"), std::string("Basic ") + auth);
@@ -226,7 +229,7 @@ public:
     
     auto buffer = iop::FixedString<5096>::empty();
     
-    int32_t size = 0;
+    ssize_t size = 0;
     auto firstLine = true;
     auto isPayload = false;
     
@@ -254,7 +257,7 @@ public:
       //if (!buff.contains(F("\n"))) continue;
       clientDriverLogger->debug(F("Read: ("), std::to_string(size), F(") ["), std::to_string(buffer.length()), F("]: "), std::string(buffer.get()).substr(0, buff.find("\n")));
 
-      if (firstLine && buff.find("\n") < 0) continue;
+      if (firstLine && buff.find("\n") == buff.npos) continue;
 
       if (firstLine && size < 10) { // len("HTTP/1.1 ") = 9
         clientDriverLogger->error(F("Error reading first line: "), std::to_string(size));
@@ -266,7 +269,7 @@ public:
 
         const std::string_view statusStr(buffer.get() + 9); // len("HTTP/1.1 ") = 9
         const auto codeEnd = statusStr.find(" ");
-        if (codeEnd == -1) {
+        if (codeEnd == statusStr.npos) {
           clientDriverLogger->error(F("Bad server: "), statusStr, F(" -- "), buff);
           return 500;
         }
@@ -298,11 +301,10 @@ public:
           memmove(buffer.asMut(), ptr, strlen(ptr) + 1);
           buff = buffer.get();
           continue;
-        } else if (buff.find("\r\n") < 0) {
+        } else if (buff.find("\r\n") == buff.npos) {
           iop_panic(F("Bad software bruh"));
-        } else if (buff.find("\r\n") >= 0) {
+        } else if (buff.find("\r\n") != buff.npos) {
           clientDriverLogger->debug(F("Found headers (buffer length: "), std::to_string(buff.length()), F(")"));
-          auto found = false;
           for (const auto &key: this->headersToCollect) {
             if (buff.length() < key.length()) continue;
             std::string headerKey(buffer.get(), 0, key.length());
@@ -313,11 +315,10 @@ public:
             if (headerKey != key)
               continue;
 
-            found = true;
             auto valueView = buff.substr(key.length() + 1); // ":"
             while (*valueView.begin() == ' ') valueView = valueView.substr(1);
 
-            iop_assert(valueView.find("\r\n") >= 0, F("Must contain endline"));
+            iop_assert(valueView.find("\r\n") != valueView.npos, F("Must contain endline"));
             const std::string value(valueView, 0, valueView.find("\r\n"));
             clientDriverLogger->debug(F("Found header "), key, F(" = "), value, F("\n"));
             this->responseHeaders.emplace(key, value);
@@ -326,9 +327,9 @@ public:
             const char* ptr = buff.begin() + buff.find("\r\n") + 2;
             memmove(buffer.asMut(), ptr, strlen(ptr) + 1);
             buff = buffer.get();
-            if (buff.find("\n") < 0) iop_panic(F("Fuuuc")); //continue;
+            if (buff.find("\n") == buff.npos) iop_panic(F("Fuuuc")); //continue;
           }
-          if (buff.find("\n") < 0) {
+          if (buff.find("\n") == buff.npos) {
             clientDriverLogger->warn(F("Newline missing in buffer: "), buff);
             return 500;
           }
@@ -337,13 +338,13 @@ public:
           const char* ptr = buff.begin() + buff.find("\r\n") + 2;
           memmove(buffer.asMut(), ptr, strlen(ptr) + 1);
           buff = buffer.get();
-          if (buff.find("\n") < 0) iop_panic(F("Fuuk")); //continue;
+          if (buff.find("\n") == buff.npos) iop_panic(F("Fuuk")); //continue;
         } else {
           iop_panic(F("Press F to pay respect"));
         }
       }
 
-      clientDriverLogger->debug(F("Payload ("), std::to_string(buff.length()), F(") ["), std::to_string(size), F("]: "), std::string(buffer.get()).substr(0, buff.find("\n") < 0 ? buff.find("\n") : buffer.length()));
+      clientDriverLogger->debug(F("Payload ("), std::to_string(buff.length()), F(") ["), std::to_string(size), F("]: "), std::string(buffer.get()).substr(0, buff.find("\n") == buff.npos ? buff.find("\n") : buffer.length()));
 
       this->responsePayload += buff;
 
@@ -386,10 +387,14 @@ public:
     
     const auto portIndex = uri.find(iop::StaticString(F(":")).toStdString());
     uint16_t port = 443;
-    if (portIndex != -1) {
+    if (portIndex != uri.npos) {
       auto end = uri.substr(portIndex + 1).find("/");
-      if (end == -1) end = uri.length();
-      port = atoi(std::string(uri.begin(), portIndex + 1, end).c_str());
+      if (end == uri.npos) end = uri.length();
+      port = static_cast<uint16_t>(strtoul(std::string(uri.begin(), portIndex + 1, end).c_str(), nullptr, 10));
+      if (port == 0) {
+        clientDriverLogger->error(F("Unable to parse port, broken server: "), uri);
+        return false;
+      }
     }
     clientDriverLogger->debug(F("Port: "), std::to_string(port));
 
@@ -397,8 +402,8 @@ public:
     serv_addr.sin_port = htons(port);
 
     auto end = uri.find(":");
-    if (end == -1) end = uri.find("/");
-    if (end == -1) end = uri.length();
+    if (end == uri.npos) end = uri.find("/");
+    if (end == uri.npos) end = uri.length();
     
     const auto host = std::string(uri.begin(), 0, end);
     // Convert IPv4 and IPv6 addresses from text to binary form

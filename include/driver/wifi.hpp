@@ -1,6 +1,27 @@
 #ifndef IOP_DRIVER_WIFI
 #define IOP_DRIVER_WIFI
 
+#include <string>
+#include <utility>
+
+namespace driver {
+enum class StationStatus {
+  IDLE = 0,
+  CONNECTING,
+  WRONG_PASSWORD,
+  NO_AP_FOUND,
+  CONNECT_FAIL,
+  GOT_IP
+};
+class Wifi {
+public:
+  StationStatus status() const noexcept;
+  void stationDisconnect() const noexcept;
+  std::pair<std::string, std::string> credentials() const noexcept;
+};
+extern Wifi wifi;
+}
+
 #ifdef IOP_DESKTOP
 #include "core/string/cow.hpp"
 #include <cstring>
@@ -13,30 +34,7 @@ class IPAddress {
         // Constructors
         IPAddress(uint8_t first_octet, uint8_t second_octet, uint8_t third_octet, uint8_t fourth_octet): octets{first_octet, second_octet, third_octet, fourth_octet} {}
 };
-typedef enum {
-    STATION_IDLE = 0,
-    STATION_CONNECTING,
-    STATION_WRONG_PASSWORD,
-    STATION_NO_AP_FOUND,
-    STATION_CONNECT_FAIL,
-    STATION_GOT_IP
-} station_status_t;
-static station_status_t wifi_station_get_connect_status() {
-    return STATION_IDLE;
-}
-static void wifi_station_disconnect() {}
 
-struct station_config {
-    uint8_t ssid[32];
-    uint8_t password[64];
-};
-static bool wifi_station_get_config(struct station_config *config) {
-    uint8_t ssid[4] = {'I', 'o', 'P', '\0'};
-    uint8_t psk[5] = {'B', 'r', 'u', 'h', '\0'};
-    memcpy(config->ssid, ssid, sizeof(ssid));
-    memcpy(config->password, psk, sizeof(psk));
-    return true;
-}
 class WifiCredentials;
 typedef enum {
     WL_NO_SHIELD        = 255,   // for compatibility with WiFi Shield library

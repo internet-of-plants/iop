@@ -2,6 +2,9 @@
 
 #ifndef IOP_FLASH_DISABLED
 #include "driver/flash.hpp"
+#include "core/panic.hpp"
+
+
 
 constexpr const uint16_t EEPROM_SIZE = 512;
 
@@ -25,7 +28,7 @@ const uint16_t authTokenIndex = wifiConfigIndex + wifiConfigSize;
 static_assert(authTokenIndex + authTokenSize < EEPROM_SIZE,
               "EEPROM too small to store needed credentials");
 
-auto Flash::setup() noexcept -> void { EEPROM.begin(EEPROM_SIZE); }
+auto Flash::setup() noexcept -> void { driver::flash.setup(EEPROM_SIZE); }
 
 static std::optional<AuthToken> authToken;
 // Token cache
@@ -38,11 +41,11 @@ auto Flash::readAuthToken() const noexcept -> const std::optional<AuthToken> & {
     return authToken;
 
   // Check if magic byte is set in flash (as in, something is stored)
-  if (EEPROM.read(authTokenIndex) != usedAuthTokenEEPROMFlag)
+  if (driver::flash.read(authTokenIndex) != usedAuthTokenEEPROMFlag)
     return authToken;
 
   // NOLINTNEXTLINE *-pro-bounds-pointer-arithmetic
-  const auto ptr = EEPROM.getConstDataPtr() + authTokenIndex + 1;
+  const auto ptr = driver::flash.asRef() + authTokenIndex + 1;
 
   auto token = AuthToken::fromBytesUnsafe(ptr, AuthToken::size);
 
@@ -68,12 +71,12 @@ void Flash::removeAuthToken() const noexcept {
   authToken.reset();
 
   // Checks if it's written to flash first, avoids wasting writes
-  if (EEPROM.read(authTokenIndex) == usedAuthTokenEEPROMFlag) {
+  if (driver::flash.read(authTokenIndex) == usedAuthTokenEEPROMFlag) {
     this->logger.info(F("Deleting stored auth token"));
 
     // NOLINTNEXTLINE *-pro-bounds-pointer-arithmetic
-    memset(EEPROM.getDataPtr() + authTokenIndex, 0, authTokenSize);
-    EEPROM.commit();
+    memset(driver::flash.asMut() + authTokenIndex, 0, authTokenSize);
+    driver::flash.commit();
   }
 }
 
@@ -96,9 +99,9 @@ void Flash::writeAuthToken(const AuthToken &token) const noexcept {
   // Updates cache
   authToken.emplace(token);
 
-  EEPROM.write(authTokenIndex, usedAuthTokenEEPROMFlag);
-  EEPROM.put(authTokenIndex + 1, *token.asSharedArray());
-  EEPROM.commit();
+  driver::flash.write(authTokenIndex, usedAuthTokenEEPROMFlag);
+  driver::flash.put(authTokenIndex + 1, *token.asSharedArray());
+  driver::flash.commit();
 }
 
 // Credentials cache
@@ -113,11 +116,11 @@ auto Flash::readWifiConfig() const noexcept
     return wifiCredentials;
 
   // Check if magic byte is set in flash (as in, something is stored)
-  if (EEPROM.read(wifiConfigIndex) != usedWifiConfigEEPROMFlag)
+  if (driver::flash.read(wifiConfigIndex) != usedWifiConfigEEPROMFlag)
     return wifiCredentials;
 
   // NOLINTNEXTLINE *-pro-bounds-pointer-arithmetic
-  const auto *ptr = EEPROM.getConstDataPtr() + wifiConfigIndex + 1;
+  const auto *ptr = driver::flash.asRef() + wifiConfigIndex + 1;
 
   // We treat wifi credentials as a blob instead of worrying about encoding
 
@@ -139,10 +142,10 @@ void Flash::removeWifiConfig() const noexcept {
   wifiCredentials.reset();
 
   // Checks if it's written to flash first, avoids wasting writes
-  if (EEPROM.read(wifiConfigIndex) == usedWifiConfigEEPROMFlag) {
+  if (driver::flash.read(wifiConfigIndex) == usedWifiConfigEEPROMFlag) {
     // NOLINTNEXTLINE *-pro-bounds-pointer-arithmetic
-    memset(EEPROM.getDataPtr() + wifiConfigIndex, 0, wifiConfigSize);
-    EEPROM.commit();
+    memset(driver::flash.asMut() + wifiConfigIndex, 0, wifiConfigSize);
+    driver::flash.commit();
   }
 }
 
@@ -171,10 +174,10 @@ void Flash::writeWifiConfig(const WifiCredentials &config) const noexcept {
   wifiCredentials.emplace(config);
 
   const auto &psk = *config.password.asSharedArray();
-  EEPROM.write(wifiConfigIndex, usedWifiConfigEEPROMFlag);
-  EEPROM.put(wifiConfigIndex + 1, *config.ssid.asSharedArray());
-  EEPROM.put(wifiConfigIndex + 1 + NetworkName::size, psk);
-  EEPROM.commit();
+  driver::flash.write(wifiConfigIndex, usedWifiConfigEEPROMFlag);
+  driver::flash.put(wifiConfigIndex + 1, *config.ssid.asSharedArray());
+  driver::flash.put(wifiConfigIndex + 1 + NetworkName::size, psk);
+  driver::flash.commit();
 }
 #endif
 

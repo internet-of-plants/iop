@@ -1,7 +1,6 @@
 #include "core/panic.hpp"
 #include "api.hpp"
 #include "configuration.hpp"
-#include "core/static_runner.hpp"
 #include "flash.hpp"
 #include "core/lazy.hpp"
 
@@ -106,8 +105,8 @@ static void halt(const std::string_view &msg,
   IOP_TRACE();
   auto reportedPanic = false;
 
-  constexpr const uint32_t tenMinutesUs = 10 * 60 * 1000 * 1000;
-  constexpr const uint32_t oneHourUs = ((uint32_t)60) * 60 * 1000 * 1000;
+  constexpr const uint32_t tenMinutes = 10 * 60;
+  constexpr const uint32_t oneHour = ((uint32_t)60) * 60;
   while (true) {
     if (!flash->readWifiConfig().has_value()) {
       logger->warn(F("Nothing we can do, no wifi config available"));
@@ -133,10 +132,10 @@ static void halt(const std::string_view &msg,
       // Doesn't return if upgrade succeeds
       upgrade();
 
-      ESP.deepSleep(tenMinutesUs);
+      driver::device.deepSleep(tenMinutes);
     } else {
       logger->warn(F("No network, unable to recover"));
-      ESP.deepSleep(oneHourUs);
+      driver::device.deepSleep(oneHour);
     }
 
     // Let's allow the wifi to reconnect
@@ -146,8 +145,8 @@ static void halt(const std::string_view &msg,
     WiFi.waitForConnectResult();
   }
 
-  ESP.deepSleep(0);
-  __panic_func(point.file().asCharPtr(), point.line(), std::string(point.func()).c_str());
+  driver::device.deepSleep(0);
+  driver::thisThread.panic_();
 }
 
 iop::PanicHook hook(iop::PanicHook::defaultViewPanic,

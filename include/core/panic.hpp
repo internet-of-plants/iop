@@ -52,7 +52,7 @@ void panicHandler(StaticString msg, CodePoint const &point) noexcept
 /// If any update is available it's installed and reboots.
 ///
 /// Sent: Message + Line + Function + File
-#define iop_panic(msg) iop::panicHandler((msg), IOP_CTX())
+#define iop_panic(msg) ::iop::panicHandler((msg), IOP_CTX())
 
 /// Calls `iop_panic` with provided message if condition is false
 #define iop_assert(cond, msg)                                                  \
