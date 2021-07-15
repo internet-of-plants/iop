@@ -2,7 +2,7 @@
 #define IOP_FLASH_HPP
 
 #include "core/log.hpp"
-#include "models.hpp"
+#include "utils.hpp"
 #include <optional>
 
 #include "driver/wifi.hpp"
@@ -18,11 +18,11 @@ public:
   }
   static auto setup() noexcept -> void;
 
-  auto readAuthToken() const noexcept -> const std::optional<AuthToken> &;
+  auto readAuthToken() const noexcept -> std::optional<std::reference_wrapper<const AuthToken>>;
   void removeAuthToken() const noexcept;
   void writeAuthToken(const AuthToken &token) const noexcept;
 
-  auto readWifiConfig() const noexcept -> const std::optional<WifiCredentials> &;
+  auto readWifiConfig() const noexcept -> std::optional<std::reference_wrapper<const WifiCredentials>>;
   void removeWifiConfig() const noexcept;
   void writeWifiConfig(const WifiCredentials &config) const noexcept;
 

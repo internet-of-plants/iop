@@ -3,11 +3,9 @@
 
 #include "core/log.hpp"
 #include "core/network.hpp"
-#include "core/string/fixed.hpp"
-#include "core/utils.hpp"
-#include "models.hpp"
+#include "utils.hpp"
 
-#include "ArduinoJson.h"
+#include <ArduinoJson.h>
 
 /// High level client, that abstracts IoP API access in a safe and ergonomic way
 ///
@@ -17,8 +15,8 @@
 /// broken. The user is responsible for dealing with it however they like.
 class Api {
 private:
-  iop::Log logger;
   iop::Network network_;
+  iop::Log logger;
 
 public:
   Api(iop::StaticString uri, iop::LogLevel logLevel) noexcept;
@@ -103,32 +101,9 @@ private:
   /// provided. This is a critical error and probably will break the system
   ///
   /// Gets a name for logging. And a callback that actually fills the json
-  template <uint16_t SIZE>
   auto makeJson(const iop::StaticString name,
-                const JsonCallback func) const noexcept
-      -> std::optional<iop::FixedString<SIZE>> {
-    IOP_TRACE();
-    
-    auto doc = iop::try_make_unique<StaticJsonDocument<SIZE>>();
-    if (!doc) {
-      this->logger.error(F("Unable to allocate "), std::to_string(SIZE),
-                         F(" bytes at Api::makeJson for "), name);
-      return std::optional<iop::FixedString<SIZE>>();
-    }
-    func(*doc);
-
-    if (doc->overflowed()) {
-      const auto s = std::to_string(SIZE);
-      this->logger.error(F("Payload doesn't fit Json<"), s, F("> at "), name);
-      return std::optional<iop::FixedString<SIZE>>();
-    }
-
-    auto fixed = iop::FixedString<SIZE>::empty();
-    serializeJson(*doc, fixed.asMut(), fixed.size);
-    //this->logger.debug(F("Json: "), *fixed);
-    return std::make_optional(fixed);
-  }
-
+                const JsonCallback &func) const noexcept
+      -> std::optional<std::reference_wrapper<std::array<char, 1024>>>;
 public:
   ~Api() noexcept;
   Api(Api const &other);
@@ -138,17 +113,9 @@ public:
 };
 
 #include "utils.hpp"
-#ifdef IOP_MONITOR
-#undef IOP_MOCK_MONITOR
-#endif
-#ifndef IOP_MOCK_MONITOR
+
 #ifndef IOP_MONITOR
 #define IOP_API_DISABLED
-#endif
-#else
-#ifndef IOP_MONITOR
-#define IOP_API_DISABLED
-#endif
 #endif
 
 #endif

@@ -1,12 +1,10 @@
 #include "api.hpp"
 #include "core/cert_store.hpp"
-#include "core/string/cow.hpp"
 #include "generated/certificates.hpp"
 #include "utils.hpp"
-#include "core/lazy.hpp"
 #include <string>
-
-static iop::Lazy<iop::CertStore> certStore([]() { return iop::CertStore(generated::certList); });
+#include "loop.hpp"
+#include "ArduinoJson.h"
 
 // TODO: have an endpoint to report non 200 response
 // TODO: have an endpoint to report CLIENT_BUFFER_OVERFLOWS
@@ -14,11 +12,40 @@ static iop::Lazy<iop::CertStore> certStore([]() { return iop::CertStore(generate
 #ifndef IOP_API_DISABLED
 
 #include "driver/client.hpp"
+#include "driver/server.hpp"
+#include "cont.h"
 
+auto Api::makeJson(const iop::StaticString name, const JsonCallback &func) const noexcept
+    -> std::optional<std::reference_wrapper<std::array<char, 1024>>> {
+  IOP_TRACE();
+  iop::logMemory(this->logger);
+
+  auto &doc = unused4KbSysStack.json();
+  doc.clear();
+  func(doc);
+
+  if (doc.overflowed()) {
+    this->logger.error(F("Payload doesn't fit Json<1024> at "), name);
+    return std::optional<std::reference_wrapper<std::array<char, 1024>>>();
+  }
+
+  auto &fixed = unused4KbSysStack.text();
+  fixed.fill('\0');
+  serializeJson(doc, fixed.data(), fixed.max_size());
+  this->logger.debug(F("Json: "), iop::to_view(fixed));
+  return std::make_optional(std::ref(fixed));
+}
+
+#ifdef IOP_ONLINE
 #ifndef IOP_DESKTOP
 static void upgradeScheduler() noexcept {
   utils::scheduleInterrupt(InterruptEvent::MUST_UPGRADE);
 }
+void wifiCredentialsCallback(const WiFiEventStationModeGotIP &ev) noexcept {
+  utils::scheduleInterrupt(InterruptEvent::ON_CONNECTION);
+  (void)ev;
+}
+#endif
 #endif
 
 auto Api::setup() const noexcept -> void {
@@ -26,12 +53,7 @@ auto Api::setup() const noexcept -> void {
 #ifdef IOP_ONLINE
 
 #ifndef IOP_DESKTOP
-  // Makes sure the event handlers are never dropped and only set once
-  static const auto onCallback = [](const WiFiEventStationModeGotIP &ev) {
-    utils::scheduleInterrupt(InterruptEvent::ON_CONNECTION);
-    (void)ev;
-  };
-  static const auto onHandler = WiFi.onStationModeGotIP(onCallback);
+  static const auto onHandler = WiFi.onStationModeGotIP(wifiCredentialsCallback);
   // Initialize the wifi configurations
 
   if (iop::Network::isConnected())
@@ -58,35 +80,21 @@ auto Api::reportPanic(const AuthToken &authToken,
   IOP_TRACE();
   this->logger.debug(F("Report iop_panic: "), event.msg);
 
-  // This should fit everything, but as a critical endpoint
-  // We truncate the message until it does (the metadata is never that big)
-  constexpr uint16_t bytes = 2048;
-
-  std::optional<std::string> truncatedMessage;
-  std::optional<iop::FixedString<bytes>> maybeJson;
+  auto msg = event.msg;
+  std::optional<std::reference_wrapper<std::array<char, 1024>>> maybeJson;
 
   while (true) {
-    const auto make = [event, &truncatedMessage](JsonDocument &doc) {
+    const auto make = [event, &msg](JsonDocument &doc) {
       doc["file"] = event.file.toStdString();
       doc["line"] = event.line;
-      // TODO: when ArduinoJson provides support for string_view we should stop this `.begin()` nonsense
-      doc["func"] = event.func.begin();
-      if (truncatedMessage.has_value()) {
-        doc["msg"] = iop::unwrap_ref(truncatedMessage, IOP_CTX());
-      } else {
-        doc["msg"] = event.msg.begin();
-      }
+      doc["func"] = event.func.toStdString();
+      doc["msg"] = msg;
     };
-    maybeJson = this->makeJson<bytes>(F("Api::reportPanic"), make);
+    maybeJson = this->makeJson(F("Api::reportPanic"), make);
 
     if (!maybeJson.has_value()) {
-      if (truncatedMessage.has_value()) {
-        auto &msg = iop::unwrap_mut(truncatedMessage, IOP_CTX());
-        if (msg.length() == 0) break;
-        msg.resize(msg.length() / 2);
-      } else {
-        truncatedMessage.emplace(event.msg.begin(), event.msg.length() / 2);
-      }
+      iop_assert(msg.length() / 2 != 0, F("Message would be empty, function is broken"));
+      msg = msg.substr(0, msg.length() / 2);
       continue;
     }
     break;
@@ -94,10 +102,10 @@ auto Api::reportPanic(const AuthToken &authToken,
 
   if (!maybeJson.has_value())
     return iop::NetworkStatus::CLIENT_BUFFER_OVERFLOW;
-  const auto &json = iop::unwrap(maybeJson, IOP_CTX());
+  const auto &json = iop::unwrap(maybeJson, IOP_CTX()).get();
 
-  const auto token = authToken.asString();
-  const auto maybeResp = this->network().httpPost(token.get(), F("/v1/panic"), json.get());
+  const auto token = std::string_view(authToken.data(), authToken.max_size());
+  auto const & maybeResp = this->network().httpPost(token, F("/v1/panic"), json.data());
 
 #ifndef IOP_MOCK_MONITOR
   if (iop::is_err(maybeResp)) {
@@ -125,13 +133,13 @@ auto Api::registerEvent(const AuthToken &authToken,
     doc["soil_resistivity_raw"] = event.storage.soilResistivityRaw;
   };
   // 256 bytes is more than enough (we checked, it doesn't get to 200 bytes)
-  auto maybeJson = this->makeJson<256>(F("Api::registerEvent"), make);
+  auto maybeJson = this->makeJson(F("Api::registerEvent"), make);
   if (!maybeJson.has_value())
     return iop::NetworkStatus::CLIENT_BUFFER_OVERFLOW;
-  const auto &json = iop::unwrap(maybeJson, IOP_CTX());
+  const auto &json = iop::unwrap(maybeJson, IOP_CTX()).get();
 
-  const auto token = authToken.asString();
-  const auto maybeResp = this->network().httpPost(token.get(), F("/v1/event"), json.get());
+  const auto token = std::string_view(authToken.data(), authToken.max_size());
+  auto const & maybeResp = this->network().httpPost(token, F("/v1/event"), json.data());
 
 #ifndef IOP_MOCK_MONITOR
   if (iop::is_err(maybeResp)) {
@@ -149,7 +157,7 @@ auto Api::authenticate(std::string_view username,
     -> std::variant<AuthToken, iop::NetworkStatus> {
   IOP_TRACE();
 
-  this->logger.debug(F("Authenticate IoP user: "), std::string(username));
+  this->logger.debug(F("Authenticate IoP user: "), username);
 
   if (!username.length() || !password.length()) {
     this->logger.debug(F("Empty username or password, at Api::authenticate"));
@@ -157,15 +165,17 @@ auto Api::authenticate(std::string_view username,
   }
 
   const auto make = [username, password](JsonDocument &doc) {
-    doc["email"] = std::move(username).begin();
-    doc["password"] = std::move(password).begin();
+    IOP_TRACE();
+    doc["email"] = username;
+    doc["password"] = password;
   };
-  auto maybeJson = this->makeJson<1024>(F("Api::authenticate"), make);
+  auto maybeJson = this->makeJson(F("Api::authenticate"), make);
+
   if (!maybeJson.has_value())
     return iop::NetworkStatus::CLIENT_BUFFER_OVERFLOW;
-  const auto &json = iop::unwrap(maybeJson, IOP_CTX());
-
-  auto maybeResp = this->network().httpPost(F("/v1/user/login"), json.get());
+  const auto &json = iop::unwrap(maybeJson, IOP_CTX()).get();
+  
+  auto const & maybeResp = this->network().httpPost(F("/v1/user/login"), json.data());
 
 #ifndef IOP_MOCK_MONITOR
   if (iop::is_err(maybeResp)) {
@@ -174,7 +184,7 @@ auto Api::authenticate(std::string_view username,
     return iop::NetworkStatus::BROKEN_SERVER;
   }
 
-  const auto resp = std::move(iop::unwrap_ok_mut(maybeResp, IOP_CTX()));
+  const auto & resp = iop::unwrap_ok_ref(maybeResp, IOP_CTX());
 
   if (resp.status != iop::NetworkStatus::OK) {
     return resp.status;
@@ -185,28 +195,17 @@ auto Api::authenticate(std::string_view username,
     return iop::NetworkStatus::BROKEN_SERVER;
   }
 
-  const auto &payload = iop::unwrap_ref(resp.payload, IOP_CTX());
-  auto result = AuthToken::fromString(payload);
-  if (iop::is_err(result)) {
-    const auto lengthStr = std::to_string(payload.length());
-
-    const iop::StaticString parseErr(F("Unprintable payload, this isn't supported: "));
-    const auto &ref = iop::unwrap_err_ref(result, IOP_CTX());
-    switch (ref) {
-    case iop::ParseError::TOO_BIG:
-      this->logger.error(F("Auth token is too big: size = "), lengthStr);
-      return iop::NetworkStatus::BROKEN_SERVER;
-    case iop::ParseError::NON_PRINTABLE:
-      this->logger.error(parseErr,
-                         iop::to_view(iop::scapeNonPrintable(payload)));
-      return iop::NetworkStatus::BROKEN_SERVER;
-    }
-    this->logger.error(F("Unexpected ParseError: "),
-                       std::to_string(static_cast<uint8_t>(ref)));
+  const auto & payload = iop::unwrap_ref(resp.payload, IOP_CTX());
+  if (!iop::isAllPrintable(payload)) {
+    this->logger.error(F("Unprintable payload, this isn't supported: "), iop::to_view(iop::scapeNonPrintable(payload)));
     return iop::NetworkStatus::BROKEN_SERVER;
   }
+  if (payload.length() != 64) {
+    this->logger.error(F("Auth token does not occupy 64 bytes: size = "), std::to_string(payload.length()));
+  }
 
-  return iop::unwrap_ok_mut(result, IOP_CTX());
+  memcpy(unused4KbSysStack.token().data(), payload.c_str(), 64);
+  return unused4KbSysStack.token();
 #else
   return AuthToken::empty();
 #endif
@@ -216,9 +215,9 @@ auto Api::registerLog(const AuthToken &authToken,
                       std::string_view log) const noexcept
     -> iop::NetworkStatus {
   IOP_TRACE();
-  const auto token = authToken.asString();
-  this->logger.debug(F("Register log. Token: "), iop::to_view(token), F(". Log: "), log);
-  auto maybeResp = this->network().httpPost(token.get(), F("/v1/log"), std::move(log));
+  const auto token = std::string_view(authToken.data(), authToken.max_size());
+  this->logger.debug(F("Register log. Token: "), token, F(". Log: "), log);
+  auto const & maybeResp = this->network().httpPost(token, F("/v1/log"), std::move(log));
 
 #ifndef IOP_MOCK_MONITOR
   if (iop::is_err(maybeResp)) {
@@ -236,9 +235,6 @@ auto Api::registerLog(const AuthToken &authToken,
 #ifdef IOP_DESKTOP
 #define LED_BUILTIN 0
 //#include "driver/upgrade.hpp"
-const static std::string emptyString;
-#else
-#include "ESP8266httpUpdate.h"
 #endif
 
 auto Api::upgrade(const AuthToken &token) const noexcept
@@ -249,22 +245,22 @@ auto Api::upgrade(const AuthToken &token) const noexcept
   #ifdef IOP_DESKTOP
   (void) token;
   #else
-  const auto tok = token.asString();
-  const auto path = F("/v1/update");
+  const iop::StaticString path = F("/v1/update");
 
   #ifndef IOP_DESKTOP
-  const auto uri = String(this->uri().get()) + path;
+  const auto uri = String(this->uri().get()) + path.get();
   #else
-  const auto uri = std::string(this->uri().asCharPtr()) + iop::StaticString(path).asCharPtr();
+  const auto uri = std::string(this->uri().asCharPtr()) + path.asCharPtr();
   #endif
 
   auto &client = iop::Network::wifiClient();
 
-  ESPhttpUpdate.setAuthorization(tok.get());
+  auto &ESPhttpUpdate = unused4KbSysStack.updater();
+  ESPhttpUpdate.setAuthorization(token.data());
   ESPhttpUpdate.closeConnectionsOnUpdate(true);
   ESPhttpUpdate.rebootOnUpdate(true);
-  ESPhttpUpdate.setLedPin(LED_BUILTIN);
-  const auto result = ESPhttpUpdate.updateFS(client, uri, emptyString);
+  //ESPhttpUpdate.setLedPin(LED_BUILTIN);
+  const auto result = ESPhttpUpdate.updateFS(client, uri, "");
 
 #ifdef IOP_MOCK_MONITOR
   return iop::NetworkStatus::OK;
@@ -327,7 +323,7 @@ auto Api::authenticate(std::string_view username,
   (void)std::move(username);
   (void)std::move(password);
   IOP_TRACE();
-  return AuthToken::empty();
+  return (AuthToken){0};
 }
 auto Api::registerLog(const AuthToken &authToken,
                       std::string_view log) const noexcept
@@ -342,15 +338,14 @@ auto Api::registerLog(const AuthToken &authToken,
 auto Api::setup() const noexcept -> void {}
 #endif
 
-
 Api::~Api() noexcept { IOP_TRACE(); }
 
 Api::Api(iop::StaticString uri, const iop::LogLevel logLevel) noexcept
-    : logger(logLevel, F("API")), network_(std::move(uri), logLevel) {
+    : network_(std::move(uri), logLevel), logger(logLevel, F("API")) {
   IOP_TRACE();
 }
 
-Api::Api(Api const &other) : logger(other.logger), network_(other.network_) {
+Api::Api(Api const &other) : network_(other.network_), logger(other.logger) {
   IOP_TRACE();
 }
 

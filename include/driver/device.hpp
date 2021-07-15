@@ -3,11 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
-
-namespace iop {
-class MD5Hash_class;
-class MacAddress_class;
-}
+#include <array>
 
 namespace driver {
 class Device {
@@ -15,10 +11,11 @@ public:
   auto availableFlash() const noexcept -> size_t;
   auto availableStack() const noexcept -> size_t;
   auto availableHeap() const noexcept -> size_t;
+  auto vcc() const noexcept -> uint16_t;
   auto biggestHeapBlock() const noexcept -> size_t;
   void deepSleep(uint32_t seconds) const noexcept;
-  iop::MD5Hash_class & binaryMD5() const noexcept;
-  iop::MacAddress_class & macAddress() const noexcept;
+  std::array<char, 32>& binaryMD5() const noexcept;
+  std::array<char, 17>& macAddress() const noexcept;
 };
 extern Device device;
 }

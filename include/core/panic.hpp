@@ -1,17 +1,16 @@
 #ifndef IOP_CORE_PANIC_HPP
 #define IOP_CORE_PANIC_HPP
 
-#include "core/tracer.hpp"
+#include "core/log.hpp"
 #include <functional>
 
 namespace iop {
 class PanicHook {
 public:
-  using ViewPanic = std::function<void(std::string_view const &, CodePoint const &)>;
-  using StaticPanic =
-      std::function<void(StaticString const &, CodePoint const &)>;
-  using Entry = std::function<void(std::string_view const &, CodePoint const &)>;
-  using Halt = std::function<void(std::string_view const &, CodePoint const &)>;
+  using ViewPanic = void (*)(std::string_view const &, CodePoint const &);
+  using StaticPanic = void (*) (StaticString const &, CodePoint const &);
+  using Entry = void (*) (std::string_view const &, CodePoint const &);
+  using Halt = void (*) (std::string_view const &, CodePoint const &);
 
   ViewPanic viewPanic;
   StaticPanic staticPanic;
@@ -28,7 +27,7 @@ public:
                           CodePoint const &point) noexcept
       __attribute__((noreturn));
 
-  PanicHook(ViewPanic view, StaticPanic progmem, Entry entry,
+  constexpr PanicHook(ViewPanic view, StaticPanic progmem, Entry entry,
             Halt halt) noexcept
       : viewPanic(std::move(view)), staticPanic(std::move(progmem)),
         entry(std::move(entry)), halt(std::move(halt)) {}
@@ -46,6 +45,9 @@ void panicHandler(std::string_view msg, CodePoint const &point) noexcept
     __attribute__((noreturn));
 void panicHandler(StaticString msg, CodePoint const &point) noexcept
     __attribute__((noreturn));
+
+class Log;
+Log & panicLogger() noexcept;
 } // namespace iop
 
 /// Panic. Never returns. Logs panic to network if available (and serial).

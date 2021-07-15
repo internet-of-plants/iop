@@ -1,19 +1,14 @@
 #include "core/panic.hpp"
 #include "core/log.hpp"
-#include "core/tracer.hpp"
+#include "core/log.hpp"
 #include "core/utils.hpp"
-#include "core/lazy.hpp"
-
-#include <iostream>
 
 #include "driver/device.hpp"
 #include "driver/thread.hpp"
 
-static iop::Lazy<iop::Log> logger([]() { return iop::Log(iop::LogLevel::CRIT, F("PANIC")); });
-
 static bool isPanicking = false;
 
-const static iop::PanicHook defaultHook(iop::PanicHook::defaultViewPanic,
+constexpr static iop::PanicHook defaultHook(iop::PanicHook::defaultViewPanic,
                                         iop::PanicHook::defaultStaticPanic,
                                         iop::PanicHook::defaultEntry,
                                         iop::PanicHook::defaultHalt);
@@ -21,6 +16,11 @@ const static iop::PanicHook defaultHook(iop::PanicHook::defaultViewPanic,
 static iop::PanicHook hook(defaultHook);
 
 namespace iop {
+Log & panicLogger() noexcept {
+  static iop::Log logger(iop::LogLevel::CRIT, F("PANIC"));
+  return logger;
+}
+
 void panicHandler(std::string_view msg, CodePoint const &point) noexcept {
   IOP_TRACE();
   hook.entry(msg, point);
@@ -29,7 +29,6 @@ void panicHandler(std::string_view msg, CodePoint const &point) noexcept {
   driver::thisThread.panic_();
 }
 
-#include <iostream>
 void panicHandler(StaticString msg, CodePoint const &point) noexcept {
   IOP_TRACE();
   const auto msg_ = msg.toStdString();
@@ -47,22 +46,22 @@ void setPanicHook(PanicHook newHook) noexcept { hook = std::move(newHook); }
 
 void PanicHook::defaultViewPanic(std::string_view const &msg,
                                  CodePoint const &point) noexcept {
-  logger->crit(F("Line "), ::std::to_string(point.line()), F(" of file "), point.file(),
-              F(" inside "), point.func(), F(": "), std::string(msg));
+  iop::panicLogger().crit(F("Line "), ::std::to_string(point.line()), F(" of file "), point.file(),
+              F(" inside "), point.func(), F(": "), msg);
 }
 void PanicHook::defaultStaticPanic(iop::StaticString const &msg,
                                    CodePoint const &point) noexcept {
-  logger->crit(F("Line "), ::std::to_string(point.line()), F(" of file "), point.file(),
-              F(" inside "), std::string(point.func()), F(": "), msg);
+  iop::panicLogger().crit(F("Line "), ::std::to_string(point.line()), F(" of file "), point.file(),
+              F(" inside "), point.func(), F(": "), msg);
 }
 void PanicHook::defaultEntry(std::string_view const &msg,
                              CodePoint const &point) noexcept {
   IOP_TRACE();
   if (isPanicking) {
-    logger->crit(F("PANICK REENTRY: Line "), std::to_string(point.line()),
-                F(" of file "), point.file(), F(" inside "), std::string(point.func()),
-                F(": "), std::string(msg));
-    iop::logMemory(*logger);
+    iop::panicLogger().crit(F("PANICK REENTRY: Line "), std::to_string(point.line()),
+                F(" of file "), point.file(), F(" inside "), point.func(),
+                F(": "), msg);
+    iop::logMemory(iop::panicLogger());
     driver::device.deepSleep(0);
     driver::thisThread.panic_();
   }

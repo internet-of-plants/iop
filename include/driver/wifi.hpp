@@ -23,7 +23,6 @@ extern Wifi wifi;
 }
 
 #ifdef IOP_DESKTOP
-#include "core/string/cow.hpp"
 #include <cstring>
 
 class IPAddress {
@@ -84,17 +83,20 @@ public:
     (void)subnet;
   }
 
-  iop::CowString localIP() {
-    return iop::CowString(std::string_view("192.168.0.1"));
+  std::string localIP() {
+    return std::string("192.168.0.1"));
   }
 
-  iop::CowString softAPIP() {
-    return iop::CowString(std::string_view("127.0.0.1"));
+  std::string softAPIP() {
+    return std::string("127.0.0.1"));
   }
 };
-static Wifi WiFi;
 #else
 #include "ESP8266WiFi.h"
 #endif
+
+namespace driver {
+extern Wifi WiFi;
+}
 
 #endif

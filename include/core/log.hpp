@@ -4,6 +4,21 @@
 #include "driver/log.hpp"
 #include <functional>
 
+#define IOP_FILE ::iop::StaticString(FPSTR(__FILE__))
+#define IOP_LINE static_cast<uint32_t>(__LINE__)
+#define IOP_FUNC ::iop::StaticString(FPSTR(__PRETTY_FUNCTION__))
+
+/// Returns CodePoint object pointing to the caller
+/// this is useful to track callers of functions that can panic
+#define IOP_CTX() IOP_CODE_POINT()
+#define IOP_CODE_POINT() ::iop::CodePoint(IOP_FILE, IOP_LINE, IOP_FUNC)
+
+/// Logs scope changes to serial if logLevel is set to TRACE
+#define IOP_TRACE() IOP_TRACE_INNER(__COUNTER__)
+// Technobabble to stringify __COUNTER__
+#define IOP_TRACE_INNER(x) IOP_TRACE_INNER2(x)
+#define IOP_TRACE_INNER2(x) const ::iop::Tracer iop_tracer_##x(IOP_CODE_POINT());
+
 namespace iop {
 
 enum class LogLevel { TRACE, DEBUG, INFO, WARN, ERROR, CRIT, NO_LOG };
@@ -11,11 +26,10 @@ enum class LogType { START, CONTINUITY, STARTEND, END };
 
 class LogHook {
 public:
-  using ViewPrinter = std::function<void(std::string_view, LogLevel, LogType)>;
-  using StaticPrinter =
-      std::function<void(StaticString, LogLevel, LogType)>;
-  using Setuper = std::function<void(LogLevel)>;
-  using Flusher = std::function<void()>;
+  using ViewPrinter = void (*) (std::string_view, LogLevel, LogType);
+  using StaticPrinter = void (*) (StaticString, LogLevel, LogType);
+  using Setuper = void (*) (LogLevel);
+  using Flusher = void (*) ();
 
   using TraceViewPrinter = ViewPrinter;
   using TraceStaticPrinter = StaticPrinter;
@@ -37,14 +51,25 @@ public:
   static void defaultSetuper(iop::LogLevel level) noexcept;
   static void defaultFlusher() noexcept;
 
-  LogHook(ViewPrinter viewPrinter, StaticPrinter staticPrinter, Setuper setuper,
-          Flusher flusher) noexcept;
+  constexpr LogHook(LogHook::ViewPrinter viewPrinter,
+                 LogHook::StaticPrinter staticPrinter, LogHook::Setuper setuper,
+                 LogHook::Flusher flusher) noexcept
+    : viewPrint(std::move(viewPrinter)), staticPrint(std::move(staticPrinter)),
+      setup(std::move(setuper)), flush(std::move(flusher)),
+      traceViewPrint(defaultViewPrinter),
+      traceStaticPrint(defaultStaticPrinter) {}
   // Specifies custom tracer funcs, may be called from interrupts (put it into
   // ICACHE_RAM). Don't be fancy, and be aware, it can saturate channels very
   // fast
-  LogHook(ViewPrinter viewPrinter, StaticPrinter staticPrinter, Setuper setuper,
-          Flusher flusher, TraceViewPrinter traceViewPrint,
-          TraceStaticPrinter traceStaticPrint) noexcept;
+  constexpr LogHook(LogHook::ViewPrinter viewPrinter,
+                  LogHook::StaticPrinter staticPrinter, LogHook::Setuper setuper,
+                  LogHook::Flusher flusher,
+                  LogHook::TraceViewPrinter traceViewPrint,
+                  LogHook::TraceStaticPrinter traceStaticPrint) noexcept
+      : viewPrint(std::move(viewPrinter)), staticPrint(std::move(staticPrinter)),
+        setup(std::move(setuper)), flush(std::move(flusher)),
+        traceViewPrint(std::move(traceViewPrint)),
+        traceStaticPrint(std::move(traceStaticPrint)) {}
   ~LogHook() noexcept = default;
   LogHook(LogHook const &other) noexcept;
   LogHook(LogHook &&other) noexcept;
@@ -114,9 +139,9 @@ public:
                      const StaticString msg,
                      const Args &...args) const noexcept {
     if (first) {
-      this->log(level, msg, LogType::START, emptyStaticString);
+      this->log(level, msg, LogType::START, F(""));
     } else {
-      this->log(level, msg, LogType::CONTINUITY, emptyStaticString);
+      this->log(level, msg, LogType::CONTINUITY, F(""));
     }
     this->log_recursive(level, false, args...);
   }
@@ -137,9 +162,9 @@ public:
   void log_recursive(const LogLevel &level, const bool first,
                      const std::string_view msg, const Args &...args) const noexcept {
     if (first) {
-      this->log(level, msg, LogType::START, emptyStaticString);
+      this->log(level, msg, LogType::START, F(""));
     } else {
-      this->log(level, msg, LogType::CONTINUITY, emptyStaticString);
+      this->log(level, msg, LogType::CONTINUITY, F(""));
     }
     this->log_recursive(level, false, args...);
   }
@@ -170,6 +195,44 @@ public:
   Log(Log &&other) noexcept = default;
   auto operator=(Log const &other) noexcept -> Log & = default;
   auto operator=(Log &&other) noexcept -> Log & = default;
+};
+
+class CodePoint {
+  StaticString file_;
+  uint32_t line_;
+  StaticString func_;
+
+public:
+  // Use the IOP_CODE_POINT() macro to construct CodePoint
+  CodePoint(StaticString file, uint32_t line, StaticString func) noexcept
+      : file_(file), line_(line), func_(func) {}
+  auto file() const noexcept -> StaticString { return this->file_; }
+  auto line() const noexcept -> uint32_t { return this->line_; }
+  auto func() const noexcept -> StaticString { return this->func_; }
+
+  ~CodePoint() noexcept = default;
+  CodePoint(const CodePoint &other) noexcept = default;
+  CodePoint(CodePoint &&other) noexcept = default;
+  auto operator=(const CodePoint &other) noexcept -> CodePoint & = default;
+  auto operator=(CodePoint &&other) noexcept -> CodePoint & = default;
+};
+
+/// Tracer objects, that signifies scoping changes. Helps with post-mortemns
+/// analysis
+///
+/// Doesn't use the official logging system because it's supposed to be used
+/// only when physically debugging very specific bugs, and is unfit for network
+/// logging.
+class Tracer {
+  CodePoint point;
+
+public:
+  explicit Tracer(CodePoint point) noexcept;
+  ~Tracer() noexcept;
+  Tracer(const Tracer &other) noexcept = delete;
+  Tracer(Tracer &&other) noexcept = delete;
+  auto operator=(const Tracer &other) noexcept -> Tracer & = delete;
+  auto operator=(Tracer &&other) noexcept -> Tracer & = delete;
 };
 } // namespace iop
 

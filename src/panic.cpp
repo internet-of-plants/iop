@@ -1,28 +1,23 @@
 #include "core/panic.hpp"
-#include "api.hpp"
 #include "configuration.hpp"
-#include "flash.hpp"
-#include "core/lazy.hpp"
 
+#include "loop.hpp"
 #include "driver/device.hpp"
-
-static iop::Lazy<iop::Log> logger([]() { return iop::Log(iop::LogLevel::DEBUG, F("PANIC")); });
-
-static iop::Lazy<Api> api([]() { return Api(uri(), iop::LogLevel::DEBUG); });
-static iop::Lazy<Flash> flash([]() { return Flash(iop::LogLevel::DEBUG); });
 
 void upgrade() noexcept {
   IOP_TRACE();
-  const auto &maybeToken = flash->readAuthToken();
+  const auto &maybeToken = unused4KbSysStack.loop().flash().readAuthToken();
   if (!maybeToken.has_value())
     return;
 
   const auto &token = iop::unwrap_ref(maybeToken, IOP_CTX());
-  const auto status = api->upgrade(token);
+  const auto status = unused4KbSysStack.loop().api().upgrade(token);
 
   switch (status) {
   case iop::NetworkStatus::FORBIDDEN:
-    logger->warn(F("Invalid auth token, but keeping since at iop_panic"));
+    // TODO: think about allowing global updates (if you are logged out and panicking get a safe global version and recover from it)
+    // This brings security problems of getting your app hijacked and complicates binary signing
+    iop::panicLogger().warn(F("Invalid auth token, but keeping since at iop_panic"));
     return;
 
   case iop::NetworkStatus::CLIENT_BUFFER_OVERFLOW:
@@ -39,20 +34,20 @@ void upgrade() noexcept {
   }
 
   const auto str = iop::Network::apiStatusToString(status);
-  logger->error(F("Bad status, EventLoop::handleInterrupt "), str);
+  iop::panicLogger().error(F("Bad status, EventLoop::handleInterrupt "), str);
 }
 
 // TODO(pc): save unique panics to flash
 // TODO(pc): dump stackstrace on iop_panic
 // https://github.com/sticilface/ESPmanager/blob/dce7fc06806a90c179a40eb2d74f4278fffad5b4/src/SaveStack.cpp
 auto reportPanic(const std::string_view &msg, const iop::StaticString &file,
-                 const uint32_t line, const std::string_view &func) noexcept
+                 const uint32_t line, const iop::StaticString &func) noexcept
     -> bool {
   IOP_TRACE();
 
-  const auto &maybeToken = flash->readAuthToken();
+  const auto &maybeToken = unused4KbSysStack.loop().flash().readAuthToken();
   if (!maybeToken.has_value()) {
-    logger->crit(F("No auth token, unable to report iop_panic"));
+    iop::panicLogger().crit(F("No auth token, unable to report iop_panic"));
     return false;
   }
 
@@ -64,23 +59,23 @@ auto reportPanic(const std::string_view &msg, const iop::StaticString &file,
       func,
   };
 
-  const auto status = api->reportPanic(token, panicData);
+  const auto status = unused4KbSysStack.loop().api().reportPanic(token, panicData);
 
   switch (status) {
   case iop::NetworkStatus::FORBIDDEN:
-    logger->warn(F("Invalid auth token, but keeping since at iop_panic"));
+    iop::panicLogger().warn(F("Invalid auth token, but keeping since at iop_panic"));
     return false;
 
   case iop::NetworkStatus::CLIENT_BUFFER_OVERFLOW:
     // TODO(pc): deal with this, but how? Truncating the msg?
     // Should we have an endpoint to report this type of error that can't
     // trigger it?
-    logger->crit(F("Api::reportPanic client buffer overflow"));
+    iop::panicLogger().crit(F("Api::reportPanic client buffer overflow"));
     return false;
 
   case iop::NetworkStatus::BROKEN_SERVER:
     // Nothing we can do besides waiting.
-    logger->crit(F("Api::reportPanic is broken"));
+    iop::panicLogger().crit(F("Api::reportPanic is broken"));
     return false;
 
   case iop::NetworkStatus::CONNECTION_ISSUES:
@@ -88,11 +83,11 @@ auto reportPanic(const std::string_view &msg, const iop::StaticString &file,
     return false;
 
   case iop::NetworkStatus::OK:
-    logger->info(F("Reported iop_panic to server successfully"));
+    iop::panicLogger().info(F("Reported iop_panic to server successfully"));
     return true;
   }
   const auto str = iop::Network::apiStatusToString(status);
-  logger->error(F("Unexpected status, iop_panic.h: reportPanic: "), str);
+  iop::panicLogger().error(F("Unexpected status, iop_panic.h: reportPanic: "), str);
   return false;
 }
 
@@ -105,21 +100,20 @@ static void halt(const std::string_view &msg,
   IOP_TRACE();
   auto reportedPanic = false;
 
-  constexpr const uint32_t tenMinutes = 10 * 60;
   constexpr const uint32_t oneHour = ((uint32_t)60) * 60;
   while (true) {
-    if (!flash->readWifiConfig().has_value()) {
-      logger->warn(F("Nothing we can do, no wifi config available"));
+    if (!unused4KbSysStack.loop().flash().readWifiConfig().has_value()) {
+      iop::panicLogger().warn(F("Nothing we can do, no wifi config available"));
       break;
     }
 
-    if (!flash->readAuthToken().has_value()) {
-      logger->warn(F("Nothing we can do, no auth token available"));
+    if (!unused4KbSysStack.loop().flash().readAuthToken().has_value()) {
+      iop::panicLogger().warn(F("Nothing we can do, no auth token available"));
       break;
     }
 
     if (WiFi.getMode() == WIFI_OFF) {
-      logger->crit(F("WiFi is disabled, unable to recover"));
+      iop::panicLogger().crit(F("WiFi is disabled, unable to recover"));
       break;
     }
 
@@ -131,12 +125,10 @@ static void halt(const std::string_view &msg,
       // Panic data is lost if report fails but upgrade works
       // Doesn't return if upgrade succeeds
       upgrade();
-
-      driver::device.deepSleep(tenMinutes);
     } else {
-      logger->warn(F("No network, unable to recover"));
-      driver::device.deepSleep(oneHour);
+      iop::panicLogger().warn(F("No network, unable to recover"));
     }
+    driver::device.deepSleep(oneHour);
 
     // Let's allow the wifi to reconnect
     WiFi.forceSleepWake();

@@ -22,8 +22,7 @@
 #include <vector>
 #include <string>
 #include <unordered_map>
-#include "core/string/static.hpp"
-#include "core/string/fixed.hpp"
+#include "core/string.hpp"
 #include "core/utils.hpp"
 #include "core/log.hpp"
 
@@ -36,10 +35,8 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <iostream>
-#include "core/lazy.hpp"
 
-static iop::Lazy<iop::Log> clientDriverLogger([]() { return iop::Log(iop::LogLevel::WARN, F("HTTP Client")); });
+static iop::Log clientDriverLogger(iop::LogLevel::WARN, F("HTTP Client"));
 
 static ssize_t send__(uint32_t fd, const char * msg, const size_t len) noexcept {
   if (iop::Log::isTracing())
@@ -202,7 +199,7 @@ public:
     this->responsePayload.clear();
 
     const std::string_view path(this->uri.c_str() + this->uri.find("/", this->uri.find("://") + 3));
-    clientDriverLogger->debug(F("Send request to "), std::string(path));
+    clientDriverLogger->debug(F("Send request to "), path);
 
     uint32_t fd = iop::unwrap_ref(this->currentFd, IOP_CTX());
     if (clientDriverLogger->level() == iop::LogLevel::TRACE || iop::Log::isTracing())

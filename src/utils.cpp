@@ -1,5 +1,4 @@
 #include "utils.hpp"
-#include "models.hpp"
 
 static volatile InterruptEvent interruptEvents[interruptVariants] = {
     InterruptEvent::NONE};

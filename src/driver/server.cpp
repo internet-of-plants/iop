@@ -1,22 +1,21 @@
 #include "driver/server.hpp"
-#include "core/lazy.hpp"
+#include "loop.hpp"
 
-static iop::Lazy<iop::Log> logger([]() { return iop::Log(iop::LogLevel::WARN, F("HTTP Server")); });
+iop::Log & logger() noexcept {
+  static iop::Log logger_(iop::LogLevel::WARN, F("HTTP Server"));
+  return logger_;
+}
 #ifdef IOP_DESKTOP
-#include "core/string/static.hpp"
-#include "core/string/cow.hpp"
+#include "core/string.hpp"
 
 #include <memory>
 #include <functional>
 #include <unordered_map>
 #include <unordered_set>
 #include <string>
-#include "core/string/fixed.hpp"
 #include <optional>
 #include "core/log.hpp"
 #include "core/utils.hpp"
-
-#include <iostream>
 
 // TODO: Make it multiplatform
 // Berkeley sockets, so assumes POSIX compliant OS //
@@ -28,7 +27,6 @@ static iop::Lazy<iop::Log> logger([]() { return iop::Log(iop::LogLevel::WARN, F(
 #include <errno.h>
 #include <thread>
 #include <chrono>
-#include "core/lazy.hpp"
 
 static size_t send(uint32_t fd, const char * msg, const size_t len) noexcept {
   if (iop::Log::isTracing()) iop::Log::print(msg, iop::LogLevel::TRACE, iop::LogType::STARTEND);
@@ -68,17 +66,17 @@ void HttpServer::begin() noexcept {
 
   int32_t fd = 0;
   if ((fd = socket(AF_INET, SOCK_STREAM, 0)) <= 0) {
-    logger->error(F("Unable to open socket"));
+    logger().error(F("Unable to open socket"));
     return;
   }
   
   int flags = fcntl(fd, F_GETFL, 0);
   if (flags == -1) {
-    logger->error(F("fnctl get failed: "), std::to_string(flags));
+    logger().error(F("fnctl get failed: "), std::to_string(flags));
     return;
   }
   if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) != 0) {
-    logger->error(F("fnctl set failed"));
+    logger().error(F("fnctl set failed"));
     return;
   }
 
@@ -97,10 +95,10 @@ void HttpServer::begin() noexcept {
   }
 
   if (listen(fd, 100) < 0) {
-    logger->error(F("Unable to listen socket"));
+    logger().error(F("Unable to listen socket"));
     return;
   }
-  logger->info(F("Listening to port "), std::to_string(this->port));
+  logger().info(F("Listening to port "), std::to_string(this->port));
 
   this->maybeAddress = std::make_optional(address);
 }
@@ -121,65 +119,65 @@ void HttpServer::handleClient() noexcept {
   int32_t client = 0;
   if ((client = accept(fd, (sockaddr *)&address, &addr_len)) <= 0) {
     if (client == 0) {
-      logger->error(F("Client fd is zero"));
+      logger().error(F("Client fd is zero"));
     } else if (errno != EAGAIN && errno != EWOULDBLOCK) {
-      logger->error(F("Error accepting connection ("), std::to_string(errno), F("): "), strerror(errno));
+      logger().error(F("Error accepting connection ("), std::to_string(errno), F("): "), strerror(errno));
     }
     this->isHandlingRequest = false;
     return;
   }
-  logger->debug(F("Accepted connection: "), std::to_string(client));
+  logger().debug(F("Accepted connection: "), std::to_string(client));
   conn.currentClient = std::make_optional(client);
 
   bool firstLine = true;
   bool isPayload = false;
   
-  auto buffer = HttpConnection::Buffer::empty();
-  auto *start = buffer.asMut();
+  auto buffer = HttpConnection::Buffer({0});
+  auto *start = buffer.data();
   while (true) {
-    logger->debug(F("Try read: "), std::to_string(buffer.length()));
+    logger().debug(F("Try read: "), std::to_string(strnlen(buffer.begin(), 1024)));
 
     ssize_t len = 0;
-    start += buffer.length();
-    if (buffer.length() < buffer.size &&
-        (len = read(client, start, buffer.size - buffer.length())) < 0) {
-      logger->error(F("Read error: "), std::to_string(len));
+    start += strnlen(buffer.begin(), 1024);
+    if (strnlen(buffer.begin(), 1024) < buffer.max_size() &&
+        (len = read(client, start, buffer.max_size() - strnlen(buffer.begin(), 1024))) < 0) {
+      logger().error(F("Read error: "), std::to_string(len));
       if (errno == EAGAIN || errno == EWOULDBLOCK) {
         using namespace std::chrono_literals;
         std::this_thread::sleep_for(50ms);
         continue;
       } else {
-        logger->error(F("Error reading from socket: "), std::to_string(errno), F("): "), strerror(errno));
+        logger().error(F("Error reading from socket: "), std::to_string(errno), F("): "), strerror(errno));
         conn.reset();
         this->isHandlingRequest = false;
         return;
       }
     }
-    logger->debug(F("Len: "), std::to_string(len));
+    logger().debug(F("Len: "), std::to_string(len));
     if (firstLine == true && len == 0) {
-      logger->error(F("Empty request"));
+      logger().error(F("Empty request"));
       conn.reset();
       this->isHandlingRequest = false;
       return;
     }
-    logger->debug(F("Read: ("), std::to_string(len), F(") ["), std::to_string(buffer.length()));
+    logger().debug(F("Read: ("), std::to_string(len), F(") ["), std::to_string(strnlen(buffer.begin(), 1024)));
 
     std::string_view buff(buffer.get());
     if (len > 0 && firstLine) {
       if (buff.find("POST") != buff.npos) {
         const ssize_t space = std::string_view(buff.begin() + 5).find(" ");
         conn.currentRoute = std::string(buff.begin() + 5, space);
-        logger->debug(F("POST: "), conn.currentRoute);
+        logger().debug(F("POST: "), conn.currentRoute);
       } else if (buff.find("GET") != buff.npos) {
         const ssize_t space = std::string_view(buff.begin() + 4).find(" ");
         conn.currentRoute = std::string(buff.begin() + 4, space);
-        logger->debug(F("GET: "), conn.currentRoute);
+        logger().debug(F("GET: "), conn.currentRoute);
       } else if (buff.find("OPTIONS") != buff.npos) {
         const ssize_t space = std::string_view(buff.begin() + 7).find(" ");
         conn.currentRoute = std::string(buff.begin() + 7, space);
-        logger->debug(F("OPTIONS: "), conn.currentRoute);
+        logger().debug(F("OPTIONS: "), conn.currentRoute);
       } else {
-        logger->error(F("HTTP Method not found: "), buff);
+        logger().error(F("HTTP Method not found: "), buff);
         conn.reset();
         this->isHandlingRequest = false;
         return;
@@ -187,12 +185,12 @@ void HttpServer::handleClient() noexcept {
       firstLine = false;
       
       iop_assert(buff.find("\n") != buff.npos, iop::StaticString(F("First: ")).toStdString() + std::to_string(buff.length()) + iop::StaticString(F(" bytes don't contain newline, the path is too long\n")).toStdString());
-      logger->debug(F("Found first line"));
+      logger().debug(F("Found first line"));
       const char* ptr = buff.begin() + buff.find("\n") + 1;
-      memmove(buffer.asMut(), ptr, strlen(ptr) + 1);
+      memmove(buffer.data(), ptr, strlen(ptr) + 1);
       buff = buffer.get();
     }
-    logger->debug(F("Headers + Payload: "), buff);
+    logger().debug(F("Headers + Payload: "), buff);
 
     while (len > 0 && buff.length() > 0 && !isPayload) {
       // TODO: if empty line is split into two reads (because of buff len) we are screwed
@@ -201,46 +199,46 @@ void HttpServer::handleClient() noexcept {
         isPayload = true;
 
         const char* ptr = buff.begin() + buff.find("\r\n\r\n") + 4;
-        memmove(buffer.asMut(), ptr, strlen(ptr) + 1);
-        buff = buffer.get();
+        memmove(buffer.data(), ptr, strlen(ptr) + 1);
+        buff = buffer.data();
         if (buff.find("\n") == buff.npos) continue;
       } else if (buff.find("\r\n") == buff.npos) {
         iop_panic(F("Bad code"));
       } else {
         const char* ptr = buff.begin() + buff.find("\r\n") + 2;
-        memmove(buffer.asMut(), ptr, strlen(ptr) + 1);
+        memmove(buffer.data(), ptr, strlen(ptr) + 1);
         buff = buffer.get();
         // TODO: could this enter in a infinite loop?
         if (buff.find("\n") == buff.npos) continue;
       }
     }
 
-    logger->debug(F("Payload ("), std::to_string(buff.length()), F(") ["), std::to_string(len), F("]: "), buff);
+    logger().debug(F("Payload ("), std::to_string(buff.length()), F(") ["), std::to_string(len), F("]: "), buff);
 
     conn.currentPayload += buff;
 
     // TODO: For some weird reason `read` is blocking if we try to read after EOF
-    // But it's not clear what will happen if EOF is exactly at buffer.size
+    // But it's not clear what will happen if EOF is exactly at buffer.max_size()
     // Because it will continue, altough there isn't anything, but it's blocking on EOF
     // But this behavior is not documented. To replicate remove:
-    // ` && len == buffer.size` and it will get stuck in the `read` above
-    if (len > 0 && buff.length() > 0 && len == buffer.size)
+    // ` && len == buffer.max_size()` and it will get stuck in the `read` above
+    if (len > 0 && buff.length() > 0 && len == buffer.max_size())
       continue;
 
-    logger->debug(F("Route: "), conn.currentRoute);
+    logger().debug(F("Route: "), conn.currentRoute);
     iop::Log::shouldFlush(false);
     if (this->router.count(conn.currentRoute) != 0) {
       this->router.at(conn.currentRoute)(conn, *logger);
     } else {
-      logger->debug(F("Route not found"));
+      logger().debug(F("Route not found"));
       this->notFoundHandler(conn, *logger);
     }
     iop::Log::shouldFlush(true);
-    logger->flush();
+    logger().flush();
     break;
   }
 
-  logger->debug(F("Close connection"));
+  logger().debug(F("Close connection"));
   conn.reset();
   this->isHandlingRequest = false;
 }
@@ -261,7 +259,7 @@ void HttpServer::onNotFound(HttpServer::Callback fn) noexcept {
 }
 
 static auto percentDecode(const std::string_view input) noexcept -> std::optional<std::string> {
-  logger->debug(F("Decode: "), input);
+  logger().debug(F("Decode: "), input);
   static const char tbl[256] = {
     -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
     -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
@@ -318,13 +316,13 @@ std::optional<std::string> HttpConnection::arg(const iop::StaticString name) con
 
   if (end == view.npos) {
     const auto decoded = percentDecode(view);
-    logger->debug(decoded.value_or("No value"));
+    logger().debug(decoded.value_or("No value"));
     return decoded;
   }
 
   const auto msg = view.substr(0, end);
   const auto decoded = percentDecode(msg);
-  logger->debug(decoded.value_or("No value"));
+  logger().debug(decoded.value_or("No value"));
   return decoded;
 }
 
@@ -374,7 +372,7 @@ void HttpConnection::sendData(iop::StaticString content) const noexcept {
   IOP_TRACE();
   if (!this->currentClient.has_value()) return;
   const int32_t fd = iop::unwrap_ref(this->currentClient, IOP_CTX());
-  logger->debug(F("Send Content ("), std::to_string(content.length()), F("): "), content);
+  logger().debug(F("Send Content ("), std::to_string(content.length()), F("): "), content);
   
   if (iop::Log::isTracing())
     iop::Log::print(F(""), iop::LogLevel::TRACE, iop::LogType::START);
@@ -387,59 +385,72 @@ void CaptivePortal::close() const noexcept {}
 void CaptivePortal::handleClient() const noexcept {}
 }
 #else
-#include <DNSServer.h>
-#include <ESP8266WebServer.h>
 #include <user_interface.h>
 #include <optional>
+#include "utils.hpp"
+#include <DNSServer.h>
 
-static std::optional<ESP8266WebServer> server;
-static DNSServer dnsServer;
 
 namespace driver {
 auto HttpConnection::arg(iop::StaticString arg) const noexcept -> std::optional<std::string> {
-  if (!iop::unwrap_mut(server, IOP_CTX()).hasArg(arg.asCharPtr())) return std::optional<std::string>();
-  return std::string(iop::unwrap_mut(server, IOP_CTX()).arg(arg.asCharPtr()).c_str());
+  if (!iop::unwrap_mut(unused4KbSysStack.server(), IOP_CTX()).hasArg(arg.asCharPtr())) return std::optional<std::string>();
+  return std::string(iop::unwrap_mut(unused4KbSysStack.server(), IOP_CTX()).arg(arg.asCharPtr()).c_str());
 }
 void HttpConnection::sendHeader(iop::StaticString name, iop::StaticString value) noexcept {
-  iop::unwrap_mut(server, IOP_CTX()).sendHeader(String(name.asCharPtr()), String(value.asCharPtr()));
+  iop::unwrap_mut(unused4KbSysStack.server(), IOP_CTX()).sendHeader(String(name.asCharPtr()), String(value.asCharPtr()));
 }
 void HttpConnection::send(uint16_t code, iop::StaticString type, iop::StaticString data) const noexcept {
-  iop::unwrap_mut(server, IOP_CTX()).send_P(code, type.asCharPtr(), data.asCharPtr());
+  iop::unwrap_mut(unused4KbSysStack.server(), IOP_CTX()).send_P(code, type.asCharPtr(), data.asCharPtr());
 }
 void HttpConnection::sendData(iop::StaticString data) const noexcept {
-  iop::unwrap_mut(server, IOP_CTX()).sendContent_P(data.asCharPtr());
+  iop::unwrap_mut(unused4KbSysStack.server(), IOP_CTX()).sendContent_P(data.asCharPtr());
 }
 void HttpConnection::setContentLength(size_t length) noexcept {
-  iop::unwrap_mut(server, IOP_CTX()).setContentLength(length);
+  iop::unwrap_mut(unused4KbSysStack.server(), IOP_CTX()).setContentLength(length);
 }
 void HttpConnection::reset() noexcept {}
 
-HttpServer::HttpServer(uint32_t port) noexcept { server.emplace(port); }
-void HttpServer::begin() noexcept { iop::unwrap_mut(server, IOP_CTX()).begin(); }
-void HttpServer::close() noexcept { iop::unwrap_mut(server, IOP_CTX()).close(); }
-void HttpServer::handleClient() noexcept { 
+static uint32_t serverPort = 0;
+HttpServer::HttpServer(uint32_t port) noexcept { IOP_TRACE(); serverPort = port; }
+
+static ESP8266WebServer & server(::iop::CodePoint const &point) noexcept {
+  static bool initialized = false;
+  if (!initialized) {
+    iop_assert(serverPort != 0, F("Server port is not defined"));
+    unused4KbSysStack.server().emplace(serverPort);
+    initialized = true;
+  }
+  return iop::unwrap_mut(unused4KbSysStack.server(), IOP_CTX());
+}
+
+void HttpServer::begin() noexcept { IOP_TRACE(); server(IOP_CTX()).begin(); }
+void HttpServer::close() noexcept { IOP_TRACE(); server(IOP_CTX()).close(); }
+void HttpServer::handleClient() noexcept {
+  IOP_TRACE();
   iop_assert(!this->isHandlingRequest, F("Already handling a client"));
   this->isHandlingRequest = true;
-  iop::unwrap_mut(server, IOP_CTX()).handleClient();
+  server(IOP_CTX()).handleClient();
   this->isHandlingRequest = false;
 }
 void HttpServer::on(iop::StaticString uri, Callback handler) noexcept {
-  iop::unwrap_mut(server, IOP_CTX()).on(uri.asCharPtr(), [handler]() { HttpConnection conn; handler(conn, *logger); });
+  IOP_TRACE();
+  server(IOP_CTX()).on(uri.asCharPtr(), [handler]() { HttpConnection conn; handler(conn, logger()); });
 }
 void HttpServer::onNotFound(Callback handler) noexcept {
-  iop::unwrap_mut(server, IOP_CTX()).onNotFound([handler]() { HttpConnection conn; handler(conn, *logger); });
+  IOP_TRACE();
+  server(IOP_CTX()).onNotFound([handler]() { HttpConnection conn; handler(conn, logger()); });
 }
 
 void CaptivePortal::start() const noexcept {
   const uint16_t port = 53;
-  dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
-  dnsServer.start(port, F("*"), WiFi.softAPIP());
+  unused4KbSysStack.dns().setErrorReplyCode(DNSReplyCode::NoError);
+  unused4KbSysStack.dns().start(port, F("*"), ::WiFi.softAPIP());
 }
 void CaptivePortal::close() const noexcept {
-  dnsServer.stop();
+  unused4KbSysStack.dns().stop();
 }
 void CaptivePortal::handleClient() const noexcept {
-  dnsServer.processNextRequest();
+  unused4KbSysStack.dns().processNextRequest();
 }
 }
 #endif

@@ -74,6 +74,8 @@ uint8_t * Flash::asMut() noexcept {
 #else
 #include "EEPROM.h"
 
+static EEPROMClass EEPROM;
+
 namespace driver {
 // TODO: properly handle EEPROM internal errors
 void Flash::setup(size_t size) noexcept {

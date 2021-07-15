@@ -1,7 +1,10 @@
 #ifndef IOP_DRIVER_SERVER
 #define IOP_DRIVER_SERVER
 
-#include "core/string/fixed.hpp"
+#include "core/string.hpp"
+#include <functional>
+#include <unordered_map>
+#include "core/utils.hpp"
 
 #ifdef IOP_DESKTOP
 #include <netinet/in.h>
@@ -18,7 +21,8 @@ public:
   std::optional<size_t> currentContentLength;
   std::string currentRoute;
 #endif
-  using Buffer = iop::FixedString<1024>;
+
+  using Buffer = std::array<char, 1024>;
 
   auto arg(iop::StaticString arg) const noexcept -> std::optional<std::string>;
   void sendHeader(iop::StaticString name, iop::StaticString value) noexcept;

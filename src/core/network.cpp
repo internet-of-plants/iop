@@ -1,6 +1,5 @@
 #include "core/network.hpp"
 #include "core/utils.hpp"
-#include "core/lazy.hpp"
 
 #ifdef IOP_ONLINE
 
@@ -10,34 +9,15 @@
 #include "core/panic.hpp"
 #include "core/cert_store.hpp"
 #include "string.h"
+#include "loop.hpp"
 
-const static iop::UpgradeHook defaultHook(iop::UpgradeHook::defaultHook);
+constexpr static iop::UpgradeHook defaultHook(iop::UpgradeHook::defaultHook);
 
 static iop::UpgradeHook hook(defaultHook);
 static std::optional<iop::CertStore> maybeCertStore;
 
 namespace iop {
 void UpgradeHook::defaultHook() noexcept { IOP_TRACE(); }
-UpgradeHook::UpgradeHook(UpgradeScheduler scheduler) noexcept
-    : schedule(std::move(scheduler)) {
-  IOP_TRACE();
-}
-Network::~Network() noexcept { IOP_TRACE(); }
-Network::Network(Network const &other) : uri_(other.uri_), logger(other.logger) {
-  IOP_TRACE();
-}
-auto Network::operator=(Network const &other) -> Network & {
-    IOP_TRACE();
-    if (this == &other)
-      return *this;
-    this->uri_ = other.uri_;
-    this->logger = other.logger;
-    return *this;
-  }
-Network::Network(StaticString uri, const LogLevel &logLevel) noexcept
-  : uri_(std::move(uri)), logger(logLevel, F("NETWORK")) {
-IOP_TRACE();
-}
 void Network::setCertStore(iop::CertStore &store) noexcept {
   maybeCertStore = std::make_optional(iop::CertStore(std::move(store)));
 }
@@ -49,13 +29,6 @@ auto Network::takeUpgradeHook() noexcept -> UpgradeHook {
   hook = defaultHook;
   return old;
 }
-
-#ifdef IOP_SSL
-static BearSSL::WiFiClientSecure client;
-#else
-static WiFiClient client;
-#endif
-static HTTPClient http;
 
 auto Network::isConnected() noexcept -> bool {
   IOP_TRACE();
@@ -79,18 +52,18 @@ auto Network::setup() const noexcept -> void {
     iop_panic(error.toStdString() + " " + this->uri().toStdString());
   }
 
-  http.setReuse(false);
+  unused4KbSysStack.http().setReuse(false);
 
-  static const char *headers[] = {PSTR("LATEST_VERSION")};
-  http.collectHeaders(headers, 1);
+  const char *headers[] = {PSTR("LATEST_VERSION")};
+  unused4KbSysStack.http().collectHeaders(headers, 1);
 
-  client.setNoDelay(false);
-  client.setSync(true);
+  unused4KbSysStack.client().setNoDelay(false);
+  unused4KbSysStack.client().setSync(true);
 
-#ifndef IOP_NOSSL
-  if (maybeCertStore.has_value())
-    client.setCertStore(&iop::unwrap_mut(maybeCertStore, IOP_CTX()));
-  client.setInsecure(); // TODO: remove this (what the frick)
+#ifdef IOP_SSL
+  //if (maybeCertStore.has_value())
+  //  unused4KbSysStack.client().setCertStore(&iop::unwrap_mut(maybeCertStore, IOP_CTX()));
+  unused4KbSysStack.client().setInsecure(); // TODO: remove this (what the frick)
 #endif
 
   WiFi.persistent(true);
@@ -135,24 +108,26 @@ static auto methodToString(const HttpMethod &method) noexcept
   return ret;
 }
 
-auto Network::wifiClient() noexcept -> WiFiClient & { return client; }
+auto Network::wifiClient() noexcept -> WiFiClient & { return unused4KbSysStack.client(); }
 
 // Returns Response if it can understand what the server sent, int is the raw
 // response given by ESP8266HTTPClient
 auto Network::httpRequest(const HttpMethod method_,
-                          const std::optional<std::string_view> &token, std::string_view path,
+                          const std::optional<std::string_view> &token, StaticString path,
                           const std::optional<std::string_view> &data) const noexcept
-    -> std::variant<Response, int> {
+    -> std::variant<Response, int> const & {
   IOP_TRACE();
   Network::setup();
 
-  if (!Network::isConnected())
-    return Response(NetworkStatus::CONNECTION_ISSUES);
+  if (!Network::isConnected()) {
+    unused4KbSysStack.response() = Response(NetworkStatus::CONNECTION_ISSUES);
+    return unused4KbSysStack.response();
+  }
 
   #ifdef IOP_DESKTOP
-  const auto uri = this->uri().toStdString() + path.begin();
+  const auto uri = this->uri().toStdString() + path.asCharPtr();
   #else
-  const auto uri = String(this->uri().get()) + path.begin();
+  const auto uri = String(this->uri().get()) + path.get();
   #endif
   const auto method = iop::unwrap_ref(methodToString(method_), IOP_CTX());
 
@@ -160,7 +135,7 @@ auto Network::httpRequest(const HttpMethod method_,
   if (data.has_value())
     data_ = iop::unwrap_ref(data, IOP_CTX());
 
-  this->logger.info(method, F(" to "), path, F(", data length: "), std::to_string(data_.length()));
+  this->logger.info(method, F(" to "), this->uri(), path, F(", data length: "), std::to_string(data_.length()));
 
   // TODO: this may log sensitive information, network logging is currently
   // capped at info because of that, right
@@ -170,32 +145,44 @@ auto Network::httpRequest(const HttpMethod method_,
   if (token.has_value()) {
     const auto tok = iop::unwrap_ref(token, IOP_CTX());
     this->logger.debug(F("Token: "), tok);
-    http.setAuthorization(tok.begin());
+    unused4KbSysStack.http().setAuthorization(tok.begin());
   } else {
     // We have to clear the authorization, it persists between requests
-    http.setAuthorization("");
+    unused4KbSysStack.http().setAuthorization("");
   }
 
   // We can afford bigger timeouts since we shouldn't make frequent requests
   constexpr uint32_t oneMinuteMs = 60 * 1000;
-  http.setTimeout(oneMinuteMs);
+  unused4KbSysStack.http().setTimeout(oneMinuteMs);
 
+  logMemory(this->logger);
   // Currently only JSON is supported
   if (data.has_value())
-    http.addHeader(F("Content-Type"), F("application/json"));
+    unused4KbSysStack.http().addHeader(F("Content-Type"), F("application/json"));
 
   // Authentication headers, identifies device and detects updates, perf
   // monitoring
-  http.addHeader(F("MAC_ADDRESS"), driver::device.macAddress().asString().get());
-  http.addHeader(F("VERSION"), driver::device.binaryMD5().asString().get());
- 
-  http.addHeader(F("FREE_STACK"), std::to_string(driver::device.availableStack()).c_str());
-  http.addHeader(F("FREE_HEAP"), std::to_string(driver::device.availableHeap()).c_str());
-  http.addHeader(F("BIGGEST_FREE_BLOCK"), std::to_string(driver::device.biggestHeapBlock()).c_str());
+  {
+    auto str = String();
+    str.concat(driver::device.binaryMD5().begin(), 32);
+    unused4KbSysStack.http().addHeader(F("VERSION"), str);
 
-  if (!http.begin(Network::wifiClient(), uri)) {
+    str.clear();
+    str.concat(driver::device.macAddress().begin(), 17);
+    unused4KbSysStack.http().addHeader(F("MAC_ADDRESS"), str);
+  }
+ 
+  unused4KbSysStack.http().addHeader(F("FREE_STACK"), std::to_string(driver::device.availableStack()).c_str());
+  unused4KbSysStack.http().addHeader(F("FREE_HEAP"), std::to_string(driver::device.availableHeap()).c_str());
+  unused4KbSysStack.http().addHeader(F("BIGGEST_FREE_BLOCK"), std::to_string(driver::device.biggestHeapBlock()).c_str());
+  unused4KbSysStack.http().addHeader(F("VCC"), std::to_string(driver::device.vcc()).c_str());
+  unused4KbSysStack.http().addHeader(F("TIME_RUNNING"), std::to_string(driver::thisThread.now()).c_str());
+
+  this->logger.debug(F("Begin"));
+  if (!unused4KbSysStack.http().begin(Network::wifiClient(), uri)) {
     this->logger.warn(F("Failed to begin http connection to "), iop::to_view(uri));
-    return Response(NetworkStatus::CONNECTION_ISSUES);
+    unused4KbSysStack.response() = Response(NetworkStatus::CONNECTION_ISSUES);
+    return unused4KbSysStack.response();
   }
   this->logger.trace(F("Began HTTP connection"));
 
@@ -203,12 +190,12 @@ auto Network::httpRequest(const HttpMethod method_,
 
   this->logger.debug(F("Making HTTP request"));
   const auto code =
-      http.sendRequest(method.toStdString().c_str(), data__, data_.length());
+      unused4KbSysStack.http().sendRequest(method.toStdString().c_str(), data__, data_.length());
   this->logger.debug(F("Made HTTP request")); 
 
   // Handle system upgrade request
-  const auto upgrade = http.header(PSTR("LATEST_VERSION"));
-  if (upgrade.length() > 0 && strcmp(upgrade.c_str(), driver::device.binaryMD5().asString().get()) != 0) {
+  const auto upgrade = unused4KbSysStack.http().header(PSTR("LATEST_VERSION"));
+  if (upgrade.length() > 0 && memcmp(upgrade.c_str(), driver::device.binaryMD5().data(), 32) != 0) {
     this->logger.info(F("Scheduled upgrade"));
     hook.schedule();
   }
@@ -219,11 +206,12 @@ auto Network::httpRequest(const HttpMethod method_,
   this->logger.info(F("Response code ("), std::to_string(code), F("): "), rawStatusStr);
 
   constexpr const int32_t maxPayloadSizeAcceptable = 2048;
-  if (http.getSize() > maxPayloadSizeAcceptable) {
-    http.end();
-    const auto lengthStr = std::to_string(http.getSize());
+  if (unused4KbSysStack.http().getSize() > maxPayloadSizeAcceptable) {
+    unused4KbSysStack.http().end();
+    const auto lengthStr = std::to_string(unused4KbSysStack.http().getSize());
     this->logger.error(F("Payload from server was too big: "), lengthStr);
-    return Response(NetworkStatus::BROKEN_SERVER);
+    unused4KbSysStack.response() = Response(NetworkStatus::BROKEN_SERVER);
+    return unused4KbSysStack.response();
   }
 
   // We have to simplify the errors reported by this API (but they are logged)
@@ -231,17 +219,19 @@ auto Network::httpRequest(const HttpMethod method_,
   if (maybeApiStatus.has_value()) {
     // The payload is always downloaded, since we check for its size and the
     // origin is trusted. If it's there it's supposed to be there.
-    auto payload = http.getString();
-    http.end();
+    auto payload = unused4KbSysStack.http().getString();
+    unused4KbSysStack.http().end();
     this->logger.debug(F("Payload (") , std::to_string(payload.length()), F("): "), iop::to_view(payload));
     // TODO: every response occupies 2x the size because we convert String -> std::string
-    return Response(iop::unwrap_ref(maybeApiStatus, IOP_CTX()), std::string(payload.c_str()));
+    unused4KbSysStack.response() = Response(iop::unwrap_ref(maybeApiStatus, IOP_CTX()), std::string(payload.c_str()));
+    return unused4KbSysStack.response();
   }
-  http.end();
-  return code;
+  unused4KbSysStack.http().end();
+  unused4KbSysStack.response() = code;
+  return unused4KbSysStack.response();
 }
 #else
-#include "driver/time.hpp"
+#include "driver/thread.hpp"
 #include "driver/wifi.hpp"
 
 namespace iop {
@@ -249,7 +239,7 @@ void Network::setup() const noexcept {
   (void)*this;
   IOP_TRACE();
   WiFi.mode(WIFI_OFF);
-  delay(1);
+  driver::thisThread.sleep(1);
 }
 void Network::disconnect() noexcept { IOP_TRACE(); }
 auto Network::isConnected() noexcept -> bool {
@@ -259,7 +249,7 @@ auto Network::isConnected() noexcept -> bool {
 auto Network::httpRequest(const HttpMethod method,
                           const std::optional<std::string_view> &token, std::string_view path,
                           const std::optional<std::string_view> &data) const noexcept
-    -> std::variant<Response, int> {
+    -> std::variant<Response, int> const &
   (void)*this;
   (void)token;
   (void)method;
@@ -270,36 +260,20 @@ auto Network::httpRequest(const HttpMethod method,
 }
 #endif
 
-auto Network::httpPut(std::string_view token, StaticString path,
-                      std::string_view data) const noexcept -> std::variant<Response, int> {
-  IOP_TRACE();
-  return this->httpRequest(HttpMethod::PUT, std::make_optional(std::move(token)),
-                           std::move(path).toStdString(),
-                           std::make_optional(std::move(data)));
-}
-
 auto Network::httpPost(std::string_view token, const StaticString path,
                        std::string_view data) const noexcept
-    -> std::variant<Response, int> {
+    -> std::variant<Response, int> const & {
   IOP_TRACE();
   return this->httpRequest(HttpMethod::POST, std::make_optional(std::move(token)),
-                           std::move(path).toStdString(),
+                           path,
                            std::make_optional(std::move(data)));
-}
-
-auto Network::httpPost(std::string_view token, std::string_view path,
-                       std::string_view data) const noexcept
-    -> std::variant<Response, int> {
-  IOP_TRACE();
-  return this->httpRequest(HttpMethod::POST, std::make_optional(std::move(token)),
-                           std::move(path), std::make_optional(std::move(data)));
 }
 
 auto Network::httpPost(StaticString path, std::string_view data) const noexcept
-    -> std::variant<Response, int> {
+    -> std::variant<Response, int> const & {
   IOP_TRACE();
   return this->httpRequest(HttpMethod::POST, std::optional<std::string_view>(),
-                           std::move(path).toStdString(),
+                           path,
                            std::make_optional(std::move(data)));
 }
 
@@ -431,6 +405,20 @@ auto Network::apiStatus(const RawStatus &raw) const noexcept
     break;
   }
   return ret;
+}
+auto Network::operator=(Network const &other) -> Network & {
+  IOP_TRACE();
+  if (this == &other)
+    return *this;
+  this->uri_ = other.uri_;
+  this->logger = other.logger;
+  return *this;
+}
+Network::~Network() noexcept { IOP_TRACE(); }
+Network::Network(Network const &other) : logger(other.logger), uri_(other.uri_) { IOP_TRACE(); }
+Network::Network(StaticString uri, const LogLevel &logLevel) noexcept
+  : logger(logLevel, F("NETWORK")), uri_(std::move(uri)) {
+  IOP_TRACE();
 }
 
 Response::Response(const NetworkStatus &status) noexcept

@@ -1,5 +1,4 @@
 #include "core/cert_store.hpp"
-#include "core/memory.hpp"
 #include "core/panic.hpp"
 #include "core/utils.hpp"
 #include "driver/cert_store.hpp"

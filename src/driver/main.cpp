@@ -1,7 +1,6 @@
 #ifdef IOP_DESKTOP
 #ifndef UNIT_TEST
 #include <unistd.h>
-#include <iostream>
 void setup();
 void loop();
 

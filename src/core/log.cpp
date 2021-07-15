@@ -1,10 +1,12 @@
 #include "core/log.hpp"
 #include "core/utils.hpp"
+#include <string>
+#include "driver/device.hpp"
+#include "driver/wifi.hpp"
+#include <umm_malloc/umm_heap_select.h>
 
 static bool initialized = false;
-
-static bool isTracing_ = false;
-
+static bool isTracing_ = false; 
 static bool shouldFlush_ = true;
 
 void iop::Log::shouldFlush(const bool flush) noexcept {
@@ -15,7 +17,7 @@ auto iop::Log::isTracing() noexcept -> bool {
   return isTracing_;
 }
 
-const static iop::LogHook defaultHook(iop::LogHook::defaultViewPrinter,
+constexpr static iop::LogHook defaultHook(iop::LogHook::defaultViewPrinter,
                                       iop::LogHook::defaultStaticPrinter,
                                       iop::LogHook::defaultSetuper,
                                       iop::LogHook::defaultFlusher);
@@ -26,7 +28,6 @@ void IRAM_ATTR Log::setup(LogLevel level) noexcept { hook.setup(level); }
 void Log::flush() noexcept { if (shouldFlush_) hook.flush(); }
 void IRAM_ATTR Log::print(const std::string_view view, const LogLevel level,
                                 const LogType kind) noexcept {
-  Log::setup(level);
   if (level > LogLevel::TRACE)
     hook.viewPrint(view, level, kind);
   else
@@ -35,7 +36,6 @@ void IRAM_ATTR Log::print(const std::string_view view, const LogLevel level,
 void IRAM_ATTR Log::print(const StaticString progmem,
                                 const LogLevel level,
                                 const LogType kind) noexcept {
-  Log::setup(level);
   if (level > LogLevel::TRACE)
     hook.staticPrint(progmem, level, kind);
   else
@@ -119,7 +119,7 @@ auto Log::levelToString(const LogLevel level) const noexcept -> StaticString {
 }
 
 void IRAM_ATTR LogHook::defaultStaticPrinter(
-    const StaticString str, const LogLevel level, const iop::LogType type) noexcept {
+    const StaticString str, const LogLevel level, const LogType type) noexcept {
 #ifdef IOP_SERIAL
   logPrint(str);
 #else
@@ -129,7 +129,7 @@ void IRAM_ATTR LogHook::defaultStaticPrinter(
   (void)level;
 }
 void IRAM_ATTR
-LogHook::defaultViewPrinter(const std::string_view str, const LogLevel level, const iop::LogType type) noexcept {
+LogHook::defaultViewPrinter(const std::string_view str, const LogLevel level, const LogType type) noexcept {
 #ifdef IOP_SERIAL
   logPrint(str);
 #else
@@ -139,8 +139,8 @@ LogHook::defaultViewPrinter(const std::string_view str, const LogLevel level, co
   (void)level;
 }
 void IRAM_ATTR
-LogHook::defaultSetuper(const iop::LogLevel level) noexcept {
-  isTracing_ |= level == iop::LogLevel::TRACE;
+LogHook::defaultSetuper(const LogLevel level) noexcept {
+  isTracing_ |= level == LogLevel::TRACE;
   static bool hasInitialized = false;
   const auto shouldInitialize = !hasInitialized;
   hasInitialized = true;
@@ -152,24 +152,6 @@ void LogHook::defaultFlusher() noexcept {
   logFlush();
 #endif
 }
-
-LogHook::LogHook(LogHook::ViewPrinter viewPrinter,
-                 LogHook::StaticPrinter staticPrinter, LogHook::Setuper setuper,
-                 LogHook::Flusher flusher) noexcept
-    : viewPrint(std::move(viewPrinter)), staticPrint(std::move(staticPrinter)),
-      setup(std::move(setuper)), flush(std::move(flusher)),
-      traceViewPrint(defaultViewPrinter),
-      traceStaticPrint(defaultStaticPrinter) {}
-
-LogHook::LogHook(LogHook::ViewPrinter viewPrinter,
-                 LogHook::StaticPrinter staticPrinter, LogHook::Setuper setuper,
-                 LogHook::Flusher flusher,
-                 LogHook::TraceViewPrinter traceViewPrint,
-                 LogHook::TraceStaticPrinter traceStaticPrint) noexcept
-    : viewPrint(std::move(viewPrinter)), staticPrint(std::move(staticPrinter)),
-      setup(std::move(setuper)), flush(std::move(flusher)),
-      traceViewPrint(std::move(traceViewPrint)),
-      traceStaticPrint(std::move(traceStaticPrint)) {}
 // NOLINTNEXTLINE *-use-equals-default
 LogHook::LogHook(LogHook const &other) noexcept
     : viewPrint(other.viewPrint), staticPrint(other.staticPrint),
@@ -197,4 +179,77 @@ auto LogHook::operator=(LogHook &&other) noexcept -> LogHook & {
   *this = other;
   return *this;
 }
+
+Tracer::Tracer(CodePoint point) noexcept : point(std::move(point)) {
+  if (!Log::isTracing())
+    return;
+
+  Log::flush();
+  Log::print(F("[TRACE] TRACER: Entering new scope, at line "), LogLevel::TRACE,
+             LogType::START);
+  Log::print(std::to_string(this->point.line()), LogLevel::TRACE, LogType::CONTINUITY);
+  Log::print(F(", in function "), LogLevel::TRACE, LogType::CONTINUITY);
+  Log::print(this->point.func(), LogLevel::TRACE, LogType::CONTINUITY);
+  Log::print(F(", at file "), LogLevel::TRACE, LogType::CONTINUITY);
+  Log::print(this->point.file(), LogLevel::TRACE, LogType::CONTINUITY);
+  Log::print(F("\n[TRACE] TRACER: Free Stack "), LogLevel::TRACE, LogType::CONTINUITY);
+  Log::print(std::to_string(driver::device.availableStack()), LogLevel::TRACE, LogType::CONTINUITY);
+  Log::print(F(", Free DRAM "), LogLevel::TRACE, LogType::CONTINUITY);
+  {
+    HeapSelectDram ephemeral;
+    Log::print(std::to_string(driver::device.availableHeap()), LogLevel::TRACE, LogType::CONTINUITY);
+    Log::print(F(", Biggest DRAM Block "), LogLevel::TRACE, LogType::CONTINUITY);
+    Log::print(std::to_string(driver::device.biggestHeapBlock()), LogLevel::TRACE, LogType::CONTINUITY);
+  }
+  {
+    HeapSelectIram ephemeral;
+    Log::print(F(", Free IRAM "), LogLevel::TRACE, LogType::CONTINUITY);
+    Log::print(std::to_string(driver::device.availableHeap()), LogLevel::TRACE, LogType::CONTINUITY);
+  }
+  Log::print(F(", Connection "), LogLevel::TRACE, LogType::CONTINUITY);
+  Log::print(std::to_string(WiFi.status() == WL_CONNECTED), LogLevel::TRACE, LogType::CONTINUITY);
+  Log::print(F("\n"), LogLevel::TRACE, LogType::END);
+  Log::flush();
+}
+Tracer::~Tracer() noexcept {
+  if (!Log::isTracing())
+    return;
+
+  Log::flush();
+  Log::print(F("[TRACE] TRACER: Leaving scope, at line "), LogLevel::TRACE,
+             LogType::START);
+  Log::print(std::to_string(this->point.line()), LogLevel::TRACE,
+             LogType::CONTINUITY);
+  Log::print(F(", in function "), LogLevel::TRACE, LogType::CONTINUITY);
+  Log::print(this->point.func(), LogLevel::TRACE, LogType::CONTINUITY);
+  Log::print(F(", at file "), LogLevel::TRACE, LogType::CONTINUITY);
+  Log::print(this->point.file(), LogLevel::TRACE, LogType::CONTINUITY);
+  Log::print(F("\n"), LogLevel::TRACE, LogType::END);
+  Log::flush();
+}
+
+void logMemory(const Log &logger) noexcept {
+  IOP_TRACE();
+  if (logger.level() > LogLevel::INFO) return;
+  Log::flush();
+  Log::print(F("[INFO] "), LogLevel::INFO, LogType::START);
+  Log::print(logger.target(), LogLevel::INFO, LogType::START);
+  Log::print(F(": Free Stack "), LogLevel::INFO, LogType::CONTINUITY);
+  Log::print(std::to_string(driver::device.availableStack()), LogLevel::INFO, LogType::CONTINUITY);
+  Log::print(F(", Free IRAM "), LogLevel::INFO, LogType::CONTINUITY);
+  {
+    HeapSelectIram ephemeral;
+    Log::print(std::to_string(driver::device.availableHeap()), LogLevel::INFO, LogType::CONTINUITY);
+    Log::print(F(", Biggest IRAM Block "), LogLevel::INFO, LogType::CONTINUITY);
+    Log::print(std::to_string(driver::device.biggestHeapBlock()), LogLevel::INFO, LogType::CONTINUITY);
+  }
+  Log::print(F(", Free DRAM "), LogLevel::INFO, LogType::CONTINUITY);
+  {
+    HeapSelectDram ephemeral;
+    Log::print(std::to_string(driver::device.availableHeap()), LogLevel::INFO, LogType::CONTINUITY);
+  }
+  Log::print(F("\n"), LogLevel::TRACE, LogType::END);
+  Log::flush();
+}
+
 } // namespace iop

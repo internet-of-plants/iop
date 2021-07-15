@@ -27,7 +27,7 @@ enum class Pin {
   D6 = 12,
   D7 = 13
 };
-static const Pin LED_BUILTIN = Pin::D2;
+constexpr static  Pin LED_BUILTIN = Pin::D2;
 
 enum class Alarm {
   RISING = 1,

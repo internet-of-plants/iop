@@ -27,10 +27,10 @@ class CertStore;
 /// md5 hash the hook is called
 class UpgradeHook {
 public:
-  using UpgradeScheduler = std::function<void()>;
+  using UpgradeScheduler = void (*) ();
   UpgradeScheduler schedule;
 
-  explicit UpgradeHook(UpgradeScheduler scheduler) noexcept;
+  constexpr explicit UpgradeHook(UpgradeScheduler scheduler) noexcept : schedule(scheduler) {}
   static void defaultHook() noexcept; // Noop
 };
 
@@ -46,8 +46,8 @@ public:
 ///
 /// Check `api.hpp` for even higher level code
 class Network {
-  StaticString uri_;
   Log logger;
+  StaticString uri_;
 
 public:
   Network(StaticString uri, const LogLevel &logLevel) noexcept;
@@ -68,22 +68,16 @@ public:
   static void disconnect() noexcept;
   static auto isConnected() noexcept -> bool;
 
-  auto httpPut(std::string_view token, StaticString path,
-               std::string_view data) const noexcept
-      -> std::variant<Response, int>;
-  auto httpPost(std::string_view token, std::string_view path,
-                std::string_view data) const noexcept
-      -> std::variant<Response, int>;
   auto httpPost(std::string_view token, StaticString path,
                 std::string_view data) const noexcept
-      -> std::variant<Response, int>;
+      -> std::variant<Response, int> const &;
   auto httpPost(StaticString path, std::string_view data) const noexcept
-      -> std::variant<Response, int>;
+      -> std::variant<Response, int> const &;
 
   auto httpRequest(HttpMethod method, const std::optional<std::string_view> &token,
-                   std::string_view path,
+                   StaticString path,
                    const std::optional<std::string_view> &data) const noexcept
-      -> std::variant<Response, int>;
+      -> std::variant<Response, int> const &;
 
   static auto rawStatusToString(const RawStatus &status) noexcept
       -> StaticString;
@@ -103,8 +97,8 @@ public:
 
 class Response {
 public:
-  NetworkStatus status;
   std::optional<std::string> payload;
+  NetworkStatus status;
   ~Response() noexcept;
   explicit Response(const NetworkStatus &status) noexcept;
   Response(const NetworkStatus &status, std::string payload) noexcept;

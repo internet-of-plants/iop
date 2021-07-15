@@ -1,6 +1,5 @@
 #include "driver/interrupt.hpp"
-#include "core/tracer.hpp"
-
+#include "core/log.hpp"
 #ifdef IOP_DESKTOP
 #include "core/panic.hpp"
 #include <pthread.h>

@@ -1,7 +1,7 @@
 #ifndef IOP_DRIVER_LOG_HPP
 #define IOP_DRIVER_LOG_HPP
 
-#include "core/string/static.hpp"
+#include "core/string.hpp"
 
 #ifdef IOP_DESKTOP
 #define IRAM_ATTR

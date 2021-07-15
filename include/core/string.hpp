@@ -2,9 +2,27 @@
 #define IOP_CORE_STRING_STATIC_HPP
 
 #include <string_view>
+#include <variant>
+#include <array>
+#include <string>
 #include "driver/string.hpp"
 
 namespace iop {
+using CowString = std::variant<std::string_view, std::string>;
+
+auto hashString(const std::string_view txt) noexcept -> uint64_t; // FNV hash
+auto isPrintable(const char ch) noexcept -> bool;
+auto isAllPrintable(const std::string_view txt) noexcept -> bool;
+auto scapeNonPrintable(const std::string_view txt) noexcept -> CowString;
+#ifndef IOP_DESKTOP
+auto to_view(const String& str) -> std::string_view;
+#endif
+auto to_view(const std::string& str) -> std::string_view;
+auto to_view(const CowString& str) -> std::string_view;
+template <size_t SIZE>
+auto to_view(const std::array<char, SIZE>& str) -> std::string_view {
+  return std::string_view(str.data(), strnlen(str.begin(), str.max_size()));
+}
 
 /// Helper string that holds a pointer to a string stored in PROGMEM
 /// It's here to provide a typesafe way to handle PROGMEM data and to avoid
@@ -43,13 +61,11 @@ public:
 
   ~StaticString() noexcept = default;
   StaticString(StaticString const &other) noexcept = default;
-  StaticString(StaticString &&other) noexcept = default;
+  StaticString(StaticString &&other) noexcept;
   auto operator=(StaticString const &other) noexcept
       -> StaticString & = default;
   auto operator=(StaticString &&other) noexcept -> StaticString & = default;
 };
-
-static const StaticString emptyStaticString;
 
 } // namespace iop
 

@@ -7,20 +7,21 @@
 #include "utils.hpp"
 #include <optional>
 
+namespace config {
 /// Minimum log level to print a message (if serial is enabled)
-const auto logLevel = iop::LogLevel::INFO;
+constexpr static auto logLevel = iop::LogLevel::INFO;
 
-const uint8_t soilTemperature = driver::Pin::D5;
-const uint8_t airTempAndHumidity = driver::Pin::D6;
-const uint8_t soilResistivityPower = driver::Pin::D7;
-const uint8_t factoryResetButton = driver::Pin::D1;
+constexpr static uint8_t soilTemperature = driver::Pin::D5;
+constexpr static uint8_t airTempAndHumidity = driver::Pin::D6;
+constexpr static uint8_t soilResistivityPower = driver::Pin::D7;
+constexpr static uint8_t factoryResetButton = driver::Pin::D1;
 
 /// Version of DHT (Digital Humidity and Temperature) sensor. (ex: DHT11 or
 /// DHT21 or DHT22...)
-const uint8_t dhtVersion = 22; // DHT22
+constexpr static uint8_t dhtVersion = 22; // DHT22
 
 /// Time between measurements
-const iop::esp_time interval = 180 * 1000;
+constexpr static iop::esp_time interval = 180 * 1000;
 
 /// The fields bellow should be empty. Filling them will be counter productive
 /// It's only here to speedup some debugging
@@ -52,6 +53,7 @@ static auto uri() -> iop::StaticString {
     #else
     return iop::StaticString(F("https://iop-monitor-server.tk:4001"));
     #endif
+}
 }
 
 #endif

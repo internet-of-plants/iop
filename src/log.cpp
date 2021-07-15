@@ -1,7 +1,7 @@
 #include "core/log.hpp"
 #include "configuration.hpp"
 #include "utils.hpp" // Imports IOP_SERIAL if available
-#include "core/lazy.hpp"
+#include "loop.hpp"
 
 #ifdef IOP_NETWORK_LOGGING
 
@@ -23,13 +23,10 @@ namespace network_logger {
   }
 }
 
-#include "api.hpp"
-#include "flash.hpp"
-
 class ByteRate {
+  uint64_t nextReset{0};
   size_t lastBytesPerMinute{0};
   size_t bytes{0};
-  uint64_t nextReset{0};
 
 public:
   ByteRate() noexcept = default;
@@ -61,18 +58,15 @@ static std::string currentLog;
 // TODO(pc): use ByteRate to allow grouping messages before sending, or reuse
 // the TCP connection to many
 
-static iop::Lazy<Api> api([]() { return Api(uri(), iop::LogLevel::WARN); });
-static iop::Lazy<Flash> flash([]() { return Flash(iop::LogLevel::WARN); });
-
 static bool logNetwork = true;
 void reportLog() noexcept {
   if (!logNetwork || !currentLog.length())
     return;
 
-  const auto maybeToken = flash->readAuthToken();
+  const auto maybeToken = unused4KbSysStack.loop().flash().readAuthToken();
   if (maybeToken.has_value()) {
     logNetwork = false;
-    api->registerLog(iop::unwrap_ref(maybeToken, IOP_CTX()), currentLog);
+    unused4KbSysStack.loop().api().registerLog(iop::unwrap_ref(maybeToken, IOP_CTX()), currentLog);
     logNetwork = true;
   }
   currentLog.clear();
@@ -108,7 +102,7 @@ static void setuper(iop::LogLevel level) noexcept {
 #else
 namespace network_logger {
   void setup() noexcept {
-    iop::Log::setup(logLevel);
+    iop::Log::setup(config::logLevel);
   }
 }
 #endif

@@ -8,11 +8,9 @@
 #include <unistd.h>
 #include <thread>
 #include <chrono>
-#include "core/lazy.hpp"
+#include "loop.hpp"
 
 const static iop::StaticString serverHost(reinterpret_cast<const __FlashStringHelper *>("http://127.0.0.1:8082"));
-
-static iop::Lazy<Api> api([]() { return Api(serverHost, iop::LogLevel::WARN); });
 
 void producer() {
     HTTPClient client;
@@ -34,7 +32,7 @@ void producer() {
 void * consumer(void* ptr) {
     auto *server = static_cast<CredentialsServer *>(ptr);
     std::optional<AuthToken> maybeToken;
-    while (!(maybeToken = server->serve(std::optional<WifiCredentials>(), *api)).has_value()) {
+    while (!(maybeToken = server->serve(std::optional<WifiCredentials>(), unused4KbSysStack.loop().api())).has_value()) {
         usleep(100);
     }
     TEST_ASSERT(!maybeToken.has_value());

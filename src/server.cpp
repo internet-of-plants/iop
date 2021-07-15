@@ -1,26 +1,25 @@
 #include "server.hpp"
 
 #ifndef IOP_SERVER_DISABLED
-
 #include "core/utils.hpp"
 #include "driver/server.hpp"
 #include "driver/wifi.hpp"
 #include "driver/thread.hpp"
 
 #include "configuration.hpp"
-#include "driver/interrupt.hpp"
 #include "core/network.hpp"
-#include "flash.hpp"
 #include "api.hpp"
 #include "driver/device.hpp"
+#include "configuration.hpp"
+#include "loop.hpp"
 
-constexpr const uint64_t intervalTryFlashWifiCredentialsMillis =
+constexpr static uint64_t intervalTryFlashWifiCredentialsMillis =
     60 * 60 * 1000; // 1 hour
 
-constexpr const uint64_t intervalTryHardcodedWifiCredentialsMillis =
+constexpr static uint64_t intervalTryHardcodedWifiCredentialsMillis =
     60 * 60 * 1000; // 1 hour
 
-constexpr const uint64_t intervalTryHardcodedIopCredentialsMillis =
+constexpr static uint64_t intervalTryHardcodedIopCredentialsMillis =
     60 * 60 * 1000; // 1 hour
 
 auto pageHTMLStart() -> iop::StaticString {
@@ -141,11 +140,7 @@ static std::optional<std::pair<std::string, std::string>> credentialsWifi;
 static std::optional<std::pair<std::string, std::string>> credentialsIop;
 
 static driver::HttpServer server;
-//static ESP8266WebServer server;
-
 static driver::CaptivePortal dnsServer;
-
-#include <iostream>
 
 void CredentialsServer::setup() const noexcept {
   IOP_TRACE();
@@ -183,11 +178,10 @@ void CredentialsServer::setup() const noexcept {
 
   server.onNotFound([](driver::HttpConnection &conn, iop::Log const &logger) {
     IOP_TRACE();
-    const static Flash flash(logger.level());
     logger.info(F("Serving captive portal"));
 
     const auto mustConnect = !iop::Network::isConnected();
-    const auto needsIopAuth = !flash.readAuthToken().has_value();
+    const auto needsIopAuth = !unused4KbSysStack.loop().flash().readAuthToken().has_value();
 
     auto len = pageHTMLStart().length() + pageHTMLEnd().length() + script().length();
     len += mustConnect ? wifiHTML().length() : wifiOverwriteHTML().length();
@@ -225,16 +219,18 @@ void CredentialsServer::start() noexcept {
 
     WiFi.softAPConfig(staticIp, staticIp, mask);
 
-    const static auto hash = iop::hashString(driver::device.macAddress().asString().borrow());
-    const auto ssid = std::string("iop-") + std::to_string(hash);
+    {
+      const auto hash = iop::hashString(iop::to_view(driver::device.macAddress()));
+      const auto ssid = std::string("iop-") + std::to_string(hash);
 
-    // TODO(pc): the password should be random (passed at compile time)
-    // But also accessible externally (like a sticker in the hardware).
-    // So not dynamic
-    //
-    // Using PSTR in the password crashes, because it internally calls
-    // strlen and it's a hardware fault reading byte by byte from flash
-    WiFi.softAP(ssid.c_str(), "le$memester#passwordz");
+      // TODO(pc): the password should be random (passed at compile time)
+      // But also accessible externally (like a sticker in the hardware).
+      // So not dynamic
+      //
+      // Using PSTR in the password crashes, because it internally calls
+      // strlen and it's a hardware fault reading byte by byte from flash
+      WiFi.softAP(ssid.c_str(), "le$memester#passwordz");
+    }
     
     const auto ip = WiFi.softAPIP().toString();
     
@@ -289,13 +285,11 @@ auto CredentialsServer::statusToString(const driver::StationStatus status)
   return ret;
 }
 
-auto CredentialsServer::connect(std::string_view ssid,
-                                std::string_view password) const noexcept
-    -> void {
+void CredentialsServer::connect(std::string_view ssid,
+                                std::string_view password) const noexcept {
   IOP_TRACE();
   this->logger.info(F("Connect: "), ssid);
   if (driver::wifi.status() == driver::StationStatus::CONNECTING) {
-    const iop::InterruptLock _guard;
     driver::wifi.stationDisconnect();
   }
 
@@ -327,7 +321,7 @@ auto CredentialsServer::authenticate(std::string_view username,
   auto authToken = api.authenticate(username, std::move(password));
   
   WiFi.mode(WIFI_AP_STA);
-  this->logger.info(F("Tried to authenticate"));
+  this->logger.info(F("Tried to authenticate: "));
   if (iop::is_err(authToken)) {
     const auto &status = iop::unwrap_err_ref(authToken, IOP_CTX());
 
@@ -399,8 +393,10 @@ auto CredentialsServer::serve(const std::optional<WifiCredentials> &storedWifi,
     this->nextTryFlashWifiCredentials = now + intervalTryFlashWifiCredentialsMillis;
 
     const auto &stored = iop::unwrap_ref(storedWifi, IOP_CTX());
+    const auto ssid = std::string_view(stored.ssid.get().data(), stored.ssid.get().max_size());
+    const auto psk = std::string_view(stored.password.get().data(), stored.password.get().max_size());
     this->logger.info(F("Trying wifi credentials stored in flash"));
-    this->connect(stored.ssid.asString().get(), stored.password.asString().get());
+    this->connect(ssid, psk);
 
     // WiFi Credentials hardcoded at "configuration.hpp"
     //
@@ -409,26 +405,28 @@ auto CredentialsServer::serve(const std::optional<WifiCredentials> &storedWifi,
     // but with a bigish interval.
   }
   
-  const auto hasHardcodedWifiCreds = wifiNetworkName().has_value() && wifiPassword().has_value();
+  const auto hasHardcodedWifiCreds = config::wifiNetworkName().has_value() && config::wifiPassword().has_value();
   if (!isConnected && hasHardcodedWifiCreds && this->nextTryHardcodedWifiCredentials <= now) {
     this->nextTryHardcodedWifiCredentials = now + intervalTryHardcodedWifiCredentialsMillis;
 
     this->logger.info(F("Trying hardcoded wifi credentials"));
 
-    const auto &ssid = iop::unwrap_ref(wifiNetworkName(), IOP_CTX());
-    const auto &psk = iop::unwrap_ref(wifiPassword(), IOP_CTX());
+    const auto ssid = iop::unwrap_ref(config::wifiNetworkName(), IOP_CTX());
+    const auto psk = iop::unwrap_ref(config::wifiPassword(), IOP_CTX());
     this->connect(ssid.toStdString(), psk.toStdString());
   }
 
-  const auto hasHardcodedIopCreds = iopEmail().has_value() && iopPassword().has_value();
-  if (!isConnected && hasHardcodedIopCreds && this->nextTryHardcodedIopCredentials <= now) {
+  const auto hasHardcodedIopCreds = config::iopEmail().has_value() && config::iopPassword().has_value();
+  if (isConnected && hasHardcodedIopCreds && this->nextTryHardcodedIopCredentials <= now) {
     this->nextTryHardcodedIopCredentials = now + intervalTryHardcodedIopCredentialsMillis;
 
     this->logger.info(F("Trying hardcoded iop credentials"));
 
-    const auto &email = iop::unwrap_ref(iopEmail(), IOP_CTX());
-    const auto &password = iop::unwrap_ref(iopPassword(), IOP_CTX());
-    this->authenticate(email.toStdString(), password.toStdString(), api);
+    const auto email = iop::unwrap_ref(config::iopEmail(), IOP_CTX());
+    const auto password = iop::unwrap_ref(config::iopPassword(), IOP_CTX());
+    const auto tok = this->authenticate(email.toStdString(), password.toStdString(), api);
+    if (tok.has_value())
+      return tok;
   }
 
   // Give processing time to the servers
