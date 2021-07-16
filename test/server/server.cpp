@@ -14,7 +14,7 @@ const static iop::StaticString serverHost(reinterpret_cast<const __FlashStringHe
 
 void producer() {
     HTTPClient client;
-    client.begin(iop::Network::wifiClient(), serverHost.toStdString());
+    client.begin(iop::Network::wifiClient(), serverHost.toString());
     const auto code = client.sendRequest("GET", {}, 0);
     iop::Log::print((std::string("Status: ") + std::to_string(code) + "\n").c_str(), iop::LogLevel::INFO, iop::LogType::STARTEND);
     usleep(1000);

@@ -18,7 +18,7 @@
 #endif
 
 // (Un)Comment this line to toggle memory stats logging
-#define LOG_MEMORY
+//#define LOG_MEMORY
 
 namespace iop {
 using MD5Hash = std::array<char, 32>;

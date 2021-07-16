@@ -87,10 +87,10 @@ iop::MD5Hash & Device::binaryMD5() const noexcept {
   const auto hashedRaw = ESP.getSketchMD5();
   const auto hashed = iop::to_view(hashedRaw);
   if (hashed.length() != 32) {
-    iop_panic(iop::StaticString(F("MD5 hex size is not 32, this is critical: ")).toStdString() + std::string(hashed));
+    iop_panic(iop::StaticString(F("MD5 hex size is not 32, this is critical: ")).toString() + std::string(hashed));
   }
   if (!iop::isAllPrintable(hashed)) {
-    iop_panic(iop::StaticString(F("Unprintable char in MD5 hex, this is critical: ")).toStdString() + std::string(hashed));
+    iop_panic(iop::StaticString(F("Unprintable char in MD5 hex, this is critical: ")).toString() + std::string(hashed));
   }
 
   memcpy(unused4KbSysStack.md5().data(), hashed.begin(), 32);

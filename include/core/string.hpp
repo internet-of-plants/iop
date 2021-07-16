@@ -40,31 +40,20 @@ private:
   const __FlashStringHelper *str;
 
 public:
-  StaticString() noexcept: str(nullptr) {
-    this->str = F("");
-  }
+  StaticString() noexcept: str(nullptr) { this->str = F(""); }
   // NOLINTNEXTLINE hicpp-explicit-conversions
-  StaticString(const __FlashStringHelper *str) noexcept;
-
-  auto get() const noexcept -> const __FlashStringHelper *;
-  auto contains(std::string_view needle) const noexcept -> bool;
-  auto contains(StaticString needle) const noexcept -> bool;
-  auto length() const noexcept -> size_t;
-  auto isEmpty() const noexcept -> bool;
-  auto toStdString() const noexcept -> std::string;
+  StaticString(const __FlashStringHelper *str) noexcept: str(str) {}
+  
+  auto toString() const noexcept -> std::string;
 
   // Be careful when calling this function, if you pass PGM_P to a function that
   // expects a regular char* a hardware exception _may_ happen, PROGMEM data
   // needs to be read with 32 bits alignment, this has caused trouble in the
   // past and may do again. It's why it can't be converted to other strings
-  auto asCharPtr() const noexcept -> PGM_P;
+  auto asCharPtr() const noexcept -> PGM_P { return reinterpret_cast<PGM_P>(this->get()); }
+  auto get() const noexcept -> const __FlashStringHelper * { return this->str; }
 
-  ~StaticString() noexcept = default;
-  StaticString(StaticString const &other) noexcept = default;
-  StaticString(StaticString &&other) noexcept;
-  auto operator=(StaticString const &other) noexcept
-      -> StaticString & = default;
-  auto operator=(StaticString &&other) noexcept -> StaticString & = default;
+  auto length() const noexcept -> size_t { return strlen_P(this->asCharPtr()); }
 };
 
 } // namespace iop

@@ -14,12 +14,12 @@
 constexpr static iop::UpgradeHook defaultHook(iop::UpgradeHook::defaultHook);
 
 static iop::UpgradeHook hook(defaultHook);
-static std::optional<iop::CertStore> maybeCertStore;
+static iop::CertStore * maybeCertStore = nullptr;;
 
 namespace iop {
 void UpgradeHook::defaultHook() noexcept { IOP_TRACE(); }
 void Network::setCertStore(iop::CertStore &store) noexcept {
-  maybeCertStore = std::make_optional(iop::CertStore(std::move(store)));
+  maybeCertStore = &store;
 }
 void Network::setUpgradeHook(UpgradeHook scheduler) noexcept {
   hook = std::move(scheduler);
@@ -47,11 +47,6 @@ auto Network::setup() const noexcept -> void {
     return;
   initialized = true;
 
-  if (!this->uri().contains(F(":"))) {
-    const StaticString error(F("Host must contain protocol (http:// or https://): "));
-    iop_panic(error.toStdString() + " " + this->uri().toStdString());
-  }
-
   unused4KbSysStack.http().setReuse(false);
 
   const char *headers[] = {PSTR("LATEST_VERSION")};
@@ -61,8 +56,8 @@ auto Network::setup() const noexcept -> void {
   unused4KbSysStack.client().setSync(true);
 
 #ifdef IOP_SSL
-  //if (maybeCertStore.has_value())
-  //  unused4KbSysStack.client().setCertStore(&iop::unwrap_mut(maybeCertStore, IOP_CTX()));
+  iop_assert(maybeCertStore != nullptr, F("Must call Network::setCertStore before Network::setup for SSL support"));
+  //unused4KbSysStack.client().setCertStore(maybeCertStore);
   unused4KbSysStack.client().setInsecure(); // TODO: remove this (what the frick)
 #endif
 
@@ -125,7 +120,7 @@ auto Network::httpRequest(const HttpMethod method_,
   }
 
   #ifdef IOP_DESKTOP
-  const auto uri = this->uri().toStdString() + path.asCharPtr();
+  const auto uri = this->uri().toString() + path.asCharPtr();
   #else
   const auto uri = String(this->uri().get()) + path.get();
   #endif
@@ -190,7 +185,7 @@ auto Network::httpRequest(const HttpMethod method_,
 
   this->logger.debug(F("Making HTTP request"));
   const auto code =
-      unused4KbSysStack.http().sendRequest(method.toStdString().c_str(), data__, data_.length());
+      unused4KbSysStack.http().sendRequest(method.toString().c_str(), data__, data_.length());
   this->logger.debug(F("Made HTTP request")); 
 
   // Handle system upgrade request

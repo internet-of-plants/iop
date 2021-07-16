@@ -184,7 +184,7 @@ void HttpServer::handleClient() noexcept {
       }
       firstLine = false;
       
-      iop_assert(buff.find("\n") != buff.npos, iop::StaticString(F("First: ")).toStdString() + std::to_string(buff.length()) + iop::StaticString(F(" bytes don't contain newline, the path is too long\n")).toStdString());
+      iop_assert(buff.find("\n") != buff.npos, iop::StaticString(F("First: ")).toString() + std::to_string(buff.length()) + iop::StaticString(F(" bytes don't contain newline, the path is too long\n")).toString());
       logger().debug(F("Found first line"));
       const char* ptr = buff.begin() + buff.find("\n") + 1;
       memmove(buffer.data(), ptr, strlen(ptr) + 1);
@@ -251,7 +251,7 @@ void HttpServer::close() noexcept {
 }
 
 void HttpServer::on(iop::StaticString uri, HttpServer::Callback handler) noexcept {
-  this->router.emplace(std::move(uri.toStdString()), std::move(handler));
+  this->router.emplace(std::move(uri.toString()), std::move(handler));
 }
 //called when handler is not assigned
 void HttpServer::onNotFound(HttpServer::Callback fn) noexcept {
@@ -306,7 +306,7 @@ std::optional<std::string> HttpConnection::arg(const iop::StaticString name) con
   std::string_view view(this->currentPayload);
 
   size_t argEncodingLen = 1 + name.length(); // len(name) + len('=')
-  size_t index = view.find(name.toStdString() + "=");
+  size_t index = view.find(name.toString() + "=");
   if (index != 0) index = view.find(std::string("&") + name.asCharPtr() + "=");
   if (index == view.npos) return std::optional<std::string>();
   if (index != 0) argEncodingLen++; // + len('&')
@@ -366,7 +366,7 @@ void HttpConnection::setContentLength(const size_t contentLength) noexcept {
 }
 void HttpConnection::sendHeader(const iop::StaticString name, const iop::StaticString value) noexcept{
   IOP_TRACE();
-  this->currentHeaders += name.toStdString() + ": " + value.toStdString() + "\r\n";
+  this->currentHeaders += name.toString() + ": " + value.toString() + "\r\n";
 }
 void HttpConnection::sendData(iop::StaticString content) const noexcept {
   IOP_TRACE();

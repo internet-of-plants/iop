@@ -281,7 +281,7 @@ auto CredentialsServer::statusToString(const driver::StationStatus status)
     break;
   }
   if (!ret.has_value())
-    this->logger.error(iop::StaticString(F("Unknown status: ")).toStdString() + std::to_string(static_cast<uint8_t>(status)));
+    this->logger.error(iop::StaticString(F("Unknown status: ")).toString() + std::to_string(static_cast<uint8_t>(status)));
   return ret;
 }
 
@@ -413,7 +413,7 @@ auto CredentialsServer::serve(const std::optional<WifiCredentials> &storedWifi,
 
     const auto ssid = iop::unwrap_ref(config::wifiNetworkName(), IOP_CTX());
     const auto psk = iop::unwrap_ref(config::wifiPassword(), IOP_CTX());
-    this->connect(ssid.toStdString(), psk.toStdString());
+    this->connect(ssid.toString(), psk.toString());
   }
 
   const auto hasHardcodedIopCreds = config::iopEmail().has_value() && config::iopPassword().has_value();
@@ -424,7 +424,7 @@ auto CredentialsServer::serve(const std::optional<WifiCredentials> &storedWifi,
 
     const auto email = iop::unwrap_ref(config::iopEmail(), IOP_CTX());
     const auto password = iop::unwrap_ref(config::iopPassword(), IOP_CTX());
-    const auto tok = this->authenticate(email.toStdString(), password.toStdString(), api);
+    const auto tok = this->authenticate(email.toString(), password.toString(), api);
     if (tok.has_value())
       return tok;
   }

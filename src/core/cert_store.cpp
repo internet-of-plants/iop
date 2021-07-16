@@ -7,11 +7,6 @@ namespace iop {
 
 constexpr const uint8_t hashSize = 32;
 
-CertStore::CertStore(CertList certList) noexcept
-    : certList(std::move(certList)) {
-  IOP_TRACE();
-}
-
 auto CertStore::findHashedTA(void *ctx, void *hashed_dn, size_t len)
     -> const br_x509_trust_anchor * {
   IOP_TRACE();
@@ -27,7 +22,7 @@ auto CertStore::findHashedTA(void *ctx, void *hashed_dn, size_t len)
                 "static array"));
   }
   if (len != hashSize)
-    iop_panic(StaticString(F("Invalid hash len, this is critical: ")).toStdString()
+    iop_panic(StaticString(F("Invalid hash len, this is critical: ")).toString()
                 + std::to_string(len));
 
   const auto &list = cs->certList;
@@ -66,24 +61,6 @@ void CertStore::installCertStore(br_x509_minimal_context *ctx) {
   br_x509_minimal_set_dynamic(ctx, ptr, findHashedTA, freeHashedTA);
 }
 
-Cert::Cert(const uint8_t *cert, const uint8_t *index,
-           const uint16_t *size) noexcept
-    : size(size), index(index), cert(cert) {
-  IOP_TRACE();
-}
-Cert::Cert(Cert &&other) noexcept
-    : size(other.size), index(other.index), cert(other.cert) {
-  IOP_TRACE();
-}
-
-CertList::CertList(const uint8_t *const *certs, const uint8_t *const *indexes,
-                   const uint16_t *sizes,
-                   const uint16_t numberOfCertificates) noexcept
-    : sizes(sizes), indexes(indexes), certs(certs),
-      numberOfCertificates(numberOfCertificates) {
-  IOP_TRACE();
-}
-
 auto CertList::count() const noexcept -> uint16_t {
   IOP_TRACE();
   return this->numberOfCertificates;
@@ -94,11 +71,4 @@ auto CertList::cert(uint16_t index) const noexcept -> Cert {
   // NOLINTNEXTLINE cppcoreguidelines-pro-bounds-pointer-arithmetic
   return {this->certs[index], this->indexes[index], &this->sizes[index]};
 }
-
-CertList::CertList(CertList &&other) noexcept
-    : sizes(other.sizes), indexes(other.indexes), certs(other.certs),
-      numberOfCertificates(other.numberOfCertificates) {
-  IOP_TRACE();
-}
-
 } // namespace iop

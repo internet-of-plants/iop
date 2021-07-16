@@ -62,14 +62,12 @@ auto Api::setup() const noexcept -> void {
   iop::Network::setUpgradeHook(iop::UpgradeHook(upgradeScheduler));
 #endif
 
-  this->network().setup();
-
 #ifdef IOP_SSL
-  // client.setInsecure();
-  // We should make sure our server supports Max Fragment Length Negotiation
-  // if (client.probeMaxFragmentLength(uri, port, 512))
-  //     client.setBufferSizes(512, 512);
+  static iop::CertStore certStore(generated::certList);
+  this->network().setCertStore(certStore);
 #endif
+
+  this->network().setup();
 
 #endif
 }
@@ -85,9 +83,9 @@ auto Api::reportPanic(const AuthToken &authToken,
 
   while (true) {
     const auto make = [event, &msg](JsonDocument &doc) {
-      doc["file"] = event.file.toStdString();
+      doc["file"] = event.file.toString();
       doc["line"] = event.line;
-      doc["func"] = event.func.toStdString();
+      doc["func"] = event.func.toString();
       doc["msg"] = msg;
     };
     maybeJson = this->makeJson(F("Api::reportPanic"), make);

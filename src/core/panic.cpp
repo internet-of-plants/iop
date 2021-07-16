@@ -31,7 +31,7 @@ void panicHandler(std::string_view msg, CodePoint const &point) noexcept {
 
 void panicHandler(StaticString msg, CodePoint const &point) noexcept {
   IOP_TRACE();
-  const auto msg_ = msg.toStdString();
+  const auto msg_ = msg.toString();
   hook.entry(msg_, point);
   hook.staticPanic(msg, point);
   hook.halt(msg_, point);

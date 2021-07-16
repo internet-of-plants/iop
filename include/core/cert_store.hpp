@@ -15,17 +15,12 @@ struct Cert {
   const uint8_t *index;
   const uint8_t *cert;
 
-  ~Cert() noexcept = default;
-  Cert(const uint8_t *cert, const uint8_t *index,
-       const uint16_t *size) noexcept;
-  Cert(Cert const &other) noexcept = default;
-  Cert(Cert &&other) noexcept;
-  auto operator=(Cert const &other) noexcept -> Cert & = default;
-  auto operator=(Cert &&other) noexcept -> Cert & = default;
+  constexpr Cert(const uint8_t *cert, const uint8_t *index, const uint16_t *size) noexcept:
+    size(size), index(index), cert(cert) {}
 };
 
-/// Abstracts hardcoded certificates. You must run the pre build certificates
-/// downloading python script and generate your header file with certificates.
+/// Abstracts hardcoded certificates. You must run the pre build script
+/// that downloads certificates and generates a header file with them.
 ///
 /// This will store 3 arrays (and the number of certificates). Certificates,
 /// Certificates Sizes and Hashes. With that the certificate storage can be
@@ -48,21 +43,16 @@ class CertList {
 
 public:
   CertList(const uint8_t *const *certs, const uint8_t *const *indexes,
-           const uint16_t *sizes, uint16_t numberOfCertificates) noexcept;
+           const uint16_t *sizes, uint16_t numberOfCertificates) noexcept:
+      sizes(sizes), indexes(indexes), certs(certs),
+      numberOfCertificates(numberOfCertificates) {}
 
   auto cert(uint16_t index) const noexcept -> Cert;
   auto count() const noexcept -> uint16_t;
-
-  CertList(CertList const &other) noexcept = default;
-  CertList(CertList &&other) noexcept;
-  auto operator=(CertList const &other) noexcept -> CertList & = default;
-  auto operator=(CertList &&other) noexcept -> CertList & = default;
-  ~CertList() noexcept = default;
 };
 
-/// TLS certificate storage using hardcoded certs. You must construct with the
-/// hardcoded certs. The certList should be generated together with the
-/// certificates. Check the (build/preBuildCertificates.py)
+/// TLS certificate storage using hardcoded certs. You must construct it from the
+/// generated certs. Check the (build/preBuildCertificates.py)
 ///
 /// Should be constructed in static. It's not copyable, nor movable.
 class CertStore : public BearSSL::CertStoreBase {
@@ -70,24 +60,19 @@ class CertStore : public BearSSL::CertStoreBase {
   CertList certList;
 
 public:
-  explicit CertStore(CertList list) noexcept;
+  explicit CertStore(CertList list) noexcept: x509{}, certList(list) {}
 
   CertStore(CertStore const &other) noexcept = delete;
-  CertStore(CertStore &&other) noexcept: x509(std::optional<BearSSL::X509List>()), certList(std::move(other.certList)) {}
+  CertStore(CertStore &&other) noexcept = delete;
   auto operator=(CertStore const &other) noexcept -> CertStore & = delete;
-  auto operator=(CertStore &&other) noexcept -> CertStore & {
-    this->x509.reset();
-    this->certList = std::move(other.certList);
-    return *this;
-  }
+  auto operator=(CertStore &&other) noexcept -> CertStore & = delete;
+  ~CertStore() noexcept final = default;
 
   /// Called by libraries like HttpClient. Call `setCertList` before passing
-  /// iop::CertStore to whiever lib is going to use it.
+  /// iop::CertStore to whichever lib is going to use it.
   ///
   /// Panics if CertList is not set.
   void installCertStore(br_x509_minimal_context *ctx) final;
-
-  ~CertStore() noexcept override = default;
 
 private:
   // These need to be static as they are called from from BearSSL C code

@@ -177,14 +177,14 @@ public:
     this->uri.clear();
   }
   void addHeader(iop::StaticString key, iop::StaticString value) {
-    auto keyLower = key.toStdString();
+    auto keyLower = key.toString();
     // Headers can't be UTF8 so we cool
     std::transform(keyLower.begin(), keyLower.end(), keyLower.begin(),
         [](unsigned char c){ return std::tolower(c); });
-    this->headers.emplace(keyLower, std::move(value.toStdString()));
+    this->headers.emplace(keyLower, std::move(value.toString()));
   }
   void addHeader(iop::StaticString key, std::string value) {
-    auto keyLower = key.toStdString();
+    auto keyLower = key.toString();
     // Headers can't be UTF8 so we cool
     std::transform(keyLower.begin(), keyLower.end(), keyLower.begin(),
         [](unsigned char c){ return std::tolower(c); });
@@ -270,7 +270,7 @@ public:
           clientDriverLogger->error(F("Bad server: "), statusStr, F(" -- "), buff);
           return 500;
         }
-        //iop_assert(buff.contains(F("\n")), iop::StaticString(F("First: ")).toStdString() + std::to_string(buffer.length()) + iop::StaticString(F(" bytes don't contain newline, the path is too long\n")).toStdString());
+        //iop_assert(buff.contains(F("\n")), iop::StaticString(F("First: ")).toString() + std::to_string(buffer.length()) + iop::StaticString(F(" bytes don't contain newline, the path is too long\n")).toString());
         status = std::make_optional(atoi(std::string(statusStr.begin(), 0, codeEnd).c_str()));
         clientDriverLogger->debug(F("Status: "), std::to_string(status.value_or(500)));
         firstLine = false;
@@ -382,7 +382,7 @@ public:
     iop_assert(uri.find("http://") == 0, F("Protocol must be http (no SSL)"));
     uri = std::string_view(uri.begin() + 7);
     
-    const auto portIndex = uri.find(iop::StaticString(F(":")).toStdString());
+    const auto portIndex = uri.find(iop::StaticString(F(":")).toString());
     uint16_t port = 443;
     if (portIndex != uri.npos) {
       auto end = uri.substr(portIndex + 1).find("/");

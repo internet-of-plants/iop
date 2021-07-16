@@ -58,6 +58,7 @@ public:
       setup(std::move(setuper)), flush(std::move(flusher)),
       traceViewPrint(defaultViewPrinter),
       traceStaticPrint(defaultStaticPrinter) {}
+
   // Specifies custom tracer funcs, may be called from interrupts (put it into
   // ICACHE_RAM). Don't be fancy, and be aware, it can saturate channels very
   // fast
@@ -90,8 +91,6 @@ public:
   Log(const LogLevel &level, StaticString target) noexcept
       : level_{level}, target_(std::move(target)) {}
 
-  static void shouldFlush(bool flush) noexcept;
-
   /// Replaces current hook for this. Very useful to support other logging
   /// channels, like network or flash. Default just prints to serial.
   ///
@@ -106,6 +105,7 @@ public:
 
   auto level() const noexcept -> LogLevel { return this->level_; }
   auto target() const noexcept -> StaticString { return this->target_; }
+  static void shouldFlush(bool flush) noexcept;
   static auto isTracing() noexcept -> bool;
 
   template <typename... Args> void trace(const Args &...args) const noexcept {
@@ -127,8 +127,7 @@ public:
     this->log_recursive(LogLevel::CRIT, true, args...);
   }
 
-  static void print(StaticString progmem, LogLevel level,
-                    LogType kind) noexcept;
+  static void print(StaticString progmem, LogLevel level, LogType kind) noexcept;
   static void print(std::string_view view, LogLevel level, LogType kind) noexcept;
   static void flush() noexcept;
   static void setup(LogLevel level) noexcept;
@@ -151,9 +150,9 @@ public:
   void log_recursive(const LogLevel &level, const bool first,
                      const StaticString msg) const noexcept {
     if (first) {
-      this->log(level, msg, LogType::STARTEND, defaultLineTermination());
+      this->log(level, msg, LogType::STARTEND, F("\n"));
     } else {
-      this->log(level, msg, LogType::END, defaultLineTermination());
+      this->log(level, msg, LogType::END, F("\n"));
     }
   }
 
@@ -174,27 +173,19 @@ public:
   void log_recursive(const LogLevel &level, const bool first,
                      const std::string_view msg) const noexcept {
     if (first) {
-      this->log(level, msg, LogType::STARTEND, defaultLineTermination());
+      this->log(level, msg, LogType::STARTEND, F("\n"));
     } else {
-      this->log(level, msg, LogType::END, defaultLineTermination());
+      this->log(level, msg, LogType::END, F("\n"));
     }
   }
 
-  void printLogType(const LogType &logType,
-                    const LogLevel &level) const noexcept;
+  void printLogType(const LogType &logType, const LogLevel &level) const noexcept;
   auto levelToString(LogLevel level) const noexcept -> StaticString;
 
-  void log(const LogLevel &level, const StaticString &msg,
-           const LogType &logType,
+  void log(const LogLevel &level, const StaticString &msg, const LogType &logType,
            const StaticString &lineTermination) const noexcept;
   void log(const LogLevel &level, const std::string_view &msg, const LogType &logType,
            const StaticString &lineTermination) const noexcept;
-
-  ~Log() = default;
-  Log(Log const &other) noexcept = default;
-  Log(Log &&other) noexcept = default;
-  auto operator=(Log const &other) noexcept -> Log & = default;
-  auto operator=(Log &&other) noexcept -> Log & = default;
 };
 
 class CodePoint {
@@ -209,12 +200,6 @@ public:
   auto file() const noexcept -> StaticString { return this->file_; }
   auto line() const noexcept -> uint32_t { return this->line_; }
   auto func() const noexcept -> StaticString { return this->func_; }
-
-  ~CodePoint() noexcept = default;
-  CodePoint(const CodePoint &other) noexcept = default;
-  CodePoint(CodePoint &&other) noexcept = default;
-  auto operator=(const CodePoint &other) noexcept -> CodePoint & = default;
-  auto operator=(CodePoint &&other) noexcept -> CodePoint & = default;
 };
 
 /// Tracer objects, that signifies scoping changes. Helps with post-mortemns

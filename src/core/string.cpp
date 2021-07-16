@@ -76,57 +76,10 @@ auto to_view(const CowString& str) -> std::string_view {
   return iop::unwrap_err_ref(str, IOP_CTX());
 }
 
-// NOLINTNEXTLINE hicpp-explicit-conversions
-StaticString::StaticString(const __FlashStringHelper *str) noexcept : str(str) {}
-StaticString::StaticString(StaticString &&other) noexcept: str(other.str) {}
-auto StaticString::get() const noexcept -> const __FlashStringHelper * {
-  // IOP_TRACE();
-  return this->str;
-}
-auto StaticString::contains(std::string_view needle) const noexcept -> bool {
-  if (Log::isTracing()) {
-    Log::print(F("StaticString(\""), iop::LogLevel::TRACE, iop::LogType::START);
-    Log::print(*this, iop::LogLevel::TRACE, iop::LogType::CONTINUITY);
-    Log::print(F("\").contains(std::string_view(\""), iop::LogLevel::TRACE, iop::LogType::CONTINUITY);
-    Log::print(needle, iop::LogLevel::TRACE, iop::LogType::CONTINUITY);
-    Log::print(F("\"))"), iop::LogLevel::TRACE, iop::LogType::CONTINUITY);
-  }
-  std::string msg(this->length(), '\0');
-  memmove_P(&msg.front(), this->asCharPtr(), this->length());
-  return strstr(msg.c_str(), std::move(needle).begin()) !=
-         nullptr;
-}
-auto StaticString::contains(StaticString needle) const noexcept -> bool {
-  if (Log::isTracing()) {
-    Log::print(F("StaticString(\""), iop::LogLevel::TRACE, iop::LogType::START);
-    Log::print(*this, iop::LogLevel::TRACE, iop::LogType::CONTINUITY);
-    Log::print(F("\").contains(StaticString(\""), iop::LogLevel::TRACE, iop::LogType::CONTINUITY);
-    Log::print(needle, iop::LogLevel::TRACE, iop::LogType::CONTINUITY);
-    Log::print(F("\"))"), iop::LogLevel::TRACE, iop::LogType::CONTINUITY);
-  }
-  return strstr_P(this->toStdString().c_str(), std::move(needle).asCharPtr()) != nullptr;
-}
-auto StaticString::length() const noexcept -> size_t {
-  return strlen_P(this->asCharPtr());
-}
-
-auto StaticString::toStdString() const noexcept -> std::string {
+auto StaticString::toString() const noexcept -> std::string {
   const auto len = this->length();
   std::string msg(len, '\0');
-  memmove_P(&msg.front(), this->asCharPtr(), len);
+  memcpy_P(&msg.front(), this->asCharPtr(), len);
   return msg;
-}
-
-auto StaticString::isEmpty() const noexcept -> bool {
-  IOP_TRACE();
-  return this->length() == 0;
-}
-// Be careful when calling this function, if you pass PGM_P to a function that
-// expects a regular char* a hardware exception may happen, PROGMEM data needs
-// to be read in 32 bits alignment, this has caused trouble in the past
-auto StaticString::asCharPtr() const noexcept -> PGM_P {
-  //IOP_TRACE();
-  // NOLINT *-pro-type-reinterpret-cast
-  return reinterpret_cast<PGM_P>(this->get());
 }
 } // namespace iop
