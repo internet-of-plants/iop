@@ -50,7 +50,7 @@ auto Flash::readAuthToken() const noexcept -> std::optional<std::reference_wrapp
   const auto tok = std::string_view(unused4KbSysStack.token().data(), 64);
   // AuthToken must be printable US-ASCII (to be stored in HTTP headers))
   if (!iop::isAllPrintable(tok)) {
-    this->logger.error(F("Auth token was non printable: "), tok);
+    this->logger.error(F("Auth token was non printable: "), iop::to_view(iop::scapeNonPrintable(tok)));
     this->removeAuthToken();
     return std::optional<std::reference_wrapper<const AuthToken>>();
   }

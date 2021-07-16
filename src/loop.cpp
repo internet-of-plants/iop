@@ -27,7 +27,7 @@ void EventLoop::loop() noexcept {
     while (true) {
         auto ev = utils::descheduleInterrupt();
         if (ev == InterruptEvent::NONE)
-        break;
+          break;
 
         this->handleInterrupt(ev, authToken);
         driver::thisThread.yield();

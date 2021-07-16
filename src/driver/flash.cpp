@@ -73,12 +73,14 @@ uint8_t * Flash::asMut() noexcept {
 }
 #else
 #include "EEPROM.h"
+#include "core/panic.hpp"
 
 static EEPROMClass EEPROM;
 
 namespace driver {
 // TODO: properly handle EEPROM internal errors
 void Flash::setup(size_t size) noexcept {
+    this->size = size;
     EEPROM.begin(size);
 }
 std::optional<uint8_t> Flash::read(const size_t address) const noexcept {
@@ -88,6 +90,7 @@ void Flash::write(const size_t address, uint8_t const val) noexcept {
     EEPROM.write(address, val);
 }
 void Flash::commit() noexcept {
+    // TODO: report errors in flash usage
     EEPROM.commit();
 }
 uint8_t const * Flash::asRef() const noexcept {

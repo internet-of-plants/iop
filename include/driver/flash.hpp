@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <optional>
+#include "core/panic.hpp"
 
 namespace driver {
 class Flash {
@@ -20,8 +21,8 @@ public:
 
   template<typename T> 
   void put(int const address, const T &t) {
-    if (address + sizeof(T) > size) return;
-    memcpy(this->buffer + address, &t, sizeof(T));
+    iop_assert(address + sizeof(T) <= this->size, iop::StaticString(F("Flash overflow: ")).toString() + std::to_string(address + sizeof(T)));
+    memcpy(this->asMut() + address, &t, sizeof(T));
   }
 };
 extern Flash flash;
