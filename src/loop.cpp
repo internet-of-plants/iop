@@ -51,15 +51,15 @@ void EventLoop::loop() noexcept {
         constexpr const uint32_t oneMinute = 60 * 1000;
 
         if (this->nextHandleConnectionLost == 0) {
-        this->nextHandleConnectionLost = now + oneMinute;
+          this->nextHandleConnectionLost = now + oneMinute;
 
         } else if (this->nextHandleConnectionLost < now) {
-        this->logger.debug(F("Has creds, but no signal, opening server"));
-        this->nextHandleConnectionLost = now + oneMinute;
-        this->handleCredentials();
+          this->logger.debug(F("Has creds, but no signal, opening server"));
+          this->nextHandleConnectionLost = now + oneMinute;
+          this->handleCredentials();
 
         } else {
-        // No-op, we must just wait
+          // No-op, we must just wait
         }
 
     } else if (this->nextMeasurement <= now) {

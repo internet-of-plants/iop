@@ -102,7 +102,7 @@ auto Api::reportPanic(const AuthToken &authToken,
     return iop::NetworkStatus::CLIENT_BUFFER_OVERFLOW;
   const auto &json = iop::unwrap(maybeJson, IOP_CTX()).get();
 
-  const auto token = std::string_view(authToken.data(), authToken.max_size());
+  const auto token = iop::to_view(authToken);
   auto const & maybeResp = this->network().httpPost(token, F("/v1/panic"), json.data());
 
 #ifndef IOP_MOCK_MONITOR
@@ -136,7 +136,7 @@ auto Api::registerEvent(const AuthToken &authToken,
     return iop::NetworkStatus::CLIENT_BUFFER_OVERFLOW;
   const auto &json = iop::unwrap(maybeJson, IOP_CTX()).get();
 
-  const auto token = std::string_view(authToken.data(), authToken.max_size());
+  const auto token = iop::to_view(authToken);
   auto const & maybeResp = this->network().httpPost(token, F("/v1/event"), json.data());
 
 #ifndef IOP_MOCK_MONITOR
@@ -213,7 +213,7 @@ auto Api::registerLog(const AuthToken &authToken,
                       std::string_view log) const noexcept
     -> iop::NetworkStatus {
   IOP_TRACE();
-  const auto token = std::string_view(authToken.data(), authToken.max_size());
+  const auto token = iop::to_view(authToken);
   this->logger.debug(F("Register log. Token: "), token, F(". Log: "), log);
   auto const & maybeResp = this->network().httpPost(token, F("/v1/log"), std::move(log));
 

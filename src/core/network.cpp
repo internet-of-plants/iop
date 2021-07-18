@@ -37,7 +37,7 @@ auto Network::isConnected() noexcept -> bool {
 
 void Network::disconnect() noexcept {
   IOP_TRACE();
-  WiFi.disconnect();
+  driver::wifi.stationDisconnect();
 }
 
 static bool initialized = false;
@@ -61,7 +61,7 @@ auto Network::setup() const noexcept -> void {
   unused4KbSysStack.client().setInsecure(); // TODO: remove this (what the frick)
 #endif
 
-  WiFi.persistent(true);
+  WiFi.persistent(false);
   WiFi.setAutoReconnect(true);
   WiFi.setAutoConnect(true);
   WiFi.mode(WIFI_STA);
@@ -139,8 +139,7 @@ auto Network::httpRequest(const HttpMethod method_,
 
   if (token.has_value()) {
     const auto tok = iop::unwrap_ref(token, IOP_CTX());
-    this->logger.debug(F("Token: "), tok);
-    unused4KbSysStack.http().setAuthorization(tok.begin());
+    unused4KbSysStack.http().setAuthorization(std::string(tok).c_str());
   } else {
     // We have to clear the authorization, it persists between requests
     unused4KbSysStack.http().setAuthorization("");

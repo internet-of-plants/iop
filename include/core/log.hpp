@@ -78,10 +78,6 @@ public:
   auto operator=(LogHook &&other) noexcept -> LogHook &;
 };
 
-static auto defaultLineTermination() -> StaticString {
-  return StaticString(F("\n"));
-}
-
 /// Logger with its own log level and target
 class Log {
   LogLevel level_;

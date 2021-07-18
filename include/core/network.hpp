@@ -97,8 +97,8 @@ public:
 
 class Response {
 public:
-  std::optional<std::string> payload;
   NetworkStatus status;
+  std::optional<std::string> payload;
   ~Response() noexcept;
   explicit Response(const NetworkStatus &status) noexcept;
   Response(const NetworkStatus &status, std::string payload) noexcept;

@@ -29,13 +29,8 @@ static_assert(authTokenIndex + authTokenSize < EEPROM_SIZE,
 
 auto Flash::setup() noexcept -> void { driver::flash.setup(EEPROM_SIZE); }
 
-static bool cachedAuthToken = false;
 auto Flash::readAuthToken() const noexcept -> std::optional<std::reference_wrapper<const AuthToken>> {
   IOP_TRACE();
-
-  // Checks if value is cached
-  if (cachedAuthToken)
-    return std::make_optional(std::ref(unused4KbSysStack.token()));
 
   // Check if magic byte is set in flash (as in, something is stored)
   if (driver::flash.read(authTokenIndex) != usedAuthTokenEEPROMFlag)
@@ -44,12 +39,11 @@ auto Flash::readAuthToken() const noexcept -> std::optional<std::reference_wrapp
   // NOLINTNEXTLINE *-pro-bounds-pointer-arithmetic
   const uint8_t *ptr = driver::flash.asRef() + authTokenIndex + 1;
   
-  // Updates cache
   memcpy(unused4KbSysStack.token().data(), ptr, 64);
 
-  const auto tok = std::string_view(unused4KbSysStack.token().data(), 64);
+  const auto tok = iop::to_view(unused4KbSysStack.token());
   // AuthToken must be printable US-ASCII (to be stored in HTTP headers))
-  if (!iop::isAllPrintable(tok)) {
+  if (!iop::isAllPrintable(tok) || tok.length() != 64) {
     this->logger.error(F("Auth token was non printable: "), iop::to_view(iop::scapeNonPrintable(tok)));
     this->removeAuthToken();
     return std::optional<std::reference_wrapper<const AuthToken>>();
@@ -57,15 +51,12 @@ auto Flash::readAuthToken() const noexcept -> std::optional<std::reference_wrapp
 
   this->logger.trace(F("Found Auth token: "), tok);
 
-  cachedAuthToken = true;
   return std::make_optional(std::ref(unused4KbSysStack.token()));
 }
 
 void Flash::removeAuthToken() const noexcept {
   IOP_TRACE();
 
-  // Clears cache, if any
-  cachedAuthToken = false;
   unused4KbSysStack.token().fill('\0');
 
   // Checks if it's written to flash first, avoids wasting writes
@@ -92,24 +83,15 @@ void Flash::writeAuthToken(const AuthToken &token) const noexcept {
     }
   }
 
-  this->logger.info(F("Writing auth token to storage: "), std::string_view(token.data(), token.max_size()));
-
-  // Updates cache
-  cachedAuthToken = true;
-  unused4KbSysStack.token() = token;
+  this->logger.info(F("Writing auth token to storage: "), iop::to_view(token));
 
   driver::flash.write(authTokenIndex, usedAuthTokenEEPROMFlag);
   driver::flash.put(authTokenIndex + 1, token);
   driver::flash.commit();
 }
 
-static bool cachedSSID = false;
 auto Flash::readWifiConfig() const noexcept -> std::optional<std::reference_wrapper<const WifiCredentials>> {
   IOP_TRACE();
-
-  // Check if value is in cache
-  if (cachedSSID)
-    return std::make_optional(WifiCredentials(unused4KbSysStack.ssid(), unused4KbSysStack.psk()));
 
   // Check if magic byte is set in flash (as in, something is stored)
   if (driver::flash.read(wifiConfigIndex) != usedWifiConfigEEPROMFlag)
@@ -126,8 +108,6 @@ auto Flash::readWifiConfig() const noexcept -> std::optional<std::reference_wrap
   const auto ssidStr = iop::scapeNonPrintable(std::string_view(unused4KbSysStack.ssid().data(), 32));
   this->logger.trace(F("Found network credentials: "), iop::to_view(ssidStr));
 
-  // Clears cache, if any
-  cachedSSID = true;
   return std::make_optional(WifiCredentials(unused4KbSysStack.ssid(), unused4KbSysStack.psk()));
 }
 
@@ -135,7 +115,6 @@ void Flash::removeWifiConfig() const noexcept {
   IOP_TRACE();
   this->logger.info(F("Deleting stored wifi config"));
 
-  cachedSSID = false;
   unused4KbSysStack.ssid().fill('\0');
   unused4KbSysStack.psk().fill('\0');
 
@@ -164,11 +143,6 @@ void Flash::writeWifiConfig(const WifiCredentials &config) const noexcept {
   }
 
   this->logger.info(F("Writing network credentials to storage: "), std::string_view(config.ssid.get().data(), 32));
-
-  // Updates cache
-  cachedAuthToken = true;
-  unused4KbSysStack.ssid() = config.ssid.get();
-  unused4KbSysStack.psk() = config.password.get();
 
   driver::flash.write(wifiConfigIndex, usedWifiConfigEEPROMFlag);
   driver::flash.put(wifiConfigIndex + 1, config.ssid);
