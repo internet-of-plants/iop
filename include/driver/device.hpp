@@ -5,6 +5,17 @@
 #include <stdint.h>
 #include <array>
 
+#ifdef IOP_DESKTOP
+class HeapSelectIram {
+  uint8_t dummy = 0;
+};
+class HeapSelectDram {
+  uint8_t dummy = 0;
+};
+#else
+#include <umm_malloc/umm_heap_select.h>
+#endif
+
 namespace driver {
 class Device {
 public:

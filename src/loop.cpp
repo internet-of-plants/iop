@@ -133,7 +133,7 @@ void EventLoop::handleInterrupt(const InterruptEvent event,
       break;
     case InterruptEvent::ON_CONNECTION:
 #ifdef IOP_ONLINE
-      const auto ip = WiFi.localIP().toString();
+      const auto ip = driver::wifi.localIP();
       const auto status = this->credentialsServer.statusToString(driver::wifi.status());
       this->logger.debug(F("WiFi connected ("), iop::to_view(ip), F("): "), status.value_or(iop::StaticString(F("BadData"))));
 
@@ -159,6 +159,7 @@ void EventLoop::handleCredentials() noexcept {
     IOP_TRACE();
 
     const auto &wifi = this->flash().readWifiConfig();
+    this->logger.info(F("Cache ptr: "), std::to_string((size_t)&wifi.value().get()));
     const auto maybeToken = this->credentialsServer.serve(wifi, this->api());
 
     if (maybeToken.has_value())

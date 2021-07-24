@@ -126,9 +126,11 @@ class Unused4KbSysStack {
     #else
     std::optional<WiFiClient> client;
     #endif
-    HTTPClient http;
-    bool isHttpSet;
+    #else
+    std::optional<WiFiClient> client;
     #endif
+    std::optional<HTTPClient> http;
+    bool isHttpSet;
     std::array<char, 64> token;
     std::array<char, 64> psk;
     std::optional<std::variant<iop::Response, int>> response;
@@ -169,13 +171,6 @@ public:
     return iop::unwrap_mut(this->data->client, IOP_CTX());
   }
   #endif
-  auto http() noexcept -> HTTPClient & {
-    if (!this->data->isHttpSet) {
-      this->data->isHttpSet = true;
-      this->data->http.setUserAgent(String(F("ESP8266HTTPClient")));
-    }
-    return this->data->http;
-  }
   auto dns() noexcept -> DNSServer & {
     if (!this->data->dns.has_value())
       this->data->dns = std::make_optional(DNSServer());
@@ -189,7 +184,20 @@ public:
       this->data->updater = std::make_optional(ESP8266HTTPUpdate());
     return iop::unwrap_mut(this->data->updater, IOP_CTX());
   }
+  #else
+  auto client() noexcept -> WiFiClient & {
+    if (!this->data->client.has_value())
+      this->data->client = std::make_optional(WiFiClient());
+    return iop::unwrap_mut(this->data->client, IOP_CTX());
+  }
   #endif
+  auto http() noexcept -> HTTPClient & {
+    if (!this->data->isHttpSet) {
+      this->data->isHttpSet = true;
+      this->data->http = std::make_optional<HTTPClient>(std::move(HTTPClient()));
+    }
+    return iop::unwrap_mut(this->data->http, IOP_CTX());
+  }
   auto mac() noexcept -> std::array<char, 17> & {
     return this->data->mac;
   }

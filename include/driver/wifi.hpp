@@ -5,6 +5,9 @@
 #include <utility>
 
 namespace driver {
+enum class WiFiMode {
+  OFF = 0, STA = 1, AP = 2, AP_STA = 3
+};
 enum class StationStatus {
   IDLE = 0,
   CONNECTING,
@@ -17,7 +20,17 @@ class Wifi {
 public:
   StationStatus status() const noexcept;
   void stationDisconnect() const noexcept;
+  void setMode(WiFiMode mode) const noexcept;
+  WiFiMode mode() const noexcept;
+  std::string localIP() const noexcept;
+  void wake() const noexcept;
   std::pair<std::string, std::string> credentials() const noexcept;
+  bool begin(std::string_view ssid, std::string_view psk) const noexcept;
+  void setupAP() const noexcept;
+  void connectAP(std::string_view ssid, std::string_view psk) const noexcept;
+  std::string APIP() const noexcept;
+  void reconnect() const noexcept;
+  void setup() const noexcept;
 };
 extern Wifi wifi;
 }
@@ -83,12 +96,8 @@ public:
     (void)subnet;
   }
 
-  std::string localIP() {
-    return std::string("192.168.0.1"));
-  }
-
   std::string softAPIP() {
-    return std::string("127.0.0.1"));
+    return std::string("127.0.0.1");
   }
 };
 #else

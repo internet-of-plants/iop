@@ -13,7 +13,6 @@
 
 #include "driver/client.hpp"
 #include "driver/server.hpp"
-#include "cont.h"
 
 auto Api::makeJson(const iop::StaticString name, const JsonCallback &func) const noexcept
     -> std::optional<std::reference_wrapper<std::array<char, 1024>>> {

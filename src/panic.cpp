@@ -112,7 +112,7 @@ static void halt(const std::string_view &msg,
       break;
     }
 
-    if (WiFi.getMode() == WIFI_OFF) {
+    if (driver::wifi.mode() == driver::WiFiMode::OFF) {
       iop::panicLogger().crit(F("WiFi is disabled, unable to recover"));
       break;
     }
@@ -131,10 +131,9 @@ static void halt(const std::string_view &msg,
     driver::device.deepSleep(oneHour);
 
     // Let's allow the wifi to reconnect
-    WiFi.forceSleepWake();
-    WiFi.mode(WIFI_STA);
-    WiFi.reconnect();
-    WiFi.waitForConnectResult();
+    driver::wifi.wake();
+    driver::wifi.setMode(driver::WiFiMode::STA);
+    driver::wifi.reconnect();
   }
 
   driver::device.deepSleep(0);

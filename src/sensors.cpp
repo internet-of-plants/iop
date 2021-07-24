@@ -81,6 +81,6 @@ void Sensors::setup() noexcept {
 auto Sensors::measure() noexcept -> Event {
   IOP_TRACE();
   (void)*this;
-  return Event((EventStorage){0});
+  return Event((EventStorage){0.0, 0.0, 0.0, 0, 0.0});
 }
 #endif

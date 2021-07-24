@@ -209,30 +209,18 @@ void CredentialsServer::start() noexcept {
     this->logger.info(F("Setting our own wifi access point"));
 
     // TODO: how to mock it in a reasonable way?
-    WiFi.mode(WIFI_AP_STA);
+    driver::wifi.setMode(driver::WiFiMode::AP_STA);
     driver::thisThread.sleep(1);
-
-    // NOLINTNEXTLINE *-avoid-magic-numbers
-    const auto staticIp = IPAddress(192, 168, 1, 1);
-    // NOLINTNEXTLINE *-avoid-magic-numbers
-    const auto mask = IPAddress(255, 255, 255, 0);
-
-    WiFi.softAPConfig(staticIp, staticIp, mask);
+    driver::wifi.setupAP();
 
     {
       const auto hash = iop::hashString(iop::to_view(driver::device.macAddress()));
       const auto ssid = std::string("iop-") + std::to_string(hash);
 
-      // TODO(pc): the password should be random (passed at compile time)
-      // But also accessible externally (like a sticker in the hardware).
-      // So not dynamic
-      //
-      // Using PSTR in the password crashes, because it internally calls
-      // strlen and it's a hardware fault reading byte by byte from flash
-      WiFi.softAP(ssid.c_str(), "le$memester#passwordz");
+      driver::wifi.connectAP(ssid, iop::StaticString(F("le$memester#passwordz")).toString());
     }
     
-    const auto ip = WiFi.softAPIP().toString();
+    const auto ip = driver::wifi.APIP();
     
     server.begin();
 
@@ -251,7 +239,7 @@ void CredentialsServer::close() noexcept {
     dnsServer.close();
     server.close();
 
-    WiFi.mode(WIFI_STA);
+    driver::wifi.setMode(driver::WiFiMode::STA);
     driver::thisThread.sleep(1);
   }
 }
@@ -293,9 +281,7 @@ void CredentialsServer::connect(std::string_view ssid,
     driver::wifi.stationDisconnect();
   }
 
-  WiFi.begin(ssid.begin(), std::move(password).begin());
-
-  if (WiFi.waitForConnectResult() == -1) {
+  if (!driver::wifi.begin(ssid, password)) {
     this->logger.error(F("Wifi authentication timed out"));
     return;
   }
@@ -316,11 +302,11 @@ auto CredentialsServer::authenticate(std::string_view username,
                                      const Api &api) const noexcept
     -> std::optional<AuthToken> {
   IOP_TRACE();
-  WiFi.mode(WIFI_STA);
+  driver::wifi.setMode(driver::WiFiMode::STA);
 
   auto authToken = api.authenticate(username, std::move(password));
   
-  WiFi.mode(WIFI_AP_STA);
+  driver::wifi.setMode(driver::WiFiMode::AP_STA);
   this->logger.info(F("Tried to authenticate: "));
   if (iop::is_err(authToken)) {
     const auto &status = iop::unwrap_err_ref(authToken, IOP_CTX());
@@ -353,7 +339,7 @@ auto CredentialsServer::authenticate(std::string_view username,
   return std::make_optional(std::move(iop::unwrap_ok_mut(authToken, IOP_CTX())));
 }
 
-auto CredentialsServer::serve(const std::optional<WifiCredentials> &storedWifi,
+auto CredentialsServer::serve(const std::optional<std::reference_wrapper<const WifiCredentials>> storedWifi,
                               const Api &api) noexcept
     -> std::optional<AuthToken> {
   IOP_TRACE();
@@ -392,10 +378,10 @@ auto CredentialsServer::serve(const std::optional<WifiCredentials> &storedWifi,
   if (!isConnected && storedWifi.has_value() && this->nextTryFlashWifiCredentials <= now) {
     this->nextTryFlashWifiCredentials = now + intervalTryFlashWifiCredentialsMillis;
 
-    const auto &stored = iop::unwrap_ref(storedWifi, IOP_CTX());
+    const auto &stored = iop::unwrap_ref(storedWifi, IOP_CTX()).get();
     const auto ssid = std::string_view(stored.ssid.get().data(), stored.ssid.get().max_size());
     const auto psk = std::string_view(stored.password.get().data(), stored.password.get().max_size());
-    this->logger.info(F("Trying wifi credentials stored in flash"));
+    this->logger.info(F("Trying wifi credentials stored in flash: "), std::to_string((size_t)stored.ssid.get().data()), F(", "), std::to_string((size_t)stored.password.get().data()));
     this->connect(ssid, psk);
 
     // WiFi Credentials hardcoded at "configuration.hpp"

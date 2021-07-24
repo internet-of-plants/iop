@@ -107,8 +107,8 @@ auto Flash::readWifiConfig() const noexcept -> std::optional<std::reference_wrap
 
   const auto ssidStr = iop::scapeNonPrintable(std::string_view(unused4KbSysStack.ssid().data(), 32));
   this->logger.trace(F("Found network credentials: "), iop::to_view(ssidStr));
-
-  return std::make_optional(WifiCredentials(unused4KbSysStack.ssid(), unused4KbSysStack.psk()));
+  const auto creds = WifiCredentials(unused4KbSysStack.ssid(), unused4KbSysStack.psk());
+  return std::make_optional(std::ref(creds));
 }
 
 void Flash::removeWifiConfig() const noexcept {

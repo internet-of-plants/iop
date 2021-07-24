@@ -19,7 +19,7 @@ static iop::LogHook hook(viewPrinter, staticPrinter, setuper, flusher);
 namespace network_logger {
   void setup() noexcept {
     iop::Log::setHook(hook);
-    iop::Log::setup(logLevel);
+    iop::Log::setup(config::logLevel);
   }
 }
 

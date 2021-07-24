@@ -3,7 +3,6 @@
 #include <string>
 #include "driver/device.hpp"
 #include "driver/wifi.hpp"
-#include <umm_malloc/umm_heap_select.h>
 
 static bool initialized = false;
 static bool isTracing_ = false; 
@@ -196,18 +195,18 @@ Tracer::Tracer(CodePoint point) noexcept : point(std::move(point)) {
   Log::print(std::to_string(driver::device.availableStack()), LogLevel::TRACE, LogType::CONTINUITY);
   Log::print(F(", Free DRAM "), LogLevel::TRACE, LogType::CONTINUITY);
   {
-    HeapSelectDram ephemeral;
+    ::HeapSelectDram ephemeral;
     Log::print(std::to_string(driver::device.availableHeap()), LogLevel::TRACE, LogType::CONTINUITY);
     Log::print(F(", Biggest DRAM Block "), LogLevel::TRACE, LogType::CONTINUITY);
     Log::print(std::to_string(driver::device.biggestHeapBlock()), LogLevel::TRACE, LogType::CONTINUITY);
   }
   {
-    HeapSelectIram ephemeral;
+    ::HeapSelectIram ephemeral;
     Log::print(F(", Free IRAM "), LogLevel::TRACE, LogType::CONTINUITY);
     Log::print(std::to_string(driver::device.availableHeap()), LogLevel::TRACE, LogType::CONTINUITY);
   }
   Log::print(F(", Connection "), LogLevel::TRACE, LogType::CONTINUITY);
-  Log::print(std::to_string(WiFi.status() == WL_CONNECTED), LogLevel::TRACE, LogType::CONTINUITY);
+  Log::print(std::to_string(driver::wifi.status() == driver::StationStatus::GOT_IP), LogLevel::TRACE, LogType::CONTINUITY);
   Log::print(F("\n"), LogLevel::TRACE, LogType::END);
   Log::flush();
 }

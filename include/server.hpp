@@ -51,7 +51,7 @@ public:
   }
 
   void setup() const noexcept;
-  auto serve(const std::optional<WifiCredentials> &storedWifi,
+  auto serve(const std::optional<std::reference_wrapper<const WifiCredentials>> storedWifi,
              const Api &api) noexcept -> std::optional<AuthToken>;
   void close() noexcept;
 

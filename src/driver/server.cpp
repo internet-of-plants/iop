@@ -162,7 +162,7 @@ void HttpServer::handleClient() noexcept {
     }
     logger().debug(F("Read: ("), std::to_string(len), F(") ["), std::to_string(strnlen(buffer.begin(), 1024)));
 
-    std::string_view buff(buffer.get());
+    std::string_view buff(buffer.begin());
     if (len > 0 && firstLine) {
       if (buff.find("POST") != buff.npos) {
         const ssize_t space = std::string_view(buff.begin() + 5).find(" ");
@@ -188,7 +188,7 @@ void HttpServer::handleClient() noexcept {
       logger().debug(F("Found first line"));
       const char* ptr = buff.begin() + buff.find("\n") + 1;
       memmove(buffer.data(), ptr, strlen(ptr) + 1);
-      buff = buffer.get();
+      buff = buffer.begin();
     }
     logger().debug(F("Headers + Payload: "), buff);
 
@@ -207,7 +207,7 @@ void HttpServer::handleClient() noexcept {
       } else {
         const char* ptr = buff.begin() + buff.find("\r\n") + 2;
         memmove(buffer.data(), ptr, strlen(ptr) + 1);
-        buff = buffer.get();
+        buff = buffer.begin();
         // TODO: could this enter in a infinite loop?
         if (buff.find("\n") == buff.npos) continue;
       }
@@ -228,10 +228,10 @@ void HttpServer::handleClient() noexcept {
     logger().debug(F("Route: "), conn.currentRoute);
     iop::Log::shouldFlush(false);
     if (this->router.count(conn.currentRoute) != 0) {
-      this->router.at(conn.currentRoute)(conn, *logger);
+      this->router.at(conn.currentRoute)(conn, logger());
     } else {
       logger().debug(F("Route not found"));
-      this->notFoundHandler(conn, *logger);
+      this->notFoundHandler(conn, logger());
     }
     iop::Log::shouldFlush(true);
     logger().flush();

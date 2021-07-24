@@ -12,7 +12,7 @@ namespace driver {
 
 namespace driver {
 auto Device::vcc() const noexcept -> uint16_t {
-    return SIZE_MAX;
+    return INT16_MAX;
 }
 auto Device::availableFlash() const noexcept -> size_t {
   return SIZE_MAX;
@@ -32,12 +32,9 @@ void Device::deepSleep(uint32_t seconds) const noexcept {
   std::this_thread::sleep_for(std::chrono::seconds(seconds));
 }
 iop::MD5Hash & Device::binaryMD5() const noexcept {
-  static std::optional<iop::MD5Hash> hash;
-  if (hash.has_value())
-    return iop::unwrap_mut(hash, IOP_CTX());
-  // TODO: actually hash desktop binary that is being run
-  hash = iop::ok(iop::MD5Hash::fromString("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"));
-  return iop::unwrap_mut(hash, IOP_CTX());
+  static iop::MD5Hash hash;
+  hash.fill('A');
+  return hash;
 }
 iop::MacAddress & Device::macAddress() const noexcept {
   static iop::MacAddress mac;
@@ -53,6 +50,8 @@ iop::MacAddress & Device::macAddress() const noexcept {
 #include "core/panic.hpp"
 #include "utils.hpp"
 #include <coredecls.h>
+#include <umm_malloc/umm_heap_select.h>
+
 // This breaks expectation of the "modules"
 #include "utils.hpp"
 

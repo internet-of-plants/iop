@@ -3,6 +3,7 @@
 
 #ifdef IOP_ONLINE
 
+#include "driver/wifi.hpp"
 #include "driver/device.hpp"
 #include "driver/thread.hpp"
 #include "driver/client.hpp"
@@ -32,7 +33,7 @@ auto Network::takeUpgradeHook() noexcept -> UpgradeHook {
 
 auto Network::isConnected() noexcept -> bool {
   IOP_TRACE();
-  return WiFi.status() == WL_CONNECTED;
+  return driver::wifi.status() == driver::StationStatus::GOT_IP;
 }
 
 void Network::disconnect() noexcept {
@@ -41,7 +42,7 @@ void Network::disconnect() noexcept {
 }
 
 static bool initialized = false;
-auto Network::setup() const noexcept -> void {
+void Network::setup() const noexcept {
   IOP_TRACE();
   if (initialized)
     return;
@@ -61,13 +62,11 @@ auto Network::setup() const noexcept -> void {
   unused4KbSysStack.client().setInsecure(); // TODO: remove this (what the frick)
 #endif
 
-  WiFi.persistent(false);
-  WiFi.setAutoReconnect(true);
-  WiFi.setAutoConnect(true);
-  WiFi.mode(WIFI_STA);
+  driver::wifi.setup();
+  iop::Network::disconnect();
+  driver::wifi.setMode(driver::WiFiMode::STA);
 
   driver::thisThread.sleep(1);
-  WiFi.reconnect();
 }
 
 static auto methodToString(const HttpMethod &method) noexcept
@@ -157,6 +156,7 @@ auto Network::httpRequest(const HttpMethod method_,
   // Authentication headers, identifies device and detects updates, perf
   // monitoring
   {
+    #ifndef IOP_DESKTOP
     auto str = String();
     str.concat(driver::device.binaryMD5().begin(), 32);
     unused4KbSysStack.http().addHeader(F("VERSION"), str);
@@ -164,6 +164,12 @@ auto Network::httpRequest(const HttpMethod method_,
     str.clear();
     str.concat(driver::device.macAddress().begin(), 17);
     unused4KbSysStack.http().addHeader(F("MAC_ADDRESS"), str);
+    #else
+    auto str = iop::to_view(driver::device.binaryMD5());
+    unused4KbSysStack.http().addHeader(F("VERSION"), std::string(str));
+    str = iop::to_view(driver::device.macAddress());
+    unused4KbSysStack.http().addHeader(F("MAC_ADDRESS"), std::string(str));
+    #endif
   }
  
   unused4KbSysStack.http().addHeader(F("FREE_STACK"), std::to_string(driver::device.availableStack()).c_str());

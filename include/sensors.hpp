@@ -52,6 +52,7 @@ public:
 #endif
   {
     IOP_TRACE();
+    (void) other;
   }
   Sensors(Sensors &&other) = delete;
   auto operator=(Sensors const &other) -> Sensors & {

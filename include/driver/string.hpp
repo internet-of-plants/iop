@@ -14,6 +14,8 @@ class __FlashStringHelper;
 #define strlen_P(a) strlen(a)
 #define memmove_P(dest, orig, len) memmove((void *) dest, (const void *) orig, len)
 #define strcmp_P(a, b) strcmp(a, b)
+#define memcpy_P(dest, orig, len) memcpy((void*) dest, (const void*) orig, len)
+#define memcmp_P memcmp
 #else
 #include "WString.h"
 #endif
