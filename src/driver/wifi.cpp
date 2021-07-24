@@ -43,6 +43,7 @@ void Wifi::setMode(WiFiMode mode) const noexcept { (void) mode; }
 #include <string>
 #include "core/panic.hpp"
 #include "driver/interrupt.hpp"
+#include "ESP8266WiFi.h"
 
 ESP8266WiFiClass WiFi;
 
