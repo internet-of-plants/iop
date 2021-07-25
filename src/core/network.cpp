@@ -47,7 +47,6 @@ void Network::setup() const noexcept {
   if (initialized)
     return;
   initialized = true;
-
   unused4KbSysStack.http().setReuse(false);
 
   const char *headers[] = {PSTR("LATEST_VERSION")};

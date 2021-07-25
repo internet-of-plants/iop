@@ -67,7 +67,6 @@ auto Api::setup() const noexcept -> void {
 #endif
 
   this->network().setup();
-
 #endif
 }
 

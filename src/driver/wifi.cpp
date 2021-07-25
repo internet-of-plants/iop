@@ -64,6 +64,8 @@ StationStatus Wifi::status() const noexcept {
             return StationStatus::CONNECT_FAIL;
         case STATION_GOT_IP:
             return StationStatus::GOT_IP;
+        case 255: // No idea what this is, but it's returned sometimes;
+            return StationStatus::IDLE;
     }
     iop_panic(iop::StaticString(F("Unreachable status: ")).toString() + std::to_string(static_cast<uint8_t>(s)));
 }
