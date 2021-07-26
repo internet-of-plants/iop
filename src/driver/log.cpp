@@ -44,7 +44,7 @@ void logSetup(const iop::LogLevel &level) noexcept {
         yield();
 }
 void logPrint(const iop::StaticString msg) noexcept {
-    Serial.print(msg.get());
+    Serial.print_P(msg.asCharPtr());
 }
 void logPrint(const std::string_view msg) noexcept {
     Serial.write(reinterpret_cast<const uint8_t*>(msg.begin()), msg.length());
