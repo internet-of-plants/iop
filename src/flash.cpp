@@ -13,8 +13,8 @@ constexpr const uint16_t EEPROM_SIZE = 512;
 
 // Magic bytes. Flags to check if information is written to flash.
 // Chosen by fair dice roll, garanteed to be random
-const uint8_t usedWifiConfigEEPROMFlag = 126;
-const uint8_t usedAuthTokenEEPROMFlag = 127;
+const uint8_t usedWifiConfigEEPROMFlag = 125;
+const uint8_t usedAuthTokenEEPROMFlag = 126;
 
 // One byte is reserved for the magic byte ('isWritten' flag)
 const uint16_t authTokenSize = 1 + 64;
@@ -72,19 +72,15 @@ void Flash::removeAuthToken() const noexcept {
 void Flash::writeAuthToken(const AuthToken &token) const noexcept {
   IOP_TRACE();
 
-  // Avoids re-writing the same data
-  const auto maybeCurrToken = this->readAuthToken();
-  if (maybeCurrToken.has_value()) {
-    const auto &currToken = iop::unwrap_ref(maybeCurrToken, IOP_CTX()).get();
-
-    if (memcmp(token.data(), currToken.data(), currToken.max_size()) == 0) {
-      this->logger.debug(F("Auth token already stored in flash"));
-      return;
-    }
+  // Avoids re-writing same data
+  const size_t size = sizeof(AuthToken);
+  const auto *tok = driver::flash.asRef() + authTokenIndex + 1;  
+  if (memcmp(tok, token.begin(), size) == 0) {
+    this->logger.debug(F("Auth token already stored in flash"));
+    return;
   }
 
   this->logger.info(F("Writing auth token to storage: "), iop::to_view(token));
-
   driver::flash.write(authTokenIndex, usedAuthTokenEEPROMFlag);
   driver::flash.put(authTokenIndex + 1, token);
   driver::flash.commit();
@@ -130,20 +126,18 @@ void Flash::writeWifiConfig(const WifiCredentials &config) const noexcept {
   IOP_TRACE();
 
   // Avoids re-writing same data
-  const auto &maybeCurrConfig = this->readWifiConfig();
-  if (maybeCurrConfig.has_value()) {
-    const auto &currConfig = iop::unwrap_ref(maybeCurrConfig, IOP_CTX()).get();
+  const size_t ssidSize = sizeof(NetworkName);
+  const size_t pskSize = sizeof(NetworkPassword);
+  const auto *ssid = driver::flash.asRef() + wifiConfigIndex + 1;  
 
-    if (memcmp(currConfig.ssid.get().begin(), config.ssid.get().begin(), 32) == 0 &&
-        memcmp(currConfig.password.get().begin(), config.password.get().begin(), 64) == 0) {
-      this->logger.debug(F("WiFi credentials already stored in flash"));
-      // No need to save credential that already are stored
-      return;
-    }
+  const auto sameSSID = memcmp(ssid, &config.ssid.get(), ssidSize) == 0;
+  const auto samePSK = memcmp(ssid + ssidSize, &config.password.get(), pskSize) == 0;
+  if (sameSSID && samePSK) {
+    this->logger.debug(F("WiFi credentials already stored in flash"));
+    return;
   }
 
-  this->logger.info(F("Writing network credentials to storage: "), std::string_view(config.ssid.get().data(), 32));
-
+  this->logger.info(F("Writing wifi credentials to storage: "), iop::to_view(config.ssid, ssidSize));
   driver::flash.write(wifiConfigIndex, usedWifiConfigEEPROMFlag);
   driver::flash.put(wifiConfigIndex + 1, config.ssid);
   driver::flash.put(wifiConfigIndex + 1 + 32, config.password);

@@ -12,7 +12,7 @@ namespace driver {
 
 namespace driver {
 auto Device::vcc() const noexcept -> uint16_t {
-    return INT16_MAX;
+    return 1;
 }
 auto Device::availableFlash() const noexcept -> size_t {
   return SIZE_MAX;
@@ -22,10 +22,10 @@ auto Device::availableStack() const noexcept -> size_t {
   return 1;
 }
 auto Device::availableHeap() const noexcept -> size_t {
-  return SIZE_MAX;
+  return 1;
 }
 auto Device::biggestHeapBlock() const noexcept -> size_t {
-  return SIZE_MAX;
+  return 1;
 }
 void Device::deepSleep(uint32_t seconds) const noexcept {
   if (seconds == 0) seconds = INT32_MAX;

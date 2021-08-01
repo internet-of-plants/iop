@@ -8,7 +8,7 @@ Wifi wifi;
 namespace driver {
 StationStatus Wifi::status() const noexcept {
     IOP_TRACE()
-    return StationStatus::IDLE;
+    return StationStatus::GOT_IP;
 }
 void Wifi::stationDisconnect() const noexcept {}
 std::pair<std::string, std::string> Wifi::credentials() const noexcept {

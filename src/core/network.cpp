@@ -170,12 +170,19 @@ auto Network::httpRequest(const HttpMethod method_,
     unused4KbSysStack.http().addHeader(F("MAC_ADDRESS"), std::string(str));
     #endif
   }
+
+  #ifdef IOP_DESKTOP
+  unused4KbSysStack.http().addHeader(F("DRIVER"), iop::StaticString(F("DESKTOP")).toString());
+  #else
+  unused4KbSysStack.http().addHeader(F("DRIVER"), F("ESP8266"));
+  #endif  
  
   unused4KbSysStack.http().addHeader(F("FREE_STACK"), std::to_string(driver::device.availableStack()).c_str());
   unused4KbSysStack.http().addHeader(F("FREE_HEAP"), std::to_string(driver::device.availableHeap()).c_str());
-  unused4KbSysStack.http().addHeader(F("BIGGEST_FREE_BLOCK"), std::to_string(driver::device.biggestHeapBlock()).c_str());
+  unused4KbSysStack.http().addHeader(F("BIGGEST_FREE_HEAP_BLOCK"), std::to_string(driver::device.biggestHeapBlock()).c_str());
   unused4KbSysStack.http().addHeader(F("VCC"), std::to_string(driver::device.vcc()).c_str());
   unused4KbSysStack.http().addHeader(F("TIME_RUNNING"), std::to_string(driver::thisThread.now()).c_str());
+  unused4KbSysStack.http().addHeader(F("ORIGIN"), F("https://internet-of-plants.github.io"));
 
   this->logger.debug(F("Begin"));
   if (!unused4KbSysStack.http().begin(Network::wifiClient(), uri)) {
@@ -185,7 +192,7 @@ auto Network::httpRequest(const HttpMethod method_,
   }
   this->logger.trace(F("Began HTTP connection"));
 
-  const auto *const data__ = reinterpret_cast<const uint8_t *>(data_.begin());
+  const uint8_t *const data__ = reinterpret_cast<const uint8_t *>(data_.begin());
 
   this->logger.debug(F("Making HTTP request"));
   const auto code =

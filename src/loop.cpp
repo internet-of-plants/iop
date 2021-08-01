@@ -159,7 +159,6 @@ void EventLoop::handleCredentials() noexcept {
     IOP_TRACE();
 
     const auto &wifi = this->flash().readWifiConfig();
-    this->logger.info(F("Cache ptr: "), std::to_string((size_t)&wifi.value().get()));
     const auto maybeToken = this->credentialsServer.serve(wifi, this->api());
 
     if (maybeToken.has_value())

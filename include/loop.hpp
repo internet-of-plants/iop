@@ -139,12 +139,21 @@ class Unused4KbSysStack {
   static_assert(sizeof(StackStruct) <= 4096);
 
 public:
+#ifdef IOP_DESKTOP
+  Unused4KbSysStack() noexcept: data(new StackStruct) {
+    memset((void*)data, 0, sizeof(StackStruct));
+  }
+  void reset() noexcept {
+    memset((void*)data, 0, sizeof(StackStruct));
+  }
+#else
   Unused4KbSysStack() noexcept: data(reinterpret_cast<StackStruct *>(0x3FFFE000)) {
     memset((void*)0x3FFFE000, 0, 4096);
   }
   void reset() noexcept {
     memset((void*)0x3FFFE000, 0, 4096);
   }
+#endif
   auto response() noexcept -> std::variant<iop::Response, int> & {
     if (!this->data->response.has_value())
       this->data->response = std::make_optional(0);

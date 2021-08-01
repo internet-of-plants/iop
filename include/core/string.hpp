@@ -20,13 +20,22 @@ auto to_view(const String& str) -> std::string_view;
 auto to_view(const std::string& str) -> std::string_view;
 auto to_view(const CowString& str) -> std::string_view;
 template <size_t SIZE>
+auto to_view(const std::array<char, SIZE>& str, const size_t size) -> std::string_view {
+  return std::string_view(str.data(), size);
+}
+template <size_t SIZE>
 auto to_view(const std::array<char, SIZE>& str) -> std::string_view {
-  return std::string_view(str.data(), strnlen(str.begin(), str.max_size()));
+  return to_view(str, strnlen(str.begin(), str.max_size()));
+}
+template <size_t SIZE>
+auto to_view(const std::reference_wrapper<std::array<char, SIZE>> &str, const size_t size) -> std::string_view {
+  return to_view(str.get(), size);
 }
 template <size_t SIZE>
 auto to_view(const std::reference_wrapper<std::array<char, SIZE>> &str) -> std::string_view {
   return to_view(str.get());
 }
+
 
 /// Helper string that holds a pointer to a string stored in PROGMEM
 /// It's here to provide a typesafe way to handle PROGMEM data and to avoid

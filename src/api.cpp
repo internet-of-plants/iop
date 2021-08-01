@@ -101,7 +101,7 @@ auto Api::reportPanic(const AuthToken &authToken,
   const auto &json = iop::unwrap(maybeJson, IOP_CTX()).get();
 
   const auto token = iop::to_view(authToken);
-  auto const & maybeResp = this->network().httpPost(token, F("/v1/panic"), json.data());
+  auto const & maybeResp = this->network().httpPost(token, F("/v1/panic"), iop::to_view(json));
 
 #ifndef IOP_MOCK_MONITOR
   if (iop::is_err(maybeResp)) {
