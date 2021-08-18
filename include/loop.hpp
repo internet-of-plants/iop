@@ -135,6 +135,7 @@ class Unused4KbSysStack {
     std::array<char, 32> ssid;
     std::array<char, 32> md5;
     std::array<char, 17> mac;
+    bool hasHttp;
   } *data;
   static_assert(sizeof(StackStruct) <= 4096);
 
@@ -199,8 +200,8 @@ public:
   }
   #endif
   auto  http() noexcept -> HTTPClient & {
-    if (!this->data->http.has_value())
-      this->data->http = std::make_optional(HTTPClient());
+    if (!this->data->hasHttp)
+      this->data->http = HTTPClient();
     return iop::unwrap_mut(this->data->http, IOP_CTX());
   }
   auto mac() noexcept -> std::array<char, 17> & {
