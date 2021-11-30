@@ -79,6 +79,8 @@ auto rawStatusToString(const RawStatus status) noexcept -> iop::StaticString {
 #include <loop.hpp>
 #include "WString.h"
 
+#include <charconv>
+
 namespace driver {
 Session::Session(HTTPClient &http, std::string uri) noexcept: http_(&http), uri_(std::move(uri)) { IOP_TRACE(); }
 Session::~Session() noexcept {
@@ -155,8 +157,39 @@ std::optional<Session> HTTPClient::begin(std::string uri) noexcept {
 
   //this->http.setAuthorization("");
 
-  if (!iop::data.wifi.client.connect(uri.c_str(), 4001)) { // TODO: extract host and port from uri instead of hardcoding it
-    //return std::optional<Session>();
+  // Parse URI
+  auto index = uri.find("://");
+  if (index == uri.npos) {
+    index = 0;
+  } else {
+    index += 3;
+  }
+
+  auto host = std::string_view(uri).substr(index);
+  host = host.substr(0, host.find('/'));
+
+  auto portStr = std::string_view();
+  index = host.find(':');
+
+  if (index != host.npos) {
+    portStr = host.substr(index + 1);
+    host = host.substr(0, index);
+  } else if (uri.find("http://") != uri.npos) {
+    portStr = "80";
+  } else if (uri.find("https://") != uri.npos) {
+    portStr = "443";
+  } else {
+    iop_panic(F("Protocol missing inside HttpClient::begin"));
+  }
+
+  uint16_t port;
+  auto result = std::from_chars(portStr.data(), portStr.data() + portStr.size(), port);
+  if (result.ec != std::errc()) {
+    iop_panic(iop::StaticString(F("Unable to confert port to uint16_t: ")).toString() + portStr.begin() + iop::StaticString(F(" ")).toString() + std::error_condition(result.ec).message());
+  }
+
+  if (!iop::data.wifi.client.connect(std::string(host).c_str(), port)) {
+    return std::optional<Session>();
   }
   if (this->http.begin(iop::data.wifi.client, String(uri.c_str()))) {
     return std::make_optional(Session(*this, uri));
