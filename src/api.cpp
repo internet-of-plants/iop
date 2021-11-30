@@ -17,8 +17,7 @@
 auto Api::makeJson(const iop::StaticString name, const JsonCallback &func) const noexcept
     -> std::optional<std::reference_wrapper<std::array<char, 1024>>> {
   IOP_TRACE();
-  iop::logMemory(this->logger);
-
+  
   auto doc = std::make_unique<StaticJsonDocument<1024>>(); // TODO: handle OOM here
   doc->clear();
   func(*doc);

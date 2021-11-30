@@ -130,8 +130,10 @@ void Flash::writeWifiConfig(const WifiCredentials &config) const noexcept {
   const size_t pskSize = sizeof(NetworkPassword);
   const auto *ssid = driver::flash.asRef() + wifiConfigIndex + 1;  
 
-  const auto sameSSID = memcmp(ssid, &config.ssid.get(), ssidSize) == 0;
-  const auto samePSK = memcmp(ssid + ssidSize, &config.password.get(), pskSize) == 0;
+  // Theoretically SSIDs can have a nullptr inside of it, but currently ESP8266 gives us random garbage after the first '\0' instead of zeroing the rest
+  // So we do not accept SSIDs with a nullptr in the middle
+  const auto sameSSID = strncmp(reinterpret_cast<const char*>(ssid), config.ssid.get().begin(), ssidSize) == 0;
+  const auto samePSK = strncmp(reinterpret_cast<const char*>(ssid + ssidSize), config.password.get().begin(), pskSize) == 0;
   if (sameSSID && samePSK) {
     this->logger.debug(F("WiFi credentials already stored in flash"));
     return;
