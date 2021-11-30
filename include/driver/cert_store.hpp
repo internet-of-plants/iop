@@ -35,14 +35,9 @@ public:
 };
 } // namespace BearSSL
 
-static void br_x509_minimal_set_dynamic(br_x509_minimal_context *ctx, void *dynamic_ctx,
+void br_x509_minimal_set_dynamic(br_x509_minimal_context *ctx, void *dynamic_ctx,
 	const br_x509_trust_anchor* (*dynamic)(void *ctx, void *hashed_dn, size_t hashed_dn_len),
-        void (*dynamic_free)(void *ctx, const br_x509_trust_anchor *ta)) {
-  (void)ctx;
-  (void)dynamic_ctx;
-  (void)dynamic;
-  (void)dynamic_free;
-}
+        void (*dynamic_free)(void *ctx, const br_x509_trust_anchor *ta));
 #else
 #include "CertStoreBearSSL.h"
 #endif

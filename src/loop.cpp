@@ -211,8 +211,7 @@ void EventLoop::handleInterrupt(const InterruptEvent event,
 void EventLoop::handleCredentials() noexcept {
     IOP_TRACE();
 
-    const auto &wifi = this->flash().readWifiConfig();
-    const auto maybeToken = this->credentialsServer.serve(wifi, this->api());
+    const auto maybeToken = this->credentialsServer.serve(this->api());
 
     if (maybeToken.has_value())
       this->flash().writeAuthToken(iop::unwrap_ref(maybeToken, IOP_CTX()));

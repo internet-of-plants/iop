@@ -235,8 +235,7 @@ void CredentialsServer::close() noexcept {
   }
 }
 
-auto CredentialsServer::serve(const std::optional<std::reference_wrapper<const WifiCredentials>> storedWifi,
-                              const Api &api) noexcept
+auto CredentialsServer::serve(const Api &api) noexcept
     -> std::optional<AuthToken> {
   IOP_TRACE();
   this->start();

@@ -88,9 +88,7 @@ Session::~Session() noexcept {
 }
 Session::Session(Session&& other) noexcept: http_(other.http_), uri_(std::move(other.uri_)) {
   IOP_TRACE();
-  this->http_ = other.http_;
   other.http_ = nullptr;
-  this->uri_ = std::move(other.uri_);
 }
 auto Session::operator=(Session&& other) noexcept {
   IOP_TRACE();
@@ -170,6 +168,7 @@ std::optional<Session> HTTPClient::begin(std::string uri) noexcept {
 #else
 
 #include "driver/wifi.hpp"
+#include <core/panic.hpp>
 
 #include <vector>
 #include <string>
@@ -200,7 +199,23 @@ static ssize_t send(uint32_t fd, const char * msg, const size_t len) noexcept {
 
 Session::Session(HTTPClient &http, std::string uri, int32_t fd) noexcept: http_(&http), uri_(std::move(uri)), fd_(fd) { IOP_TRACE(); }
 Session::~Session() noexcept {
-  close(this->fd_);
+  if (this->fd_ != -1)
+    close(this->fd_);
+}
+Session::Session(Session&& other) noexcept: http_(other.http_), uri_(std::move(other.uri_)), fd_(other.fd_) {
+  IOP_TRACE();
+  other.http_ = nullptr;
+  other.fd_ = -1;
+}
+auto Session::operator=(Session&& other) noexcept {
+  IOP_TRACE();
+  this->http_ = other.http_;
+  other.http_ = nullptr;
+
+  this->uri_ = std::move(other.uri_);
+
+  this->fd_ = other.fd_;
+  other.fd_ = -1;
 }
 void HTTPClient::headersToCollect(std::vector<iop::StaticString> headers) noexcept {
   this->headersToCollect_ = std::move(headers);
@@ -228,8 +243,9 @@ void Session::setAuthorization(std::string auth) noexcept  {
   if (auth.length() == 0) return;
   this->headers.emplace(std::string("Authorization"), std::string("Basic ") + auth);
 }
-auto Session::sendRequest(std::string method, const uint8_t *data, size_t len) noexcept -> Response {
-  if (iop::rawData->wifi.status() != driver::StationStatus::GOT_IP) return Response(RawStatus::CONNECTION_FAILED);
+
+auto Session::sendRequest(std::string method, const uint8_t *data, size_t len) noexcept -> std::variant<Response, int> {
+  if (iop::data.wifi.status() != driver::StationStatus::GOT_IP) return static_cast<int>(RawStatus::CONNECTION_FAILED);
 
   std::unordered_map<std::string, std::string> responseHeaders;
   responseHeaders.reserve(this->http_->headersToCollect_.size());
@@ -238,7 +254,8 @@ auto Session::sendRequest(std::string method, const uint8_t *data, size_t len) n
   const std::string_view path(this->uri_.c_str() + this->uri_.find("/", this->uri_.find("://") + 3));
   clientDriverLogger.debug(F("Send request to "), path);
 
-  uint32_t fd = this->fd_;
+  auto fd = this->fd_;
+  iop_assert(fd != -1, F("Invalid file descriptor"));
   if (clientDriverLogger.level() == iop::LogLevel::TRACE || iop::Log::isTracing())
     iop::Log::print(F(""), iop::LogLevel::TRACE, iop::LogType::START);
   send(fd, method.c_str(), method.length());
@@ -258,7 +275,7 @@ auto Session::sendRequest(std::string method, const uint8_t *data, size_t len) n
   send(fd, "\r\n", 2);
   send(fd, (char*)data, len);
   if (clientDriverLogger.level() == iop::LogLevel::TRACE || iop::Log::isTracing())
-    iop::Log::print(F(""), iop::LogLevel::TRACE, iop::LogType::END);
+    iop::Log::print(F("\n"), iop::LogLevel::TRACE, iop::LogType::END);
   clientDriverLogger.debug(F("Sent data"));
   
   std::unique_ptr<std::array<char, 4096>> buffer = std::make_unique<std::array<char, 4096>>();
@@ -276,7 +293,7 @@ auto Session::sendRequest(std::string method, const uint8_t *data, size_t len) n
         (size = read(fd, buffer->data() + buff.length(), buffer->max_size() - buff.length())) < 0) {
       clientDriverLogger.error(F("Error reading from socket ("), std::to_string(size), F("): "), std::to_string(errno), F(" - "), strerror(errno)); 
       close(fd);
-      return Response(500);
+      return static_cast<int>(RawStatus::CONNECTION_FAILED);
     }
     buff = buffer->begin();
     clientDriverLogger.debug(F("Len: "), std::to_string(size));
@@ -295,7 +312,7 @@ auto Session::sendRequest(std::string method, const uint8_t *data, size_t len) n
 
     if (firstLine && size < 10) { // len("HTTP/1.1 ") = 9
       clientDriverLogger.error(F("Error reading first line: "), std::to_string(size));
-      return Response(500);
+      return static_cast<int>(RawStatus::READ_FAILED);
     }
 
     if (firstLine && size > 0) {
@@ -305,7 +322,7 @@ auto Session::sendRequest(std::string method, const uint8_t *data, size_t len) n
       const auto codeEnd = statusStr.find(" ");
       if (codeEnd == statusStr.npos) {
         clientDriverLogger.error(F("Bad server: "), statusStr, F(" -- "), buff);
-        return Response(500);
+        return static_cast<int>(RawStatus::READ_FAILED);
       }
       //iop_assert(buff.contains(F("\n")), iop::StaticString(F("First: ")).toString() + std::to_string(buffer.length()) + iop::StaticString(F(" bytes don't contain newline, the path is too long\n")).toString());
       status = std::make_optional(atoi(std::string(statusStr.begin(), 0, codeEnd).c_str()));
@@ -318,7 +335,7 @@ auto Session::sendRequest(std::string method, const uint8_t *data, size_t len) n
     }
     if (!status.has_value()) {
       clientDriverLogger.error(F("No status"));
-      return Response(500);
+      return static_cast<int>(RawStatus::READ_FAILED);
     }
     clientDriverLogger.debug(F("Buffer: "), buff.substr(0, buff.find("\n") - 1));
     //if (!buff.contains(F("\n"))) continue;
@@ -366,7 +383,7 @@ auto Session::sendRequest(std::string method, const uint8_t *data, size_t len) n
         }
         if (buff.find("\n") == buff.npos) {
           clientDriverLogger.warn(F("Newline missing in buffer: "), buff);
-          return Response(500);
+          return static_cast<int>(RawStatus::READ_FAILED);
         }
         clientDriverLogger.debug(F("Buffer: "), buff.substr(0, buff.find("\n") - 1));
         clientDriverLogger.debug(F("Skipping header ("), buff.substr(0, buff.find("\n") - 1), F(")"));

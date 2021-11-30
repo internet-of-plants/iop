@@ -2,6 +2,7 @@
 #define IOP_DRIVER_WIFI
 
 #include <string>
+#include <array>
 
 #ifndef IOP_DESKTOP
 #include "ESP8266WiFi.h"

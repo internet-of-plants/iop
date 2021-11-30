@@ -7,9 +7,17 @@ StationStatus Wifi::status() const noexcept {
     return StationStatus::GOT_IP;
 }
 void Wifi::stationDisconnect() const noexcept {}
-std::pair<std::string, std::string> Wifi::credentials() const noexcept {
+std::pair<std::array<char, 32>, std::array<char, 64>> Wifi::credentials() const noexcept {
   IOP_TRACE()
-  return std::make_pair("SSID", "PSK");
+  std::array<char, 32> ssid;
+  ssid.fill('\0');
+  memcpy(ssid.data(), "SSID", 4);
+  
+  std::array<char, 64> psk;
+  psk.fill('\0');
+  memcpy(psk.data(), "PSK", 3);
+  
+  return std::make_pair(ssid, psk);
 }
 std::string Wifi::localIP() const noexcept {
     return "127.0.0.1";
@@ -32,7 +40,7 @@ WiFiMode Wifi::mode() const noexcept {
 void Wifi::wake() const noexcept {}
 void Wifi::setupAP() const noexcept {}
 void Wifi::reconnect() const noexcept {}
-void Wifi::setup() const noexcept {}
+void Wifi::setup(iop::CertStore *certStore) noexcept { (void)certStore; }
 void Wifi::setMode(WiFiMode mode) const noexcept { (void) mode; }
 }
 #else
