@@ -60,7 +60,7 @@ public:
   /// BROKEN_SERVER: just wait until server is fixed
   auto authenticate(std::string_view username,
                     std::string_view password) const noexcept
-      -> std::variant<AuthToken, iop::NetworkStatus>;
+      -> std::variant<std::array<char, 64>, iop::NetworkStatus>;
 
   /// Reports panicHandler message to server. Possible responses:
   ///

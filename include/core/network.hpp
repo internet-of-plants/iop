@@ -63,29 +63,23 @@ public:
   /// Removes current hook, replaces for default one (noop)
   static auto takeUpgradeHook() noexcept -> UpgradeHook;
 
-  static auto wifiClient() noexcept -> WiFiClient &;
-
   static void disconnect() noexcept;
   static auto isConnected() noexcept -> bool;
 
   auto httpPost(std::string_view token, StaticString path,
                 std::string_view data) const noexcept
-      -> std::variant<Response, int> const &;
+      -> std::variant<Response, int>;
   auto httpPost(StaticString path, std::string_view data) const noexcept
-      -> std::variant<Response, int> const &;
+      -> std::variant<Response, int>;
 
   auto httpRequest(HttpMethod method, const std::optional<std::string_view> &token,
                    StaticString path,
                    const std::optional<std::string_view> &data) const noexcept
-      -> std::variant<Response, int> const &;
-
-  static auto rawStatusToString(const RawStatus &status) noexcept
-      -> StaticString;
-  auto rawStatus(int code) const noexcept -> RawStatus;
+      -> std::variant<Response, int>;
 
   static auto apiStatusToString(const NetworkStatus &status) noexcept
       -> StaticString;
-  auto apiStatus(const RawStatus &raw) const noexcept
+  auto apiStatus(const driver::RawStatus &raw) const noexcept
       -> std::optional<NetworkStatus>;
 
   ~Network() noexcept;
@@ -117,22 +111,6 @@ enum class HttpMethod {
   DELETE,
   CONNECT,
   OPTIONS,
-};
-
-enum class RawStatus {
-  CONNECTION_FAILED = HTTPC_ERROR_CONNECTION_FAILED,
-  SEND_FAILED = HTTPC_ERROR_SEND_PAYLOAD_FAILED,
-  READ_FAILED = HTTPC_ERROR_STREAM_WRITE,
-  ENCODING_NOT_SUPPORTED = HTTPC_ERROR_ENCODING,
-  NO_SERVER = HTTPC_ERROR_NO_HTTP_SERVER,
-  READ_TIMEOUT = HTTPC_ERROR_READ_TIMEOUT,
-  CONNECTION_LOST = HTTPC_ERROR_CONNECTION_LOST,
-
-  OK = HTTP_CODE_OK,
-  SERVER_ERROR = HTTP_CODE_INTERNAL_SERVER_ERROR,
-  FORBIDDEN = HTTP_CODE_FORBIDDEN,
-
-  UNKNOWN = 999
 };
 } // namespace iop
 #endif

@@ -19,18 +19,18 @@ auto Api::makeJson(const iop::StaticString name, const JsonCallback &func) const
   IOP_TRACE();
   iop::logMemory(this->logger);
 
-  auto &doc = unused4KbSysStack.json();
-  doc.clear();
-  func(doc);
+  auto doc = std::make_unique<StaticJsonDocument<1024>>(); // TODO: handle OOM here
+  doc->clear();
+  func(*doc);
 
-  if (doc.overflowed()) {
+  if (doc->overflowed()) {
     this->logger.error(F("Payload doesn't fit Json<1024> at "), name);
     return std::optional<std::reference_wrapper<std::array<char, 1024>>>();
   }
 
   auto &fixed = unused4KbSysStack.text();
   fixed.fill('\0');
-  serializeJson(doc, fixed.data(), fixed.max_size());
+  serializeJson(*doc, fixed.data(), fixed.max_size());
   this->logger.debug(F("Json: "), iop::to_view(fixed));
   return std::make_optional(std::ref(fixed));
 }
@@ -101,7 +101,7 @@ auto Api::reportPanic(const AuthToken &authToken,
   const auto &json = iop::unwrap(maybeJson, IOP_CTX()).get();
 
   const auto token = iop::to_view(authToken);
-  auto const & maybeResp = this->network().httpPost(token, F("/v1/panic"), iop::to_view(json));
+  auto const maybeResp = this->network().httpPost(token, F("/v1/panic"), iop::to_view(json));
 
 #ifndef IOP_MOCK_MONITOR
   if (iop::is_err(maybeResp)) {
@@ -135,7 +135,7 @@ auto Api::registerEvent(const AuthToken &authToken,
   const auto &json = iop::unwrap(maybeJson, IOP_CTX()).get();
 
   const auto token = iop::to_view(authToken);
-  auto const & maybeResp = this->network().httpPost(token, F("/v1/event"), json.data());
+  auto const maybeResp = this->network().httpPost(token, F("/v1/event"), iop::to_view(json));
 
 #ifndef IOP_MOCK_MONITOR
   if (iop::is_err(maybeResp)) {
@@ -150,7 +150,7 @@ auto Api::registerEvent(const AuthToken &authToken,
 }
 auto Api::authenticate(std::string_view username,
                        std::string_view password) const noexcept
-    -> std::variant<AuthToken, iop::NetworkStatus> {
+    -> std::variant<std::array<char, 64>, iop::NetworkStatus> {
   IOP_TRACE();
 
   this->logger.debug(F("Authenticate IoP user: "), username);
@@ -171,7 +171,7 @@ auto Api::authenticate(std::string_view username,
     return iop::NetworkStatus::CLIENT_BUFFER_OVERFLOW;
   const auto &json = iop::unwrap(maybeJson, IOP_CTX()).get();
   
-  auto const & maybeResp = this->network().httpPost(F("/v1/user/login"), json.data());
+  auto const maybeResp = this->network().httpPost(F("/v1/user/login"), iop::to_view(json));
 
 #ifndef IOP_MOCK_MONITOR
   if (iop::is_err(maybeResp)) {
@@ -200,8 +200,9 @@ auto Api::authenticate(std::string_view username,
     this->logger.error(F("Auth token does not occupy 64 bytes: size = "), std::to_string(payload.length()));
   }
 
-  memcpy(unused4KbSysStack.token().data(), payload.c_str(), 64);
-  return unused4KbSysStack.token();
+  std::array<char, 64> token;
+  memcpy(token.data(), payload.c_str(), 64);
+  return token;
 #else
   return AuthToken::empty();
 #endif
@@ -213,7 +214,7 @@ auto Api::registerLog(const AuthToken &authToken,
   IOP_TRACE();
   const auto token = iop::to_view(authToken);
   this->logger.debug(F("Register log. Token: "), token, F(". Log: "), log);
-  auto const & maybeResp = this->network().httpPost(token, F("/v1/log"), std::move(log));
+  auto const maybeResp = this->network().httpPost(token, F("/v1/log"), std::move(log));
 
 #ifndef IOP_MOCK_MONITOR
   if (iop::is_err(maybeResp)) {
@@ -249,7 +250,7 @@ auto Api::upgrade(const AuthToken &token) const noexcept
   const auto uri = std::string(this->uri().asCharPtr()) + path.asCharPtr();
   #endif
 
-  auto &client = iop::Network::wifiClient();
+  auto &client = iop::data.wifi.client;
 
   auto &ESPhttpUpdate = unused4KbSysStack.updater();
   ESPhttpUpdate.setAuthorization(token.data());

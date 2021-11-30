@@ -63,10 +63,10 @@ void reportLog() noexcept {
   if (!logNetwork || !currentLog.length())
     return;
 
-  const auto maybeToken = unused4KbSysStack.loop().flash().readAuthToken();
+  const auto maybeToken = eventLoop.flash().readAuthToken();
   if (maybeToken.has_value()) {
     logNetwork = false;
-    unused4KbSysStack.loop().api().registerLog(iop::unwrap_ref(maybeToken, IOP_CTX()), currentLog);
+    eventLoop.api().registerLog(iop::unwrap_ref(maybeToken, IOP_CTX()), currentLog);
     logNetwork = true;
   }
   currentLog.clear();

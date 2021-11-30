@@ -75,7 +75,8 @@ uint8_t * Flash::asMut() noexcept {
 #include "EEPROM.h"
 #include "core/panic.hpp"
 
-static EEPROMClass EEPROM;
+// TODO: move this to global structure
+//EEPROMClass EEPROM;
 
 namespace driver {
 // TODO: properly handle EEPROM internal errors
@@ -91,7 +92,7 @@ void Flash::write(const size_t address, uint8_t const val) noexcept {
 }
 void Flash::commit() noexcept {
     // TODO: report errors in flash usage
-    EEPROM.commit();
+    iop_assert(EEPROM.commit(), F("EEPROM commit failed"));
 }
 uint8_t const * Flash::asRef() const noexcept {
     return EEPROM.getConstDataPtr();

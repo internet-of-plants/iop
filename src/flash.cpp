@@ -138,10 +138,14 @@ void Flash::writeWifiConfig(const WifiCredentials &config) const noexcept {
   }
 
   this->logger.info(F("Writing wifi credentials to storage: "), iop::to_view(config.ssid, ssidSize));
+  this->logger.debug(F("WiFi Creds: "), iop::to_view(config.ssid, ssidSize), F(" "), iop::to_view(config.password, pskSize));
+
   driver::flash.write(wifiConfigIndex, usedWifiConfigEEPROMFlag);
-  driver::flash.put(wifiConfigIndex + 1, config.ssid);
-  driver::flash.put(wifiConfigIndex + 1 + 32, config.password);
+  // TODO: for some reason this write is not working, the psk is written but not the ssid
+  driver::flash.put(wifiConfigIndex + 1, config.ssid.get());
+  driver::flash.put(wifiConfigIndex + 1 + 32, config.password.get());
   driver::flash.commit();
+  this->logger.info(F("Wrote wifi credentials to storage: "), iop::to_view(iop::scapeNonPrintable(std::string_view(this->readWifiConfig().value().get().ssid.get().begin(), 32))));
 }
 #endif
 
@@ -150,7 +154,7 @@ void Flash::setup() noexcept { IOP_TRACE(); }
 auto Flash::readAuthToken() const noexcept -> std::optional<std::reference_wrapper<const AuthToken>> {
   (void)*this;
   IOP_TRACE();
-  return std::make_optional(AuthToken(unused4KbSysStack.token()));
+  return {};
 }
 void Flash::removeAuthToken() const noexcept {
   (void)*this;
@@ -169,7 +173,7 @@ void Flash::removeWifiConfig() const noexcept {
 auto Flash::readWifiConfig() const noexcept -> std::optional<std::reference_wrapper<const WifiCredentials>> {
   (void)*this;
   IOP_TRACE();
-  return std::make_optional(WifiCredentials(unused4KbSysStack.ssid(), unused4KbSysStack.psk()));
+  return {};
 }
 void Flash::writeWifiConfig(const WifiCredentials &config) const noexcept {
   (void)*this;

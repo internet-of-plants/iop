@@ -6,12 +6,12 @@
 
 void upgrade() noexcept {
   IOP_TRACE();
-  const auto &maybeToken = unused4KbSysStack.loop().flash().readAuthToken();
+  const auto &maybeToken = eventLoop.flash().readAuthToken();
   if (!maybeToken.has_value())
     return;
 
   const auto &token = iop::unwrap_ref(maybeToken, IOP_CTX());
-  const auto status = unused4KbSysStack.loop().api().upgrade(token);
+  const auto status = eventLoop.api().upgrade(token);
 
   switch (status) {
   case iop::NetworkStatus::FORBIDDEN:
@@ -45,7 +45,7 @@ auto reportPanic(const std::string_view &msg, const iop::StaticString &file,
     -> bool {
   IOP_TRACE();
 
-  const auto &maybeToken = unused4KbSysStack.loop().flash().readAuthToken();
+  const auto &maybeToken = eventLoop.flash().readAuthToken();
   if (!maybeToken.has_value()) {
     iop::panicLogger().crit(F("No auth token, unable to report iop_panic"));
     return false;
@@ -59,7 +59,7 @@ auto reportPanic(const std::string_view &msg, const iop::StaticString &file,
       func,
   };
 
-  const auto status = unused4KbSysStack.loop().api().reportPanic(token, panicData);
+  const auto status = eventLoop.api().reportPanic(token, panicData);
 
   switch (status) {
   case iop::NetworkStatus::FORBIDDEN:
@@ -102,17 +102,17 @@ static void halt(const std::string_view &msg,
 
   constexpr const uint32_t oneHour = ((uint32_t)60) * 60;
   while (true) {
-    if (!unused4KbSysStack.loop().flash().readWifiConfig().has_value()) {
+    if (!eventLoop.flash().readWifiConfig().has_value()) {
       iop::panicLogger().warn(F("Nothing we can do, no wifi config available"));
       break;
     }
 
-    if (!unused4KbSysStack.loop().flash().readAuthToken().has_value()) {
+    if (!eventLoop.flash().readAuthToken().has_value()) {
       iop::panicLogger().warn(F("Nothing we can do, no auth token available"));
       break;
     }
 
-    if (driver::wifi.mode() == driver::WiFiMode::OFF) {
+    if (iop::data.wifi.mode() == driver::WiFiMode::OFF) {
       iop::panicLogger().crit(F("WiFi is disabled, unable to recover"));
       break;
     }
@@ -131,9 +131,9 @@ static void halt(const std::string_view &msg,
     driver::device.deepSleep(oneHour);
 
     // Let's allow the wifi to reconnect
-    driver::wifi.wake();
-    driver::wifi.setMode(driver::WiFiMode::STA);
-    driver::wifi.reconnect();
+    iop::data.wifi.wake();
+    iop::data.wifi.setMode(driver::WiFiMode::STA);
+    iop::data.wifi.reconnect();
   }
 
   driver::device.deepSleep(0);

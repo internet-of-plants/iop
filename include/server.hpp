@@ -31,18 +31,9 @@ class CredentialsServer {
 private:
   iop::Log logger;
 
-  iop::esp_time nextTryFlashWifiCredentials = 0;
-  iop::esp_time nextTryHardcodedWifiCredentials = 0;
-  iop::esp_time nextTryHardcodedIopCredentials = 0;
   bool isServerOpen = false;
 
   void start() noexcept;
-  /// Connects to WiFi
-  auto connect(std::string_view ssid, std::string_view password) const noexcept
-      -> void;
-  /// Uses IoP credentials to generate an authentication token for the device
-  auto authenticate(std::string_view username, std::string_view password,
-                    const Api &api) const noexcept -> std::optional<AuthToken>;
 
 public:
   explicit CredentialsServer(const iop::LogLevel &logLevel) noexcept
@@ -54,9 +45,6 @@ public:
   auto serve(const std::optional<std::reference_wrapper<const WifiCredentials>> storedWifi,
              const Api &api) noexcept -> std::optional<AuthToken>;
   void close() noexcept;
-
-  auto statusToString(driver::StationStatus status) const noexcept
-      -> std::optional<iop::StaticString>;
 
   ~CredentialsServer() noexcept { IOP_TRACE(); }
   CredentialsServer(CredentialsServer const &other) = default;

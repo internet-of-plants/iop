@@ -11,8 +11,11 @@ namespace driver {
 #include <thread>
 
 namespace driver {
+auto Device::platform() const noexcept -> ::iop::StaticString {
+  return F("DESKTOP");
+}
 auto Device::vcc() const noexcept -> uint16_t {
-    return 1;
+  return 1;
 }
 auto Device::availableFlash() const noexcept -> size_t {
   return SIZE_MAX;
@@ -56,6 +59,9 @@ iop::MacAddress & Device::macAddress() const noexcept {
 #include "utils.hpp"
 
 namespace driver {
+auto Device::platform() const noexcept -> ::iop::StaticString {
+  return F("ESP8266");
+}
 auto Device::vcc() const noexcept -> uint16_t {
     return ESP.getVcc();
 }
@@ -63,7 +69,7 @@ auto Device::availableFlash() const noexcept -> size_t {
     return ESP.getFreeSketchSpace();
 }
 auto Device::availableStack() const noexcept -> size_t {
-    disable_extra4k_at_link_time();
+    //disable_extra4k_at_link_time();
     ESP.resetFreeContStack();
     return ESP.getFreeContStack();
 }
@@ -79,7 +85,7 @@ void Device::deepSleep(const size_t seconds) const noexcept {
 iop::MD5Hash & Device::binaryMD5() const noexcept {
   static bool cached = false;
   if (cached)
-    return unused4KbSysStack.md5();
+    return iop::data.md5;
 
   // We could reimplement the internal function to avoid using String, but the
   // type safety and static cache are enough to avoid this complexity
@@ -92,20 +98,20 @@ iop::MD5Hash & Device::binaryMD5() const noexcept {
     iop_panic(iop::StaticString(F("Unprintable char in MD5 hex, this is critical: ")).toString() + std::string(hashed));
   }
 
-  memcpy(unused4KbSysStack.md5().data(), hashed.begin(), 32);
+  memcpy(iop::data.md5.data(), hashed.begin(), 32);
   cached = true;
   
-  return unused4KbSysStack.md5();
+  return iop::data.md5;
 }
 iop::MacAddress & Device::macAddress() const noexcept {
-  IOP_TRACE();
-  auto &mac = unused4KbSysStack.mac();
+  auto &mac = iop::data.mac;
 
   static bool cached = false;
   if (cached)
     return mac;
   cached = true;
-  
+  IOP_TRACE();
+
   std::array<uint8_t, 6> buff = {0};
   wifi_get_macaddr(STATION_IF, buff.data());
 

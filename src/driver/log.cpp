@@ -30,7 +30,7 @@ void logFlush() noexcept {
 #include "Arduino.h"
 #include "core/log.hpp"
 
-HardwareSerial Serial(UART0);
+//HardwareSerial Serial(UART0);
 
 void logSetup(const iop::LogLevel &level) noexcept {
     constexpr const uint32_t BAUD_RATE = 115200;

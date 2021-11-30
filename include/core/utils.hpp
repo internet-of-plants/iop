@@ -6,20 +6,6 @@
 #include "core/panic.hpp"
 #include <variant>
 
-// (Un)Comment this line to toggle wifi dependency
-#define IOP_ONLINE
-
-// (Un)Comment this line to toggle serial dependency
-#define IOP_SERIAL
-
-// (Un)Comment this line to toggle SSL dependency
-#ifndef IOP_DESKTOP
-#define IOP_SSL
-#endif
-
-// (Un)Comment this line to toggle memory stats logging
-//#define LOG_MEMORY
-
 namespace iop {
 using MD5Hash = std::array<char, 32>;
 using MacAddress = std::array<char, 17>;

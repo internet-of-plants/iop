@@ -32,7 +32,7 @@ void producer() {
 void * consumer(void* ptr) {
     auto *server = static_cast<CredentialsServer *>(ptr);
     std::optional<AuthToken> maybeToken;
-    while (!(maybeToken = server->serve(std::optional<WifiCredentials>(), unused4KbSysStack.loop().api())).has_value()) {
+    while (!(maybeToken = server->serve(std::optional<WifiCredentials>(), eventLoop.api())).has_value()) {
         usleep(100);
     }
     TEST_ASSERT(!maybeToken.has_value());

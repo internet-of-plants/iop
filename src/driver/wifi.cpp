@@ -1,13 +1,9 @@
 #include "driver/wifi.hpp"
 
-namespace driver {
-Wifi wifi;
-}
 #ifdef IOP_DESKTOP
 #include "core/log.hpp"
 namespace driver {
 StationStatus Wifi::status() const noexcept {
-    IOP_TRACE()
     return StationStatus::GOT_IP;
 }
 void Wifi::stationDisconnect() const noexcept {}
@@ -45,13 +41,10 @@ void Wifi::setMode(WiFiMode mode) const noexcept { (void) mode; }
 #include "driver/interrupt.hpp"
 #include "ESP8266WiFi.h"
 
-ESP8266WiFiClass WiFi;
-
 namespace driver {
 StationStatus Wifi::status() const noexcept {
-    IOP_TRACE()
     const auto s = wifi_station_get_connect_status();
-    switch (s) {
+    switch (static_cast<int>(s)) {
         case STATION_IDLE:
             return StationStatus::IDLE;
         case STATION_CONNECTING:
@@ -108,27 +101,35 @@ void Wifi::stationDisconnect() const noexcept {
     const iop::InterruptLock _guard;
     wifi_station_disconnect();
 }
-std::pair<std::string, std::string> Wifi::credentials() const noexcept {
+std::pair<std::array<char, 32>, std::array<char, 64>> Wifi::credentials() const noexcept {
     IOP_TRACE()
 
     station_config config;
     memset(&config, '\0', sizeof(config));
     wifi_station_get_config(&config);
 
-    auto ssid = std::string(sizeof(config.ssid), '\0');
+    auto ssid = std::array<char, 32>();
+    ssid.fill('\0');
     std::memcpy(ssid.data(), config.ssid, sizeof(config.ssid));
 
-    auto psk = std::string(sizeof(config.password), '\0');
+    auto psk = std::array<char, 64>();
+    psk.fill('\0');
     std::memcpy(psk.data(), config.password, sizeof(config.password));
+
     return std::make_pair(ssid, psk);
 }
 void Wifi::wake() const noexcept {
     ::WiFi.forceSleepWake();
 }
-void Wifi::setup() const noexcept {
-    ::WiFi.persistent(false);
-    ::WiFi.setAutoReconnect(false);
-    ::WiFi.setAutoConnect(false);
+void Wifi::setup(iop::CertStore *certStore) noexcept {
+  #ifdef IOP_SSL
+  this->client.setInsecure();
+  iop_assert(certStore != nullptr, F("CertStore is not set, but SSL is enabled"));
+  //this->client.setCertStore(&iop::unwrap_mut(certStore, IOP_CTX()));
+  #endif
+  ::WiFi.persistent(false);
+  ::WiFi.setAutoReconnect(false);
+  ::WiFi.setAutoConnect(false);
 }
 WiFiMode Wifi::mode() const noexcept {
     switch (::WiFi.getMode()) {

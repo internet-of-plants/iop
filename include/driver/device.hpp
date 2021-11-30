@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <array>
+#include "core/string.hpp"
 
 #ifdef IOP_DESKTOP
 class HeapSelectIram {
@@ -27,6 +28,7 @@ public:
   void deepSleep(uint32_t seconds) const noexcept;
   std::array<char, 32>& binaryMD5() const noexcept;
   std::array<char, 17>& macAddress() const noexcept;
+  ::iop::StaticString platform() const noexcept;
 };
 extern Device device;
 }
