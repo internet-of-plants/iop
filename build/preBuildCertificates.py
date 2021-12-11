@@ -159,7 +159,7 @@ def preBuildCertificates(env):
             unlink(certName + '.der')
         unlink(certName + '.pem')
 
-    f.write("static const uint16_t numberOfCertificates PROGMEM = " + str(idx) + ";\n\n")
+    f.write("static const uint16_t numberOfCertificates = " + str(idx) + ";\n\n")
 
     f.write("static const uint16_t certSizes[] PROGMEM = {")
     for i in range(0, idx):

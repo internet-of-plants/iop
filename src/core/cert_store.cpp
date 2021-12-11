@@ -30,7 +30,7 @@ auto CertStore::findHashedTA(void *ctx, void *hashed_dn, size_t len)
     const auto cert = list.cert(i);
 
     if (memcmp_P(hashed_dn, cert.index, hashSize) == 0) {
-      cs->x509.emplace(cert.cert, *cert.size);
+      cs->x509.emplace(cert.cert, pgm_read_word(cert.size));
       const auto *taTmp = iop::unwrap_ref(cs->x509, IOP_CTX()).getTrustAnchors();
 
       // We can const cast because x509 is heap allocated and we own it so it's

@@ -108,7 +108,7 @@ void EventLoop::loop() noexcept {
 
 
 
-        } else if (this->nextHandleConnectionLost == 0 || this->nextHandleConnectionLost < now) {
+        } else if (this->nextHandleConnectionLost < now) {
           this->logger.debug(F("Has creds, but no signal, opening server"));
           this->nextHandleConnectionLost = now + oneMinute;
           this->handleCredentials();
@@ -116,6 +116,13 @@ void EventLoop::loop() noexcept {
         } else {
           // No-op, we must just wait
         }
+    } else if (this->nextNTPSync < now) {
+      constexpr const uint32_t sixHours = 6 * 60 * 60 * 1000;
+      this->logger.info(F("Syncing NTP"));
+      // UTC by default, should we change according to the user? We currently only use this to validate SSL cert dates
+      configTime(0, 0, "pool.ntp.org", "time.nist.gov");
+      this->nextNTPSync = now + sixHours;
+      this->logger.info(F("Time synced"));
 
     } else if (this->nextMeasurement <= now) {
         this->nextHandleConnectionLost = 0;

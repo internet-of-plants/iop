@@ -131,9 +131,8 @@ void Wifi::wake() const noexcept {
 }
 void Wifi::setup(iop::CertStore *certStore) noexcept {
   #ifdef IOP_SSL
-  this->client.setInsecure();
   iop_assert(certStore != nullptr, F("CertStore is not set, but SSL is enabled"));
-  //this->client.setCertStore(&iop::unwrap_mut(certStore, IOP_CTX()));
+  this->client.setCertStore(certStore);
   #endif
   ::WiFi.persistent(false);
   ::WiFi.setAutoReconnect(false);

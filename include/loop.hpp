@@ -39,11 +39,12 @@ private:
 
   iop::esp_time nextMeasurement;
   iop::esp_time nextYieldLog;
+  iop::esp_time nextNTPSync;
   iop::esp_time nextHandleConnectionLost;
 
-  iop::esp_time nextTryFlashWifiCredentials = 0;
-  iop::esp_time nextTryHardcodedWifiCredentials = 0;
-  iop::esp_time nextTryHardcodedIopCredentials = 0;
+  iop::esp_time nextTryFlashWifiCredentials;
+  iop::esp_time nextTryHardcodedWifiCredentials;
+  iop::esp_time nextTryHardcodedIopCredentials;
 
 public:
   Api const & api() const noexcept { return this->api_; }
@@ -72,7 +73,7 @@ public:
         api_(std::move(uri), logLevel_),
         logger(logLevel_, F("LOOP")), flash_(logLevel_),
         sensors(config::soilResistivityPower, config::soilTemperature, config::airTempAndHumidity, config::dhtVersion),
-        nextMeasurement(0), nextYieldLog(0), nextHandleConnectionLost(0),
+        nextMeasurement(0), nextYieldLog(0), nextNTPSync(0), nextHandleConnectionLost(0),
         nextTryFlashWifiCredentials(0), nextTryHardcodedWifiCredentials(0), nextTryHardcodedIopCredentials(0) {
     IOP_TRACE();
   }
