@@ -73,7 +73,7 @@ auto Api::reportPanic(const AuthToken &authToken,
                       const PanicData &event) const noexcept
     -> iop::NetworkStatus {
   IOP_TRACE();
-  this->logger.debug(F("Report iop_panic: "), event.msg);
+  this->logger.info(F("Report iop_panic: "), event.msg);
 
   auto msg = event.msg;
   std::optional<std::reference_wrapper<std::array<char, 768>>> maybeJson;
@@ -152,10 +152,10 @@ auto Api::authenticate(std::string_view username,
     -> std::variant<std::array<char, 64>, iop::NetworkStatus> {
   IOP_TRACE();
 
-  this->logger.debug(F("Authenticate IoP user: "), username);
+  this->logger.info(F("Authenticate IoP user: "), username);
 
   if (!username.length() || !password.length()) {
-    this->logger.debug(F("Empty username or password, at Api::authenticate"));
+    this->logger.warn(F("Empty username or password, at Api::authenticate"));
     return iop::NetworkStatus::FORBIDDEN;
   }
 
@@ -212,7 +212,7 @@ auto Api::registerLog(const AuthToken &authToken,
     -> iop::NetworkStatus {
   IOP_TRACE();
   const auto token = iop::to_view(authToken);
-  this->logger.debug(F("Register log. Token: "), token, F(". Log: "), log);
+  this->logger.info(F("Register log. Token: "), token, F(". Log: "), log);
   auto const maybeResp = this->network().httpPost(token, F("/v1/log"), std::move(log));
 
 #ifndef IOP_MOCK_MONITOR
@@ -236,7 +236,7 @@ auto Api::registerLog(const AuthToken &authToken,
 auto Api::upgrade(const AuthToken &token) const noexcept
     -> iop::NetworkStatus {
   IOP_TRACE();
-  this->logger.debug(F("Upgrading sketch"));
+  this->logger.info(F("Upgrading sketch"));
 
   #ifdef IOP_DESKTOP
   (void) token;
