@@ -48,7 +48,8 @@ void Network::setup() const noexcept {
     return;
   initialized = true;
 
-  iop::data.http.headersToCollect(std::vector<StaticString>({F("LATEST_VERSION")}));
+  const char * headers[] = {"LATEST_VERSION",};
+  iop::data.http.headersToCollect(headers, 1);
 
   iop::data.wifi.setup(maybeCertStore);
   iop::Network::disconnect();

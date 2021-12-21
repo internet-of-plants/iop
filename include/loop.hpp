@@ -1,21 +1,6 @@
 #ifndef IOP_LOOP
 #define IOP_LOOP
 
-#ifndef IOP_DESKTOP
-#include <DNSServer.h>
-#include <ESP8266WebServer.h>
-#define HIGH 0x1
-#include "ESP8266httpUpdate.h"
-#undef OUTPUT
-#undef INPUT
-#undef HIGH
-#undef LOW
-#undef RISING
-#undef FALLING
-#undef CHANGED
-#undef LED_BUILTIN
-#endif
-
 #include "configuration.hpp"
 #include "flash.hpp"
 #include "sensors.hpp"
@@ -63,7 +48,9 @@ public:
     const noexcept -> std::optional<iop::StaticString>;
 
 private:
-  void handleInterrupt(const InterruptEvent event, const std::optional<AuthToken> &maybeToken) const noexcept;
+  void handleNotConnected() noexcept;
+  void handleInterrupt(const InterruptEvent event, const std::optional<std::reference_wrapper<const AuthToken>> &maybeToken) const noexcept;
+  void handleIopCredentials() noexcept;
   void handleCredentials() noexcept;
   void handleMeasurements(const AuthToken &token) noexcept;
 
@@ -88,18 +75,13 @@ extern EventLoop eventLoop;
 
 class Unused4KbSysStack {
   struct StackStruct {
-    std::array<char, 1024> text;
-    #ifndef IOP_DESKTOP
-    std::optional<ESP8266HTTPUpdate> updater;
-    std::optional<ESP8266WebServer> server;
-    std::optional<DNSServer> dns;
-    #endif
+    std::array<char, 768> text;
     std::array<char, 64> token;
     std::array<char, 64> psk;
     std::array<char, 32> ssid;
   } *data;
   
-  static_assert(sizeof(StackStruct) <= 4096);
+  //static_assert(sizeof(StackStruct) <= 4096);
 
 public:
 #ifdef IOP_DESKTOP
@@ -120,19 +102,6 @@ public:
   //}
 #endif
   #ifndef IOP_DESKTOP
-  auto dns() noexcept -> DNSServer & {
-    if (!this->data->dns.has_value())
-      this->data->dns = std::make_optional(DNSServer());
-    return iop::unwrap_mut(this->data->dns, IOP_CTX());
-  }
-  auto server() noexcept -> std::optional<ESP8266WebServer> & {
-    return this->data->server;
-  }
-  auto updater() noexcept -> ESP8266HTTPUpdate & {
-    if (!this->data->updater.has_value())
-      this->data->updater = std::make_optional(ESP8266HTTPUpdate());
-    return iop::unwrap_mut(this->data->updater, IOP_CTX());
-  }
   #endif
   auto psk() noexcept -> std::array<char, 64> & {
     return this->data->psk;
@@ -143,7 +112,7 @@ public:
   auto token() noexcept -> std::array<char, 64> & {
     return this->data->token;
   }
-  auto text() noexcept -> std::array<char, 1024> & {
+  auto text() noexcept -> std::array<char, 768> & {
     return this->data->text;
   }
   // ...

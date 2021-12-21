@@ -4,10 +4,14 @@
 #include "core/string.hpp"
 #include <functional>
 #include <unordered_map>
+#include <memory>
 #include "core/utils.hpp"
 
 #ifdef IOP_DESKTOP
 #include <netinet/in.h>
+#else
+#include <ESP8266WebServer.h>
+#include <DNSServer.h>
 #endif
 
 namespace driver {
@@ -20,9 +24,14 @@ public:
   std::string currentPayload;
   std::optional<size_t> currentContentLength;
   std::string currentRoute;
-#endif
-
+  
   using Buffer = std::array<char, 1024>;
+#else
+private:
+  std::reference_wrapper<ESP8266WebServer> server;
+public:
+  HttpConnection(ESP8266WebServer &parent) noexcept: server(parent) {}
+#endif
 
   auto arg(iop::StaticString arg) const noexcept -> std::optional<std::string>;
   void sendHeader(iop::StaticString name, iop::StaticString value) noexcept;
@@ -45,6 +54,9 @@ private:
 
   std::optional<uint32_t> maybeFD;
   std::optional<sockaddr_in> maybeAddress;
+#else
+  std::unique_ptr<ESP8266WebServer> _server;
+  ESP8266WebServer & server() noexcept;
 #endif
 public:
   HttpServer(uint32_t port = 8082) noexcept;
@@ -55,9 +67,12 @@ public:
   void onNotFound(Callback fn) noexcept;
 };
 
-struct CaptivePortal {
-  void start() const noexcept;
-  void close() const noexcept;  
+class CaptivePortal {
+  std::unique_ptr<DNSServer> server;
+  
+public:
+  void start() noexcept;
+  void close() noexcept;  
   void handleClient() const noexcept;
 };
 }

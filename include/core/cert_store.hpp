@@ -11,11 +11,11 @@ namespace iop {
 ///
 /// Points to PROGMEM data
 struct Cert {
-  const uint16_t *size;
+  uint16_t size;
   const uint8_t *index;
   const uint8_t *cert;
 
-  constexpr Cert(const uint8_t *cert, const uint8_t *index, const uint16_t *size) noexcept:
+  constexpr Cert(const uint8_t *cert, const uint8_t *index, const uint16_t size) noexcept:
     size(size), index(index), cert(cert) {}
 };
 
@@ -56,7 +56,7 @@ public:
 ///
 /// Should be constructed in static. It's not copyable, nor movable.
 class CertStore : public BearSSL::CertStoreBase {
-  std::optional<BearSSL::X509List> x509;
+  std::unique_ptr<BearSSL::X509List> x509;
   CertList certList;
 
 public:

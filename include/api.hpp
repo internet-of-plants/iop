@@ -103,7 +103,7 @@ private:
   /// Gets a name for logging. And a callback that actually fills the json
   auto makeJson(const iop::StaticString name,
                 const JsonCallback &func) const noexcept
-      -> std::optional<std::reference_wrapper<std::array<char, 1024>>>;
+      -> std::optional<std::reference_wrapper<std::array<char, 768>>>;
 public:
   ~Api() noexcept;
   Api(Api const &other);

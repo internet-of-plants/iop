@@ -98,12 +98,8 @@ auto Session::operator=(Session&& other) noexcept {
   other.http_ = nullptr;
   this->uri_ = std::move(other.uri_);
 }
-void HTTPClient::headersToCollect(std::vector<iop::StaticString> headers) noexcept {
-  std::vector<const char*> h(headers.size());
-  for (const auto header: headers) {
-    h.push_back(header.asCharPtr());
-  }
-  return this->http.collectHeaders(&h.front(), headers.size());
+void HTTPClient::headersToCollect(const char * headers[], size_t count) noexcept {
+  return this->http.collectHeaders(headers, count);
 }
 std::string Response::header(iop::StaticString key) const noexcept {
   const auto value = this->headers_.find(key.toString());
@@ -146,6 +142,7 @@ auto Session::sendRequest(std::string method, const uint8_t *data, size_t len) n
   return response;
 }
 std::optional<Session> HTTPClient::begin(std::string uri) noexcept {
+  IOP_TRACE();
   //this->http.setReuse(false);
   
   //iop::data.wifi.client.setNoDelay(false);
@@ -250,8 +247,13 @@ auto Session::operator=(Session&& other) noexcept {
   this->fd_ = other.fd_;
   other.fd_ = -1;
 }
-void HTTPClient::headersToCollect(std::vector<iop::StaticString> headers) noexcept {
-  this->headersToCollect_ = std::move(headers);
+void HTTPClient::headersToCollect(const char * headers[], size_t count) noexcept {
+  std::vector<std::string> vec;
+  vec.reserve(count);
+  for (size_t index = 0; index <= count; ++index) {
+    vec.push_back(headers[index]);
+  }
+  this->headersToCollect_ = headers;
 }
 std::string Response::header(iop::StaticString key) const noexcept {
   const auto keyString = key.toString();

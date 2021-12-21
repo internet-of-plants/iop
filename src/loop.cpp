@@ -3,18 +3,19 @@
 EventLoop eventLoop(config::uri(), config::logLevel);
 
 void EventLoop::setup() noexcept {
-    IOP_TRACE();
+  IOP_TRACE();
 
-    this->logger.info(F("Start Setup"));
-    gpio::gpio.mode(gpio::LED_BUILTIN, gpio::Mode::OUTPUT);
+  this->logger.info(F("Start Setup"));
+  gpio::gpio.mode(gpio::LED_BUILTIN, gpio::Mode::OUTPUT);
 
-    Flash::setup();
-    reset::setup();
-    this->sensors.setup();
-    this->api().setup();
-    this->credentialsServer.setup();
-    (void)iop::data; // sets Raw Data so drivers can access the HttpClient, it's a horrible hack;
-    this->logger.info(F("Setup finished"));
+  Flash::setup();
+  reset::setup();
+  this->sensors.setup();
+  this->api().setup();
+  this->credentialsServer.setup();
+  (void)iop::data; // sets Raw Data so drivers can access the HttpClient, it's a horrible hack;
+  this->logger.info(F("Setup finished"));
+  this->logger.info(F("MD5: "), iop::to_view(driver::device.binaryMD5()));
 }
 
 constexpr static uint64_t intervalTryFlashWifiCredentialsMillis =
@@ -26,7 +27,6 @@ constexpr static uint64_t intervalTryHardcodedWifiCredentialsMillis =
 constexpr static uint64_t intervalTryHardcodedIopCredentialsMillis =
     60 * 60 * 1000; // 1 hour
 
-
 void EventLoop::loop() noexcept {
     this->logger.trace(F("\n\n\n\n\n\n"));
     IOP_TRACE();
@@ -34,7 +34,7 @@ void EventLoop::loop() noexcept {
     iop::logMemory(this->logger);
 #endif
 
-    const auto &authToken = this->flash().readAuthToken();
+    const auto authToken = this->flash().readAuthToken();
 
     // Handle all queued interrupts (only allows one of each kind concurrently)
     while (true) {
@@ -45,78 +45,14 @@ void EventLoop::loop() noexcept {
         this->handleInterrupt(ev, authToken);
         driver::thisThread.yield();
     }
-
     const auto now = driver::thisThread.now();
-
     const auto isConnected = iop::Network::isConnected();
     const auto hasAuthToken = authToken.has_value();
+
     if (isConnected && hasAuthToken)
         this->credentialsServer.close();
 
-    if (isConnected && !hasAuthToken) {
-      const auto hasHardcodedIopCreds = config::iopEmail().has_value() && config::iopPassword().has_value();
-      if (hasHardcodedIopCreds && this->nextTryHardcodedIopCredentials <= now) {
-        this->nextTryHardcodedIopCredentials = now + intervalTryHardcodedIopCredentialsMillis;
-
-        this->logger.info(F("Trying hardcoded iop credentials"));
-
-        const auto email = iop::unwrap_ref(config::iopEmail(), IOP_CTX());
-        const auto password = iop::unwrap_ref(config::iopPassword(), IOP_CTX());
-        const auto tok = this->authenticate(email.toString(), password.toString(), this->api());
-        if (tok.has_value())
-          this->flash().writeAuthToken(iop::unwrap_ref(tok, IOP_CTX()));
-      } else {
-        this->handleCredentials();
-      }
-
-    } else if (!isConnected) {
-        // If connection is lost frequently we open the credentials server, to
-        // allow replacing the wifi credentials. Since we only remove it
-        // from flash if it's going to be replaced by a new one (allows
-        // for more resiliency) - or during factory reset
-        constexpr const uint32_t oneMinute = 60 * 1000;
-  
-        const auto &wifi = this->flash().readWifiConfig();
-        const auto hasHardcodedWifiCreds = config::wifiNetworkName().has_value() && config::wifiPassword().has_value();
-        if (!isConnected && wifi.has_value() && this->nextTryFlashWifiCredentials <= now) {
-          this->nextTryFlashWifiCredentials = now + intervalTryFlashWifiCredentialsMillis;
-
-          const auto &stored = iop::unwrap_ref(wifi, IOP_CTX()).get();
-          const auto ssid = std::string_view(stored.ssid.get().data(), stored.ssid.get().max_size());
-          const auto psk = std::string_view(stored.password.get().data(), stored.password.get().max_size());
-          this->logger.info(F("Trying wifi credentials stored in flash: "), iop::to_view(iop::scapeNonPrintable(ssid)));
-          this->logger.debug(F("Password:"), iop::to_view(iop::scapeNonPrintable(psk)));
-          this->connect(ssid, psk);
-
-          // WiFi Credentials hardcoded at "configuration.hpp"
-          //
-          // Ideally it won't be wrong, but that's the price of hardcoding, if it's
-          // not updated it may just be. Since it can't be deleted we must retry,
-          // but with a bigish interval.
-
-
-
-        } else if (!isConnected && hasHardcodedWifiCreds && this->nextTryHardcodedWifiCredentials <= now) { 
-          this->nextTryHardcodedWifiCredentials = now + intervalTryHardcodedWifiCredentialsMillis;
-
-          this->logger.info(F("Trying hardcoded wifi credentials"));
-
-          const auto ssid = iop::unwrap_ref(config::wifiNetworkName(), IOP_CTX());
-          const auto psk = iop::unwrap_ref(config::wifiPassword(), IOP_CTX());
-          this->connect(ssid.toString(), psk.toString());
-
-
-
-
-        } else if (this->nextHandleConnectionLost < now) {
-          this->logger.debug(F("Has creds, but no signal, opening server"));
-          this->nextHandleConnectionLost = now + oneMinute;
-          this->handleCredentials();
-
-        } else {
-          // No-op, we must just wait
-        }
-    } else if (this->nextNTPSync < now) {
+    if (isConnected && this->nextNTPSync < now) {
       constexpr const uint32_t sixHours = 6 * 60 * 60 * 1000;
       this->logger.info(F("Syncing NTP"));
       // UTC by default, should we change according to the user? We currently only use this to validate SSL cert dates
@@ -124,25 +60,107 @@ void EventLoop::loop() noexcept {
       this->nextNTPSync = now + sixHours;
       this->logger.info(F("Time synced"));
 
+    } else if (isConnected && !hasAuthToken) {
+        this->handleIopCredentials();
+
+    } else if (!isConnected) {
+        this->handleNotConnected();
+
     } else if (this->nextMeasurement <= now) {
-        this->nextHandleConnectionLost = 0;
-        this->nextMeasurement = now + config::interval;
-        this->handleMeasurements(iop::unwrap_ref(authToken, IOP_CTX()));
-        //this->logger.info(std::to_string(ESP.getVcc())); // TODO: remove this
+      this->nextHandleConnectionLost = 0;
+      this->nextMeasurement = now + config::interval;
+      this->handleMeasurements(iop::unwrap_ref(authToken, IOP_CTX()));
+      //this->logger.info(std::to_string(ESP.getVcc())); // TODO: remove this
         
     } else if (this->nextYieldLog <= now) {
-        this->nextHandleConnectionLost = 0;
-        constexpr const uint16_t tenSeconds = 10000;
-        this->nextYieldLog = now + tenSeconds;
-        this->logger.trace(F("Waiting"));
+      this->nextHandleConnectionLost = 0;
+      constexpr const uint16_t tenSeconds = 10000;
+      this->nextYieldLog = now + tenSeconds;
+      this->logger.trace(F("Waiting"));
 
     } else {
-        this->nextHandleConnectionLost = 0;
+      this->nextHandleConnectionLost = 0;
     }
 }
 
+void EventLoop::handleNotConnected() noexcept {
+  IOP_TRACE();
+
+  const auto now = driver::thisThread.now();
+
+  // If connection is lost frequently we open the credentials server, to
+  // allow replacing the wifi credentials. Since we only remove it
+  // from flash if it's going to be replaced by a new one (allows
+  // for more resiliency) - or during factory reset
+  constexpr const uint32_t oneMinute = 60 * 1000;
+
+  const auto &wifi = this->flash().readWifiConfig();
+  const auto hasHardcodedWifiCreds = config::wifiNetworkName().has_value() && config::wifiPassword().has_value();
+
+  const auto isConnected = iop::Network::isConnected();
+  if (!isConnected && wifi.has_value() && this->nextTryFlashWifiCredentials <= now) {
+    this->nextTryFlashWifiCredentials = now + intervalTryFlashWifiCredentialsMillis;
+
+    const auto &stored = iop::unwrap_ref(wifi, IOP_CTX()).get();
+    const auto ssid = std::string_view(stored.ssid.get().data(), stored.ssid.get().max_size());
+    const auto psk = std::string_view(stored.password.get().data(), stored.password.get().max_size());
+    this->logger.info(F("Trying wifi credentials stored in flash: "), iop::to_view(iop::scapeNonPrintable(ssid)));
+    this->logger.debug(F("Password:"), iop::to_view(iop::scapeNonPrintable(psk)));
+    this->connect(ssid, psk);
+
+    // WiFi Credentials hardcoded at "configuration.hpp"
+    //
+    // Ideally it won't be wrong, but that's the price of hardcoding, if it's
+    // not updated it may just be. Since it can't be deleted we must retry,
+    // but with a bigish interval.
+
+
+
+  } else if (!isConnected && hasHardcodedWifiCreds && this->nextTryHardcodedWifiCredentials <= now) { 
+    this->nextTryHardcodedWifiCredentials = now + intervalTryHardcodedWifiCredentialsMillis;
+
+    this->logger.info(F("Trying hardcoded wifi credentials"));
+
+    const auto ssid = iop::unwrap_ref(config::wifiNetworkName(), IOP_CTX());
+    const auto psk = iop::unwrap_ref(config::wifiPassword(), IOP_CTX());
+    this->connect(ssid.toString(), psk.toString());
+
+
+
+
+  } else if (this->nextHandleConnectionLost < now) {
+    this->logger.debug(F("Has creds, but no signal, opening server"));
+    this->nextHandleConnectionLost = now + oneMinute;
+    this->handleCredentials();
+
+  } else {
+    // No-op, we must just wait
+  }
+}
+
+void EventLoop::handleIopCredentials() noexcept {
+  IOP_TRACE();
+
+  const auto now = driver::thisThread.now();
+
+  const auto hasHardcodedIopCreds = config::iopEmail().has_value() && config::iopPassword().has_value();
+  if (hasHardcodedIopCreds && this->nextTryHardcodedIopCredentials <= now) {
+    this->nextTryHardcodedIopCredentials = now + intervalTryHardcodedIopCredentialsMillis;
+
+    this->logger.info(F("Trying hardcoded iop credentials"));
+
+    const auto email = iop::unwrap_ref(config::iopEmail(), IOP_CTX());
+    const auto password = iop::unwrap_ref(config::iopPassword(), IOP_CTX());
+    const auto tok = this->authenticate(email.toString(), password.toString(), this->api());
+    if (tok.has_value())
+      this->flash().writeAuthToken(iop::unwrap_ref(tok, IOP_CTX()));
+  } else {
+    this->handleCredentials();
+  }
+}
+
 void EventLoop::handleInterrupt(const InterruptEvent event,
-                  const std::optional<AuthToken> &maybeToken) const noexcept {
+                  const std::optional<std::reference_wrapper<const AuthToken>> &maybeToken) const noexcept {
     // Satisfies linter when all interrupt features are disabled
     (void)*this;
     (void)event;

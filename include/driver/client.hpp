@@ -11,6 +11,16 @@
 #ifndef IOP_DESKTOP
 // TODO: remove this import from here, but... how?
 #include "ESP8266HTTPClient.h"
+#define HIGH 0x1
+#include "ESP8266httpUpdate.h"
+#undef OUTPUT
+#undef INPUT
+#undef HIGH
+#undef LOW
+#undef RISING
+#undef FALLING
+#undef CHANGED
+#undef LED_BUILTIN
 #endif
 
 #ifdef IOP_DESKTOP
@@ -102,7 +112,7 @@ public:
 
 class HTTPClient {
 #ifdef IOP_DESKTOP
-  std::vector<iop::StaticString> headersToCollect_;
+  std::vector<std::string> headersToCollect_;
 #else
   ::HTTPClient http;
 #endif
@@ -111,7 +121,7 @@ public:
   auto begin(std::string uri) noexcept -> std::optional<Session>;
 
   // TODO: improve this method name
-  void headersToCollect(std::vector<iop::StaticString> headers) noexcept;
+  void headersToCollect(const char * headers[], size_t count) noexcept;
 
   friend Session;
 };

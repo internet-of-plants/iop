@@ -15,16 +15,16 @@
 #include "driver/server.hpp"
 
 auto Api::makeJson(const iop::StaticString name, const JsonCallback &func) const noexcept
-    -> std::optional<std::reference_wrapper<std::array<char, 1024>>> {
+    -> std::optional<std::reference_wrapper<std::array<char, 768>>> {
   IOP_TRACE();
   
-  auto doc = std::make_unique<StaticJsonDocument<1024>>(); // TODO: handle OOM here
+  auto doc = std::make_unique<StaticJsonDocument<768>>(); // TODO: handle OOM here
   doc->clear();
   func(*doc);
 
   if (doc->overflowed()) {
-    this->logger.error(F("Payload doesn't fit Json<1024> at "), name);
-    return std::optional<std::reference_wrapper<std::array<char, 1024>>>();
+    this->logger.error(F("Payload doesn't fit Json<768> at "), name);
+    return std::optional<std::reference_wrapper<std::array<char, 768>>>();
   }
 
   auto &fixed = unused4KbSysStack.text();
@@ -76,7 +76,7 @@ auto Api::reportPanic(const AuthToken &authToken,
   this->logger.debug(F("Report iop_panic: "), event.msg);
 
   auto msg = event.msg;
-  std::optional<std::reference_wrapper<std::array<char, 1024>>> maybeJson;
+  std::optional<std::reference_wrapper<std::array<char, 768>>> maybeJson;
 
   while (true) {
     const auto make = [event, &msg](JsonDocument &doc) {
@@ -251,12 +251,13 @@ auto Api::upgrade(const AuthToken &token) const noexcept
 
   auto &client = iop::data.wifi.client;
 
-  auto &ESPhttpUpdate = unused4KbSysStack.updater();
-  ESPhttpUpdate.setAuthorization(token.data());
-  ESPhttpUpdate.closeConnectionsOnUpdate(true);
-  ESPhttpUpdate.rebootOnUpdate(true);
-  //ESPhttpUpdate.setLedPin(LED_BUILTIN);
-  const auto result = ESPhttpUpdate.updateFS(client, uri, "");
+  auto ESPhttpUpdate = std::make_unique<ESP8266HTTPUpdate>();
+  iop_assert(ESPhttpUpdate, F("Unable to allocate ESP8266HTTPUpdate"));
+  ESPhttpUpdate->setAuthorization(std::string(iop::to_view(token)).c_str());
+  ESPhttpUpdate->closeConnectionsOnUpdate(true);
+  ESPhttpUpdate->rebootOnUpdate(true);
+  //ESPhttpUpdate->setLedPin(LED_BUILTIN);
+  const auto result = ESPhttpUpdate->update(client, uri, "");
 
 #ifdef IOP_MOCK_MONITOR
   return iop::NetworkStatus::OK;
@@ -266,18 +267,19 @@ switch (result) {
   case HTTP_UPDATE_NO_UPDATES:
   case HTTP_UPDATE_OK:
     return iop::NetworkStatus::OK;
+
   case HTTP_UPDATE_FAILED:
   #ifndef IOP_DESKTOP
     // TODO(pc): properly handle ESPhttpUpdate.getLastError()
     this->logger.error(F("Update failed: "),
-                       iop::to_view(ESPhttpUpdate.getLastErrorString()));
+                       iop::to_view(ESPhttpUpdate->getLastErrorString()));
   #endif
     return iop::NetworkStatus::BROKEN_SERVER;
   }
   #ifndef IOP_DESKTOP
   // TODO(pc): properly handle ESPhttpUpdate.getLastError()
   this->logger.error(F("Update failed (UNKNOWN): "),
-                     iop::to_view(ESPhttpUpdate.getLastErrorString()));
+                     iop::to_view(ESPhttpUpdate->getLastErrorString()));
   #endif
   #endif
   return iop::NetworkStatus::BROKEN_SERVER;

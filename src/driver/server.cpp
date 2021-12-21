@@ -388,69 +388,72 @@ void CaptivePortal::handleClient() const noexcept {}
 #include <user_interface.h>
 #include <optional>
 #include "utils.hpp"
-#include <DNSServer.h>
-
+#include <core/panic.hpp>
 
 namespace driver {
 auto HttpConnection::arg(iop::StaticString arg) const noexcept -> std::optional<std::string> {
-  if (!iop::unwrap_mut(unused4KbSysStack.server(), IOP_CTX()).hasArg(arg.asCharPtr())) return std::optional<std::string>();
-  return std::string(iop::unwrap_mut(unused4KbSysStack.server(), IOP_CTX()).arg(arg.asCharPtr()).c_str());
+  if (!this->server.get().hasArg(arg.get())) return std::optional<std::string>();
+  return std::string(this->server.get().arg(arg.get()).c_str());
 }
 void HttpConnection::sendHeader(iop::StaticString name, iop::StaticString value) noexcept {
-  iop::unwrap_mut(unused4KbSysStack.server(), IOP_CTX()).sendHeader(String(name.asCharPtr()), String(value.asCharPtr()));
+  this->server.get().sendHeader(String(name.get()), String(value.get()));
 }
 void HttpConnection::send(uint16_t code, iop::StaticString type, iop::StaticString data) const noexcept {
-  iop::unwrap_mut(unused4KbSysStack.server(), IOP_CTX()).send_P(code, type.asCharPtr(), data.asCharPtr());
+  this->server.get().send_P(code, type.asCharPtr(), data.asCharPtr());
 }
 void HttpConnection::sendData(iop::StaticString data) const noexcept {
-  iop::unwrap_mut(unused4KbSysStack.server(), IOP_CTX()).sendContent_P(data.asCharPtr());
+  this->server.get().sendContent_P(data.asCharPtr());
 }
 void HttpConnection::setContentLength(size_t length) noexcept {
-  iop::unwrap_mut(unused4KbSysStack.server(), IOP_CTX()).setContentLength(length);
+  this->server.get().setContentLength(length);
 }
 void HttpConnection::reset() noexcept {}
 
 static uint32_t serverPort = 0;
 HttpServer::HttpServer(uint32_t port) noexcept { IOP_TRACE(); serverPort = port; }
 
-static ESP8266WebServer & server(::iop::CodePoint const &point) noexcept {
-  static bool initialized = false;
-  if (!initialized) {
+ESP8266WebServer & HttpServer::server() noexcept {
+  if (!this->_server) {
     iop_assert(serverPort != 0, F("Server port is not defined"));
-    unused4KbSysStack.server().emplace(serverPort);
-    initialized = true;
+    this->_server = std::make_unique<ESP8266WebServer>(serverPort);
   }
-  return iop::unwrap_mut(unused4KbSysStack.server(), IOP_CTX());
+  iop_assert(this->_server, F("Unable to allocate ESP8266WebServer"));
+  return *this->_server;
 }
 
-void HttpServer::begin() noexcept { IOP_TRACE(); server(IOP_CTX()).begin(); }
-void HttpServer::close() noexcept { IOP_TRACE(); server(IOP_CTX()).close(); }
+void HttpServer::begin() noexcept { IOP_TRACE(); this->server().begin(); }
+void HttpServer::close() noexcept { IOP_TRACE(); this->server().close(); }
 void HttpServer::handleClient() noexcept {
   IOP_TRACE();
   iop_assert(!this->isHandlingRequest, F("Already handling a client"));
   this->isHandlingRequest = true;
-  server(IOP_CTX()).handleClient();
+  this->server().handleClient();
   this->isHandlingRequest = false;
 }
 void HttpServer::on(iop::StaticString uri, Callback handler) noexcept {
   IOP_TRACE();
-  server(IOP_CTX()).on(uri.asCharPtr(), [handler]() { HttpConnection conn; handler(conn, logger()); });
+  this->server().on(uri.get(), [handler, this]() { HttpConnection conn(this->server()); handler(conn, logger()); });
 }
 void HttpServer::onNotFound(Callback handler) noexcept {
   IOP_TRACE();
-  server(IOP_CTX()).onNotFound([handler]() { HttpConnection conn; handler(conn, logger()); });
+  this->server().onNotFound([handler, this]() { HttpConnection conn(this->server()); handler(conn, logger()); });
 }
 
-void CaptivePortal::start() const noexcept {
+void CaptivePortal::start() noexcept {
   const uint16_t port = 53;
-  unused4KbSysStack.dns().setErrorReplyCode(DNSReplyCode::NoError);
-  unused4KbSysStack.dns().start(port, F("*"), ::WiFi.softAPIP());
+  this->server = std::make_unique<DNSServer>();
+  iop_assert(this->server, F("Unable to allocate DNSServer"));
+  this->server->setErrorReplyCode(DNSReplyCode::NoError);
+  this->server->start(port, F("*"), ::WiFi.softAPIP());
 }
-void CaptivePortal::close() const noexcept {
-  unused4KbSysStack.dns().stop();
+void CaptivePortal::close() noexcept {
+  iop_assert(this->server, F("Must initialize DNSServer first"));
+  this->server->stop();
+  this->server.reset();
 }
 void CaptivePortal::handleClient() const noexcept {
-  unused4KbSysStack.dns().processNextRequest();
+  iop_assert(this->server, F("Must initialize DNSServer first"));
+  this->server->processNextRequest();
 }
 }
 #endif

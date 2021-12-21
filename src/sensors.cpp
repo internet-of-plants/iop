@@ -28,10 +28,10 @@ auto Sensors::measure() noexcept -> Event {
               this->airTempAndHumiditySensor),
           .airHeatIndexCelsius =
               measurement::airHeatIndexCelsius(this->airTempAndHumiditySensor),
-          .soilResistivityRaw =
-              measurement::soilResistivityRaw(this->soilResistivityPower),
           .soilTemperatureCelsius =
               measurement::soilTemperatureCelsius(this->soilTemperatureSensor),
+          .soilResistivityRaw =
+              measurement::soilResistivityRaw(this->soilResistivityPower),
       });
 }
 
@@ -81,6 +81,6 @@ void Sensors::setup() noexcept {
 auto Sensors::measure() noexcept -> Event {
   IOP_TRACE();
   (void)*this;
-  return Event((EventStorage){0.0, 0.0, 0.0, 0, 0.0});
+  return Event((EventStorage){0.0, 0.0, 0.0, 0.0, 0});
 }
 #endif

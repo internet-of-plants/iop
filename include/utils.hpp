@@ -79,8 +79,8 @@ struct EventStorage {
   float airTemperatureCelsius;
   float airHumidityPercentage;
   float airHeatIndexCelsius;
-  uint16_t soilResistivityRaw;
   float soilTemperatureCelsius;
+  uint16_t soilResistivityRaw;
 };
 
 class Event {
