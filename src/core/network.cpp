@@ -32,7 +32,6 @@ auto Network::takeUpgradeHook() noexcept -> UpgradeHook {
 }
 
 auto Network::isConnected() noexcept -> bool {
-  IOP_TRACE();
   return iop::data.wifi.status() == driver::StationStatus::GOT_IP;
 }
 
@@ -142,8 +141,16 @@ auto Network::httpRequest(const HttpMethod method_,
   }
  
   session.addHeader(F("FREE_STACK"), std::to_string(driver::device.availableStack()));
-  session.addHeader(F("FREE_HEAP"), std::to_string(driver::device.availableHeap()));
-  session.addHeader(F("BIGGEST_FREE_HEAP_BLOCK"), std::to_string(driver::device.biggestHeapBlock()));
+  {
+    HeapSelectDram guard;
+    session.addHeader(F("FREE_DRAM"), std::to_string(driver::device.availableHeap()));
+    session.addHeader(F("BIGGEST_DRAM_BLOCK"), std::to_string(driver::device.biggestHeapBlock()));
+  }
+  {
+    HeapSelectIram guard;
+    session.addHeader(F("FREE_IRAM"), std::to_string(driver::device.availableHeap()));
+    session.addHeader(F("BIGGEST_IRAM_BLOCK"), std::to_string(driver::device.biggestHeapBlock()));
+  }
   session.addHeader(F("VCC"), std::to_string(driver::device.vcc()));
   session.addHeader(F("TIME_RUNNING"), std::to_string(driver::thisThread.now()));
   session.addHeader(F("ORIGIN"), this->uri());

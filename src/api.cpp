@@ -118,7 +118,7 @@ auto Api::registerEvent(const AuthToken &authToken,
                         const Event &event) const noexcept
     -> iop::NetworkStatus {
   IOP_TRACE();
-  this->logger.debug(F("Send event"));
+  this->logger.info(F("Send event"));
 
   const auto make = [&event](JsonDocument &doc) {
     doc["air_temperature_celsius"] = event.storage.airTemperatureCelsius;

@@ -194,17 +194,19 @@ Tracer::Tracer(CodePoint point) noexcept : point(std::move(point)) {
   Log::print(this->point.file(), LogLevel::TRACE, LogType::CONTINUITY);
   Log::print(F("\n[TRACE] TRACER: Free Stack "), LogLevel::TRACE, LogType::CONTINUITY);
   Log::print(std::to_string(driver::device.availableStack()), LogLevel::TRACE, LogType::CONTINUITY);
-  Log::print(F(", Free DRAM "), LogLevel::TRACE, LogType::CONTINUITY);
   {
-    ::HeapSelectDram ephemeral;
+    ::HeapSelectDram guard;
+    Log::print(F(", Free DRAM "), LogLevel::TRACE, LogType::CONTINUITY);
     Log::print(std::to_string(driver::device.availableHeap()), LogLevel::TRACE, LogType::CONTINUITY);
     Log::print(F(", Biggest DRAM Block "), LogLevel::TRACE, LogType::CONTINUITY);
     Log::print(std::to_string(driver::device.biggestHeapBlock()), LogLevel::TRACE, LogType::CONTINUITY);
   }
   {
-    ::HeapSelectIram ephemeral;
+    ::HeapSelectIram guard;
     Log::print(F(", Free IRAM "), LogLevel::TRACE, LogType::CONTINUITY);
     Log::print(std::to_string(driver::device.availableHeap()), LogLevel::TRACE, LogType::CONTINUITY);
+    Log::print(F(", Biggest IRAM Block "), LogLevel::TRACE, LogType::CONTINUITY);
+    Log::print(std::to_string(driver::device.biggestHeapBlock()), LogLevel::TRACE, LogType::CONTINUITY);
   }
   Log::print(F(", Connection "), LogLevel::TRACE, LogType::CONTINUITY);
   Log::print(std::to_string(iop::data.wifi.status() == driver::StationStatus::GOT_IP), LogLevel::TRACE, LogType::CONTINUITY);
@@ -234,17 +236,19 @@ void logMemory(const Log &logger) noexcept {
   Log::print(logger.target(), logger.level(), LogType::CONTINUITY);
   Log::print(F(": Free Stack "), logger.level(), LogType::CONTINUITY);
   Log::print(std::to_string(driver::device.availableStack()), LogLevel::TRACE, LogType::CONTINUITY);
-  Log::print(F(", Free DRAM "), LogLevel::TRACE, LogType::CONTINUITY);
   {
-    ::HeapSelectDram ephemeral;
+    ::HeapSelectDram guard;
+    Log::print(F(", Free DRAM "), LogLevel::TRACE, LogType::CONTINUITY);
     Log::print(std::to_string(driver::device.availableHeap()), LogLevel::TRACE, LogType::CONTINUITY);
     Log::print(F(", Biggest DRAM Block "), LogLevel::TRACE, LogType::CONTINUITY);
     Log::print(std::to_string(driver::device.biggestHeapBlock()), LogLevel::TRACE, LogType::CONTINUITY);
   }
   {
-    ::HeapSelectIram ephemeral;
+    ::HeapSelectIram guard;
     Log::print(F(", Free IRAM "), LogLevel::TRACE, LogType::CONTINUITY);
     Log::print(std::to_string(driver::device.availableHeap()), LogLevel::TRACE, LogType::CONTINUITY);
+    Log::print(F(", Biggest IRAM Block "), LogLevel::TRACE, LogType::CONTINUITY);
+    Log::print(std::to_string(driver::device.biggestHeapBlock()), LogLevel::TRACE, LogType::CONTINUITY);
   }
   Log::print(F(", Connection "), LogLevel::TRACE, LogType::CONTINUITY);
   Log::print(std::to_string(iop::data.wifi.status() == driver::StationStatus::GOT_IP), LogLevel::TRACE, LogType::CONTINUITY);
