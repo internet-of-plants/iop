@@ -1,6 +1,6 @@
 #include "core/string.hpp"
 #include "core/log.hpp"
-#include "core/log.hpp"
+#include "core/panic.hpp"
 #include "core/utils.hpp"
 #include <string>
 
@@ -70,10 +70,12 @@ auto to_view(const String& str) -> std::string_view {
 }
 #endif
 auto to_view(const CowString& str) -> std::string_view {
-  if (iop::is_ok(str)) {
-    return iop::unwrap_ok_ref(str, IOP_CTX());
+  if (const auto *value = std::get_if<std::string_view>(&str)) {
+    return *value;
+  } else if (const auto *value = std::get_if<std::string>(&str)) {
+    return iop::to_view(*value);
   }
-  return iop::unwrap_err_ref(str, IOP_CTX());
+  iop_panic(F("Invalid variant types"));
 }
 
 auto StaticString::toString() const noexcept -> std::string {

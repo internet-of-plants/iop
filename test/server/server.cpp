@@ -32,10 +32,10 @@ void producer() {
 void * consumer(void* ptr) {
     auto *server = static_cast<CredentialsServer *>(ptr);
     std::optional<AuthToken> maybeToken;
-    while (!(maybeToken = server->serve(std::optional<WifiCredentials>(), eventLoop.api())).has_value()) {
+    while (!(maybeToken = server->serve(std::nullopt, eventLoop.api()))) {
         usleep(100);
     }
-    TEST_ASSERT(!maybeToken.has_value());
+    TEST_ASSERT(!maybeToken);
     return nullptr;
 }
 
@@ -46,7 +46,7 @@ int main(int argc, char** argv) {
     CredentialsServer server(iop::LogLevel::WARN);
 
     server.setup();
-    TEST_ASSERT(!server.serve(std::optional<WifiCredentials>(), api).has_value());
+    TEST_ASSERT(!server.serve(std::nullopt, api));
 
     pthread_t id;
     pthread_create(&id, NULL, consumer, &server);

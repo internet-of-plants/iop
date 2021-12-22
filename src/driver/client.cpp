@@ -186,13 +186,14 @@ std::optional<Session> HTTPClient::begin(std::string uri) noexcept {
   }
 
   if (!iop::data.wifi.client.connect(std::string(host).c_str(), port)) {
-    return std::optional<Session>();
+    return std::nullopt;
   }
+  
   if (this->http.begin(iop::data.wifi.client, String(uri.c_str()))) {
-    return std::make_optional(Session(*this, uri));
+    return Session(*this, uri);
   }
 
-  return std::optional<Session>();
+  return std::nullopt;
 }
 }
 #else
@@ -360,7 +361,7 @@ auto Session::sendRequest(std::string method, const uint8_t *data, size_t len) n
         return static_cast<int>(RawStatus::READ_FAILED);
       }
       //iop_assert(buff.contains(F("\n")), iop::StaticString(F("First: ")).toString() + std::to_string(buffer.length()) + iop::StaticString(F(" bytes don't contain newline, the path is too long\n")).toString());
-      status = std::make_optional(atoi(std::string(statusStr.begin(), 0, codeEnd).c_str()));
+      status = atoi(std::string(statusStr.begin(), 0, codeEnd).c_str());
       clientDriverLogger.debug(F("Status: "), std::to_string(status.value_or(500)));
       firstLine = false;
 
@@ -368,7 +369,7 @@ auto Session::sendRequest(std::string method, const uint8_t *data, size_t len) n
       memmove(buffer->data(), ptr, strlen(ptr) + 1);
       buff = buffer->begin();
     }
-    if (!status.has_value()) {
+    if (!status) {
       clientDriverLogger.error(F("No status"));
       return static_cast<int>(RawStatus::READ_FAILED);
     }
@@ -447,7 +448,8 @@ auto Session::sendRequest(std::string method, const uint8_t *data, size_t len) n
 
   clientDriverLogger.debug(F("Close client: "), std::to_string(fd), F(" "), std::string(reinterpret_cast<const char*>(data), len));
   clientDriverLogger.info(F("Status: "), std::to_string(status.value_or(500)));
-  return Response(responseHeaders, Payload(responsePayload), iop::unwrap(status, IOP_CTX()));
+  iop_assert(status, F("Status not available"));
+  return Response(responseHeaders, Payload(responsePayload), *status);
 }
 
 auto HTTPClient::begin(std::string uri_) noexcept -> std::optional<Session> {
@@ -498,7 +500,7 @@ auto HTTPClient::begin(std::string uri_) noexcept -> std::optional<Session> {
     return std::optional<Session>();
   }
   clientDriverLogger.debug(F("Began connection: "), uri);
-  return std::make_optional(Session(*this, std::move(uri_), fd));
+  return Session(*this, std::move(uri_), fd);
 }
 }
 #endif

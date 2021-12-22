@@ -66,26 +66,18 @@ public:
   static void disconnect() noexcept;
   static auto isConnected() noexcept -> bool;
 
-  auto httpPost(std::string_view token, StaticString path,
-                std::string_view data) const noexcept
-      -> std::variant<Response, int>;
-  auto httpPost(StaticString path, std::string_view data) const noexcept
-      -> std::variant<Response, int>;
+  auto httpPost(std::string_view token, StaticString path, std::string_view data) const noexcept -> std::variant<Response, int>;
+  auto httpPost(StaticString path, std::string_view data) const noexcept -> std::variant<Response, int>;
 
-  auto httpRequest(HttpMethod method, const std::optional<std::string_view> &token,
-                   StaticString path,
-                   const std::optional<std::string_view> &data) const noexcept
-      -> std::variant<Response, int>;
+  auto httpRequest(HttpMethod method, const std::optional<std::string_view> &token, StaticString path, const std::optional<std::string_view> &data) const noexcept -> std::variant<Response, int>;
 
-  static auto apiStatusToString(const NetworkStatus &status) noexcept
-      -> StaticString;
-  auto apiStatus(const driver::RawStatus &raw) const noexcept
-      -> std::optional<NetworkStatus>;
+  static auto apiStatusToString(const NetworkStatus &status) noexcept -> StaticString;
+  auto apiStatus(const driver::RawStatus &raw) const noexcept -> std::optional<NetworkStatus>;
 
   ~Network() noexcept;
   Network(Network const &other);
   Network(Network &&other) = delete;
-  auto operator=(Network const &other) -> Network &;
+  auto operator=(Network const &other) -> Network & = default;
   auto operator=(Network &&other) -> Network & = delete;
 };
 

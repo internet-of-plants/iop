@@ -6,25 +6,25 @@ void authToken() {
   const Flash flash(iop::LogLevel::WARN);
   flash.setup();
   flash.removeAuthToken();
-  TEST_ASSERT(!flash.readAuthToken().has_value());
+  TEST_ASSERT(!flash.readAuthToken());
   flash.writeAuthToken(AuthToken::fromBytesUnsafe(reinterpret_cast<const uint8_t*>("Bruh"), 4));
-  TEST_ASSERT(memcmp(iop::unwrap_ref(flash.readAuthToken(), IOP_CTX()).constPtr(), "Bruh", 4) == 0);
+  TEST_ASSERT(memcmp(flash.readAuthToken().value().constPtr(), "Bruh", 4) == 0);
   flash.removeAuthToken();
-  TEST_ASSERT(!flash.readAuthToken().has_value());
+  TEST_ASSERT(!flash.readAuthToken());
 }
 
 void wifiConfig() {
   const Flash flash(iop::LogLevel::WARN);
   flash.setup();
   flash.removeWifiConfig();
-  TEST_ASSERT(!flash.readWifiConfig().has_value());
+  TEST_ASSERT(!flash.readWifiConfig());
   const auto bruh = reinterpret_cast<const uint8_t*>("Bruh");
   const WifiCredentials creds(NetworkName::fromBytesUnsafe(bruh, 4), NetworkPassword::fromBytesUnsafe(bruh, 4));
   flash.writeWifiConfig(creds);
-  TEST_ASSERT(iop::unwrap_ref(flash.readWifiConfig(), IOP_CTX()).ssid.asString().borrow() == creds.ssid.asString().borrow());
-  TEST_ASSERT(iop::unwrap_ref(flash.readWifiConfig(), IOP_CTX()).password.asString().borrow() == creds.password.asString().borrow());
+  TEST_ASSERT(flash.readWifiConfig().value().ssid.asString().borrow() == creds.ssid.asString().borrow());
+  TEST_ASSERT(flash.readWifiConfig().value().password.asString().borrow() == creds.password.asString().borrow());
   flash.removeWifiConfig();
-  TEST_ASSERT(!flash.readWifiConfig().has_value());
+  TEST_ASSERT(!flash.readWifiConfig());
 }
 
 int main(int argc, char** argv) {

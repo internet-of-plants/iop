@@ -80,7 +80,7 @@ void HttpServer::begin() noexcept {
     return;
   }
 
-  this->maybeFD = std::make_optional(fd);
+  this->maybeFD = fd;
 
   // Posix boilerplate
   sockaddr_in address;
@@ -100,19 +100,20 @@ void HttpServer::begin() noexcept {
   }
   logger().info(F("Listening to port "), std::to_string(this->port));
 
-  this->maybeAddress = std::make_optional(address);
+  this->maybeAddress = address;
 }
 void HttpServer::handleClient() noexcept {
   IOP_TRACE();
-  if (!this->maybeAddress.has_value())
+  if (!this->maybeAddress)
     return;
 
   iop_assert(!this->isHandlingRequest, F("Already handling a request"));
   this->isHandlingRequest = true;
 
-  int32_t fd = iop::unwrap_ref(this->maybeFD, IOP_CTX());
+  iop_assert(this->maybeFD, F("FD not found"));
+  int32_t fd = *this->maybeFD;
 
-  sockaddr_in address = iop::unwrap_ref(this->maybeAddress, IOP_CTX());
+  sockaddr_in address = *this->maybeAddress;
   socklen_t addr_len = sizeof(address);
 
   HttpConnection conn;
@@ -127,7 +128,7 @@ void HttpServer::handleClient() noexcept {
     return;
   }
   logger().debug(F("Accepted connection: "), std::to_string(client));
-  conn.currentClient = std::make_optional(client);
+  conn.currentClient = client;
 
   bool firstLine = true;
   bool isPayload = false;
@@ -246,8 +247,8 @@ void HttpServer::close() noexcept {
   IOP_TRACE();
   this->maybeAddress.reset();
 
-  if (this->maybeFD.has_value())
-    ::close(iop::unwrap(this->maybeFD, IOP_CTX()));
+  if (this->maybeFD)
+    ::close(*this->maybeFD);
 }
 
 void HttpServer::on(iop::StaticString uri, HttpServer::Callback handler) noexcept {
@@ -292,14 +293,14 @@ static auto percentDecode(const std::string_view input) noexcept -> std::optiona
     }
     out.push_back(c);
   }
-  return std::make_optional(out);
+  return out;
 }
 void HttpConnection::reset() noexcept {
   this->currentHeaders = "";
   this->currentPayload = "";
   this->currentContentLength.reset();
-  if (this->currentClient.has_value())
-    ::close(iop::unwrap(this->currentClient, IOP_CTX()));
+  if (this->currentClient)
+    ::close(*this->currentClient);
 }
 std::optional<std::string> HttpConnection::arg(const iop::StaticString name) const noexcept {
   IOP_TRACE();
@@ -328,8 +329,8 @@ std::optional<std::string> HttpConnection::arg(const iop::StaticString name) con
 
 void HttpConnection::send(uint16_t code, iop::StaticString contentType, iop::StaticString content) const noexcept {
   IOP_TRACE(); 
-  iop_assert(this->currentClient.has_value(), F("send but has no client"));
-  const int32_t fd = iop::unwrap_ref(this->currentClient, IOP_CTX());
+  iop_assert(this->currentClient, F("send but has no client"));
+  const int32_t fd = *this->currentClient;
 
   const auto codeStr = std::to_string(code);
   const std::string codeText = httpCodeToString(code);
@@ -346,8 +347,8 @@ void HttpConnection::send(uint16_t code, iop::StaticString contentType, iop::Sta
   if (this->currentHeaders.length() > 0) {
     ::send(fd, this->currentHeaders.c_str(), this->currentHeaders.length());
   }
-  if (this->currentContentLength.has_value()) {
-    const auto contentLength = std::to_string(iop::unwrap_ref(this->currentContentLength, IOP_CTX()));
+  if (this->currentContentLength) {
+    const auto contentLength = std::to_string(*this->currentContentLength);
     ::send(fd, "Content-Length: ", 16);
     ::send(fd, contentLength.c_str(), contentLength.length());
     ::send(fd, "\r\n", 2);
@@ -362,7 +363,7 @@ void HttpConnection::send(uint16_t code, iop::StaticString contentType, iop::Sta
 
 void HttpConnection::setContentLength(const size_t contentLength) noexcept {
   IOP_TRACE();
-  this->currentContentLength = std::make_optional(contentLength);
+  this->currentContentLength = contentLength;
 }
 void HttpConnection::sendHeader(const iop::StaticString name, const iop::StaticString value) noexcept{
   IOP_TRACE();
@@ -370,8 +371,8 @@ void HttpConnection::sendHeader(const iop::StaticString name, const iop::StaticS
 }
 void HttpConnection::sendData(iop::StaticString content) const noexcept {
   IOP_TRACE();
-  if (!this->currentClient.has_value()) return;
-  const int32_t fd = iop::unwrap_ref(this->currentClient, IOP_CTX());
+  if (!this->currentClient) return;
+  const int32_t fd = *this->currentClient;
   logger().debug(F("Send Content ("), std::to_string(content.length()), F("): "), content);
   
   if (iop::Log::isTracing())

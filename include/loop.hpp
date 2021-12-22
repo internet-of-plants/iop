@@ -40,12 +40,8 @@ public:
   void connect(std::string_view ssid, std::string_view password) const noexcept;
   
   /// Uses IoP credentials to generate an authentication token for the device
-  auto authenticate(std::string_view username,
-                                     std::string_view password,
-                                     const Api &api) const noexcept
-    -> std::optional<std::array<char, 64>>;
-  auto statusToString(const driver::StationStatus status)
-    const noexcept -> std::optional<iop::StaticString>;
+  auto authenticate(std::string_view username, std::string_view password, const Api &api) const noexcept -> std::optional<AuthToken>;
+  auto statusToString(const driver::StationStatus status) const noexcept -> std::optional<iop::StaticString>;
 
 private:
   void handleNotConnected() noexcept;
@@ -76,7 +72,7 @@ extern EventLoop eventLoop;
 class Unused4KbSysStack {
   struct StackStruct {
     std::array<char, 768> text;
-    std::array<char, 64> token;
+    AuthToken token;
     std::array<char, 64> psk;
     std::array<char, 32> ssid;
   } *data;
@@ -109,7 +105,7 @@ public:
   auto ssid() noexcept -> std::array<char, 32> & {
     return this->data->ssid;
   }
-  auto token() noexcept -> std::array<char, 64> & {
+  auto token() noexcept -> AuthToken & {
     return this->data->token;
   }
   auto text() noexcept -> std::array<char, 768> & {

@@ -63,12 +63,13 @@ void reportLog() noexcept {
   if (!logNetwork || !currentLog.length())
     return;
 
-  const auto maybeToken = eventLoop.flash().readAuthToken();
-  if (maybeToken.has_value()) {
-    logNetwork = false;
-    eventLoop.api().registerLog(iop::unwrap_ref(maybeToken, IOP_CTX()), currentLog);
-    logNetwork = true;
+  driver::thisThread.yield();
+  logNetwork = false;
+  const auto token = eventLoop.flash().readAuthToken();
+  if (token) {
+    eventLoop.api().registerLog(*token, currentLog);
   }
+  logNetwork = true;
   currentLog.clear();
 }
 
@@ -78,21 +79,27 @@ static void staticPrinter(const iop::StaticString str,
   iop::LogHook::defaultStaticPrinter(str, level, kind);
 
   const auto charArray = str.asCharPtr();
-  if (logNetwork && level >= iop::LogLevel::CRIT) {
+  if (logNetwork && level >= iop::LogLevel::INFO) {
     currentLog += charArray;
     byteRate.addBytes(strlen_P(charArray));
-    if (kind == iop::LogType::END || kind == iop::LogType::STARTEND)
+    if (kind == iop::LogType::END || kind == iop::LogType::STARTEND) {
+      iop::LogHook::defaultStaticPrinter(F("Logging to network\n"), iop::LogLevel::INFO, iop::LogType::STARTEND);
       reportLog();
+      iop::LogHook::defaultStaticPrinter(F("Logged to network\n"), iop::LogLevel::INFO, iop::LogType::STARTEND);
+    }
   }
 }
 static void viewPrinter(const std::string_view str, const iop::LogLevel level, const iop::LogType kind) noexcept {
   iop::LogHook::defaultViewPrinter(str, level, kind);
 
-  if (logNetwork && level >= iop::LogLevel::CRIT) {
+  if (logNetwork && level >= iop::LogLevel::INFO) {
     currentLog += str;
     byteRate.addBytes(str.length());
-    if (kind == iop::LogType::END || kind == iop::LogType::STARTEND)
+    if (kind == iop::LogType::END || kind == iop::LogType::STARTEND) {
+      iop::LogHook::defaultStaticPrinter(F("Logging to network\n"), iop::LogLevel::INFO, iop::LogType::STARTEND);
       reportLog();
+      iop::LogHook::defaultStaticPrinter(F("Logged to network\n"), iop::LogLevel::INFO, iop::LogType::STARTEND);
+    }
   }
 }
 static void flusher() noexcept { iop::LogHook::defaultFlusher(); }

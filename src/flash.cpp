@@ -34,7 +34,7 @@ auto Flash::readAuthToken() const noexcept -> std::optional<std::reference_wrapp
 
   // Check if magic byte is set in flash (as in, something is stored)
   if (driver::flash.read(authTokenIndex) != usedAuthTokenEEPROMFlag)
-    return std::optional<std::reference_wrapper<const AuthToken>>();
+    return std::nullopt;
 
   // NOLINTNEXTLINE *-pro-bounds-pointer-arithmetic
   const uint8_t *ptr = driver::flash.asRef() + authTokenIndex + 1;
@@ -46,12 +46,12 @@ auto Flash::readAuthToken() const noexcept -> std::optional<std::reference_wrapp
   if (!iop::isAllPrintable(tok) || tok.length() != 64) {
     this->logger.error(F("Auth token was non printable: "), iop::to_view(iop::scapeNonPrintable(tok)));
     this->removeAuthToken();
-    return std::optional<std::reference_wrapper<const AuthToken>>();
+    return std::nullopt;
   }
 
   this->logger.trace(F("Found Auth token: "), tok);
 
-  return std::make_optional(std::ref(unused4KbSysStack.token()));
+  return std::ref(unused4KbSysStack.token());
 }
 
 void Flash::removeAuthToken() const noexcept {
@@ -91,7 +91,7 @@ auto Flash::readWifiConfig() const noexcept -> std::optional<std::reference_wrap
 
   // Check if magic byte is set in flash (as in, something is stored)
   if (driver::flash.read(wifiConfigIndex) != usedWifiConfigEEPROMFlag)
-    return std::optional<std::reference_wrapper<const WifiCredentials>>();
+    return std::nullopt;
 
   // NOLINTNEXTLINE *-pro-bounds-pointer-arithmetic
   const auto *ptr = driver::flash.asRef() + wifiConfigIndex + 1;

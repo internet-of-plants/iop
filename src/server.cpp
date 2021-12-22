@@ -142,25 +142,20 @@ void CredentialsServer::setup() const noexcept {
     logger.debug(F("Received credentials form"));
 
     const auto wifi = conn.arg(F("wifi"));
-    const auto maybeSsid = conn.arg(F("ssid"));
-    const auto maybePsk = conn.arg(F("password"));
-    if (wifi.has_value() && maybeSsid.has_value() && maybePsk.has_value()) {
-      const auto &ssid = iop::unwrap_ref(maybeSsid, IOP_CTX());
-      const auto &psk = iop::unwrap_ref(maybePsk, IOP_CTX());
-      logger.debug(F("SSID: "), ssid);
-
-      credentialsWifi = std::make_optional(std::make_pair(ssid, psk));
+    const auto ssid = conn.arg(F("ssid"));
+    const auto psk = conn.arg(F("password"));
+    if (wifi && ssid && psk) {
+      logger.debug(F("SSID: "), *ssid);
+      credentialsWifi = std::make_pair(*ssid, *psk);
     }
 
     const auto iop = conn.arg(F("iop"));
-    const auto maybeEmail = conn.arg(F("iopEmail"));
-    const auto maybePassword = conn.arg(F("iopPassword"));
-    if (iop.has_value() && maybeEmail.has_value() && maybePassword.has_value()) {
-      const auto &email = iop::unwrap_ref(maybeEmail, IOP_CTX());
-      const auto &password = iop::unwrap_ref(maybePassword, IOP_CTX());
-      logger.debug(F("Email: "), email);
+    const auto email = conn.arg(F("iopEmail"));
+    const auto password = conn.arg(F("iopPassword"));
+    if (iop && email && password) {
+      logger.debug(F("Email: "), *email);
 
-      credentialsIop = std::make_optional(std::make_pair(email, password));
+      credentialsIop = std::make_pair(*email, *password);
     }
 
     conn.sendHeader(F("Location"), F("/"));
@@ -172,7 +167,7 @@ void CredentialsServer::setup() const noexcept {
     logger.info(F("Serving captive portal"));
 
     const auto mustConnect = !iop::Network::isConnected();
-    const auto needsIopAuth = !eventLoop.flash().readAuthToken().has_value();
+    const auto needsIopAuth = !eventLoop.flash().readAuthToken();
 
     auto len = pageHTMLStart().length() + pageHTMLEnd().length() + script().length();
     len += mustConnect ? wifiHTML().length() : wifiOverwriteHTML().length();
@@ -246,15 +241,13 @@ auto CredentialsServer::serve(const Api &api) noexcept
 
   const auto isConnected = iop::Network::isConnected();
 
-  if (credentialsWifi.has_value()) {
-    const auto wifi = iop::unwrap(credentialsWifi, IOP_CTX());
-    eventLoop.connect(wifi.first, wifi.second);
+  if (credentialsWifi) {
+    eventLoop.connect(credentialsWifi->first, credentialsWifi->second);
   }
   
-  if (isConnected && credentialsIop.has_value()) {
-    const auto iop = iop::unwrap(credentialsIop, IOP_CTX());
-    auto tok = eventLoop.authenticate(iop.first, iop.second, api);
-    if (tok.has_value())
+  if (isConnected && credentialsIop) {
+    auto tok = eventLoop.authenticate(credentialsIop->first, credentialsIop->second, api);
+    if (tok)
       return tok;
 
     // WiFi Credentials stored in flash
@@ -273,7 +266,7 @@ auto CredentialsServer::serve(const Api &api) noexcept
   this->logger.trace(F("Serve captive portal"));
   dnsServer.handleClient();
   server.handleClient();
-  return std::optional<AuthToken>();
+  return std::nullopt;
 }
 #else
 auto CredentialsServer::serve(const std::optional<std::reference_wrapper<const WifiCredentials>> storedWifi,

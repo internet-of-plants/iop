@@ -81,7 +81,11 @@ void Log::log(const LogLevel &level, const StaticString &msg,
   Log::flush();
   this->printLogType(logType, level);
   Log::print(msg, level, LogType::CONTINUITY);
-  Log::print(lineTermination, level, LogType::END);
+  if (logType == LogType::END || logType == LogType::STARTEND) {
+    Log::print(lineTermination, level, LogType::END);
+  } else if (lineTermination.length() != 0) {
+    Log::print(lineTermination, level, LogType::CONTINUITY);
+  }
   Log::flush();
 }
 
@@ -94,7 +98,11 @@ void Log::log(const LogLevel &level, const std::string_view &msg,
   Log::flush();
   this->printLogType(logType, level);
   Log::print(msg, level, LogType::CONTINUITY);
-  Log::print(lineTermination, level, LogType::END);
+  if (logType == LogType::END || logType == LogType::STARTEND) {
+    Log::print(lineTermination, level, LogType::END);
+  } else if (lineTermination.length() != 0) {
+    Log::print(lineTermination, level, LogType::CONTINUITY);
+  }
   Log::flush();
 }
 

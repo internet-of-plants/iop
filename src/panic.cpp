@@ -6,12 +6,11 @@
 
 void upgrade() noexcept {
   IOP_TRACE();
-  const auto &maybeToken = eventLoop.flash().readAuthToken();
-  if (!maybeToken.has_value())
+  const auto token = eventLoop.flash().readAuthToken();
+  if (!token)
     return;
 
-  const auto &token = iop::unwrap_ref(maybeToken, IOP_CTX());
-  const auto status = eventLoop.api().upgrade(token);
+  const auto status = eventLoop.api().upgrade(*token);
 
   switch (status) {
   case iop::NetworkStatus::FORBIDDEN:
@@ -45,13 +44,12 @@ auto reportPanic(const std::string_view &msg, const iop::StaticString &file,
     -> bool {
   IOP_TRACE();
 
-  const auto &maybeToken = eventLoop.flash().readAuthToken();
-  if (!maybeToken.has_value()) {
+  const auto token = eventLoop.flash().readAuthToken();
+  if (!token) {
     iop::panicLogger().crit(F("No auth token, unable to report iop_panic"));
     return false;
   }
 
-  const auto &token = iop::unwrap_ref(maybeToken, IOP_CTX());
   const auto panicData = (PanicData){
       msg,
       file,
@@ -59,7 +57,7 @@ auto reportPanic(const std::string_view &msg, const iop::StaticString &file,
       func,
   };
 
-  const auto status = eventLoop.api().reportPanic(token, panicData);
+  const auto status = eventLoop.api().reportPanic(*token, panicData);
 
   switch (status) {
   case iop::NetworkStatus::FORBIDDEN:
@@ -102,12 +100,12 @@ static void halt(const std::string_view &msg,
 
   constexpr const uint32_t oneHour = ((uint32_t)60) * 60;
   while (true) {
-    if (!eventLoop.flash().readWifiConfig().has_value()) {
+    if (!eventLoop.flash().readWifiConfig()) {
       iop::panicLogger().warn(F("Nothing we can do, no wifi config available"));
       break;
     }
 
-    if (!eventLoop.flash().readAuthToken().has_value()) {
+    if (!eventLoop.flash().readAuthToken()) {
       iop::panicLogger().warn(F("Nothing we can do, no auth token available"));
       break;
     }
