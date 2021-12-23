@@ -28,7 +28,7 @@ static_assert(authTokenIndex + authTokenSize < EEPROM_SIZE,
               "EEPROM too small to store needed credentials");
 
 auto Flash::setup() noexcept -> void { driver::flash.setup(EEPROM_SIZE); }
-auto Flash::readAuthToken() const noexcept -> std::optional<std::reference_wrapper<const AuthToken>> {
+auto Flash::token() const noexcept -> std::optional<std::reference_wrapper<const AuthToken>> {
   IOP_TRACE();
 
   // Check if magic byte is set in flash (as in, something is stored)
@@ -44,7 +44,7 @@ auto Flash::readAuthToken() const noexcept -> std::optional<std::reference_wrapp
   // AuthToken must be printable US-ASCII (to be stored in HTTP headers))
   if (!iop::isAllPrintable(tok) || tok.length() != 64) {
     this->logger.error(FLASH("Auth token was non printable: "), iop::to_view(iop::scapeNonPrintable(tok)));
-    this->removeAuthToken();
+    this->removeToken();
     return std::nullopt;
   }
 
@@ -53,7 +53,7 @@ auto Flash::readAuthToken() const noexcept -> std::optional<std::reference_wrapp
   return std::ref(unused4KbSysStack.token());
 }
 
-void Flash::removeAuthToken() const noexcept {
+void Flash::removeToken() const noexcept {
   IOP_TRACE();
 
   unused4KbSysStack.token().fill('\0');
@@ -68,7 +68,7 @@ void Flash::removeAuthToken() const noexcept {
   }
 }
 
-void Flash::writeAuthToken(const AuthToken &token) const noexcept {
+void Flash::setToken(const AuthToken &token) const noexcept {
   IOP_TRACE();
 
   // Avoids re-writing same data
@@ -85,7 +85,7 @@ void Flash::writeAuthToken(const AuthToken &token) const noexcept {
   driver::flash.commit();
 }
 
-auto Flash::readWifiConfig() const noexcept -> std::optional<std::reference_wrapper<const WifiCredentials>> {
+auto Flash::wifi() const noexcept -> std::optional<std::reference_wrapper<const WifiCredentials>> {
   IOP_TRACE();
 
   // Check if magic byte is set in flash (as in, something is stored)
@@ -106,7 +106,7 @@ auto Flash::readWifiConfig() const noexcept -> std::optional<std::reference_wrap
   return std::make_optional(std::ref(creds));
 }
 
-void Flash::removeWifiConfig() const noexcept {
+void Flash::removeWifi() const noexcept {
   IOP_TRACE();
   this->logger.info(FLASH("Deleting stored wifi config"));
 
@@ -121,7 +121,7 @@ void Flash::removeWifiConfig() const noexcept {
   }
 }
 
-void Flash::writeWifiConfig(const WifiCredentials &config) const noexcept {
+void Flash::setWifi(const WifiCredentials &config) const noexcept {
   IOP_TRACE();
 
   // Avoids re-writing same data
@@ -146,37 +146,37 @@ void Flash::writeWifiConfig(const WifiCredentials &config) const noexcept {
   driver::flash.put(wifiConfigIndex + 1, config.ssid.get());
   driver::flash.put(wifiConfigIndex + 1 + 32, config.password.get());
   driver::flash.commit();
-  this->logger.info(FLASH("Wrote wifi credentials to storage: "), iop::to_view(iop::scapeNonPrintable(std::string_view(this->readWifiConfig().value().get().ssid.get().begin(), 32))));
+  this->logger.info(FLASH("Wrote wifi credentials to storage: "), iop::to_view(iop::scapeNonPrintable(std::string_view(this->wifi().value().get().ssid.get().begin(), 32))));
 }
 #endif
 
 #ifdef IOP_FLASH_DISABLED
 void Flash::setup() noexcept { IOP_TRACE(); }
-auto Flash::readAuthToken() const noexcept -> std::optional<std::reference_wrapper<const AuthToken>> {
+auto Flash::token() const noexcept -> std::optional<std::reference_wrapper<const AuthToken>> {
   (void)*this;
   IOP_TRACE();
   return {};
 }
-void Flash::removeAuthToken() const noexcept {
+void Flash::removeToken() const noexcept {
   (void)*this;
   IOP_TRACE();
 }
-void Flash::writeAuthToken(const AuthToken &token) const noexcept {
+void Flash::setToken(const AuthToken &token) const noexcept {
   (void)*this;
   IOP_TRACE();
   (void)token;
 }
-void Flash::removeWifiConfig() const noexcept {
+void Flash::removeWifi() const noexcept {
   (void)*this;
   IOP_TRACE();
 }
 
-auto Flash::readWifiConfig() const noexcept -> std::optional<std::reference_wrapper<const WifiCredentials>> {
+auto Flash::wifi() const noexcept -> std::optional<std::reference_wrapper<const WifiCredentials>> {
   (void)*this;
   IOP_TRACE();
   return {};
 }
-void Flash::writeWifiConfig(const WifiCredentials &config) const noexcept {
+void Flash::setWifi(const WifiCredentials &config) const noexcept {
   (void)*this;
   IOP_TRACE();
   (void)config;

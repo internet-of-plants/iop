@@ -35,7 +35,7 @@ void EventLoop::loop() noexcept {
     iop::logMemory(this->logger);
 #endif
 
-    const auto authToken = this->flash().readAuthToken();
+    const auto authToken = this->flash().token();
 
     // Handle all queued interrupts (only allows one of each kind concurrently)
     while (true) {
@@ -95,7 +95,7 @@ void EventLoop::handleNotConnected() noexcept {
   // for more resiliency) - or during factory reset
   constexpr const uint32_t oneMinute = 60 * 1000;
 
-  const auto &wifi = this->flash().readWifiConfig();
+  const auto &wifi = this->flash().wifi();
 
   const auto isConnected = iop::Network::isConnected();
   if (!isConnected && wifi && this->nextTryFlashWifiCredentials <= now) {
@@ -152,7 +152,7 @@ void EventLoop::handleIopCredentials() noexcept {
     const auto password = *config::iopPassword();
     const auto tok = this->authenticate(email.toString(), password.toString(), this->api());
     if (tok)
-      this->flash().writeAuthToken(*tok);
+      this->flash().setToken(*tok);
   } else {
     this->handleCredentials();
   }
@@ -172,8 +172,8 @@ void EventLoop::handleInterrupt(const InterruptEvent event, const std::optional<
     case InterruptEvent::FACTORY_RESET:
 #ifdef IOP_FACTORY_RESET
       this->logger.warn(FLASH("Factory Reset: deleting stored credentials"));
-      this->flash().removeWifiConfig();
-      this->flash().removeAuthToken();
+      this->flash().removeWifi();
+      this->flash().removeToken();
       iop::Network::disconnect();
 #endif
       (void)0; // Satisfies linter
@@ -224,7 +224,7 @@ void EventLoop::handleInterrupt(const InterruptEvent event, const std::optional<
 
       unused4KbSysStack.psk().fill('\0');
       memcpy(unused4KbSysStack.psk().data(), config.second.begin(), sizeof(config.second));
-      this->flash().writeWifiConfig(WifiCredentials(unused4KbSysStack.ssid(), unused4KbSysStack.psk()));
+      this->flash().setWifi(WifiCredentials(unused4KbSysStack.ssid(), unused4KbSysStack.psk()));
 #endif
       (void)2; // Satisfies linter
       break;
@@ -237,7 +237,7 @@ void EventLoop::handleCredentials() noexcept {
     const auto token = this->credentialsServer.serve(this->api());
 
     if (token)
-      this->flash().writeAuthToken(*token);
+      this->flash().setToken(*token);
 }
 
 void EventLoop::handleMeasurements(const AuthToken &token) noexcept {
@@ -252,7 +252,7 @@ void EventLoop::handleMeasurements(const AuthToken &token) noexcept {
     case iop::NetworkStatus::FORBIDDEN:
       this->logger.error(FLASH("Unable to send measurements"));
       this->logger.warn(FLASH("Auth token was refused, deleting it"));
-      this->flash().removeAuthToken();
+      this->flash().removeToken();
       return;
 
     case iop::NetworkStatus::CLIENT_BUFFER_OVERFLOW:

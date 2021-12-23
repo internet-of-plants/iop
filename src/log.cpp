@@ -65,7 +65,7 @@ void reportLog() noexcept {
 
   driver::thisThread.yield();
   logNetwork = false;
-  const auto token = eventLoop.flash().readAuthToken();
+  const auto token = eventLoop.flash().token();
   if (token) {
     eventLoop.api().registerLog(*token, currentLog);
   }

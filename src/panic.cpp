@@ -6,7 +6,7 @@
 
 void upgrade() noexcept {
   IOP_TRACE();
-  const auto token = eventLoop.flash().readAuthToken();
+  const auto token = eventLoop.flash().token();
   if (!token)
     return;
 
@@ -44,7 +44,7 @@ auto reportPanic(const std::string_view &msg, const iop::StaticString &file,
     -> bool {
   IOP_TRACE();
 
-  const auto token = eventLoop.flash().readAuthToken();
+  const auto token = eventLoop.flash().token();
   if (!token) {
     iop::panicLogger().crit(FLASH("No auth token, unable to report iop_panic"));
     return false;
@@ -100,12 +100,12 @@ static void halt(const std::string_view &msg,
 
   constexpr const uint32_t oneHour = ((uint32_t)60) * 60;
   while (true) {
-    if (!eventLoop.flash().readWifiConfig()) {
+    if (!eventLoop.flash().wifi()) {
       iop::panicLogger().warn(FLASH("Nothing we can do, no wifi config available"));
       break;
     }
 
-    if (!eventLoop.flash().readAuthToken()) {
+    if (!eventLoop.flash().token()) {
       iop::panicLogger().warn(FLASH("Nothing we can do, no auth token available"));
       break;
     }

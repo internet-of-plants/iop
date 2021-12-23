@@ -166,7 +166,7 @@ void CredentialsServer::setup() const noexcept {
     logger.info(FLASH("Serving captive portal"));
 
     const auto mustConnect = !iop::Network::isConnected();
-    const auto needsIopAuth = !eventLoop.flash().readAuthToken();
+    const auto needsIopAuth = !eventLoop.flash().token();
 
     auto len = pageHTMLStart().length() + pageHTMLEnd().length() + script().length();
     len += mustConnect ? wifiHTML().length() : wifiOverwriteHTML().length();
