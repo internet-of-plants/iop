@@ -8,7 +8,7 @@
 /// It's completely synchronous.
 class Sensors {
 #ifdef IOP_SENSORS
-  gpio::Pin soilResistivityPower;
+  driver::io::Pin soilResistivityPower;
   OneWire * soilTemperatureOneWireBus;
   DallasTemperature * soilTemperatureSensor;
   DHT * airTempAndHumiditySensor;
@@ -21,8 +21,8 @@ public:
   /// Collects a monitoring event from the sensors
   auto measure() noexcept -> Event;
 
-  Sensors(const gpio::Pin soilResistivityPower,
-          const gpio::Pin soilTemperature, const gpio::Pin dht,
+  Sensors(const driver::io::Pin soilResistivityPower,
+          const driver::io::Pin soilTemperature, const driver::io::Pin dht,
           const uint8_t dhtVersion) noexcept;
   ~Sensors() noexcept;
 

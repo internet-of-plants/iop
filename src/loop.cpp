@@ -1,5 +1,6 @@
 #include "loop.hpp" 
 #include "driver/panic.hpp"
+#include "driver/io.hpp"
 
 EventLoop eventLoop(config::uri(), config::logLevel);
 
@@ -7,7 +8,7 @@ void EventLoop::setup() noexcept {
   IOP_TRACE();
 
   this->logger.info(FLASH("Start Setup"));
-  gpio::gpio.mode(gpio::LED_BUILTIN, gpio::Mode::OUTPUT);
+  driver::gpio.mode(driver::io::LED_BUILTIN, driver::io::Mode::OUTPUT);
 
   Flash::setup();
   reset::setup();

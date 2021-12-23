@@ -1,4 +1,4 @@
-#include "driver/gpio.hpp"
+#include "driver/io.hpp"
 
 namespace gpio {
 void GPIO::mode(const Pin pin, const Mode mode) const noexcept {

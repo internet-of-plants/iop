@@ -1,7 +1,7 @@
 #ifndef IOP_DRIVER_SENSORS_HPP
 #define IOP_DRIVER_SENSORS_HPP
 
-#include "driver/gpio.hpp"
+#include "driver/io.hpp"
 
 class DHT;
 class DallasTemperature;

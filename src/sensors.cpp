@@ -14,7 +14,7 @@
 
 void Sensors::setup() noexcept {
   IOP_TRACE();
-  gpio::gpio.mode(this->soilResistivityPower, gpio::Mode::OUTPUT);
+  driver::io::gpio.mode(this->soilResistivityPower, driver::io::Mode::OUTPUT);
   this->airTempAndHumiditySensor->begin();
   this->soilTemperatureSensor->begin();
 }
@@ -25,7 +25,7 @@ auto soilTemperatureCelsius(DallasTemperature &sensor) noexcept -> float;
 auto airTemperatureCelsius(DHT &dht) noexcept -> float;
 auto airHumidityPercentage(DHT &dht) noexcept -> float;
 auto airHeatIndexCelsius(DHT &dht) noexcept -> float;
-auto soilResistivityRaw(gpio::Pin power) noexcept -> uint16_t;
+auto soilResistivityRaw(driver::io::Pin power) noexcept -> uint16_t;
 } // namespace measurement
 
 auto Sensors::measure() noexcept -> Event {
@@ -64,16 +64,16 @@ auto airHeatIndexCelsius(DHT &dht) noexcept -> float {
   return dht.computeHeatIndex();
 }
 
-auto soilResistivityRaw(const gpio::Pin power) noexcept -> uint16_t {
+auto soilResistivityRaw(const driver::io::Pin power) noexcept -> uint16_t {
   IOP_TRACE();
-  digitalWrite(static_cast<uint8_t>(power), static_cast<uint8_t>(gpio::Data::HIGH));
+  digitalWrite(static_cast<uint8_t>(power), static_cast<uint8_t>(driver::io::Data::HIGH));
   delay(2000); // NOLINT *-avoid-magic-numbers
   uint16_t value1 = analogRead(A0);
   delay(500); // NOLINT *-avoid-magic-numbers
   uint16_t value2 = analogRead(A0);
   delay(500); // NOLINT *-avoid-magic-numbers
   uint16_t value = (value1 + value2 + analogRead(A0)) / 3;
-  digitalWrite(static_cast<uint8_t>(power), static_cast<uint8_t>(gpio::Data::LOW));
+  digitalWrite(static_cast<uint8_t>(power), static_cast<uint8_t>(driver::io::Data::LOW));
   return value;
 }
 } // namespace measurement
@@ -130,8 +130,8 @@ auto Sensors::operator=(Sensors &&other) noexcept -> Sensors & {
   return *this;
 }
 
-Sensors::Sensors(const gpio::Pin soilResistivityPower,
-          const gpio::Pin soilTemperature, const gpio::Pin dht,
+Sensors::Sensors(const driver::io::Pin soilResistivityPower,
+          const driver::io::Pin soilTemperature, const driver::io::Pin dht,
           const uint8_t dhtVersion) noexcept
 #ifdef IOP_SENSORS
       : soilResistivityPower(soilResistivityPower),

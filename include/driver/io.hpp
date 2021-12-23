@@ -1,17 +1,8 @@
 #ifndef IOP_DRIVER_PINS_HPP
 #define IOP_DRIVER_PINS_HPP
 
-#include <functional>
-#undef INPUT
-#undef OUTPUT
-#undef LOW
-#undef HIGH
-#undef LED_BUILTIN
-#undef RISING
-#undef FALLING
-#undef CHANGE
-
-namespace gpio {
+namespace driver {
+namespace io {
 enum class Mode {
   INPUT = 0,
   OUTPUT = 1,
@@ -40,7 +31,9 @@ public:
   auto digitalRead(Pin pin) const noexcept -> Data;
   void alarm(Pin pin, Alarm mode, void (*func)()) const noexcept;
 };
-extern GPIO gpio;
-}
+} // namespace io
+
+extern io::GPIO gpio;
+} // namespace driver
 
 #endif

@@ -1,7 +1,7 @@
 #ifndef IOP_CONFIGURATION_HPP
 #define IOP_CONFIGURATION_HPP
 
-#include "driver/gpio.hpp"
+#include "driver/io.hpp"
 #include "driver/thread.hpp"
 #include "driver/log.hpp"
 #include "utils.hpp"
@@ -11,10 +11,10 @@ namespace config {
 /// Minimum log level to print a message (if serial is enabled)
 constexpr static auto logLevel = iop::LogLevel::INFO;
 
-constexpr static uint8_t soilTemperature = driver::Pin::D5;
-constexpr static uint8_t airTempAndHumidity = driver::Pin::D6;
-constexpr static uint8_t soilResistivityPower = driver::Pin::D7;
-constexpr static uint8_t factoryResetButton = driver::Pin::D1;
+constexpr static driver::gpio::Pin soilTemperature = gpio::Pin::D5;
+constexpr static driver::gpio::Pin airTempAndHumidity = gpio::Pin::D6;
+constexpr static driver::gpio::Pin soilResistivityPower = gpio::Pin::D7;
+constexpr static driver::io::Pin factoryResetButton = gpio::Pin::D1;
 
 /// Version of DHT (Digital Humidity and Temperature) sensor. (ex: DHT11 or
 /// DHT21 or DHT22...)
@@ -28,27 +28,32 @@ constexpr static iop::esp_time interval = 180 * 1000;
 ///
 /// If you really want to, do like above
 
+[[maybe_unused]]
 static auto wifiNetworkName() -> std::optional<iop::StaticString> {
-    return std::optional<iop::StaticString>();
+    return nullopt;
 }
+[[maybe_unused]]
 static auto wifiPassword() -> std::optional<iop::StaticString> {
-    return std::optional<iop::StaticString>();
+    return nullopt;
 }
 
+[[maybe_unused]]
 static auto iopEmail() -> std::optional<iop::StaticString> {
-    return std::optional<iop::StaticString>();
+    return nullopt;
 }
+[[maybe_unused]]
 static auto iopPassword() -> std::optional<iop::StaticString> {
-    return std::optional<iop::StaticString>();
+    return nullopt;
 }
 
 /// It should be prefixed with https in production.
 /// Do not use plain http in production!
 ///
-/// But if using plain http: Undefine IOP_SSL otherwise it won't work.
+/// But if using plain http: Undefine IOP_SSL otherwise it won't work
+[[maybe_unused]]
 static auto uri() -> iop::StaticString {
     #ifdef IOP_DESKTOP
-    return FLASH("http://127.0.0.1:4001");
+    return FLASH("http://127.0.0.1:4001"));
     #else
     return FLASH("https://iop-monitor-server.tk:4001");
     #endif
