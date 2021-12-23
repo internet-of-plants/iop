@@ -1,5 +1,5 @@
 #include "driver/device.hpp"
-#include "core/utils.hpp"
+#include "core/log.hpp"
 #include "loop.hpp"
 
 namespace driver {
@@ -12,7 +12,7 @@ namespace driver {
 
 namespace driver {
 auto Device::platform() const noexcept -> ::iop::StaticString {
-  return F("DESKTOP");
+  return FLASH("DESKTOP");
 }
 auto Device::vcc() const noexcept -> uint16_t {
   return 1;
@@ -60,7 +60,7 @@ iop::MacAddress & Device::macAddress() const noexcept {
 
 namespace driver {
 auto Device::platform() const noexcept -> ::iop::StaticString {
-  return F("ESP8266");
+  return FLASH("ESP8266");
 }
 auto Device::vcc() const noexcept -> uint16_t {
     return ESP.getVcc();
@@ -92,10 +92,10 @@ iop::MD5Hash & Device::binaryMD5() const noexcept {
   const auto hashedRaw = ESP.getSketchMD5();
   const auto hashed = iop::to_view(hashedRaw);
   if (hashed.length() != 32) {
-    iop_panic(iop::StaticString(F("MD5 hex size is not 32, this is critical: ")).toString() + std::string(hashed));
+    iop_panic(iop::StaticString(FLASH("MD5 hex size is not 32, this is critical: ")).toString() + std::string(hashed));
   }
   if (!iop::isAllPrintable(hashed)) {
-    iop_panic(iop::StaticString(F("Unprintable char in MD5 hex, this is critical: ")).toString() + std::string(hashed));
+    iop_panic(iop::StaticString(FLASH("Unprintable char in MD5 hex, this is critical: ")).toString() + std::string(hashed));
   }
 
   memcpy(iop::data.md5.data(), hashed.begin(), 32);

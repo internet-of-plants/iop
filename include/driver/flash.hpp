@@ -21,7 +21,7 @@ public:
 
   template<typename T> 
   void put(int const address, const T &t) {
-    iop_assert(address + sizeof(T) <= this->size, iop::StaticString(F("Flash overflow: ")).toString() + std::to_string(address + sizeof(T)));
+    iop_assert(address + sizeof(T) <= this->size, iop::StaticString(FLASH("Flash overflow: ")).toString() + std::to_string(address + sizeof(T)));
     memcpy(this->asMut() + address, &t, sizeof(T));
   }
 };

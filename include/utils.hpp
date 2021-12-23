@@ -1,109 +1,70 @@
 #ifndef IOP_UTILS_HPP
 #define IOP_UTILS_HPP
 
-#include "core/log.hpp"
-#include "core/utils.hpp"
+#include "core/string.hpp"
+#include <functional>
 
-#include <cstdint>
-#include <memory>
-
-// If IOP_MONITOR is not defined the Api methods will be short-circuited
-// If IOP_MOCK_MONITOR is defined, then the methods will run normally
-// and pretend the request didn't fail
-// If IOP_MONITOR is defined, then it doesn't matter whether IOP_MOCK_MONITOR is
-// defined
-#ifdef IOP_MONITOR
-#undef IOP_MOCK_MONITOR
-#endif
-
-#ifndef IOP_SERIAL
-#ifdef IOP_NETWORK_LOGGING
-#undef IOP_NETWORK_LOGGING
-#endif
-#endif
-
-// If you change the number of interrupt types, please update interruptVariant
-// to the correct size
+// If you change the number of interrupt types, please update interruptVariant to the correct size
 enum class InterruptEvent { NONE, FACTORY_RESET, ON_CONNECTION, MUST_UPGRADE };
 constexpr static uint8_t interruptVariants = 4;
 
 namespace panic {
+  /// Sets custom panic hook to device, this hook logs the panic to the monitor server and requests for an update from the server constantly, rebooting when it succeeds
   void setup() noexcept;
 }
 namespace network_logger {
+  /// Sets custom logging hook to device, this hook also logs messages, from `iop::LogType::INFO` on, to the monitor server.
   void setup() noexcept;
 }
 
-/// Abstracts factory resets
 namespace reset {
-void setup() noexcept;
-} // namespace reset
+  /// Sets interrupt to handle factory reset (pressing a button for 15 seconds)
+  ///
+  /// Factory resets deletes both the wifi credentials and the monitor server token
+  void setup() noexcept;
+}
 
 
 namespace utils {
+/// Schedules update to run in the next main loop run.
+/// Has a pre-allocated slot for every kind of interrupt we support.
+/// Discards interrupt if it already is scheduled for the next main loop run.
 void scheduleInterrupt(InterruptEvent ev) noexcept;
+
+/// Extracts first interrupt scheduled. Should be called until a `InterruptEvent::NONE` is returned.
 auto descheduleInterrupt() noexcept -> InterruptEvent;
+
+/// Converts a byte array into a base64 encoded string
 auto base64Encode(const uint8_t *in, const size_t size) noexcept -> std::string;
 } // namespace utils
 
 
-// TODO: make it type-safer
+/// Represents an authentication token returned by the monitor server.
+///
+/// Must be sent in every request to the monitor server.
 using AuthToken = std::array<char, 64>;
+
+/// Represents an WiFi SSID
 using NetworkName = std::array<char, 32>;
+/// Represents an WiFi password
 using NetworkPassword = std::array<char, 64>;
 
-struct PanicData {
-  std::string_view msg;
-  iop::StaticString file;
-  uint32_t line;
-  iop::StaticString func;
-};
-
-class WifiCredentials {
-public:
+/// Helpful to pass around references to the cached stored WiFi credentials
+struct WifiCredentials {
   std::reference_wrapper<NetworkName> ssid;
   std::reference_wrapper<NetworkPassword> password;
 
-  ~WifiCredentials() noexcept = default;
   WifiCredentials(NetworkName &ssid, NetworkPassword &pass) noexcept
       : ssid(std::ref(ssid)), password(std::ref(pass)) {}
-  WifiCredentials(const WifiCredentials &cred) noexcept = default;
-  WifiCredentials(WifiCredentials &&cred) noexcept = default;
-  auto operator=(const WifiCredentials &cred) noexcept
-      -> WifiCredentials & = default;
-  auto operator=(WifiCredentials &&cred) noexcept
-      -> WifiCredentials & = default;
 };
 
-struct EventStorage {
+/// Monitoring event that is sent to the monitor server
+struct Event {
   float airTemperatureCelsius;
   float airHumidityPercentage;
   float airHeatIndexCelsius;
   float soilTemperatureCelsius;
   uint16_t soilResistivityRaw;
-};
-
-class Event {
-public:
-  EventStorage storage;
-  ~Event() noexcept { IOP_TRACE(); }
-  explicit Event(EventStorage storage) noexcept : storage(storage) {
-    IOP_TRACE();
-  }
-  Event(Event const &ev) noexcept : storage(ev.storage) { IOP_TRACE(); }
-  Event(Event &&ev) noexcept : storage(ev.storage) { IOP_TRACE(); }
-  auto operator=(Event const &ev) noexcept -> Event & {
-    IOP_TRACE();
-    if (this == &ev)
-      return *this;
-    this->storage = ev.storage;
-    return *this;
-  }
-  auto operator=(Event &&ev) noexcept -> Event & {
-    IOP_TRACE();
-    this->storage = ev.storage;
-    return *this;
-  }
 };
 
 #endif

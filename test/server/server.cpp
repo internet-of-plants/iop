@@ -41,7 +41,7 @@ void * consumer(void* ptr) {
 
 int main(int argc, char** argv) {
     UNITY_BEGIN();
-    iop::Log(iop::LogLevel::TRACE, F("SERVER")).setup(iop::LogLevel::TRACE);
+    iop::Log(iop::LogLevel::TRACE, FLASH("SERVER")).setup(iop::LogLevel::TRACE);
 
     CredentialsServer server(iop::LogLevel::WARN);
 

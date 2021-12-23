@@ -1,7 +1,5 @@
 #include "core/cert_store.hpp"
 #include "core/panic.hpp"
-#include "core/utils.hpp"
-#include "driver/cert_store.hpp"
 
 namespace iop {
 
@@ -11,9 +9,9 @@ auto CertStore::findHashedTA(void *ctx, void *hashed_dn, size_t len)
   IOP_TRACE();
   auto *cs = static_cast<CertStore *>(ctx);
 
-  iop_assert(cs, F("ctx is nullptr, this is unreachable because if this method is accessible, the ctx is set"));
-  iop_assert(hashed_dn, F("hashed_dn is nullptr, this is unreachable because it's a static array"));
-  iop_assert(len == hashSize, F("Invalid hash len"));
+  iop_assert(cs, FLASH("ctx is nullptr, this is unreachable because if this method is accessible, the ctx is set"));
+  iop_assert(hashed_dn, FLASH("hashed_dn is nullptr, this is unreachable because it's a static array"));
+  iop_assert(len == hashSize, FLASH("Invalid hash len"));
 
   const auto &list = cs->certList;
   for (uint16_t i = 0; i < list.count(); i++) {
@@ -22,7 +20,7 @@ auto CertStore::findHashedTA(void *ctx, void *hashed_dn, size_t len)
     if (memcmp_P(hashed_dn, cert.index, hashSize) == 0) {
       const auto size = cert.size;
       auto der = std::make_unique<uint8_t[]>(size);
-      iop_assert(der, F("Cert allocation failed"));
+      iop_assert(der, FLASH("Cert allocation failed"));
 
       memcpy_P(der.get(), cert.cert, size);
       cs->x509 = std::make_unique<BearSSL::X509List>(der.get(), size);
@@ -31,7 +29,7 @@ auto CertStore::findHashedTA(void *ctx, void *hashed_dn, size_t len)
       // We can const cast because it's heap allocated
       // It shouldn't be a const function. But the upstream API is just that way
       // NOLINTNEXTLINE cppcoreguidelines-pro-type-const-cast
-      iop_assert(cs->x509, F("Unable to allocate X509List"));
+      iop_assert(cs->x509, FLASH("Unable to allocate X509List"));
       const auto *taTmp = cs->x509->getTrustAnchors();
       auto *ta = const_cast<br_x509_trust_anchor *>(taTmp);
       memcpy_P(ta->dn.data, cert.index, hashSize);

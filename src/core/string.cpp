@@ -1,7 +1,6 @@
 #include "core/string.hpp"
 #include "core/log.hpp"
 #include "core/panic.hpp"
-#include "core/utils.hpp"
 #include <string>
 
 namespace iop {
@@ -59,23 +58,6 @@ auto scapeNonPrintable(const std::string_view txt) noexcept -> CowString {
     }
   }
   return CowString(s);
-}
-
-auto to_view(const std::string& str) -> std::string_view {
-  return str.c_str();
-}
-#ifndef IOP_DESKTOP 
-auto to_view(const String& str) -> std::string_view {
-  return str.c_str();
-}
-#endif
-auto to_view(const CowString& str) -> std::string_view {
-  if (const auto *value = std::get_if<std::string_view>(&str)) {
-    return *value;
-  } else if (const auto *value = std::get_if<std::string>(&str)) {
-    return iop::to_view(*value);
-  }
-  iop_panic(F("Invalid variant types"));
 }
 
 auto StaticString::toString() const noexcept -> std::string {

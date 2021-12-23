@@ -9,7 +9,7 @@
 static pthread_mutex_t lock;
 
 void logSetup(const iop::LogLevel &level) noexcept {
-    iop_assert(pthread_mutex_init(&lock, NULL) == 0, F("Mutex init failed"));
+    iop_assert(pthread_mutex_init(&lock, NULL) == 0, FLASH("Mutex init failed"));
 }
 void logPrint(const std::string_view msg) noexcept {
     pthread_mutex_lock(&lock);

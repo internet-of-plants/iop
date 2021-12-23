@@ -3,19 +3,15 @@
 
 #include "core/log.hpp"
 #include "utils.hpp"
-#include <optional>
-
-#include "driver/wifi.hpp"
 
 /// Wraps flash memory to provide a safe and ergonomic API
 class Flash {
   iop::Log logger;
 
 public:
-  explicit Flash(iop::LogLevel logLevel) noexcept
-      : logger(logLevel, F("FLASH")) {
-    IOP_TRACE();
-  }
+  explicit Flash(iop::LogLevel logLevel) noexcept: logger(logLevel, FLASH("FLASH")) {}
+
+  /// Initializes flash memory storage
   static auto setup() noexcept -> void;
 
   auto readAuthToken() const noexcept -> std::optional<std::reference_wrapper<const AuthToken>>;
@@ -25,12 +21,6 @@ public:
   auto readWifiConfig() const noexcept -> std::optional<std::reference_wrapper<const WifiCredentials>>;
   void removeWifiConfig() const noexcept;
   void writeWifiConfig(const WifiCredentials &config) const noexcept;
-
-  ~Flash() { IOP_TRACE(); }
-  Flash(Flash const &other) noexcept = default;
-  Flash(Flash &&other) noexcept = default;
-  auto operator=(Flash const &other) -> Flash & = default;
-  auto operator=(Flash &&other) -> Flash & = default;
 };
 
 #include "utils.hpp"

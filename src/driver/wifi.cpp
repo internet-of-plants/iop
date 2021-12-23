@@ -68,7 +68,7 @@ StationStatus Wifi::status() const noexcept {
         case 255: // No idea what this is, but it's returned sometimes;
             return StationStatus::IDLE;
     }
-    iop_panic(iop::StaticString(F("Unreachable status: ")).toString() + std::to_string(static_cast<uint8_t>(s)));
+    iop_panic(iop::StaticString(FLASH("Unreachable status: ")).toString() + std::to_string(static_cast<uint8_t>(s)));
 }
 void Wifi::setupAP() const noexcept {
     // NOLINTNEXTLINE *-avoid-magic-numbers
@@ -95,7 +95,7 @@ void Wifi::setMode(WiFiMode mode) const noexcept {
             ::WiFi.mode(WIFI_AP_STA);
             return;
     }
-    iop_panic(F("Unreachable"));
+    iop_panic(FLASH("Unreachable"));
 }
 void Wifi::reconnect() const noexcept {
     ::WiFi.reconnect();
@@ -131,7 +131,7 @@ void Wifi::wake() const noexcept {
 }
 void Wifi::setup(iop::CertStore *certStore) noexcept {
   #ifdef IOP_SSL
-  iop_assert(certStore != nullptr, F("CertStore is not set, but SSL is enabled"));
+  iop_assert(certStore != nullptr, FLASH("CertStore is not set, but SSL is enabled"));
   this->client.setCertStore(certStore);
   #endif
   ::WiFi.persistent(false);
@@ -149,7 +149,7 @@ WiFiMode Wifi::mode() const noexcept {
         case WIFI_AP_STA:
             return WiFiMode::AP_STA;
     }
-    iop_panic(F("Unreachable"));
+    iop_panic(FLASH("Unreachable"));
 }
 void Wifi::connectAP(std::string_view ssid, std::string_view psk) const noexcept {
     String ssidStr;

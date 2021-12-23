@@ -1,28 +1,34 @@
-#include "api.hpp"
+#include "driver/client.hpp"
+#include "driver/server.hpp"
 #include "core/cert_store.hpp"
+#include "core/panic.hpp"
 #include "generated/certificates.hpp"
+#include "api.hpp"
 #include "utils.hpp"
-#include <string>
 #include "loop.hpp"
-#include "ArduinoJson.h"
+#include <string>
 
 // TODO: have an endpoint to report non 200 response
 // TODO: have an endpoint to report CLIENT_BUFFER_OVERFLOWS
 
 #ifndef IOP_API_DISABLED
 
-#include "driver/client.hpp"
-#include "driver/server.hpp"
+// If IOP_MONITOR is not defined the Api methods will be short-circuited
+// If IOP_MOCK_MONITOR is defined, then the methods will run normally and pretend the request didn't fail
+// If IOP_MONITOR is defined, then IOP_MOCK_MONITOR shouldn't be defined
+#ifdef IOP_MONITOR
+#undef IOP_MOCK_MONITOR
+#endif
 
-auto Api::makeJson(const iop::StaticString name, const JsonCallback &func) const noexcept -> std::optional<std::reference_wrapper<std::array<char, 768>>> {
+auto Api::makeJson(const iop::StaticString contextName, const JsonCallback &jsonObjectBuilder) const noexcept -> std::optional<std::reference_wrapper<std::array<char, 768>>> {
   IOP_TRACE();
   
   auto doc = std::make_unique<StaticJsonDocument<768>>(); // TODO: handle OOM here
   doc->clear();
-  func(*doc);
+  jsonObjectBuilder(*doc);
 
   if (doc->overflowed()) {
-    this->logger.error(F("Payload doesn't fit Json<768> at "), name);
+    this->logger.error(FLASH("Payload doesn't fit Json<768> at "), contextName);
     return std::nullopt;
   }
 
@@ -30,7 +36,7 @@ auto Api::makeJson(const iop::StaticString name, const JsonCallback &func) const
   fixed.fill('\0');
   serializeJson(*doc, fixed.data(), fixed.max_size());
   
-  this->logger.debug(F("Json: "), iop::to_view(fixed));
+  this->logger.debug(FLASH("Json: "), iop::to_view(fixed));
   return std::ref(fixed);
 }
 
@@ -62,16 +68,16 @@ auto Api::setup() const noexcept -> void {
 
 #ifdef IOP_SSL
   static iop::CertStore certStore(generated::certList);
-  this->network().setCertStore(certStore);
+  this->network.setCertStore(certStore);
 #endif
 
-  this->network().setup();
+  this->network.setup();
 #endif
 }
 
 auto Api::reportPanic(const AuthToken &authToken, const PanicData &event) const noexcept -> iop::NetworkStatus {
   IOP_TRACE();
-  this->logger.info(F("Report iop_panic: "), event.msg);
+  this->logger.info(FLASH("Report iop_panic: "), event.msg);
 
   auto msg = event.msg;
   std::optional<std::reference_wrapper<std::array<char, 768>>> maybeJson;
@@ -83,10 +89,10 @@ auto Api::reportPanic(const AuthToken &authToken, const PanicData &event) const 
       doc["func"] = event.func.toString();
       doc["msg"] = msg;
     };
-    maybeJson = this->makeJson(F("Api::reportPanic"), make);
+    maybeJson = this->makeJson(FLASH("Api::reportPanic"), make);
 
     if (!maybeJson) {
-      iop_assert(msg.length() / 2 != 0, F("Message would be empty, function is broken"));
+      iop_assert(msg.length() / 2 != 0, FLASH("Message would be empty, function is broken"));
       msg = msg.substr(0, msg.length() / 2);
       continue;
     }
@@ -98,17 +104,17 @@ auto Api::reportPanic(const AuthToken &authToken, const PanicData &event) const 
   const auto &json = maybeJson->get();
 
   const auto token = iop::to_view(authToken);
-  auto const status = this->network().httpPost(token, F("/v1/panic"), iop::to_view(json));
+  auto const status = this->network.httpPost(token, FLASH("/v1/panic"), iop::to_view(json));
 
 #ifndef IOP_MOCK_MONITOR
   if (const auto *error = std::get_if<int>(&status)) {
     const auto code = std::to_string(*error);
-    this->logger.error(F("Unexpected response at Api::reportPanic: "), code);
+    this->logger.error(FLASH("Unexpected response at Api::reportPanic: "), code);
     return iop::NetworkStatus::BROKEN_SERVER;
   } else if (const auto *response = std::get_if<iop::Response>(&status)) {
     return response->status;
   }
-  iop_panic(F("Invalid variant"));
+  iop_panic(FLASH("Invalid variant"));
 #else
   return iop::NetworkStatus::OK;
 #endif
@@ -118,33 +124,33 @@ auto Api::registerEvent(const AuthToken &authToken,
                         const Event &event) const noexcept
     -> iop::NetworkStatus {
   IOP_TRACE();
-  this->logger.info(F("Send event"));
+  this->logger.info(FLASH("Send event"));
 
   const auto make = [&event](JsonDocument &doc) {
-    doc["air_temperature_celsius"] = event.storage.airTemperatureCelsius;
-    doc["air_humidity_percentage"] = event.storage.airHumidityPercentage;
-    doc["air_heat_index_celsius"] = event.storage.airHeatIndexCelsius;
-    doc["soil_temperature_celsius"] = event.storage.soilTemperatureCelsius;
-    doc["soil_resistivity_raw"] = event.storage.soilResistivityRaw;
+    doc["air_temperature_celsius"] = event.airTemperatureCelsius;
+    doc["air_humidity_percentage"] = event.airHumidityPercentage;
+    doc["air_heat_index_celsius"] = event.airHeatIndexCelsius;
+    doc["soil_temperature_celsius"] = event.soilTemperatureCelsius;
+    doc["soil_resistivity_raw"] = event.soilResistivityRaw;
   };
   // 256 bytes is more than enough (we checked, it doesn't get to 200 bytes)
-  auto maybeJson = this->makeJson(F("Api::registerEvent"), make);
+  auto maybeJson = this->makeJson(FLASH("Api::registerEvent"), make);
   if (!maybeJson)
     return iop::NetworkStatus::CLIENT_BUFFER_OVERFLOW;
   const auto &json = maybeJson->get();
 
   const auto token = iop::to_view(authToken);
-  auto const status = this->network().httpPost(token, F("/v1/event"), iop::to_view(json));
+  auto const status = this->network.httpPost(token, FLASH("/v1/event"), iop::to_view(json));
 
 #ifndef IOP_MOCK_MONITOR
   if (const auto *error = std::get_if<int>(&status)) {
     const auto code = std::to_string(*error);
-    this->logger.error(F("Unexpected response at Api::registerEvent: "), code);
+    this->logger.error(FLASH("Unexpected response at Api::registerEvent: "), code);
     return iop::NetworkStatus::BROKEN_SERVER;
   } else if (const auto *response = std::get_if<iop::Response>(&status)) {
     return response->status;
   }
-  iop_panic(F("Invalid variant"));
+  iop_panic(FLASH("Invalid variant"));
 #else
   return iop::NetworkStatus::OK;
 #endif
@@ -154,10 +160,10 @@ auto Api::authenticate(std::string_view username,
     -> std::variant<AuthToken, iop::NetworkStatus> {
   IOP_TRACE();
 
-  this->logger.info(F("Authenticate IoP user: "), username);
+  this->logger.info(FLASH("Authenticate IoP user: "), username);
 
   if (!username.length() || !password.length()) {
-    this->logger.warn(F("Empty username or password, at Api::authenticate"));
+    this->logger.warn(FLASH("Empty username or password, at Api::authenticate"));
     return iop::NetworkStatus::FORBIDDEN;
   }
 
@@ -166,18 +172,18 @@ auto Api::authenticate(std::string_view username,
     doc["email"] = username;
     doc["password"] = password;
   };
-  auto maybeJson = this->makeJson(F("Api::authenticate"), make);
+  auto maybeJson = this->makeJson(FLASH("Api::authenticate"), make);
 
   if (!maybeJson)
     return iop::NetworkStatus::CLIENT_BUFFER_OVERFLOW;
   const auto &json = maybeJson->get();
   
-  auto const status = this->network().httpPost(F("/v1/user/login"), iop::to_view(json));
+  auto const status = this->network.httpPost(FLASH("/v1/user/login"), iop::to_view(json));
 
 #ifndef IOP_MOCK_MONITOR
   if (const auto *error = std::get_if<int>(&status)) {
     const auto code = std::to_string(*error);
-    this->logger.error(F("Unexpected response at Api::authenticate: "), code);
+    this->logger.error(FLASH("Unexpected response at Api::authenticate: "), code);
     return iop::NetworkStatus::BROKEN_SERVER;
   } else if (const auto *response = std::get_if<iop::Response>(&status)) {
     const auto &resp = *response;
@@ -187,24 +193,24 @@ auto Api::authenticate(std::string_view username,
     }
 
     if (!resp.payload) {
-      this->logger.error(F("Server answered OK, but payload is missing"));
+      this->logger.error(FLASH("Server answered OK, but payload is missing"));
       return iop::NetworkStatus::BROKEN_SERVER;
     }
     const auto &payload = *resp.payload;
 
     if (!iop::isAllPrintable(payload)) {
-      this->logger.error(F("Unprintable payload, this isn't supported: "), iop::to_view(iop::scapeNonPrintable(payload)));
+      this->logger.error(FLASH("Unprintable payload, this isn't supported: "), iop::to_view(iop::scapeNonPrintable(payload)));
       return iop::NetworkStatus::BROKEN_SERVER;
     }
     if (payload.length() != 64) {
-      this->logger.error(F("Auth token does not occupy 64 bytes: size = "), std::to_string(payload.length()));
+      this->logger.error(FLASH("Auth token does not occupy 64 bytes: size = "), std::to_string(payload.length()));
     }
 
     AuthToken token;
     memcpy(token.data(), payload.c_str(), 64);
     return token;
   }
-  iop_panic(F("Invalid variant"));
+  iop_panic(FLASH("Invalid variant"));
 #else
   return AuthToken::empty();
 #endif
@@ -215,18 +221,18 @@ auto Api::registerLog(const AuthToken &authToken,
     -> iop::NetworkStatus {
   IOP_TRACE();
   const auto token = iop::to_view(authToken);
-  this->logger.info(F("Register log. Token: "), token, F(". Log: "), log);
-  auto const status = this->network().httpPost(token, F("/v1/log"), std::move(log));
+  this->logger.info(FLASH("Register log. Token: "), token, FLASH(". Log: "), log);
+  auto const status = this->network.httpPost(token, FLASH("/v1/log"), std::move(log));
 
 #ifndef IOP_MOCK_MONITOR
   if (const auto *error = std::get_if<int>(&status)) {
     const auto code = std::to_string(*error);
-    this->logger.error(F("Unexpected response at Api::registerLog: "), code);
+    this->logger.error(FLASH("Unexpected response at Api::registerLog: "), code);
     return iop::NetworkStatus::BROKEN_SERVER;
   } else if (const auto *response = std::get_if<iop::Response>(&status)) {
     return response->status;
   }
-  iop_panic(F("Invalid variant"));
+  iop_panic(FLASH("Invalid variant"));
 #else
   return iop::NetworkStatus::OK;
 #endif
@@ -240,23 +246,23 @@ auto Api::registerLog(const AuthToken &authToken,
 auto Api::upgrade(const AuthToken &token) const noexcept
     -> iop::NetworkStatus {
   IOP_TRACE();
-  this->logger.info(F("Upgrading sketch"));
+  this->logger.info(FLASH("Upgrading sketch"));
 
   #ifdef IOP_DESKTOP
   (void) token;
   #else
-  const iop::StaticString path = F("/v1/update");
+  const iop::StaticString path = FLASH("/v1/update");
 
   #ifndef IOP_DESKTOP
-  const auto uri = String(this->uri().get()) + path.get();
+  const auto uri = String(this->network.uri().get()) + path.get();
   #else
-  const auto uri = std::string(this->uri().asCharPtr()) + path.asCharPtr();
+  const auto uri = std::string(this->network.uri().asCharPtr()) + path.asCharPtr();
   #endif
 
   auto &client = iop::data.wifi.client;
 
   auto ESPhttpUpdate = std::make_unique<ESP8266HTTPUpdate>();
-  iop_assert(ESPhttpUpdate, F("Unable to allocate ESP8266HTTPUpdate"));
+  iop_assert(ESPhttpUpdate, FLASH("Unable to allocate ESP8266HTTPUpdate"));
   ESPhttpUpdate->setAuthorization(std::string(iop::to_view(token)).c_str());
   ESPhttpUpdate->closeConnectionsOnUpdate(true);
   ESPhttpUpdate->rebootOnUpdate(true);
@@ -275,24 +281,20 @@ switch (result) {
   case HTTP_UPDATE_FAILED:
   #ifndef IOP_DESKTOP
     // TODO(pc): properly handle ESPhttpUpdate.getLastError()
-    this->logger.error(F("Update failed: "),
+    this->logger.error(FLASH("Update failed: "),
                        iop::to_view(ESPhttpUpdate->getLastErrorString()));
   #endif
     return iop::NetworkStatus::BROKEN_SERVER;
   }
   #ifndef IOP_DESKTOP
   // TODO(pc): properly handle ESPhttpUpdate.getLastError()
-  this->logger.error(F("Update failed (UNKNOWN): "),
+  this->logger.error(FLASH("Update failed (UNKNOWN): "),
                      iop::to_view(ESPhttpUpdate->getLastErrorString()));
   #endif
   #endif
   return iop::NetworkStatus::BROKEN_SERVER;
 }
 #else
-auto Api::loggerLevel() const noexcept -> iop::LogLevel {
-  IOP_TRACE();
-  return this->logger.level();
-}
 auto Api::upgrade(const AuthToken &token) const noexcept
     -> iop::NetworkStatus {
   (void)*this;
@@ -343,11 +345,11 @@ auto Api::setup() const noexcept -> void {}
 Api::~Api() noexcept { IOP_TRACE(); }
 
 Api::Api(iop::StaticString uri, const iop::LogLevel logLevel) noexcept
-    : network_(std::move(uri), logLevel), logger(logLevel, F("API")) {
+    : network(std::move(uri), logLevel), logger(logLevel, FLASH("API")) {
   IOP_TRACE();
 }
 
-Api::Api(Api const &other) : network_(other.network_), logger(other.logger) {
+Api::Api(Api const &other) : network(other.network), logger(other.logger) {
   IOP_TRACE();
 }
 
@@ -356,15 +358,6 @@ auto Api::operator=(Api const &other) -> Api & {
   if (this == &other)
     return *this;
   this->logger = other.logger;
-  this->network_ = other.network_;
+  this->network = other.network;
   return *this;
-}
-
-auto Api::uri() const noexcept -> iop::StaticString {
-  return this->network().uri();
-};
-
-auto Api::network() const noexcept -> const iop::Network & {
-  IOP_TRACE();
-  return this->network_;
 }

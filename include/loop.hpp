@@ -12,7 +12,7 @@
 
 #include "driver/device.hpp"
 #include "driver/thread.hpp"
-#include "core/data.hpp"
+#include "core/network.hpp"
 
 class EventLoop {
 private:
@@ -54,7 +54,7 @@ public:
   explicit EventLoop(iop::StaticString uri, iop::LogLevel logLevel_) noexcept
       : credentialsServer(logLevel_),
         api_(std::move(uri), logLevel_),
-        logger(logLevel_, F("LOOP")), flash_(logLevel_),
+        logger(logLevel_, FLASH("LOOP")), flash_(logLevel_),
         sensors(config::soilResistivityPower, config::soilTemperature, config::airTempAndHumidity, config::dhtVersion),
         nextMeasurement(0), nextYieldLog(0), nextNTPSync(0), nextHandleConnectionLost(0),
         nextTryFlashWifiCredentials(0), nextTryHardcodedWifiCredentials(0), nextTryHardcodedIopCredentials(0) {

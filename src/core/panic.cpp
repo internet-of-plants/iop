@@ -1,10 +1,8 @@
 #include "core/panic.hpp"
 #include "core/log.hpp"
-#include "core/log.hpp"
-#include "core/utils.hpp"
-
 #include "driver/device.hpp"
 #include "driver/thread.hpp"
+#include <string>
 
 static bool isPanicking = false;
 
@@ -17,7 +15,7 @@ static iop::PanicHook hook(defaultHook);
 
 namespace iop {
 Log & panicLogger() noexcept {
-  static iop::Log logger(iop::LogLevel::CRIT, F("PANIC"));
+  static iop::Log logger(iop::LogLevel::CRIT, FLASH("PANIC"));
   return logger;
 }
 
@@ -46,21 +44,21 @@ void setPanicHook(PanicHook newHook) noexcept { hook = std::move(newHook); }
 
 void PanicHook::defaultViewPanic(std::string_view const &msg,
                                  CodePoint const &point) noexcept {
-  iop::panicLogger().crit(F("Line "), ::std::to_string(point.line()), F(" of file "), point.file(),
-              F(" inside "), point.func(), F(": "), msg);
+  iop::panicLogger().crit(FLASH("Line "), ::std::to_string(point.line()), FLASH(" of file "), point.file(),
+              FLASH(" inside "), point.func(), FLASH(": "), msg);
 }
 void PanicHook::defaultStaticPanic(iop::StaticString const &msg,
                                    CodePoint const &point) noexcept {
-  iop::panicLogger().crit(F("Line "), ::std::to_string(point.line()), F(" of file "), point.file(),
-              F(" inside "), point.func(), F(": "), msg);
+  iop::panicLogger().crit(FLASH("Line "), ::std::to_string(point.line()), FLASH(" of file "), point.file(),
+              FLASH(" inside "), point.func(), FLASH(": "), msg);
 }
 void PanicHook::defaultEntry(std::string_view const &msg,
                              CodePoint const &point) noexcept {
   IOP_TRACE();
   if (isPanicking) {
-    iop::panicLogger().crit(F("PANICK REENTRY: Line "), std::to_string(point.line()),
-                F(" of file "), point.file(), F(" inside "), point.func(),
-                F(": "), msg);
+    iop::panicLogger().crit(FLASH("PANICK REENTRY: Line "), std::to_string(point.line()),
+                FLASH(" of file "), point.file(), FLASH(" inside "), point.func(),
+                FLASH(": "), msg);
     iop::logMemory(iop::panicLogger());
     driver::device.deepSleep(0);
     driver::thisThread.panic_();

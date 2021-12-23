@@ -13,7 +13,7 @@ void IRAM_ATTR buttonChanged() noexcept {
   if (gpio::gpio.digitalRead(config::factoryResetButton) == gpio::Data::HIGH) {
     resetStateTime = driver::thisThread.now();
     if (config::logLevel >= iop::LogLevel::INFO)
-      iop::Log::print(F("[INFO] RESET: Pressed FACTORY_RESET button. Keep it "
+      iop::Log::print(FLASH("[INFO] RESET: Pressed FACTORY_RESET button. Keep it "
                         "pressed for at least 15 "
                         "seconds to factory reset your device\n"),
                       iop::LogLevel::INFO, iop::LogType::STARTEND);
@@ -23,7 +23,7 @@ void IRAM_ATTR buttonChanged() noexcept {
       utils::scheduleInterrupt(InterruptEvent::FACTORY_RESET);
       if (config::logLevel >= iop::LogLevel::INFO)
         iop::Log::print(
-            F("[INFO] RESET: Setted FACTORY_RESET flag, running it in "
+            FLASH("[INFO] RESET: Setted FACTORY_RESET flag, running it in "
               "the next loop run\n"),
             iop::LogLevel::INFO, iop::LogType::STARTEND);
     }

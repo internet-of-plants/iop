@@ -1,4 +1,5 @@
 #include "sensors.hpp"
+#include "core/log.hpp"
 #include "utils.hpp"
 
 #ifdef IOP_SENSORS
@@ -20,19 +21,18 @@ auto soilResistivityRaw(gpio::Pin power) noexcept -> uint16_t;
 
 auto Sensors::measure() noexcept -> Event {
   IOP_TRACE();
-  return Event(
-      (EventStorage){
-          .airTemperatureCelsius = measurement::airTemperatureCelsius(
-              this->airTempAndHumiditySensor),
-          .airHumidityPercentage = measurement::airHumidityPercentage(
-              this->airTempAndHumiditySensor),
-          .airHeatIndexCelsius =
-              measurement::airHeatIndexCelsius(this->airTempAndHumiditySensor),
-          .soilTemperatureCelsius =
-              measurement::soilTemperatureCelsius(this->soilTemperatureSensor),
-          .soilResistivityRaw =
-              measurement::soilResistivityRaw(this->soilResistivityPower),
-      });
+  return (Event) {
+    .airTemperatureCelsius = measurement::airTemperatureCelsius(
+        this->airTempAndHumiditySensor),
+    .airHumidityPercentage = measurement::airHumidityPercentage(
+        this->airTempAndHumiditySensor),
+    .airHeatIndexCelsius =
+        measurement::airHeatIndexCelsius(this->airTempAndHumiditySensor),
+    .soilTemperatureCelsius =
+        measurement::soilTemperatureCelsius(this->soilTemperatureSensor),
+    .soilResistivityRaw =
+        measurement::soilResistivityRaw(this->soilResistivityPower),
+  };
 }
 
 namespace measurement {
@@ -81,6 +81,12 @@ void Sensors::setup() noexcept {
 auto Sensors::measure() noexcept -> Event {
   IOP_TRACE();
   (void)*this;
-  return Event((EventStorage){0.0, 0.0, 0.0, 0.0, 0});
+  return (Event) {
+    .airTemperatureCelsius = 0.0,
+    .airHumidityPercentage = 0.0,
+    .airHeatIndexCelsius = 0.0,
+    .soilTemperatureCelsius = 0.0,
+    .soilResistivityRaw = 0,
+  };
 }
 #endif

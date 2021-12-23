@@ -6,6 +6,8 @@
 #include <array>
 #include "core/string.hpp"
 
+class String;
+
 #ifdef IOP_DESKTOP
 class HeapSelectIram {
   uint8_t dummy = 0;

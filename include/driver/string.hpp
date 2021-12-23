@@ -1,23 +1,60 @@
 #ifndef IOP_DRIVER_STRING_STATIC_HPP
 #define IOP_DRIVER_STRING_STATIC_HPP
 
-#ifdef IOP_DESKTOP
+#include <string_view>
+#include <variant>
+#include <array>
+#include <string>
 #include <cstring>
-#define PSTR(x) reinterpret_cast<const char*>(x)
+
 
 class __FlashStringHelper;
-#define PROGMEM 
-#define FPSTR(pstr_pointer) (reinterpret_cast<const __FlashStringHelper *>(pstr_pointer))
-#define F(string_literal) (FPSTR(PSTR(string_literal)))
+
+#ifdef IOP_DESKTOP
+#define PROGMEM
 #define PGM_P const char *
-#define strstr_P(a, b) strstr(a, b)
-#define strlen_P(a) strlen(a)
-#define memmove_P(dest, orig, len) memmove((void *) dest, (const void *) orig, len)
-#define strcmp_P(a, b) strcmp(a, b)
-#define memcpy_P(dest, orig, len) memcpy((void*) dest, (const void*) orig, len)
+#define strstr_P strstr
+#define strlen_P strlen
+#define memmove_P memmove
+#define strcmp_P strcmp
+#define memcpy_P memcpy
 #define memcmp_P memcmp
+#define FLASH(string_literal) reinterpret_cast<const __FlashStringHelper *>(string_literal)
 #else
-#include "WString.h"
+#include <pgmspace.h>
+#define FLASH(string_literal) reinterpret_cast<const __FlashStringHelper *>(PSTR(string_literal))
+class String;
 #endif
+
+namespace iop {
+/// Allows for possibly destructive operations, like scaping non printable characters
+///
+/// If the operation needs to modify the data it converts the `std::string_view` into the `std::string` variant
+/// Otherwise it can keep storing the reference
+using CowString = std::variant<std::string_view, std::string>;
+
+#ifndef IOP_DESKTOP
+auto to_view(const String& str) -> std::string_view;
+#endif
+
+auto to_view(const std::string& str) -> std::string_view;
+auto to_view(const CowString& str) -> std::string_view;
+template <size_t SIZE>
+auto to_view(const std::array<char, SIZE>& str, const size_t size) -> std::string_view {
+  return std::string_view(str.data(), size);
+}
+template <size_t SIZE>
+auto to_view(const std::array<char, SIZE>& str) -> std::string_view {
+  return to_view(str, strnlen(str.begin(), str.max_size()));
+}
+template <size_t SIZE>
+auto to_view(const std::reference_wrapper<std::array<char, SIZE>> &str, const size_t size) -> std::string_view {
+  return to_view(str.get(), size);
+}
+template <size_t SIZE>
+auto to_view(const std::reference_wrapper<std::array<char, SIZE>> &str) -> std::string_view {
+  return to_view(str.get());
+}
+}
 
 #endif

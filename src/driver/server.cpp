@@ -2,7 +2,7 @@
 #include "loop.hpp"
 
 iop::Log & logger() noexcept {
-  static iop::Log logger_(iop::LogLevel::WARN, F("HTTP Server"));
+  static iop::Log logger_(iop::LogLevel::WARN, FLASH("HTTP Server"));
   return logger_;
 }
 #ifdef IOP_DESKTOP
@@ -15,7 +15,6 @@ iop::Log & logger() noexcept {
 #include <string>
 #include <optional>
 #include "core/log.hpp"
-#include "core/utils.hpp"
 
 // TODO: Make it multiplatform
 // Berkeley sockets, so assumes POSIX compliant OS //
@@ -33,7 +32,7 @@ static size_t send(uint32_t fd, const char * msg, const size_t len) noexcept {
   ssize_t sent = 0;
   uint64_t count = 0;
   while ((sent = write(fd, msg, len)) < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
-    iop_assert(count++ < 1000000, F("Waited too long"));
+    iop_assert(count++ < 1000000, FLASH("Waited too long"));
     using namespace std::chrono_literals;
     std::this_thread::sleep_for(50ms);
   }
@@ -56,7 +55,7 @@ static std::string httpCodeToString(const int code) {
 namespace driver {
 HttpServer::HttpServer(const uint32_t port) noexcept: port(port) {
   this->notFoundHandler = [](HttpConnection &conn, iop::Log const &logger) {
-    conn.send(404, F("text/plain"), F("Not Found"));
+    conn.send(404, FLASH("text/plain"), FLASH("Not Found"));
     (void) logger;
   };
 }
@@ -66,17 +65,17 @@ void HttpServer::begin() noexcept {
 
   int32_t fd = 0;
   if ((fd = socket(AF_INET, SOCK_STREAM, 0)) <= 0) {
-    logger().error(F("Unable to open socket"));
+    logger().error(FLASH("Unable to open socket"));
     return;
   }
   
   int flags = fcntl(fd, F_GETFL, 0);
   if (flags == -1) {
-    logger().error(F("fnctl get failed: "), std::to_string(flags));
+    logger().error(FLASH("fnctl get failed: "), std::to_string(flags));
     return;
   }
   if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) != 0) {
-    logger().error(F("fnctl set failed"));
+    logger().error(FLASH("fnctl set failed"));
     return;
   }
 
@@ -95,10 +94,10 @@ void HttpServer::begin() noexcept {
   }
 
   if (listen(fd, 100) < 0) {
-    logger().error(F("Unable to listen socket"));
+    logger().error(FLASH("Unable to listen socket"));
     return;
   }
-  logger().info(F("Listening to port "), std::to_string(this->port));
+  logger().info(FLASH("Listening to port "), std::to_string(this->port));
 
   this->maybeAddress = address;
 }
@@ -107,10 +106,10 @@ void HttpServer::handleClient() noexcept {
   if (!this->maybeAddress)
     return;
 
-  iop_assert(!this->isHandlingRequest, F("Already handling a request"));
+  iop_assert(!this->isHandlingRequest, FLASH("Already handling a request"));
   this->isHandlingRequest = true;
 
-  iop_assert(this->maybeFD, F("FD not found"));
+  iop_assert(this->maybeFD, FLASH("FD not found"));
   int32_t fd = *this->maybeFD;
 
   sockaddr_in address = *this->maybeAddress;
@@ -120,14 +119,14 @@ void HttpServer::handleClient() noexcept {
   int32_t client = 0;
   if ((client = accept(fd, (sockaddr *)&address, &addr_len)) <= 0) {
     if (client == 0) {
-      logger().error(F("Client fd is zero"));
+      logger().error(FLASH("Client fd is zero"));
     } else if (errno != EAGAIN && errno != EWOULDBLOCK) {
-      logger().error(F("Error accepting connection ("), std::to_string(errno), F("): "), strerror(errno));
+      logger().error(FLASH("Error accepting connection ("), std::to_string(errno), FLASH("): "), strerror(errno));
     }
     this->isHandlingRequest = false;
     return;
   }
-  logger().debug(F("Accepted connection: "), std::to_string(client));
+  logger().debug(FLASH("Accepted connection: "), std::to_string(client));
   conn.currentClient = client;
 
   bool firstLine = true;
@@ -136,66 +135,66 @@ void HttpServer::handleClient() noexcept {
   auto buffer = HttpConnection::Buffer({0});
   auto *start = buffer.data();
   while (true) {
-    logger().debug(F("Try read: "), std::to_string(strnlen(buffer.begin(), 1024)));
+    logger().debug(FLASH("Try read: "), std::to_string(strnlen(buffer.begin(), 1024)));
 
     ssize_t len = 0;
     start += strnlen(buffer.begin(), 1024);
     if (strnlen(buffer.begin(), 1024) < buffer.max_size() &&
         (len = read(client, start, buffer.max_size() - strnlen(buffer.begin(), 1024))) < 0) {
-      logger().error(F("Read error: "), std::to_string(len));
+      logger().error(FLASH("Read error: "), std::to_string(len));
       if (errno == EAGAIN || errno == EWOULDBLOCK) {
         using namespace std::chrono_literals;
         std::this_thread::sleep_for(50ms);
         continue;
       } else {
-        logger().error(F("Error reading from socket: "), std::to_string(errno), F("): "), strerror(errno));
+        logger().error(FLASH("Error reading from socket: "), std::to_string(errno), FLASH("): "), strerror(errno));
         conn.reset();
         this->isHandlingRequest = false;
         return;
       }
     }
-    logger().debug(F("Len: "), std::to_string(len));
+    logger().debug(FLASH("Len: "), std::to_string(len));
     if (firstLine == true && len == 0) {
-      logger().error(F("Empty request"));
+      logger().error(FLASH("Empty request"));
       conn.reset();
       this->isHandlingRequest = false;
       return;
     }
-    logger().debug(F("Read: ("), std::to_string(len), F(") ["), std::to_string(strnlen(buffer.begin(), 1024)));
+    logger().debug(FLASH("Read: ("), std::to_string(len), FLASH(") ["), std::to_string(strnlen(buffer.begin(), 1024)));
 
     std::string_view buff(buffer.begin());
     if (len > 0 && firstLine) {
       if (buff.find("POST") != buff.npos) {
         const ssize_t space = std::string_view(buff.begin() + 5).find(" ");
         conn.currentRoute = std::string(buff.begin() + 5, space);
-        logger().debug(F("POST: "), conn.currentRoute);
+        logger().debug(FLASH("POST: "), conn.currentRoute);
       } else if (buff.find("GET") != buff.npos) {
         const ssize_t space = std::string_view(buff.begin() + 4).find(" ");
         conn.currentRoute = std::string(buff.begin() + 4, space);
-        logger().debug(F("GET: "), conn.currentRoute);
+        logger().debug(FLASH("GET: "), conn.currentRoute);
       } else if (buff.find("OPTIONS") != buff.npos) {
         const ssize_t space = std::string_view(buff.begin() + 7).find(" ");
         conn.currentRoute = std::string(buff.begin() + 7, space);
-        logger().debug(F("OPTIONS: "), conn.currentRoute);
+        logger().debug(FLASH("OPTIONS: "), conn.currentRoute);
       } else {
-        logger().error(F("HTTP Method not found: "), buff);
+        logger().error(FLASH("HTTP Method not found: "), buff);
         conn.reset();
         this->isHandlingRequest = false;
         return;
       }
       firstLine = false;
       
-      iop_assert(buff.find("\n") != buff.npos, iop::StaticString(F("First: ")).toString() + std::to_string(buff.length()) + iop::StaticString(F(" bytes don't contain newline, the path is too long\n")).toString());
-      logger().debug(F("Found first line"));
+      iop_assert(buff.find("\n") != buff.npos, iop::StaticString(FLASH("First: ")).toString() + std::to_string(buff.length()) + iop::StaticString(FLASH(" bytes don't contain newline, the path is too long\n")).toString());
+      logger().debug(FLASH("Found first line"));
       const char* ptr = buff.begin() + buff.find("\n") + 1;
       memmove(buffer.data(), ptr, strlen(ptr) + 1);
       buff = buffer.begin();
     }
-    logger().debug(F("Headers + Payload: "), buff);
+    logger().debug(FLASH("Headers + Payload: "), buff);
 
     while (len > 0 && buff.length() > 0 && !isPayload) {
       // TODO: if empty line is split into two reads (because of buff len) we are screwed
-      //  || buff.contains(F("\n\n")) || buff.contains(F("\n\r\n"))
+      //  || buff.contains(FLASH("\n\n")) || buff.contains(FLASH("\n\r\n"))
       if (buff.find("\r\n") != buff.npos && buff.find("\r\n") == buff.find("\r\n\r\n")) {
         isPayload = true;
 
@@ -204,7 +203,7 @@ void HttpServer::handleClient() noexcept {
         buff = buffer.data();
         if (buff.find("\n") == buff.npos) continue;
       } else if (buff.find("\r\n") == buff.npos) {
-        iop_panic(F("Bad code"));
+        iop_panic(FLASH("Bad code"));
       } else {
         const char* ptr = buff.begin() + buff.find("\r\n") + 2;
         memmove(buffer.data(), ptr, strlen(ptr) + 1);
@@ -214,7 +213,7 @@ void HttpServer::handleClient() noexcept {
       }
     }
 
-    logger().debug(F("Payload ("), std::to_string(buff.length()), F(") ["), std::to_string(len), F("]: "), buff);
+    logger().debug(FLASH("Payload ("), std::to_string(buff.length()), FLASH(") ["), std::to_string(len), FLASH("]: "), buff);
 
     conn.currentPayload += buff;
 
@@ -226,12 +225,12 @@ void HttpServer::handleClient() noexcept {
     if (len > 0 && buff.length() > 0 && len == buffer.max_size())
       continue;
 
-    logger().debug(F("Route: "), conn.currentRoute);
+    logger().debug(FLASH("Route: "), conn.currentRoute);
     iop::Log::shouldFlush(false);
     if (this->router.count(conn.currentRoute) != 0) {
       this->router.at(conn.currentRoute)(conn, logger());
     } else {
-      logger().debug(F("Route not found"));
+      logger().debug(FLASH("Route not found"));
       this->notFoundHandler(conn, logger());
     }
     iop::Log::shouldFlush(true);
@@ -239,7 +238,7 @@ void HttpServer::handleClient() noexcept {
     break;
   }
 
-  logger().debug(F("Close connection"));
+  logger().debug(FLASH("Close connection"));
   conn.reset();
   this->isHandlingRequest = false;
 }
@@ -260,7 +259,7 @@ void HttpServer::onNotFound(HttpServer::Callback fn) noexcept {
 }
 
 static auto percentDecode(const std::string_view input) noexcept -> std::optional<std::string> {
-  logger().debug(F("Decode: "), input);
+  logger().debug(FLASH("Decode: "), input);
   static const char tbl[256] = {
     -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
     -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
@@ -329,13 +328,13 @@ std::optional<std::string> HttpConnection::arg(const iop::StaticString name) con
 
 void HttpConnection::send(uint16_t code, iop::StaticString contentType, iop::StaticString content) const noexcept {
   IOP_TRACE(); 
-  iop_assert(this->currentClient, F("send but has no client"));
+  iop_assert(this->currentClient, FLASH("send but has no client"));
   const int32_t fd = *this->currentClient;
 
   const auto codeStr = std::to_string(code);
   const std::string codeText = httpCodeToString(code);
   if (iop::Log::isTracing())
-    iop::Log::print(F(""), iop::LogLevel::TRACE, iop::LogType::START);
+    iop::Log::print(FLASH(""), iop::LogLevel::TRACE, iop::LogType::START);
   ::send(fd, "HTTP/1.0 ", 9);
   ::send(fd, codeStr.c_str(), codeStr.length());
   ::send(fd, " ", 1);
@@ -357,7 +356,7 @@ void HttpConnection::send(uint16_t code, iop::StaticString contentType, iop::Sta
   if (content.length() > 0) {
     ::send(fd, content.asCharPtr(), content.length());
     if (iop::Log::isTracing())
-      iop::Log::print(F(""), iop::LogLevel::TRACE, iop::LogType::END);
+      iop::Log::print(FLASH(""), iop::LogLevel::TRACE, iop::LogType::END);
   }
 }
 
@@ -373,13 +372,13 @@ void HttpConnection::sendData(iop::StaticString content) const noexcept {
   IOP_TRACE();
   if (!this->currentClient) return;
   const int32_t fd = *this->currentClient;
-  logger().debug(F("Send Content ("), std::to_string(content.length()), F("): "), content);
+  logger().debug(FLASH("Send Content ("), std::to_string(content.length()), FLASH("): "), content);
   
   if (iop::Log::isTracing())
-    iop::Log::print(F(""), iop::LogLevel::TRACE, iop::LogType::START);
+    iop::Log::print(FLASH(""), iop::LogLevel::TRACE, iop::LogType::START);
   ::send(fd, content.asCharPtr(), content.length());
   if (iop::Log::isTracing())
-    iop::Log::print(F(""), iop::LogLevel::TRACE, iop::LogType::END);
+    iop::Log::print(FLASH(""), iop::LogLevel::TRACE, iop::LogType::END);
 }
 void CaptivePortal::start() const noexcept {}
 void CaptivePortal::close() const noexcept {}
@@ -415,10 +414,10 @@ HttpServer::HttpServer(uint32_t port) noexcept { IOP_TRACE(); serverPort = port;
 
 ESP8266WebServer & HttpServer::server() noexcept {
   if (!this->_server) {
-    iop_assert(serverPort != 0, F("Server port is not defined"));
+    iop_assert(serverPort != 0, FLASH("Server port is not defined"));
     this->_server = std::make_unique<ESP8266WebServer>(serverPort);
   }
-  iop_assert(this->_server, F("Unable to allocate ESP8266WebServer"));
+  iop_assert(this->_server, FLASH("Unable to allocate ESP8266WebServer"));
   return *this->_server;
 }
 
@@ -426,7 +425,7 @@ void HttpServer::begin() noexcept { IOP_TRACE(); this->server().begin(); }
 void HttpServer::close() noexcept { IOP_TRACE(); this->server().close(); }
 void HttpServer::handleClient() noexcept {
   IOP_TRACE();
-  iop_assert(!this->isHandlingRequest, F("Already handling a client"));
+  iop_assert(!this->isHandlingRequest, FLASH("Already handling a client"));
   this->isHandlingRequest = true;
   this->server().handleClient();
   this->isHandlingRequest = false;
@@ -443,17 +442,17 @@ void HttpServer::onNotFound(Callback handler) noexcept {
 void CaptivePortal::start() noexcept {
   const uint16_t port = 53;
   this->server = std::make_unique<DNSServer>();
-  iop_assert(this->server, F("Unable to allocate DNSServer"));
+  iop_assert(this->server, FLASH("Unable to allocate DNSServer"));
   this->server->setErrorReplyCode(DNSReplyCode::NoError);
-  this->server->start(port, F("*"), ::WiFi.softAPIP());
+  this->server->start(port, FLASH("*"), ::WiFi.softAPIP());
 }
 void CaptivePortal::close() noexcept {
-  iop_assert(this->server, F("Must initialize DNSServer first"));
+  iop_assert(this->server, FLASH("Must initialize DNSServer first"));
   this->server->stop();
   this->server.reset();
 }
 void CaptivePortal::handleClient() const noexcept {
-  iop_assert(this->server, F("Must initialize DNSServer first"));
+  iop_assert(this->server, FLASH("Must initialize DNSServer first"));
   this->server->processNextRequest();
 }
 }

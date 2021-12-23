@@ -1,7 +1,6 @@
 #include "server.hpp"
 
 #ifndef IOP_SERVER_DISABLED
-#include "core/utils.hpp"
 #include "driver/server.hpp"
 #include "driver/wifi.hpp"
 #include "driver/thread.hpp"
@@ -14,7 +13,7 @@
 #include "loop.hpp"
 
 auto pageHTMLStart() -> iop::StaticString {
-  return iop::StaticString(F(
+  return FLASH(
     "<!DOCTYPE HTML>\r\n"
     "<html><body>\r\n"
     "  <h1><center>Hello, I'm your plantomator</center></h1>\r\n"
@@ -22,11 +21,11 @@ auto pageHTMLStart() -> iop::StaticString {
     "configurations set here, just press the factory reset button "
     "for at least 15 seconds</center></h4>"
     "<form style='margin: 0 auto; width: 500px;' action='/submit' "
-    "method='POST'>\r\n"));
+    "method='POST'>\r\n");
 }
 
 auto wifiOverwriteHTML() -> iop::StaticString {
-  return iop::StaticString(F(
+  return FLASH(
     "<h3>"
     "  <center>It seems you already have your wifi credentials set, if you "
     "want to rewrite it, please set the checkbox below and fill the "
@@ -43,11 +42,11 @@ auto wifiOverwriteHTML() -> iop::StaticString {
     "<div class=\"wifi\" style=\"display: none\">"
     "  <div><strong>Password:</strong></div>"
     "  <input name='password' type='password' style='width:100%' />"
-    "</div>\r\n"));
+    "</div>\r\n");
 }
 
 auto wifiHTML() -> iop::StaticString {
-  return iop::StaticString(F(
+  return FLASH(
     "<h3><center>"
     "Please provide your Wifi credentials, so we can connect to it."
     "</center></h3>\r\n"
@@ -57,11 +56,11 @@ auto wifiHTML() -> iop::StaticString {
     "  <input name='ssid' type='text' style='width:100%' />"
     "</div>\r\n"
     "<div><div><strong>Password:</strong></div>"
-    "<input name='password' type='password' style='width:100%' /></div>\r\n"));
+    "<input name='password' type='password' style='width:100%' /></div>\r\n");
 }
 
 auto iopOverwriteHTML() -> iop::StaticString {
-  return iop::StaticString(F(
+  return FLASH(
     "<h3><center>It seems you already have your Iop credentials set, if you "
     "want to rewrite it, please set the checkbox below and fill the "
     "fields. Otherwise they will be ignored</center></h3>\r\n"
@@ -76,11 +75,11 @@ auto iopOverwriteHTML() -> iop::StaticString {
     "<div class=\"iop\" style=\"display: 'none'\">"
     "  <div><strong>Password:</strong></div>"
     "  <input name='iopPassword' type='password' style='width:100%' />"
-    "</div>\r\n"));
+    "</div>\r\n");
 }
 
 auto iopHTML() -> iop::StaticString {
-  return iop::StaticString(F(
+  return FLASH(
     "<h3><center>Please provide your Iop credentials, so we can get an "
     "authentication token to use</center></h3>\r\n"
     "<div>"
@@ -92,11 +91,11 @@ auto iopHTML() -> iop::StaticString {
     "<div>"
     "  <div><strong>Password:</strong></div>"
     "  <input name='iopPassword' type='password' style='width:100%' />"
-    "</div>\r\n"));
+    "</div>\r\n");
 }
 
 auto script() -> iop::StaticString {
-  return iop::StaticString(F(
+  return FLASH(
     "<script type='application/javascript'>"
     "document.querySelector(\"input[name='wifi']\").addEventListener('change', ev => {"
     "  for (const el of document.getElementsByClassName('wifi')) {"
@@ -116,14 +115,14 @@ auto script() -> iop::StaticString {
     "    }"
     "  }"
     "});"
-    "</script>"));
+    "</script>");
 }
 
 auto pageHTMLEnd() -> iop::StaticString {
-  return iop::StaticString(F(
+  return FLASH(
     "<br>\r\n"
     "<input type='submit' value='Submit' />\r\n"
-    "</form></body></html>"));
+    "</form></body></html>");
 }
 
 // We use this globals to share messages from the callbacks
@@ -136,35 +135,35 @@ static driver::CaptivePortal dnsServer;
 void CredentialsServer::setup() const noexcept {
   IOP_TRACE();
   // Self reference, but it's to a static
-  server.on(F("/favicon.ico"), [](driver::HttpConnection &conn, iop::Log const &logger) { conn.send(404, F("text/plain"), F("")); (void) logger; });
-  server.on(F("/submit"), [](driver::HttpConnection &conn, iop::Log const &logger) {
+  server.on(FLASH("/favicon.ico"), [](driver::HttpConnection &conn, iop::Log const &logger) { conn.send(404, FLASH("text/plain"), FLASH("")); (void) logger; });
+  server.on(FLASH("/submit"), [](driver::HttpConnection &conn, iop::Log const &logger) {
     IOP_TRACE();
-    logger.debug(F("Received credentials form"));
+    logger.debug(FLASH("Received credentials form"));
 
-    const auto wifi = conn.arg(F("wifi"));
-    const auto ssid = conn.arg(F("ssid"));
-    const auto psk = conn.arg(F("password"));
+    const auto wifi = conn.arg(FLASH("wifi"));
+    const auto ssid = conn.arg(FLASH("ssid"));
+    const auto psk = conn.arg(FLASH("password"));
     if (wifi && ssid && psk) {
-      logger.debug(F("SSID: "), *ssid);
+      logger.debug(FLASH("SSID: "), *ssid);
       credentialsWifi = std::make_pair(*ssid, *psk);
     }
 
-    const auto iop = conn.arg(F("iop"));
-    const auto email = conn.arg(F("iopEmail"));
-    const auto password = conn.arg(F("iopPassword"));
+    const auto iop = conn.arg(FLASH("iop"));
+    const auto email = conn.arg(FLASH("iopEmail"));
+    const auto password = conn.arg(FLASH("iopPassword"));
     if (iop && email && password) {
-      logger.debug(F("Email: "), *email);
+      logger.debug(FLASH("Email: "), *email);
 
       credentialsIop = std::make_pair(*email, *password);
     }
 
-    conn.sendHeader(F("Location"), F("/"));
-    conn.send(302, F("text/plain"), F(""));
+    conn.sendHeader(FLASH("Location"), FLASH("/"));
+    conn.send(302, FLASH("text/plain"), FLASH(""));
   });
 
   server.onNotFound([](driver::HttpConnection &conn, iop::Log const &logger) {
     IOP_TRACE();
-    logger.info(F("Serving captive portal"));
+    logger.info(FLASH("Serving captive portal"));
 
     const auto mustConnect = !iop::Network::isConnected();
     const auto needsIopAuth = !eventLoop.flash().readAuthToken();
@@ -174,7 +173,7 @@ void CredentialsServer::setup() const noexcept {
     len += needsIopAuth ? iopHTML().length() : iopOverwriteHTML().length();
 
     conn.setContentLength(len);
-    conn.send(200, F("text/html"), pageHTMLStart());
+    conn.send(200, FLASH("text/html"), pageHTMLStart());
 
     if (mustConnect) conn.sendData(wifiHTML());
     else conn.sendData(wifiOverwriteHTML());
@@ -184,7 +183,7 @@ void CredentialsServer::setup() const noexcept {
 
     conn.sendData(script());
     conn.sendData(pageHTMLEnd());
-    logger.debug(F("Served HTML"));
+    logger.debug(FLASH("Served HTML"));
   });
 }
 
@@ -192,7 +191,7 @@ void CredentialsServer::start() noexcept {
   IOP_TRACE();
   if (!this->isServerOpen) {
     this->isServerOpen = true;
-    this->logger.info(F("Setting our own wifi access point"));
+    this->logger.info(FLASH("Setting our own wifi access point"));
 
     // TODO: how to mock it in a reasonable way?
     iop::data.wifi.setMode(driver::WiFiMode::AP_STA);
@@ -203,7 +202,7 @@ void CredentialsServer::start() noexcept {
       const auto hash = iop::hashString(iop::to_view(driver::device.macAddress()));
       const auto ssid = std::string("iop-") + std::to_string(hash);
 
-      iop::data.wifi.connectAP(ssid, iop::StaticString(F("le$memester#passwordz")).toString());
+      iop::data.wifi.connectAP(ssid, iop::StaticString(FLASH("le$memester#passwordz")).toString());
     }
     
     const auto ip = iop::data.wifi.APIP();
@@ -213,14 +212,14 @@ void CredentialsServer::start() noexcept {
     // Makes it a captive portal (redirects all wifi trafic to it)
     dnsServer.start();
 
-    this->logger.info(F("Opened captive portal: "), iop::to_view(ip));
+    this->logger.info(FLASH("Opened captive portal: "), iop::to_view(ip));
   }
 }
 
 void CredentialsServer::close() noexcept {
   IOP_TRACE();
   if (this->isServerOpen) {
-    this->logger.debug(F("Closing captive portal"));
+    this->logger.debug(FLASH("Closing captive portal"));
     this->isServerOpen = false;
     dnsServer.close();
     server.close();
@@ -263,7 +262,7 @@ auto CredentialsServer::serve(const Api &api) noexcept
 
 
   // Give processing time to the servers
-  this->logger.trace(F("Serve captive portal"));
+  this->logger.trace(FLASH("Serve captive portal"));
   dnsServer.handleClient();
   server.handleClient();
   return std::nullopt;

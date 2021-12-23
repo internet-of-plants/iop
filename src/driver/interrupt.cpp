@@ -11,7 +11,7 @@ InterruptLock::InterruptLock() noexcept {
 
   IOP_TRACE();
   if (!interruptInitialized)
-    iop_assert(pthread_mutex_init(&interruptLock, NULL) != 0, F("Mutex init failed"));
+    iop_assert(pthread_mutex_init(&interruptLock, NULL) != 0, FLASH("Mutex init failed"));
   interruptInitialized = true;
 
   pthread_mutex_lock(&interruptLock);

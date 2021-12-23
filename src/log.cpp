@@ -83,9 +83,9 @@ static void staticPrinter(const iop::StaticString str,
     currentLog += charArray;
     byteRate.addBytes(strlen_P(charArray));
     if (kind == iop::LogType::END || kind == iop::LogType::STARTEND) {
-      iop::LogHook::defaultStaticPrinter(F("Logging to network\n"), iop::LogLevel::INFO, iop::LogType::STARTEND);
+      iop::LogHook::defaultStaticPrinter(FLASH("Logging to network\n"), iop::LogLevel::INFO, iop::LogType::STARTEND);
       reportLog();
-      iop::LogHook::defaultStaticPrinter(F("Logged to network\n"), iop::LogLevel::INFO, iop::LogType::STARTEND);
+      iop::LogHook::defaultStaticPrinter(FLASH("Logged to network\n"), iop::LogLevel::INFO, iop::LogType::STARTEND);
     }
   }
 }
@@ -96,9 +96,9 @@ static void viewPrinter(const std::string_view str, const iop::LogLevel level, c
     currentLog += str;
     byteRate.addBytes(str.length());
     if (kind == iop::LogType::END || kind == iop::LogType::STARTEND) {
-      iop::LogHook::defaultStaticPrinter(F("Logging to network\n"), iop::LogLevel::INFO, iop::LogType::STARTEND);
+      iop::LogHook::defaultStaticPrinter(FLASH("Logging to network\n"), iop::LogLevel::INFO, iop::LogType::STARTEND);
       reportLog();
-      iop::LogHook::defaultStaticPrinter(F("Logged to network\n"), iop::LogLevel::INFO, iop::LogType::STARTEND);
+      iop::LogHook::defaultStaticPrinter(FLASH("Logged to network\n"), iop::LogLevel::INFO, iop::LogType::STARTEND);
     }
   }
 }

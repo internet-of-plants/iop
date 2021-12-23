@@ -1,5 +1,4 @@
 #include "core/log.hpp"
-#include "core/utils.hpp"
 #include <string>
 #include "driver/device.hpp"
 #include "driver/wifi.hpp"
@@ -64,11 +63,11 @@ void Log::printLogType(const LogType &logType,
 
   case LogType::START:
   case LogType::STARTEND:
-    Log::print(F("["), level, LogType::START);
+    Log::print(FLASH("["), level, LogType::START);
     Log::print(this->levelToString(level).get(), level, LogType::CONTINUITY);
-    Log::print(F("] "), level, LogType::CONTINUITY);
+    Log::print(FLASH("] "), level, LogType::CONTINUITY);
     Log::print(this->target_.get(), level, LogType::CONTINUITY);
-    Log::print(F(": "), level, LogType::CONTINUITY);
+    Log::print(FLASH(": "), level, LogType::CONTINUITY);
   };
 }
 
@@ -109,21 +108,21 @@ void Log::log(const LogLevel &level, const std::string_view &msg,
 auto Log::levelToString(const LogLevel level) const noexcept -> StaticString {
   switch (level) {
   case LogLevel::TRACE:
-    return F("TRACE");
+    return FLASH("TRACE");
   case LogLevel::DEBUG:
-    return F("DEBUG");
+    return FLASH("DEBUG");
   case LogLevel::INFO:
-    return F("INFO");
+    return FLASH("INFO");
   case LogLevel::WARN:
-    return F("WARN");
+    return FLASH("WARN");
   case LogLevel::ERROR:
-    return F("ERROR");
+    return FLASH("ERROR");
   case LogLevel::CRIT:
-    return F("CRIT");
+    return FLASH("CRIT");
   case LogLevel::NO_LOG:
-    return F("NO_LOG");
+    return FLASH("NO_LOG");
   }
-  return F("UNKNOWN");
+  return FLASH("UNKNOWN");
 }
 
 void IRAM_ATTR LogHook::defaultStaticPrinter(
@@ -193,32 +192,32 @@ Tracer::Tracer(CodePoint point) noexcept : point(std::move(point)) {
     return;
 
   Log::flush();
-  Log::print(F("[TRACE] TRACER: Entering new scope, at line "), LogLevel::TRACE,
+  Log::print(FLASH("[TRACE] TRACER: Entering new scope, at line "), LogLevel::TRACE,
              LogType::START);
   Log::print(std::to_string(this->point.line()), LogLevel::TRACE, LogType::CONTINUITY);
-  Log::print(F(", in function "), LogLevel::TRACE, LogType::CONTINUITY);
+  Log::print(FLASH(", in function "), LogLevel::TRACE, LogType::CONTINUITY);
   Log::print(this->point.func(), LogLevel::TRACE, LogType::CONTINUITY);
-  Log::print(F(", at file "), LogLevel::TRACE, LogType::CONTINUITY);
+  Log::print(FLASH(", at file "), LogLevel::TRACE, LogType::CONTINUITY);
   Log::print(this->point.file(), LogLevel::TRACE, LogType::CONTINUITY);
-  Log::print(F("\n[TRACE] TRACER: Free Stack "), LogLevel::TRACE, LogType::CONTINUITY);
+  Log::print(FLASH("\n[TRACE] TRACER: Free Stack "), LogLevel::TRACE, LogType::CONTINUITY);
   Log::print(std::to_string(driver::device.availableStack()), LogLevel::TRACE, LogType::CONTINUITY);
   {
     ::HeapSelectDram guard;
-    Log::print(F(", Free DRAM "), LogLevel::TRACE, LogType::CONTINUITY);
+    Log::print(FLASH(", Free DRAM "), LogLevel::TRACE, LogType::CONTINUITY);
     Log::print(std::to_string(driver::device.availableHeap()), LogLevel::TRACE, LogType::CONTINUITY);
-    Log::print(F(", Biggest DRAM Block "), LogLevel::TRACE, LogType::CONTINUITY);
+    Log::print(FLASH(", Biggest DRAM Block "), LogLevel::TRACE, LogType::CONTINUITY);
     Log::print(std::to_string(driver::device.biggestHeapBlock()), LogLevel::TRACE, LogType::CONTINUITY);
   }
   {
     ::HeapSelectIram guard;
-    Log::print(F(", Free IRAM "), LogLevel::TRACE, LogType::CONTINUITY);
+    Log::print(FLASH(", Free IRAM "), LogLevel::TRACE, LogType::CONTINUITY);
     Log::print(std::to_string(driver::device.availableHeap()), LogLevel::TRACE, LogType::CONTINUITY);
-    Log::print(F(", Biggest IRAM Block "), LogLevel::TRACE, LogType::CONTINUITY);
+    Log::print(FLASH(", Biggest IRAM Block "), LogLevel::TRACE, LogType::CONTINUITY);
     Log::print(std::to_string(driver::device.biggestHeapBlock()), LogLevel::TRACE, LogType::CONTINUITY);
   }
-  Log::print(F(", Connection "), LogLevel::TRACE, LogType::CONTINUITY);
+  Log::print(FLASH(", Connection "), LogLevel::TRACE, LogType::CONTINUITY);
   Log::print(std::to_string(iop::data.wifi.status() == driver::StationStatus::GOT_IP), LogLevel::TRACE, LogType::CONTINUITY);
-  Log::print(F("\n"), LogLevel::TRACE, LogType::END);
+  Log::print(FLASH("\n"), LogLevel::TRACE, LogType::END);
   Log::flush();
 }
 Tracer::~Tracer() noexcept {
@@ -226,13 +225,13 @@ Tracer::~Tracer() noexcept {
     return;
 
   Log::flush();
-  Log::print(F("[TRACE] TRACER: Leaving scope, at line "), LogLevel::TRACE, LogType::START);
+  Log::print(FLASH("[TRACE] TRACER: Leaving scope, at line "), LogLevel::TRACE, LogType::START);
   Log::print(std::to_string(this->point.line()), LogLevel::TRACE, LogType::CONTINUITY);
-  Log::print(F(", in function "), LogLevel::TRACE, LogType::CONTINUITY);
+  Log::print(FLASH(", in function "), LogLevel::TRACE, LogType::CONTINUITY);
   Log::print(this->point.func(), LogLevel::TRACE, LogType::CONTINUITY);
-  Log::print(F(", at file "), LogLevel::TRACE, LogType::CONTINUITY);
+  Log::print(FLASH(", at file "), LogLevel::TRACE, LogType::CONTINUITY);
   Log::print(this->point.file(), LogLevel::TRACE, LogType::CONTINUITY);
-  Log::print(F("\n"), LogLevel::TRACE, LogType::END);
+  Log::print(FLASH("\n"), LogLevel::TRACE, LogType::END);
   Log::flush();
 }
 
@@ -240,27 +239,27 @@ void logMemory(const Log &logger) noexcept {
   if (logger.level() > LogLevel::INFO) return;
 
   Log::flush();
-  Log::print(F("[INFO] "), logger.level(), LogType::START);
+  Log::print(FLASH("[INFO] "), logger.level(), LogType::START);
   Log::print(logger.target(), logger.level(), LogType::CONTINUITY);
-  Log::print(F(": Free Stack "), logger.level(), LogType::CONTINUITY);
+  Log::print(FLASH(": Free Stack "), logger.level(), LogType::CONTINUITY);
   Log::print(std::to_string(driver::device.availableStack()), LogLevel::TRACE, LogType::CONTINUITY);
   {
     ::HeapSelectDram guard;
-    Log::print(F(", Free DRAM "), LogLevel::TRACE, LogType::CONTINUITY);
+    Log::print(FLASH(", Free DRAM "), LogLevel::TRACE, LogType::CONTINUITY);
     Log::print(std::to_string(driver::device.availableHeap()), LogLevel::TRACE, LogType::CONTINUITY);
-    Log::print(F(", Biggest DRAM Block "), LogLevel::TRACE, LogType::CONTINUITY);
+    Log::print(FLASH(", Biggest DRAM Block "), LogLevel::TRACE, LogType::CONTINUITY);
     Log::print(std::to_string(driver::device.biggestHeapBlock()), LogLevel::TRACE, LogType::CONTINUITY);
   }
   {
     ::HeapSelectIram guard;
-    Log::print(F(", Free IRAM "), LogLevel::TRACE, LogType::CONTINUITY);
+    Log::print(FLASH(", Free IRAM "), LogLevel::TRACE, LogType::CONTINUITY);
     Log::print(std::to_string(driver::device.availableHeap()), LogLevel::TRACE, LogType::CONTINUITY);
-    Log::print(F(", Biggest IRAM Block "), LogLevel::TRACE, LogType::CONTINUITY);
+    Log::print(FLASH(", Biggest IRAM Block "), LogLevel::TRACE, LogType::CONTINUITY);
     Log::print(std::to_string(driver::device.biggestHeapBlock()), LogLevel::TRACE, LogType::CONTINUITY);
   }
-  Log::print(F(", Connection "), LogLevel::TRACE, LogType::CONTINUITY);
+  Log::print(FLASH(", Connection "), LogLevel::TRACE, LogType::CONTINUITY);
   Log::print(std::to_string(iop::data.wifi.status() == driver::StationStatus::GOT_IP), LogLevel::TRACE, LogType::CONTINUITY);
-  Log::print(F("\n"), LogLevel::TRACE, LogType::END);
+  Log::print(FLASH("\n"), LogLevel::TRACE, LogType::END);
   Log::flush();
 }
 } // namespace iop

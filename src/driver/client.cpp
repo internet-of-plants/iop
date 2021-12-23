@@ -1,7 +1,9 @@
 #include "driver/client.hpp"
 #include "core/string.hpp"
 #include "core/log.hpp"
-#include "core/data.hpp"
+#include "core/network.hpp"
+#include "core/panic.hpp"
+#include <system_error>
 
 namespace iop {
   Data data;
@@ -49,29 +51,29 @@ auto rawStatusToString(const RawStatus status) noexcept -> iop::StaticString {
   IOP_TRACE();
   switch (status) {
   case driver::RawStatus::CONNECTION_FAILED:
-    return F("CONNECTION_FAILED");
+    return FLASH("CONNECTION_FAILED");
   case driver::RawStatus::SEND_FAILED:
-    return F("SEND_FAILED");
+    return FLASH("SEND_FAILED");
   case driver::RawStatus::READ_FAILED:
-    return F("READ_FAILED");
+    return FLASH("READ_FAILED");
   case driver::RawStatus::ENCODING_NOT_SUPPORTED:
-    return F("ENCODING_NOT_SUPPORTED");
+    return FLASH("ENCODING_NOT_SUPPORTED");
   case driver::RawStatus::NO_SERVER:
-    return F("NO_SERVER");
+    return FLASH("NO_SERVER");
   case driver::RawStatus::READ_TIMEOUT:
-    return F("READ_TIMEOUT");
+    return FLASH("READ_TIMEOUT");
   case driver::RawStatus::CONNECTION_LOST:
-    return F("CONNECTION_LOST");
+    return FLASH("CONNECTION_LOST");
   case driver::RawStatus::OK:
-    return F("OK");
+    return FLASH("OK");
   case driver::RawStatus::SERVER_ERROR:
-    return F("SERVER_ERROR");
+    return FLASH("SERVER_ERROR");
   case driver::RawStatus::FORBIDDEN:
-    return F("FORBIDDEN");
+    return FLASH("FORBIDDEN");
   case driver::RawStatus::UNKNOWN:
-    return F("UNKNOWN");
+    return FLASH("UNKNOWN");
   }
-  return F("UNKNOWN-not-documented");
+  return FLASH("UNKNOWN-not-documented");
   }
 }
 
@@ -107,21 +109,21 @@ std::string Response::header(iop::StaticString key) const noexcept {
   return std::move(value->second);
 }
 void Session::addHeader(iop::StaticString key, iop::StaticString value) noexcept {
-  iop_assert(this->http_, F("Session has been moved out"));
+  iop_assert(this->http_, FLASH("Session has been moved out"));
   this->http_->http.addHeader(String(key.get()), String(value.get()));
 }
 void Session::addHeader(iop::StaticString key, std::string_view value) noexcept {
-  iop_assert(this->http_, F("Session has been moved out"));
+  iop_assert(this->http_, FLASH("Session has been moved out"));
   String val;
   val.concat(value.begin(), value.length());
   this->http_->http.addHeader(String(key.get()), val);
 }
 void Session::setAuthorization(std::string auth) noexcept {
-  iop_assert(this->http_, F("Session has been moved out"));
+  iop_assert(this->http_, FLASH("Session has been moved out"));
   this->http_->http.setAuthorization(auth.c_str());
 }
 auto Session::sendRequest(std::string method, const uint8_t *data, size_t len) noexcept -> std::variant<Response, int> {
-  iop_assert(this->http_, F("Session has been moved out"));
+  iop_assert(this->http_, FLASH("Session has been moved out"));
   const auto code = this->http_->http.sendRequest(method.c_str(), data, len);
   if (code < 0) {
     return code;
@@ -176,13 +178,13 @@ std::optional<Session> HTTPClient::begin(std::string uri) noexcept {
   } else if (uri.find("https://") != uri.npos) {
     portStr = "443";
   } else {
-    iop_panic(F("Protocol missing inside HttpClient::begin"));
+    iop_panic(FLASH("Protocol missing inside HttpClient::begin"));
   }
 
   uint16_t port;
   auto result = std::from_chars(portStr.data(), portStr.data() + portStr.size(), port);
   if (result.ec != std::errc()) {
-    iop_panic(iop::StaticString(F("Unable to confert port to uint16_t: ")).toString() + portStr.begin() + iop::StaticString(F(" ")).toString() + std::error_condition(result.ec).message());
+    iop_panic(iop::StaticString(FLASH("Unable to confert port to uint16_t: ")).toString() + portStr.begin() + iop::StaticString(FLASH(" ")).toString() + std::error_condition(result.ec).message());
   }
 
   if (!iop::data.wifi.client.connect(std::string(host).c_str(), port)) {
@@ -205,7 +207,6 @@ std::optional<Session> HTTPClient::begin(std::string uri) noexcept {
 #include <string>
 #include <unordered_map>
 #include "core/string.hpp"
-#include "core/utils.hpp"
 #include "core/log.hpp"
 
 #include <algorithm>
@@ -219,7 +220,7 @@ std::optional<Session> HTTPClient::begin(std::string uri) noexcept {
 #include <stdlib.h>
 #include <memory>
 
-static iop::Log clientDriverLogger(iop::LogLevel::DEBUG, F("HTTP Client"));
+static iop::Log clientDriverLogger(iop::LogLevel::DEBUG, FLASH("HTTP Client"));
 
 namespace driver {
 static ssize_t send(uint32_t fd, const char * msg, const size_t len) noexcept {
@@ -288,12 +289,12 @@ auto Session::sendRequest(std::string method, const uint8_t *data, size_t len) n
   std::string responsePayload;
 
   const std::string_view path(this->uri_.c_str() + this->uri_.find("/", this->uri_.find("://") + 3));
-  clientDriverLogger.debug(F("Send request to "), path);
+  clientDriverLogger.debug(FLASH("Send request to "), path);
 
   auto fd = this->fd_;
-  iop_assert(fd != -1, F("Invalid file descriptor"));
+  iop_assert(fd != -1, FLASH("Invalid file descriptor"));
   if (clientDriverLogger.level() == iop::LogLevel::TRACE || iop::Log::isTracing())
-    iop::Log::print(F(""), iop::LogLevel::TRACE, iop::LogType::START);
+    iop::Log::print(FLASH(""), iop::LogLevel::TRACE, iop::LogType::START);
   send(fd, method.c_str(), method.length());
   send(fd, " ", 1);
   send(fd, path.begin(), path.length());
@@ -311,8 +312,8 @@ auto Session::sendRequest(std::string method, const uint8_t *data, size_t len) n
   send(fd, "\r\n", 2);
   send(fd, (char*)data, len);
   if (clientDriverLogger.level() == iop::LogLevel::TRACE || iop::Log::isTracing())
-    iop::Log::print(F("\n"), iop::LogLevel::TRACE, iop::LogType::END);
-  clientDriverLogger.debug(F("Sent data"));
+    iop::Log::print(FLASH("\n"), iop::LogLevel::TRACE, iop::LogType::END);
+  clientDriverLogger.debug(FLASH("Sent data"));
   
   std::unique_ptr<std::array<char, 4096>> buffer = std::make_unique<std::array<char, 4096>>();
   
@@ -323,46 +324,46 @@ auto Session::sendRequest(std::string method, const uint8_t *data, size_t len) n
   auto status = std::make_optional(1000);
   std::string_view buff(buffer->begin());
   while (true) {
-    clientDriverLogger.debug(F("Try read: "), buff);
+    clientDriverLogger.debug(FLASH("Try read: "), buff);
 
     if (buff.length() < buffer->max_size() &&
         (size = read(fd, buffer->data() + buff.length(), buffer->max_size() - buff.length())) < 0) {
-      clientDriverLogger.error(F("Error reading from socket ("), std::to_string(size), F("): "), std::to_string(errno), F(" - "), strerror(errno)); 
+      clientDriverLogger.error(FLASH("Error reading from socket ("), std::to_string(size), FLASH("): "), std::to_string(errno), FLASH(" - "), strerror(errno)); 
       close(fd);
       return static_cast<int>(RawStatus::CONNECTION_FAILED);
     }
     buff = buffer->begin();
-    clientDriverLogger.debug(F("Len: "), std::to_string(size));
+    clientDriverLogger.debug(FLASH("Len: "), std::to_string(size));
     if (firstLine && size == 0) {
       close(fd);
-      clientDriverLogger.warn(F("Empty request: "), std::to_string(fd), F(" "), std::string(reinterpret_cast<const char*>(data), len));
+      clientDriverLogger.warn(FLASH("Empty request: "), std::to_string(fd), FLASH(" "), std::string(reinterpret_cast<const char*>(data), len));
       return Response(status.value_or(500));
       //continue;
     }
     
-    clientDriverLogger.debug(F("Buffer: "), buff.substr(0, buff.find("\n") - 1));
-    //if (!buff.contains(F("\n"))) continue;
-    clientDriverLogger.debug(F("Read: ("), std::to_string(size), F(") ["), std::to_string(buff.length()), F("]"));
+    clientDriverLogger.debug(FLASH("Buffer: "), buff.substr(0, buff.find("\n") - 1));
+    //if (!buff.contains(FLASH("\n"))) continue;
+    clientDriverLogger.debug(FLASH("Read: ("), std::to_string(size), FLASH(") ["), std::to_string(buff.length()), FLASH("]"));
 
     if (firstLine && buff.find("\n") == buff.npos) continue;
 
     if (firstLine && size < 10) { // len("HTTP/1.1 ") = 9
-      clientDriverLogger.error(F("Error reading first line: "), std::to_string(size));
+      clientDriverLogger.error(FLASH("Error reading first line: "), std::to_string(size));
       return static_cast<int>(RawStatus::READ_FAILED);
     }
 
     if (firstLine && size > 0) {
-      clientDriverLogger.debug(F("Found first line: "));
+      clientDriverLogger.debug(FLASH("Found first line: "));
 
       const std::string_view statusStr(buffer->begin() + 9); // len("HTTP/1.1 ") = 9
       const auto codeEnd = statusStr.find(" ");
       if (codeEnd == statusStr.npos) {
-        clientDriverLogger.error(F("Bad server: "), statusStr, F(" -- "), buff);
+        clientDriverLogger.error(FLASH("Bad server: "), statusStr, FLASH(" -- "), buff);
         return static_cast<int>(RawStatus::READ_FAILED);
       }
-      //iop_assert(buff.contains(F("\n")), iop::StaticString(F("First: ")).toString() + std::to_string(buffer.length()) + iop::StaticString(F(" bytes don't contain newline, the path is too long\n")).toString());
+      //iop_assert(buff.contains(FLASH("\n")), iop::StaticString(FLASH("First: ")).toString() + std::to_string(buffer.length()) + iop::StaticString(FLASH(" bytes don't contain newline, the path is too long\n")).toString());
       status = atoi(std::string(statusStr.begin(), 0, codeEnd).c_str());
-      clientDriverLogger.debug(F("Status: "), std::to_string(status.value_or(500)));
+      clientDriverLogger.debug(FLASH("Status: "), std::to_string(status.value_or(500)));
       firstLine = false;
 
       const char* ptr = buff.begin() + buff.find("\n") + 1;
@@ -370,19 +371,19 @@ auto Session::sendRequest(std::string method, const uint8_t *data, size_t len) n
       buff = buffer->begin();
     }
     if (!status) {
-      clientDriverLogger.error(F("No status"));
+      clientDriverLogger.error(FLASH("No status"));
       return static_cast<int>(RawStatus::READ_FAILED);
     }
-    clientDriverLogger.debug(F("Buffer: "), buff.substr(0, buff.find("\n") - 1));
-    //if (!buff.contains(F("\n"))) continue;
-    //clientDriverLogger.debug(F("Headers + Payload: "), buff.substr(0, buff.find("\n")));
+    clientDriverLogger.debug(FLASH("Buffer: "), buff.substr(0, buff.find("\n") - 1));
+    //if (!buff.contains(FLASH("\n"))) continue;
+    //clientDriverLogger.debug(FLASH("Headers + Payload: "), buff.substr(0, buff.find("\n")));
 
     while (len > 0 && buff.length() > 0 && !isPayload) {
       // TODO: if empty line is split into t  wo reads (because of buff len) we are screwed
-      //  || buff.contains(F("\n\n")) || buff.contains(F("\n\r\n"))
+      //  || buff.contains(FLASH("\n\n")) || buff.contains(FLASH("\n\r\n"))
       if (buff.find("\r\n") == 0) {
         // TODO: move this logic to inside Response::await to be lazy-evaluated
-        clientDriverLogger.debug(F("Found Payload"));
+        clientDriverLogger.debug(FLASH("Found Payload"));
         isPayload = true;
 
         const char* ptr = buff.begin() + buff.find("\r\n") + 2;
@@ -390,49 +391,49 @@ auto Session::sendRequest(std::string method, const uint8_t *data, size_t len) n
         buff = buffer->begin();
         continue;
       } else if (buff.find("\r\n") == buff.npos) {
-        iop_panic(F("Bad software bruh"));
+        iop_panic(FLASH("Bad software bruh"));
       } else if (buff.find("\r\n") != buff.npos) {
-        clientDriverLogger.debug(F("Found headers (buffer length: "), std::to_string(buff.length()), F(")"));
+        clientDriverLogger.debug(FLASH("Found headers (buffer length: "), std::to_string(buff.length()), FLASH(")"));
         for (const auto &key: this->http_->headersToCollect_) {
           if (buff.length() < key.length()) continue;
           std::string headerKey(buffer->begin(), 0, key.length());
           // Headers can't be UTF8 so we cool
           std::transform(headerKey.begin(), headerKey.end(), headerKey.begin(),
             [](unsigned char c){ return std::tolower(c); });
-          clientDriverLogger.debug(headerKey, F(" == "), key);
+          clientDriverLogger.debug(headerKey, FLASH(" == "), key);
           if (headerKey != key.asCharPtr())
             continue;
 
           auto valueView = buff.substr(key.length() + 1); // ":"
           while (*valueView.begin() == ' ') valueView = valueView.substr(1);
 
-          iop_assert(valueView.find("\r\n") != valueView.npos, F("Must contain endline"));
+          iop_assert(valueView.find("\r\n") != valueView.npos, FLASH("Must contain endline"));
           std::string value(valueView, 0, valueView.find("\r\n"));
-          clientDriverLogger.debug(F("Found header "), key, F(" = "), value, F("\n"));
+          clientDriverLogger.debug(FLASH("Found header "), key, FLASH(" = "), value, FLASH("\n"));
           responseHeaders.emplace(std::string(key.asCharPtr()), value);
 
-          iop_assert(buff.find("\r\n") > 0, F("Must contain endline"));
+          iop_assert(buff.find("\r\n") > 0, FLASH("Must contain endline"));
           const char* ptr = buff.begin() + buff.find("\r\n") + 2;
           memmove(buffer->data(), ptr, strlen(ptr) + 1);
           buff = buffer->begin();
-          if (buff.find("\n") == buff.npos) iop_panic(F("Fuuuc")); //continue;
+          if (buff.find("\n") == buff.npos) iop_panic(FLASH("Fuuuc")); //continue;
         }
         if (buff.find("\n") == buff.npos) {
-          clientDriverLogger.warn(F("Newline missing in buffer: "), buff);
+          clientDriverLogger.warn(FLASH("Newline missing in buffer: "), buff);
           return static_cast<int>(RawStatus::READ_FAILED);
         }
-        clientDriverLogger.debug(F("Buffer: "), buff.substr(0, buff.find("\n") - 1));
-        clientDriverLogger.debug(F("Skipping header ("), buff.substr(0, buff.find("\n") - 1), F(")"));
+        clientDriverLogger.debug(FLASH("Buffer: "), buff.substr(0, buff.find("\n") - 1));
+        clientDriverLogger.debug(FLASH("Skipping header ("), buff.substr(0, buff.find("\n") - 1), FLASH(")"));
         const char* ptr = buff.begin() + buff.find("\r\n") + 2;
         memmove(buffer->data(), ptr, strlen(ptr) + 1);
         buff = buffer->begin();
-        if (buff.find("\n") == buff.npos) iop_panic(F("Fuuk")); //continue;
+        if (buff.find("\n") == buff.npos) iop_panic(FLASH("Fuuk")); //continue;
       } else {
-        iop_panic(F("Press F to pay respect"));
+        iop_panic(FLASH("Press F to pay respect"));
       }
     }
 
-    clientDriverLogger.debug(F("Payload ("), std::to_string(buff.length()), F(") ["), std::to_string(size), F("]: "), buff.substr(0, buff.find("\n") == buff.npos ? buff.find("\n") : buff.length()));
+    clientDriverLogger.debug(FLASH("Payload ("), std::to_string(buff.length()), FLASH(") ["), std::to_string(size), FLASH("]: "), buff.substr(0, buff.find("\n") == buff.npos ? buff.find("\n") : buff.length()));
 
     responsePayload += buff;
 
@@ -446,9 +447,9 @@ auto Session::sendRequest(std::string method, const uint8_t *data, size_t len) n
     break;
   }
 
-  clientDriverLogger.debug(F("Close client: "), std::to_string(fd), F(" "), std::string(reinterpret_cast<const char*>(data), len));
-  clientDriverLogger.info(F("Status: "), std::to_string(status.value_or(500)));
-  iop_assert(status, F("Status not available"));
+  clientDriverLogger.debug(FLASH("Close client: "), std::to_string(fd), FLASH(" "), std::string(reinterpret_cast<const char*>(data), len));
+  clientDriverLogger.info(FLASH("Status: "), std::to_string(status.value_or(500)));
+  iop_assert(status, FLASH("Status not available"));
   return Response(responseHeaders, Payload(responsePayload), *status);
 }
 
@@ -458,25 +459,25 @@ auto HTTPClient::begin(std::string uri_) noexcept -> std::optional<Session> {
   struct sockaddr_in serv_addr;
   int32_t fd = socket(AF_INET, SOCK_STREAM, 0);
   if (fd < 0) {
-    clientDriverLogger.error(F("Unable to open socket"));
+    clientDriverLogger.error(FLASH("Unable to open socket"));
     return std::optional<Session>();
   }
 
-  iop_assert(uri.find("http://") == 0, F("Protocol must be http (no SSL)"));
+  iop_assert(uri.find("http://") == 0, FLASH("Protocol must be http (no SSL)"));
   uri = std::string_view(uri.begin() + 7);
   
-  const auto portIndex = uri.find(iop::StaticString(F(":")).toString());
+  const auto portIndex = uri.find(iop::StaticString(FLASH(":")).toString());
   uint16_t port = 443;
   if (portIndex != uri.npos) {
     auto end = uri.substr(portIndex + 1).find("/");
     if (end == uri.npos) end = uri.length();
     port = static_cast<uint16_t>(strtoul(std::string(uri.begin(), portIndex + 1, end).c_str(), nullptr, 10));
     if (port == 0) {
-      clientDriverLogger.error(F("Unable to parse port, broken server: "), uri);
+      clientDriverLogger.error(FLASH("Unable to parse port, broken server: "), uri);
       return std::optional<Session>();
     }
   }
-  clientDriverLogger.debug(F("Port: "), std::to_string(port));
+  clientDriverLogger.debug(FLASH("Port: "), std::to_string(port));
 
   serv_addr.sin_family = AF_INET;
   serv_addr.sin_port = htons(port);
@@ -489,17 +490,17 @@ auto HTTPClient::begin(std::string uri_) noexcept -> std::optional<Session> {
   // Convert IPv4 and IPv6 addresses from text to binary form
   if(inet_pton(AF_INET, host.c_str(), &serv_addr.sin_addr) <= 0) {
     close(fd);
-    clientDriverLogger.error(F("Address not supported: "), host);
+    clientDriverLogger.error(FLASH("Address not supported: "), host);
     return std::optional<Session>();
   }
 
   int32_t connection = connect(fd, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
   if (connection < 0) {
-    clientDriverLogger.error(F("Unnable to connect: "), std::to_string(connection));
+    clientDriverLogger.error(FLASH("Unnable to connect: "), std::to_string(connection));
     close(fd);
     return std::optional<Session>();
   }
-  clientDriverLogger.debug(F("Began connection: "), uri);
+  clientDriverLogger.debug(FLASH("Began connection: "), uri);
   return Session(*this, std::move(uri_), fd);
 }
 }

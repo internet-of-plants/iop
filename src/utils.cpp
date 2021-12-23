@@ -1,7 +1,7 @@
+#include "core/log.hpp"
 #include "utils.hpp"
 
-static volatile InterruptEvent interruptEvents[interruptVariants] = {
-    InterruptEvent::NONE};
+static volatile InterruptEvent interruptEvents[interruptVariants] = { InterruptEvent::NONE, InterruptEvent::NONE, InterruptEvent::NONE, InterruptEvent::NONE };
 
 namespace utils {
 auto descheduleInterrupt() noexcept -> InterruptEvent {
@@ -27,17 +27,17 @@ void IRAM_ATTR scheduleInterrupt(const InterruptEvent ev) noexcept {
     } else if (el != InterruptEvent::NONE) {
       continue;
     }
+  }
 
-    if (ptr != nullptr) {
-      *ptr = ev;
-    } else {
-      // If no space is available and we reach here there is a bug in the code,
-      // interruptVariants is probably wrong. We used to panic here, but that
-      // doesn't work when called from interrupts
-      iop::Log::print(F("[CRIT] RESET: Unable to store interrupt, "
-                        "'interruptVariant' is probably wrong\n"),
-                      iop::LogLevel::INFO, iop::LogType::STARTEND);
-    }
+  if (ptr != nullptr) {
+    *ptr = ev;
+  } else {
+    // If no space is available and we reach here there is a bug in the code,
+    // interruptVariants is probably wrong. We used to panic here, but that
+    // doesn't work when called from interrupts
+    iop::Log::print(FLASH("[CRIT] RESET: Unable to store interrupt, "
+                      "'interruptVariant' is probably wrong\n"),
+                    iop::LogLevel::INFO, iop::LogType::STARTEND);
   }
 }
 
