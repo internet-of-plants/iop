@@ -40,16 +40,46 @@ WiFiMode Wifi::mode() const noexcept {
 void Wifi::wake() const noexcept {}
 void Wifi::setupAP() const noexcept {}
 void Wifi::reconnect() const noexcept {}
-void Wifi::setup(iop::CertStore *certStore) noexcept { (void)certStore; }
+void Wifi::setup(driver::CertStore *certStore) noexcept { (void)certStore; }
 void Wifi::setMode(WiFiMode mode) const noexcept { (void) mode; }
-}
+void Wifi::onStationModeGotIP(std::function<void()> f) noexcept { (void) f; }
 #else
-#include <string>
 #include "core/panic.hpp"
 #include "driver/interrupt.hpp"
+#include "driver/internal_cert_store.hpp"
 #include "ESP8266WiFi.h"
+#include <string>
 
-namespace driver {
+namespace driver { 
+#ifndef IOP_DESKTOP
+#ifdef IOP_SSL
+Wifi::Wifi() noexcept: client(new (std::nothrow) BearSSL::WiFiClientSecure()) {}
+#else
+Wifi::Wifi() noexcept: client(new (std::nothrow) WiFiClient()) {}
+#endif
+#endif
+
+Wifi::~Wifi() noexcept {
+    delete this->client;
+}
+
+void Wifi::onStationModeGotIP(std::function<void()> f) noexcept {
+  ::WiFi.onStationModeGotIP([f](const ::WiFiEventStationModeGotIP &ev) {
+      (void) ev;
+      f();
+  });
+}
+
+Wifi::Wifi(Wifi &&other) noexcept: client(other.client) {
+    other.client = nullptr;
+}
+
+auto Wifi::operator=(Wifi &&other) noexcept -> Wifi & {
+    this->client = other.client;
+    other.client = nullptr;
+    return *this;
+}
+
 StationStatus Wifi::status() const noexcept {
     const auto s = wifi_station_get_connect_status();
     switch (static_cast<int>(s)) {
@@ -70,6 +100,7 @@ StationStatus Wifi::status() const noexcept {
     }
     iop_panic(iop::StaticString(FLASH("Unreachable status: ")).toString() + std::to_string(static_cast<uint8_t>(s)));
 }
+
 void Wifi::setupAP() const noexcept {
     // NOLINTNEXTLINE *-avoid-magic-numbers
     const auto staticIp = IPAddress(192, 168, 1, 1);
@@ -77,9 +108,11 @@ void Wifi::setupAP() const noexcept {
     const auto mask = IPAddress(255, 255, 255, 0);
     ::WiFi.softAPConfig(staticIp, staticIp, mask);
 }
+
 std::string Wifi::APIP() const noexcept {
     return ::WiFi.softAPIP().toString().c_str();
 }
+
 void Wifi::setMode(WiFiMode mode) const noexcept {
     switch (mode) {
         case WiFiMode::OFF:
@@ -97,18 +130,22 @@ void Wifi::setMode(WiFiMode mode) const noexcept {
     }
     iop_panic(FLASH("Unreachable"));
 }
+
 void Wifi::reconnect() const noexcept {
     ::WiFi.reconnect();
     ::WiFi.waitForConnectResult();
 }
+
 std::string Wifi::localIP() const noexcept {
     return ::WiFi.localIP().toString().c_str();
 }
+
 void Wifi::stationDisconnect() const noexcept {
     IOP_TRACE()
     const iop::InterruptLock _guard;
     wifi_station_disconnect();
 }
+
 std::pair<std::array<char, 32>, std::array<char, 64>> Wifi::credentials() const noexcept {
     IOP_TRACE()
 
@@ -126,18 +163,24 @@ std::pair<std::array<char, 32>, std::array<char, 64>> Wifi::credentials() const 
 
     return std::make_pair(ssid, psk);
 }
+
 void Wifi::wake() const noexcept {
     ::WiFi.forceSleepWake();
 }
-void Wifi::setup(iop::CertStore *certStore) noexcept {
+
+void Wifi::setup(driver::CertStore *certStore) noexcept {
+  iop_assert(this->client, F("Wifi has been moved out, client is nullptr"));
+
   #ifdef IOP_SSL
-  iop_assert(certStore != nullptr, FLASH("CertStore is not set, but SSL is enabled"));
-  this->client.setCertStore(certStore);
+  iop_assert(certStore && certStore->internal, FLASH("CertStore is not set, but SSL is enabled"));
+  this->client->setCertStore(certStore->internal);
   #endif
+
   ::WiFi.persistent(false);
   ::WiFi.setAutoReconnect(false);
   ::WiFi.setAutoConnect(false);
 }
+
 WiFiMode Wifi::mode() const noexcept {
     switch (::WiFi.getMode()) {
         case WIFI_OFF:
@@ -151,6 +194,7 @@ WiFiMode Wifi::mode() const noexcept {
     }
     iop_panic(FLASH("Unreachable"));
 }
+
 void Wifi::connectAP(std::string_view ssid, std::string_view psk) const noexcept {
     String ssidStr;
     ssidStr.concat(ssid.begin(), ssid.length());
@@ -158,6 +202,7 @@ void Wifi::connectAP(std::string_view ssid, std::string_view psk) const noexcept
     pskStr.concat(psk.begin(), psk.length());
     ::WiFi.softAP(ssidStr, pskStr);
 }
+
 bool Wifi::begin(std::string_view ssid, std::string_view psk) const noexcept {
     String ssidStr;
     ssidStr.concat(ssid.begin(), ssid.length());

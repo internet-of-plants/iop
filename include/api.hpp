@@ -4,6 +4,8 @@
 #include "core/network.hpp"
 #include "utils.hpp"
 #include <ArduinoJson.h>
+#undef LED_BUILTIN
+#undef OUTPUT
 
 class PanicData;
 

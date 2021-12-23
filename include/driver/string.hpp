@@ -7,7 +7,6 @@
 #include <string>
 #include <cstring>
 
-
 class __FlashStringHelper;
 
 #ifdef IOP_DESKTOP

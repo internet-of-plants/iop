@@ -3,6 +3,11 @@
 
 #include "driver/gpio.hpp"
 
+class DHT;
+class DallasTemperature;
+class OneWire;
+
+/*
 #ifdef IOP_DESKTOP
 struct OneWire {
   OneWire(uint8_t pin) { (void) pin; }
@@ -17,9 +22,13 @@ struct DHT {
   }
 };
 #else
-#include <DHT.h>
-#include <DallasTemperature.h>
-#include <OneWire.h>
+#endif
+*/
+
+//#include <DHT.h>
+//#include <DallasTemperature.h>
+//#include <OneWire.h>
+/*
 #undef OUTPUT
 #undef INPUT
 #undef HIGH
@@ -29,5 +38,6 @@ struct DHT {
 #undef CHANGED
 #undef LED_BUILTIN
 #endif
+*/
 
 #endif

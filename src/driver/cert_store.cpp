@@ -1,13 +1,21 @@
-#include "core/cert_store.hpp"
+#include "driver/cert_store.hpp"
+
+#ifndef IOP_DESKTOP
+#include "driver/internal_cert_store.hpp"
 #include "core/panic.hpp"
 
-namespace iop {
+namespace driver {
+CertStore::CertStore(CertList list) noexcept: internal(new (std::nothrow) InternalCertStore(list)) {
+  iop_assert(internal, FLASH("Unable to allocate InternalCertStore"));
+}
+CertStore::~CertStore() noexcept {
+    delete this->internal;
+}
 
 constexpr const uint8_t hashSize = 32;
-auto CertStore::findHashedTA(void *ctx, void *hashed_dn, size_t len)
-    -> const br_x509_trust_anchor * {
+auto InternalCertStore::findHashedTA(void *ctx, void *hashed_dn, size_t len) -> const br_x509_trust_anchor * {
   IOP_TRACE();
-  auto *cs = static_cast<CertStore *>(ctx);
+  auto *cs = static_cast<InternalCertStore *>(ctx);
 
   iop_assert(cs, FLASH("ctx is nullptr, this is unreachable because if this method is accessible, the ctx is set"));
   iop_assert(hashed_dn, FLASH("hashed_dn is nullptr, this is unreachable because it's a static array"));
@@ -23,7 +31,7 @@ auto CertStore::findHashedTA(void *ctx, void *hashed_dn, size_t len)
       iop_assert(der, FLASH("Cert allocation failed"));
 
       memcpy_P(der.get(), cert.cert, size);
-      cs->x509 = std::make_unique<BearSSL::X509List>(der.get(), size);
+      cs->x509 = new (std::nothrow) BearSSL::X509List(der.get(), size);
       der.reset();
 
       // We can const cast because it's heap allocated
@@ -42,17 +50,18 @@ auto CertStore::findHashedTA(void *ctx, void *hashed_dn, size_t len)
   return nullptr;
 }
 
-void CertStore::freeHashedTA(void *ctx, const br_x509_trust_anchor *ta) {
+void InternalCertStore::freeHashedTA(void *ctx, const br_x509_trust_anchor *ta) {
   IOP_TRACE();
   (void)ta; // Unused
 
-  static_cast<CertStore *>(ctx)->x509.reset();
+  auto *ptr = static_cast<InternalCertStore *>(ctx);
+  delete ptr->x509;
+  ptr->x509 = nullptr;
 }
 
-void CertStore::installCertStore(br_x509_minimal_context *ctx) {
+void InternalCertStore::installCertStore(br_x509_minimal_context *ctx) {
   IOP_TRACE();
-  auto *ptr = static_cast<void *>(this);
-  br_x509_minimal_set_dynamic(ctx, ptr, findHashedTA, freeHashedTA);
+  br_x509_minimal_set_dynamic(ctx, this, findHashedTA, freeHashedTA);
 }
 
 auto CertList::count() const noexcept -> uint16_t {
@@ -63,15 +72,5 @@ auto CertList::cert(uint16_t index) const noexcept -> Cert {
   // NOLINTNEXTLINE cppcoreguidelines-pro-bounds-pointer-a  rithmetic
   return Cert(this->certs[index], this->indexes[index], this->sizes[index]);
 }
-} // namespace iop
-
-#ifdef IOP_DESKTOP
-void br_x509_minimal_set_dynamic(br_x509_minimal_context *ctx, void *dynamic_ctx,
-	const br_x509_trust_anchor* (*dynamic)(void *ctx, void *hashed_dn, size_t hashed_dn_len),
-        void (*dynamic_free)(void *ctx, const br_x509_trust_anchor *ta)) {
-  (void)ctx;
-  (void)dynamic_ctx;
-  (void)dynamic;
-  (void)dynamic_free;
 }
 #endif

@@ -1,6 +1,5 @@
 #include "driver/client.hpp"
 #include "driver/server.hpp"
-#include "core/cert_store.hpp"
 #include "core/panic.hpp"
 #include "generated/certificates.hpp"
 #include "api.hpp"
@@ -45,9 +44,8 @@ auto Api::makeJson(const iop::StaticString contextName, const JsonCallback &json
 static void upgradeScheduler() noexcept {
   utils::scheduleInterrupt(InterruptEvent::MUST_UPGRADE);
 }
-void wifiCredentialsCallback(const WiFiEventStationModeGotIP &ev) noexcept {
+void wifiCredentialsCallback() noexcept {
   utils::scheduleInterrupt(InterruptEvent::ON_CONNECTION);
-  (void)ev;
 }
 #endif
 #endif
@@ -57,7 +55,7 @@ auto Api::setup() const noexcept -> void {
 #ifdef IOP_ONLINE
 
 #ifndef IOP_DESKTOP
-  static const auto onHandler = WiFi.onStationModeGotIP(wifiCredentialsCallback);
+  iop::data.wifi.onStationModeGotIP(wifiCredentialsCallback);
   // Initialize the wifi configurations
 
   if (iop::Network::isConnected())
@@ -67,7 +65,7 @@ auto Api::setup() const noexcept -> void {
 #endif
 
 #ifdef IOP_SSL
-  static iop::CertStore certStore(generated::certList);
+  static driver::CertStore certStore(generated::certList);
   this->network.setCertStore(certStore);
 #endif
 
@@ -241,6 +239,9 @@ auto Api::registerLog(const AuthToken &authToken,
 #ifdef IOP_DESKTOP
 #define LED_BUILTIN 0
 //#include "driver/upgrade.hpp"
+#else
+#define HIGH 0x1
+#include "ESP8266httpUpdate.h"
 #endif
 
 auto Api::upgrade(const AuthToken &token) const noexcept
@@ -259,7 +260,8 @@ auto Api::upgrade(const AuthToken &token) const noexcept
   const auto uri = std::string(this->network.uri().asCharPtr()) + path.asCharPtr();
   #endif
 
-  auto &client = iop::data.wifi.client;
+  auto *client = iop::data.wifi.client;
+  iop_assert(client, F("Wifi has been moved out, client is nullptr"));
 
   auto ESPhttpUpdate = std::make_unique<ESP8266HTTPUpdate>();
   iop_assert(ESPhttpUpdate, FLASH("Unable to allocate ESP8266HTTPUpdate"));
@@ -267,7 +269,7 @@ auto Api::upgrade(const AuthToken &token) const noexcept
   ESPhttpUpdate->closeConnectionsOnUpdate(true);
   ESPhttpUpdate->rebootOnUpdate(true);
   //ESPhttpUpdate->setLedPin(LED_BUILTIN);
-  const auto result = ESPhttpUpdate->update(client, uri, "");
+  const auto result = ESPhttpUpdate->update(*client, uri, "");
 
 #ifdef IOP_MOCK_MONITOR
   return iop::NetworkStatus::OK;

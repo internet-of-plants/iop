@@ -202,14 +202,14 @@ Tracer::Tracer(CodePoint point) noexcept : point(std::move(point)) {
   Log::print(FLASH("\n[TRACE] TRACER: Free Stack "), LogLevel::TRACE, LogType::CONTINUITY);
   Log::print(std::to_string(driver::device.availableStack()), LogLevel::TRACE, LogType::CONTINUITY);
   {
-    ::HeapSelectDram guard;
+    driver::HeapSelectDram guard;
     Log::print(FLASH(", Free DRAM "), LogLevel::TRACE, LogType::CONTINUITY);
     Log::print(std::to_string(driver::device.availableHeap()), LogLevel::TRACE, LogType::CONTINUITY);
     Log::print(FLASH(", Biggest DRAM Block "), LogLevel::TRACE, LogType::CONTINUITY);
     Log::print(std::to_string(driver::device.biggestHeapBlock()), LogLevel::TRACE, LogType::CONTINUITY);
   }
   {
-    ::HeapSelectIram guard;
+    driver::HeapSelectIram guard;
     Log::print(FLASH(", Free IRAM "), LogLevel::TRACE, LogType::CONTINUITY);
     Log::print(std::to_string(driver::device.availableHeap()), LogLevel::TRACE, LogType::CONTINUITY);
     Log::print(FLASH(", Biggest IRAM Block "), LogLevel::TRACE, LogType::CONTINUITY);
@@ -244,14 +244,14 @@ void logMemory(const Log &logger) noexcept {
   Log::print(FLASH(": Free Stack "), logger.level(), LogType::CONTINUITY);
   Log::print(std::to_string(driver::device.availableStack()), LogLevel::TRACE, LogType::CONTINUITY);
   {
-    ::HeapSelectDram guard;
+    driver::HeapSelectDram guard;
     Log::print(FLASH(", Free DRAM "), LogLevel::TRACE, LogType::CONTINUITY);
     Log::print(std::to_string(driver::device.availableHeap()), LogLevel::TRACE, LogType::CONTINUITY);
     Log::print(FLASH(", Biggest DRAM Block "), LogLevel::TRACE, LogType::CONTINUITY);
     Log::print(std::to_string(driver::device.biggestHeapBlock()), LogLevel::TRACE, LogType::CONTINUITY);
   }
   {
-    ::HeapSelectIram guard;
+    driver::HeapSelectIram guard;
     Log::print(FLASH(", Free IRAM "), LogLevel::TRACE, LogType::CONTINUITY);
     Log::print(std::to_string(driver::device.availableHeap()), LogLevel::TRACE, LogType::CONTINUITY);
     Log::print(FLASH(", Biggest IRAM Block "), LogLevel::TRACE, LogType::CONTINUITY);

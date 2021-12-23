@@ -105,7 +105,7 @@ def preBuildCertificates(env):
     f.write("#ifndef IOP_CERTIFICATES_H\n")
     f.write("#define IOP_CERTIFICATES_H\n\n")
     f.write("namespace generated {\n\n")
-    f.write("#include \"core/cert_store.hpp\"\n")
+    f.write("#include \"driver/cert_store.hpp\"\n")
     f.write("// This file is computer generated at build time (`build/preBuildCertificates.py` called by PlatformIO)\n\n")
     f.write("// SHA256: " + str(csvHash) + "\n\n")
 
@@ -181,7 +181,7 @@ def preBuildCertificates(env):
         if i<idx-1:
             f.write(", ")
     f.write("};\n\n")
-    f.write("static const iop::CertList certList(certificates, indexes, certSizes, numberOfCertificates);\n")
+    f.write("static const driver::CertList certList(certificates, indexes, certSizes, numberOfCertificates);\n")
     f.write("} // namespace generated\n")
     f.write("\n#endif" + "\n")
 

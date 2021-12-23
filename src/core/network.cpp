@@ -7,18 +7,18 @@
 #include "driver/thread.hpp"
 #include "driver/client.hpp"
 #include "core/panic.hpp"
-#include "core/cert_store.hpp"
+#include "driver/cert_store.hpp"
 #include "string.h"
 #include "loop.hpp"
 
 constexpr static iop::UpgradeHook defaultHook(iop::UpgradeHook::defaultHook);
 
 static iop::UpgradeHook hook(defaultHook);
-static iop::CertStore * maybeCertStore = nullptr;;
+static driver::CertStore * maybeCertStore = nullptr;;
 
 namespace iop {
 void UpgradeHook::defaultHook() noexcept { IOP_TRACE(); }
-void Network::setCertStore(iop::CertStore &store) noexcept {
+void Network::setCertStore(driver::CertStore &store) noexcept {
   maybeCertStore = &store;
 }
 void Network::setUpgradeHook(UpgradeHook scheduler) noexcept {
@@ -138,12 +138,12 @@ auto Network::httpRequest(const HttpMethod method_,
  
   session.addHeader(FLASH("FREE_STACK"), std::to_string(driver::device.availableStack()));
   {
-    HeapSelectDram guard;
+    driver::HeapSelectDram guard;
     session.addHeader(FLASH("FREE_DRAM"), std::to_string(driver::device.availableHeap()));
     session.addHeader(FLASH("BIGGEST_DRAM_BLOCK"), std::to_string(driver::device.biggestHeapBlock()));
   }
   {
-    HeapSelectIram guard;
+    driver::HeapSelectIram guard;
     session.addHeader(FLASH("FREE_IRAM"), std::to_string(driver::device.availableHeap()));
     session.addHeader(FLASH("BIGGEST_IRAM_BLOCK"), std::to_string(driver::device.biggestHeapBlock()));
   }

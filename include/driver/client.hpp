@@ -1,29 +1,13 @@
 #ifndef IOP_DRIVER_CLIENT
 #define IOP_DRIVER_CLIENT
 
+#include "driver/wifi.hpp"
+#include "core/string.hpp"
 #include <vector>
 #include <string>
 #include <unordered_map>
 #include <optional>
-#include "driver/wifi.hpp"
-#include "core/string.hpp"
 
-#ifndef IOP_DESKTOP
-// TODO: remove this import from here, but... how?
-#include "ESP8266HTTPClient.h"
-#define HIGH 0x1
-#include "ESP8266httpUpdate.h"
-#undef OUTPUT
-#undef INPUT
-#undef HIGH
-#undef LOW
-#undef RISING
-#undef FALLING
-#undef CHANGED
-#undef LED_BUILTIN
-#endif
-
-#ifdef IOP_DESKTOP
 #define HTTPC_ERROR_CONNECTION_FAILED   (-1)
 #define HTTPC_ERROR_SEND_HEADER_FAILED  (-2)
 #define HTTPC_ERROR_SEND_PAYLOAD_FAILED (-3)
@@ -35,7 +19,8 @@
 #define HTTPC_ERROR_ENCODING            (-9)
 #define HTTPC_ERROR_STREAM_WRITE        (-10)
 #define HTTPC_ERROR_READ_TIMEOUT        (-11)
-#endif
+
+class HTTPClient;
 
 namespace driver {
 enum class RawStatus {
@@ -114,10 +99,11 @@ class HTTPClient {
 #ifdef IOP_DESKTOP
   std::vector<std::string> headersToCollect_;
 #else
-  ::HTTPClient http;
+  ::HTTPClient * http;
 #endif
 public:
-  HTTPClient() = default;
+  HTTPClient() noexcept;
+  ~HTTPClient() noexcept;
   auto begin(std::string uri) noexcept -> std::optional<Session>;
 
   // TODO: improve this method name

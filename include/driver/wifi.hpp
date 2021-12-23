@@ -1,19 +1,26 @@
 #ifndef IOP_DRIVER_WIFI
 #define IOP_DRIVER_WIFI
 
+#include "driver/cert_store.hpp"
 #include <string>
 #include <array>
+#include <functional>
 
 #ifndef IOP_DESKTOP
-#include "ESP8266WiFi.h"
+#ifdef IOP_SSL
+namespace BearSSL {
+class WiFiClientSecure;
+}
+#else
+class WiFiClient;
 #endif
-
-#include "core/cert_store.hpp"
+#endif
 
 namespace driver {
 enum class WiFiMode {
   OFF = 0, STA, AP, AP_STA
 };
+
 enum class StationStatus {
   IDLE = 0,
   CONNECTING,
@@ -23,18 +30,17 @@ enum class StationStatus {
   GOT_IP
 };
 
-
-class Wifi {
-public:
+struct Wifi {
   #ifndef IOP_DESKTOP
   #ifdef IOP_SSL
-  BearSSL::WiFiClientSecure client;
+  BearSSL::WiFiClientSecure *client;
   #else
-  WiFiClient client;
+  WiFiClient *client;
   #endif
   #endif
+
+  // TODO: document this
   
-  Wifi() = default;
   StationStatus status() const noexcept;
   void stationDisconnect() const noexcept;
   void setMode(WiFiMode mode) const noexcept;
@@ -47,7 +53,16 @@ public:
   void connectAP(std::string_view ssid, std::string_view psk) const noexcept;
   std::string APIP() const noexcept;
   void reconnect() const noexcept;
-  void setup(iop::CertStore *certStore) noexcept;
+  void setup(driver::CertStore *certStore) noexcept;
+
+  void onStationModeGotIP(std::function<void()> f) noexcept;
+
+  Wifi() noexcept;
+  ~Wifi() noexcept;
+  Wifi(Wifi &other) noexcept = delete;
+  Wifi(Wifi &&other) noexcept;
+  auto operator=(Wifi &other) noexcept -> Wifi & = delete;
+  auto operator=(Wifi &&other) noexcept -> Wifi &;
 };
 }
 

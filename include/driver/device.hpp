@@ -1,13 +1,19 @@
 #ifndef IOP_DRIVER_DEVICE_HPP
 #define IOP_DRIVER_DEVICE_HPP
 
+#include "core/string.hpp"
 #include <stddef.h>
 #include <stdint.h>
 #include <array>
-#include "core/string.hpp"
 
 class String;
 
+#ifndef IOP_DESKTOP
+class HeapSelectIram;
+class HeapSelectDram;
+#endif
+
+namespace driver {
 #ifdef IOP_DESKTOP
 class HeapSelectIram {
   uint8_t dummy = 0;
@@ -16,10 +22,20 @@ class HeapSelectDram {
   uint8_t dummy = 0;
 };
 #else
-#include <umm_malloc/umm_heap_select.h>
+class HeapSelectIram {
+  ::HeapSelectIram *ptr;
+public:
+  HeapSelectIram() noexcept;
+  ~HeapSelectIram() noexcept;
+};
+class HeapSelectDram {
+  ::HeapSelectDram *ptr;
+public:
+  HeapSelectDram() noexcept;
+  ~HeapSelectDram() noexcept;
+};
 #endif
 
-namespace driver {
 class Device {
 public:
   auto availableFlash() const noexcept -> size_t;

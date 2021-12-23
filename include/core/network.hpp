@@ -68,7 +68,7 @@ public:
   /// Sets the CertStore that will handle TLS requests (find the appropriate cert for the connection)
   ///
   /// Ensure to sync NTP before using TLS (or it will report an invalid date for the certificates)
-  static void setCertStore(CertStore &store) noexcept;
+  static void setCertStore(::driver::CertStore &store) noexcept;
 
   /// Sets new firmware update hook for this. Very useful to support upgrades
   /// reported by the network (LAST_VERSION header different than current

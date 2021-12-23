@@ -8,10 +8,9 @@
 #include <memory>
 
 #ifdef IOP_DESKTOP
-#include <netinet/in.h>
+class sockaddr_in
 #else
-#include <ESP8266WebServer.h>
-#include <DNSServer.h>
+class DNSServer;
 #endif
 
 namespace driver {
@@ -28,9 +27,15 @@ public:
   using Buffer = std::array<char, 1024>;
 #else
 private:
-  std::reference_wrapper<ESP8266WebServer> server;
+  void *server; // ESP8266WebServer
 public:
-  HttpConnection(ESP8266WebServer &parent) noexcept: server(parent) {}
+  HttpConnection(void *parent) noexcept;
+  ~HttpConnection() noexcept;
+  
+  HttpConnection(HttpConnection &other) noexcept = delete;
+  HttpConnection(HttpConnection &&other) noexcept;
+  auto operator=(HttpConnection &other) noexcept -> HttpConnection & = delete;
+  auto operator=(HttpConnection &&other) noexcept -> HttpConnection &;
 #endif
 
   auto arg(iop::StaticString arg) const noexcept -> std::optional<std::string>;
@@ -53,13 +58,19 @@ private:
   uint32_t port;
 
   std::optional<uint32_t> maybeFD;
-  std::optional<sockaddr_in> maybeAddress;
+  sockaddr_in *address;
 #else
-  std::unique_ptr<ESP8266WebServer> _server;
-  ESP8266WebServer & server() noexcept;
+  void *server; // ESP8266WebServer
+public:
+  HttpServer(HttpServer &other) noexcept = delete;
+  HttpServer(HttpServer &&other) noexcept;
+  auto operator=(HttpServer &other) noexcept -> HttpServer & = delete;
+  auto operator=(HttpServer &&other) noexcept -> HttpServer &;
 #endif
 public:
   HttpServer(uint32_t port = 8082) noexcept;
+  ~HttpServer() noexcept;
+
   void begin() noexcept;
   void close() noexcept;
   void handleClient() noexcept;
@@ -68,9 +79,19 @@ public:
 };
 
 class CaptivePortal {
-  std::unique_ptr<DNSServer> server;
+  DNSServer *server;
   
 public:
+  CaptivePortal() noexcept: server(nullptr) {}
+  ~CaptivePortal() noexcept;
+
+#ifndef IOP_DESKTOP
+  CaptivePortal(CaptivePortal &other) noexcept = delete;
+  CaptivePortal(CaptivePortal &&other) noexcept;
+  auto operator=(CaptivePortal &other) noexcept -> CaptivePortal & = delete;
+  auto operator=(CaptivePortal &&other) noexcept -> CaptivePortal &;
+#endif
+
   void start() noexcept;
   void close() noexcept;  
   void handleClient() const noexcept;

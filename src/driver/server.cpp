@@ -53,6 +53,7 @@ static std::string httpCodeToString(const int code) {
 }
 
 namespace driver {
+HttpServer::~HttpServer() noexcept {}
 HttpServer::HttpServer(const uint32_t port) noexcept: port(port) {
   this->notFoundHandler = [](HttpConnection &conn, iop::Log const &logger) {
     conn.send(404, FLASH("text/plain"), FLASH("Not Found"));
@@ -82,13 +83,13 @@ void HttpServer::begin() noexcept {
   this->maybeFD = fd;
 
   // Posix boilerplate
-  sockaddr_in address;
-  address.sin_family = AF_INET;
-  address.sin_addr.s_addr = INADDR_ANY;
-  address.sin_port = htons(static_cast<uint16_t>(this->port));
-  memset(address.sin_zero, '\0', sizeof(address.sin_zero));
+  sockaddr_in addr;
+  addr.sin_family = AF_INET;
+  addr.sin_addr.s_addr = INADDR_ANY;
+  addr.sin_port = htons(static_cast<uint16_t>(this->port));
+  memset(addr.sin_zero, '\0', sizeof(addr.sin_zero));
 
-  if (bind(fd, (struct sockaddr* )&address, sizeof(address)) < 0) {
+  if (bind(fd, (struct sockaddr* )&addr, sizeof(addr)) < 0) {
     iop_panic(std::string("Unable to bind socket (") + std::to_string(errno) + "): " + strerror(errno));
     return;
   }
@@ -99,11 +100,11 @@ void HttpServer::begin() noexcept {
   }
   logger().info(FLASH("Listening to port "), std::to_string(this->port));
 
-  this->maybeAddress = address;
+  this->address = new (std::nothrow) sockaddr_in(addr);
 }
 void HttpServer::handleClient() noexcept {
   IOP_TRACE();
-  if (!this->maybeAddress)
+  if (!this->address)
     return;
 
   iop_assert(!this->isHandlingRequest, FLASH("Already handling a request"));
@@ -112,12 +113,12 @@ void HttpServer::handleClient() noexcept {
   iop_assert(this->maybeFD, FLASH("FD not found"));
   int32_t fd = *this->maybeFD;
 
-  sockaddr_in address = *this->maybeAddress;
-  socklen_t addr_len = sizeof(address);
+  sockaddr_in ip_addr = *this->address;
+  socklen_t addr_len = sizeof(addr);
 
   HttpConnection conn;
   int32_t client = 0;
-  if ((client = accept(fd, (sockaddr *)&address, &addr_len)) <= 0) {
+  if ((client = accept(fd, (sockaddr *)&addr, &addr_len)) <= 0) {
     if (client == 0) {
       logger().error(FLASH("Client fd is zero"));
     } else if (errno != EAGAIN && errno != EWOULDBLOCK) {
@@ -244,7 +245,10 @@ void HttpServer::handleClient() noexcept {
 }
 void HttpServer::close() noexcept {
   IOP_TRACE();
-  this->maybeAddress.reset();
+  if (this->address) {
+    delete this->address;
+    this->address = nullptr;
+  }
 
   if (this->maybeFD)
     ::close(*this->maybeFD);
@@ -294,6 +298,8 @@ static auto percentDecode(const std::string_view input) noexcept -> std::optiona
   }
   return out;
 }
+
+HttpConnection::~HttpConnection() noexcept {}
 void HttpConnection::reset() noexcept {
   this->currentHeaders = "";
   this->currentPayload = "";
@@ -380,68 +386,111 @@ void HttpConnection::sendData(iop::StaticString content) const noexcept {
   if (iop::Log::isTracing())
     iop::Log::print(FLASH(""), iop::LogLevel::TRACE, iop::LogType::END);
 }
+CaptivePortal::~CaptivePortal() noexcept {}
 void CaptivePortal::start() const noexcept {}
 void CaptivePortal::close() const noexcept {}
 void CaptivePortal::handleClient() const noexcept {}
 }
 #else
+#include <ESP8266WebServer.h>
+#include "core/panic.hpp"
+#include "utils.hpp"
+#include <DNSServer.h>
 #include <user_interface.h>
 #include <optional>
-#include "utils.hpp"
-#include <core/panic.hpp>
 
 namespace driver {
+auto to_server(void *ptr) noexcept -> ESP8266WebServer & {
+  return *reinterpret_cast<ESP8266WebServer *>(ptr);
+}
+
+HttpConnection::HttpConnection(void * parent) noexcept: server(parent) {}
 auto HttpConnection::arg(iop::StaticString arg) const noexcept -> std::optional<std::string> {
-  if (!this->server.get().hasArg(arg.get())) return std::optional<std::string>();
-  return std::string(this->server.get().arg(arg.get()).c_str());
+  if (!to_server(this->server).hasArg(arg.get())) return std::optional<std::string>();
+  return std::string(to_server(this->server).arg(arg.get()).c_str());
 }
 void HttpConnection::sendHeader(iop::StaticString name, iop::StaticString value) noexcept {
-  this->server.get().sendHeader(String(name.get()), String(value.get()));
+  to_server(this->server).sendHeader(String(name.get()), String(value.get()));
 }
 void HttpConnection::send(uint16_t code, iop::StaticString type, iop::StaticString data) const noexcept {
-  this->server.get().send_P(code, type.asCharPtr(), data.asCharPtr());
+  to_server(this->server).send_P(code, type.asCharPtr(), data.asCharPtr());
 }
 void HttpConnection::sendData(iop::StaticString data) const noexcept {
-  this->server.get().sendContent_P(data.asCharPtr());
+  to_server(this->server).sendContent_P(data.asCharPtr());
 }
 void HttpConnection::setContentLength(size_t length) noexcept {
-  this->server.get().setContentLength(length);
+  to_server(this->server).setContentLength(length);
 }
 void HttpConnection::reset() noexcept {}
 
 static uint32_t serverPort = 0;
 HttpServer::HttpServer(uint32_t port) noexcept { IOP_TRACE(); serverPort = port; }
 
-ESP8266WebServer & HttpServer::server() noexcept {
-  if (!this->_server) {
+auto validateServer(void **ptr) noexcept -> ESP8266WebServer & {
+  if (!*ptr) {
     iop_assert(serverPort != 0, FLASH("Server port is not defined"));
-    this->_server = std::make_unique<ESP8266WebServer>(serverPort);
+    ESP8266WebServer **s = reinterpret_cast<ESP8266WebServer **>(ptr);
+    *s = new (std::nothrow) ESP8266WebServer(serverPort);
   }
-  iop_assert(this->_server, FLASH("Unable to allocate ESP8266WebServer"));
-  return *this->_server;
+  iop_assert(*ptr, FLASH("Unable to allocate ESP8266WebServer"));
+  return to_server(*ptr);
 }
-
-void HttpServer::begin() noexcept { IOP_TRACE(); this->server().begin(); }
-void HttpServer::close() noexcept { IOP_TRACE(); this->server().close(); }
+HttpConnection::HttpConnection(HttpConnection &&other) noexcept: server(other.server) {
+  other.server = nullptr;
+}
+auto HttpConnection::operator=(HttpConnection &&other) noexcept -> HttpConnection & {
+  this->server = other.server;
+  other.server = nullptr;
+  return *this;
+}
+HttpConnection::~HttpConnection() noexcept {
+  delete reinterpret_cast<ESP8266WebServer *>(this->server);
+}
+HttpServer::HttpServer(HttpServer &&other) noexcept: server(other.server) {
+  other.server = nullptr;
+}
+auto HttpServer::operator=(HttpServer &&other) noexcept -> HttpServer & {
+  this->server = other.server;
+  other.server = nullptr;
+  return *this;
+}
+HttpServer::~HttpServer() noexcept {
+  delete reinterpret_cast<ESP8266WebServer *>(this->server);
+}
+void HttpServer::begin() noexcept { IOP_TRACE(); validateServer(&this->server).begin(); }
+void HttpServer::close() noexcept { IOP_TRACE(); validateServer(&this->server).close(); }
 void HttpServer::handleClient() noexcept {
   IOP_TRACE();
   iop_assert(!this->isHandlingRequest, FLASH("Already handling a client"));
   this->isHandlingRequest = true;
-  this->server().handleClient();
+  validateServer(&this->server).handleClient();
   this->isHandlingRequest = false;
 }
 void HttpServer::on(iop::StaticString uri, Callback handler) noexcept {
   IOP_TRACE();
-  this->server().on(uri.get(), [handler, this]() { HttpConnection conn(this->server()); handler(conn, logger()); });
+  auto *_server = &driver::validateServer(&this->server);
+  validateServer(&this->server).on(uri.get(), [handler, _server]() { HttpConnection conn(_server); handler(conn, logger()); });
 }
 void HttpServer::onNotFound(Callback handler) noexcept {
   IOP_TRACE();
-  this->server().onNotFound([handler, this]() { HttpConnection conn(this->server()); handler(conn, logger()); });
+  auto *_server = &driver::validateServer(&this->server);
+  validateServer(&this->server).onNotFound([handler, _server]() { HttpConnection conn(_server); handler(conn, logger()); });
+}
+CaptivePortal::CaptivePortal(CaptivePortal &&other) noexcept: server(other.server) {
+  other.server = nullptr;
+}
+auto CaptivePortal::operator=(CaptivePortal &&other) noexcept -> CaptivePortal & {
+  this->server = other.server;
+  other.server = nullptr;
+  return *this;
 }
 
+CaptivePortal::~CaptivePortal() noexcept {
+  delete this->server;
+}
 void CaptivePortal::start() noexcept {
   const uint16_t port = 53;
-  this->server = std::make_unique<DNSServer>();
+  this->server = new (std::nothrow) DNSServer();
   iop_assert(this->server, FLASH("Unable to allocate DNSServer"));
   this->server->setErrorReplyCode(DNSReplyCode::NoError);
   this->server->start(port, FLASH("*"), ::WiFi.softAPIP());
@@ -449,7 +498,7 @@ void CaptivePortal::start() noexcept {
 void CaptivePortal::close() noexcept {
   iop_assert(this->server, FLASH("Must initialize DNSServer first"));
   this->server->stop();
-  this->server.reset();
+  this->server = nullptr;
 }
 void CaptivePortal::handleClient() const noexcept {
   iop_assert(this->server, FLASH("Must initialize DNSServer first"));

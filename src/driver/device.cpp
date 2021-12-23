@@ -1,6 +1,5 @@
 #include "driver/device.hpp"
-#include "core/log.hpp"
-#include "loop.hpp"
+#include "core/network.hpp"
 
 namespace driver {
     Device device;
@@ -45,20 +44,29 @@ iop::MacAddress & Device::macAddress() const noexcept {
   return mac;
 }
 }
-#define sprintf_P sprintf
 #else
-#include "Esp.h"
-#include "user_interface.h"
-#include <optional>
 #include "core/panic.hpp"
-#include "utils.hpp"
-#include <coredecls.h>
+#include "ESP8266HTTPClient.h"
 #include <umm_malloc/umm_heap_select.h>
 
 // This breaks expectation of the "modules"
 #include "utils.hpp"
 
 namespace driver {
+HeapSelectIram::HeapSelectIram() noexcept: ptr(new (std::nothrow) ::HeapSelectIram()) {
+  iop_assert(ptr, F("Unable to allocate HeapSelectIram"));
+}
+
+HeapSelectIram::~HeapSelectIram() noexcept {
+  delete this->ptr;
+}
+HeapSelectDram::HeapSelectDram() noexcept: ptr(new (std::nothrow) ::HeapSelectDram()) {
+  iop_assert(ptr, F("Unable to allocate HeapSelectDram"));
+}
+HeapSelectDram::~HeapSelectDram() noexcept {
+  delete this->ptr;
+}
+
 auto Device::platform() const noexcept -> ::iop::StaticString {
   return FLASH("ESP8266");
 }

@@ -1,6 +1,5 @@
 #include "core/log.hpp"
 #include "configuration.hpp"
-#include "utils.hpp" // Imports IOP_SERIAL if available
 #include "loop.hpp"
 
 #ifdef IOP_NETWORK_LOGGING
