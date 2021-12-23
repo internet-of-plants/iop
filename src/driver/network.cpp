@@ -1,4 +1,4 @@
-#include "core/network.hpp"
+#include "driver/network.hpp"
 
 #ifdef IOP_ONLINE
 
@@ -6,10 +6,9 @@
 #include "driver/device.hpp"
 #include "driver/thread.hpp"
 #include "driver/client.hpp"
-#include "core/panic.hpp"
+#include "driver/panic.hpp"
 #include "driver/cert_store.hpp"
 #include "string.h"
-#include "loop.hpp"
 
 constexpr static iop::UpgradeHook defaultHook(iop::UpgradeHook::defaultHook);
 
@@ -295,8 +294,6 @@ auto Network::apiStatus(const driver::RawStatus &raw) const noexcept -> std::opt
   return std::nullopt;
 }
 
-Network::~Network() noexcept { IOP_TRACE(); }
-Network::Network(Network const &other) : logger(other.logger), uri_(other.uri_) { IOP_TRACE(); }
 Network::Network(StaticString uri, const LogLevel &logLevel) noexcept
   : logger(logLevel, FLASH("NETWORK")), uri_(std::move(uri)) {
   IOP_TRACE();
@@ -309,27 +306,5 @@ Response::Response(const NetworkStatus &status) noexcept
 Response::Response(const NetworkStatus &status, std::string payload) noexcept
     : status(status), payload(payload) {
   IOP_TRACE();
-}
-Response::Response(Response &&resp) noexcept
-    : status(resp.status), payload(std::optional<std::string>()) {
-  IOP_TRACE();
-  this->payload.swap(resp.payload);
-}
-auto Response::operator=(Response &&resp) noexcept -> Response & {
-  IOP_TRACE();
-  this->status = resp.status;
-  this->payload.swap(resp.payload);
-  return *this;
-}
-
-Response::~Response() noexcept {
-  IOP_TRACE();
-  if (!Log::isTracing())
-    return;
-  const auto str = Network::apiStatusToString(status);
-  Log::print(FLASH("~Response("), LogLevel::TRACE, LogType::START);
-  Log::print(str.get(), LogLevel::TRACE, LogType::CONTINUITY);
-  Log::print(FLASH(")\n"), LogLevel::TRACE, LogType::END);
-  Log::flush();
 }
 } // namespace iop

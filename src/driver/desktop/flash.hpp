@@ -1,5 +1,5 @@
 #include "driver/flash.hpp"
-#include "core/panic.hpp"
+#include "driver/panic.hpp"
 #include <unistd.h>
 #include <errno.h>
 #include <new>

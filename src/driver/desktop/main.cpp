@@ -1,3 +1,4 @@
+#ifdef IOP_DESKTOP
 #ifndef UNIT_TEST
 
 #include <unistd.h>
@@ -13,4 +14,5 @@ int main(int argc, char** argv) {
   return 0;
 }
 
+#endif
 #endif

@@ -1,5 +1,5 @@
 #include "loop.hpp" 
-#include "core/panic.hpp"
+#include "driver/panic.hpp"
 
 EventLoop eventLoop(config::uri(), config::logLevel);
 
@@ -212,7 +212,7 @@ void EventLoop::handleInterrupt(const InterruptEvent event, const std::optional<
 #ifdef IOP_ONLINE
       const auto ip = iop::data.wifi.localIP();
       const auto status = this->statusToString(iop::data.wifi.status());
-      this->logger.debug(FLASH("WiFi connected ("), iop::to_view(ip), FLASH("): "), status.value_or(iop::StaticString(FLASH("BadData"))));
+      this->logger.debug(FLASH("WiFi connected ("), iop::to_view(ip), FLASH("): "), status.value_or(FLASH("BadData")));
 
       const auto config = iop::data.wifi.credentials();
       // We treat wifi credentials as a blob instead of worrying about encoding
@@ -359,6 +359,6 @@ auto EventLoop::statusToString(const driver::StationStatus status) const noexcep
     return FLASH("STATION_GOT_IP");
   }
 
-  this->logger.error(iop::StaticString(FLASH("Unknown status: ")).toString() + std::to_string(static_cast<uint8_t>(status)));
+  this->logger.error(FLASH("Unknown status: ").toString() + std::to_string(static_cast<uint8_t>(status)));
   return std::nullopt;
 }

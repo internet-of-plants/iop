@@ -1,6 +1,10 @@
 #ifndef IOP_LOOP
 #define IOP_LOOP
 
+#include "driver/device.hpp"
+#include "driver/thread.hpp"
+#include "driver/network.hpp"
+#include "driver/panic.hpp"
 #include "configuration.hpp"
 #include "flash.hpp"
 #include "sensors.hpp"
@@ -9,10 +13,6 @@
 #include "utils.hpp"
 
 #include <optional>
-
-#include "driver/device.hpp"
-#include "driver/thread.hpp"
-#include "core/network.hpp"
 
 class EventLoop {
 private:
@@ -80,25 +80,19 @@ class Unused4KbSysStack {
   //static_assert(sizeof(StackStruct) <= 4096);
 
 public:
-#ifdef IOP_DESKTOP
   Unused4KbSysStack() noexcept: data(new StackStruct) {
+    iop_assert(data, FLASH("Unable to allocate buffer"));
     memset((void*)data, 0, sizeof(StackStruct));
   }
   void reset() noexcept {
     memset((void*)data, 0, sizeof(StackStruct));
   }
-#else
-  Unused4KbSysStack() noexcept: data(new StackStruct) {}
-  void reset() noexcept {}
   //Unused4KbSysStack() noexcept: data(reinterpret_cast<StackStruct *>(0x3FFFE000)) {
   //  memset((void*)0x3FFFE000, 0, 4096);
   //}
   //void reset() noexcept {
   //  memset((void*)0x3FFFE000, 0, 4096);
   //}
-#endif
-  #ifndef IOP_DESKTOP
-  #endif
   auto psk() noexcept -> std::array<char, 64> & {
     return this->data->psk;
   }

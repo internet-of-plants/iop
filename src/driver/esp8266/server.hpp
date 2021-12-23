@@ -1,8 +1,7 @@
 #include "driver/server.hpp"
-#include "core/panic.hpp"
-#include "utils.hpp"
-#include <ESP8266WebServer.h>
-#include <DNSServer.h>
+#include "driver/panic.hpp"
+#include "ESP8266WebServer.h"
+#include "DNSServer.h"
 #include <user_interface.h>
 #include <optional>
 
@@ -105,7 +104,7 @@ void CaptivePortal::start() noexcept {
   this->server = new (std::nothrow) DNSServer();
   iop_assert(this->server, FLASH("Unable to allocate DNSServer"));
   this->server->setErrorReplyCode(DNSReplyCode::NoError);
-  this->server->start(port, FLASH("*"), ::WiFi.softAPIP());
+  this->server->start(port, FLASH("*").get(), ::WiFi.softAPIP());
 }
 void CaptivePortal::close() noexcept {
   iop_assert(this->server, FLASH("Must initialize DNSServer first"));

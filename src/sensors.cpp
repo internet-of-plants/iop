@@ -1,9 +1,9 @@
-#include "core/log.hpp"
+#include "driver/log.hpp"
 #include "sensors.hpp"
 #include "utils.hpp"
 
 #ifdef IOP_SENSORS
-#include "core/panic.hpp"
+#include "driver/panic.hpp"
 
 #include <DHT.h>
 #include <OneWire.h>

@@ -1,7 +1,7 @@
 #ifndef IOP_UTILS_HPP
 #define IOP_UTILS_HPP
 
-#include "core/string.hpp"
+#include "driver/string.hpp"
 #include <functional>
 
 // If you change the number of interrupt types, please update interruptVariant to the correct size

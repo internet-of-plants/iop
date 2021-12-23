@@ -1,7 +1,7 @@
 #ifndef IOP_API_HPP
 #define IOP_API_HPP
 
-#include "core/network.hpp"
+#include "driver/network.hpp"
 #include "utils.hpp"
 #include <ArduinoJson.h>
 #undef LED_BUILTIN

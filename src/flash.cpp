@@ -3,7 +3,7 @@
 
 #ifndef IOP_FLASH_DISABLED
 #include "driver/flash.hpp"
-#include "core/panic.hpp"
+#include "driver/panic.hpp"
 
 constexpr const uint16_t EEPROM_SIZE = 512;
 

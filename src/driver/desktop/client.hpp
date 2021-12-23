@@ -1,10 +1,9 @@
 #include "driver/client.hpp"
-#include "core/network.hpp"
-#include "core/panic.hpp"
-#include <system_error>
-
+#include "driver/network.hpp"
+#include "driver/panic.hpp"
 #include "driver/wifi.hpp"
 
+#include <system_error>
 #include <vector>
 #include <string>
 #include <unordered_map>
@@ -161,7 +160,7 @@ auto Session::sendRequest(std::string method, const uint8_t *data, size_t len) n
         clientDriverLogger.error(FLASH("Bad server: "), statusStr, FLASH(" -- "), buff);
         return static_cast<int>(RawStatus::READ_FAILED);
       }
-      //iop_assert(buff.contains(FLASH("\n")), iop::StaticString(FLASH("First: ")).toString() + std::to_string(buffer.length()) + iop::StaticString(FLASH(" bytes don't contain newline, the path is too long\n")).toString());
+      //iop_assert(buff.contains(FLASH("\n")), FLASH("First: ").toString() + std::to_string(buffer.length()) + FLASH(" bytes don't contain newline, the path is too long\n").toString());
       status = atoi(std::string(statusStr.begin(), 0, codeEnd).c_str());
       clientDriverLogger.debug(FLASH("Status: "), std::to_string(status.value_or(500)));
       firstLine = false;
@@ -266,7 +265,7 @@ auto HTTPClient::begin(std::string uri_) noexcept -> std::optional<Session> {
   iop_assert(uri.find("http://") == 0, FLASH("Protocol must be http (no SSL)"));
   uri = std::string_view(uri.begin() + 7);
   
-  const auto portIndex = uri.find(iop::StaticString(FLASH(":")).toString());
+  const auto portIndex = uri.find(FLASH(":").toString());
   uint16_t port = 443;
   if (portIndex != uri.npos) {
     auto end = uri.substr(portIndex + 1).find("/");

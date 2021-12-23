@@ -1,8 +1,8 @@
-#ifndef IOP_NETWORK_HPP
-#define IOP_NETWORK_HPP
+#ifndef IOP_DRIVER_NETWORK_HPP
+#define IOP_DRIVER_NETWORK_HPP
 
 #include "driver/client.hpp"
-#include "core/log.hpp"
+#include "driver/log.hpp"
 
 namespace iop {
 struct Data {
@@ -26,11 +26,6 @@ enum class NetworkStatus {
   FORBIDDEN,
 };
 
-class Response;
-enum class RawStatus;
-enum class HttpMethod;
-class CertStore;
-
 /// Hook to schedule the next firmware binary update (_must not_ actually update, but only use it to schedule an update for the next loop run)
 ///
 /// It's called by `iop::Network` whenever the server sets the `LAST_VERSION` HTTP header, to a value that isn't the MD5 of the current firmware binary.
@@ -43,6 +38,33 @@ public:
 
   /// No-Op
   static void defaultHook() noexcept;
+};
+
+
+class Response {
+public:
+  NetworkStatus status;
+  std::optional<std::string> payload;
+
+  explicit Response(const NetworkStatus &status) noexcept;
+  Response(const NetworkStatus &status, std::string payload) noexcept;
+
+  ~Response() noexcept = default;
+  Response(Response &resp) noexcept = delete;
+  Response(Response &&resp) noexcept = default;
+  auto operator=(Response &resp) noexcept -> Response & = delete;
+  auto operator=(Response &&resp) noexcept -> Response & = default;
+};
+
+enum class HttpMethod {
+  GET,
+  HEAD,
+  POST,
+  PUT,
+  PATCH,
+  DELETE,
+  CONNECT,
+  OPTIONS,
 };
 
 /// General lower level HTTP(S) client, that is focused on our need.
@@ -93,37 +115,12 @@ public:
   /// Extracts a network status from the raw response
   auto apiStatus(const driver::RawStatus &raw) const noexcept -> std::optional<NetworkStatus>;
 
-  ~Network() noexcept;
-  Network(Network const &other);
+  ~Network() noexcept = default;
+  Network(Network const &other) = default;
   Network(Network &&other) = delete;
   auto operator=(Network const &other) -> Network & = default;
   auto operator=(Network &&other) -> Network & = delete;
 };
 
-class Response {
-public:
-  NetworkStatus status;
-  std::optional<std::string> payload;
-
-  explicit Response(const NetworkStatus &status) noexcept;
-  Response(const NetworkStatus &status, std::string payload) noexcept;
-
-  ~Response() noexcept;
-  Response(Response &resp) noexcept = delete;
-  Response(Response &&resp) noexcept;
-  auto operator=(Response &resp) noexcept -> Response & = delete;
-  auto operator=(Response &&resp) noexcept -> Response &;
-};
-
-enum class HttpMethod {
-  GET,
-  HEAD,
-  POST,
-  PUT,
-  PATCH,
-  DELETE,
-  CONNECT,
-  OPTIONS,
-};
 } // namespace iop
 #endif

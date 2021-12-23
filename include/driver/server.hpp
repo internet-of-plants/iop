@@ -1,7 +1,7 @@
-#ifndef IOP_DRIVER_SERVER
-#define IOP_DRIVER_SERVER
+#ifndef IOP_DRIVER_SERVER_HPP
+#define IOP_DRIVER_SERVER_HPP
 
-#include "core/log.hpp"
+#include "driver/log.hpp"
 #include <functional>
 #include <unordered_map>
 #include <memory>
@@ -84,12 +84,10 @@ public:
   CaptivePortal() noexcept: server(nullptr) {}
   ~CaptivePortal() noexcept;
 
-#ifndef IOP_DESKTOP
   CaptivePortal(CaptivePortal &other) noexcept = delete;
   CaptivePortal(CaptivePortal &&other) noexcept;
   auto operator=(CaptivePortal &other) noexcept -> CaptivePortal & = delete;
   auto operator=(CaptivePortal &&other) noexcept -> CaptivePortal &;
-#endif
 
   void start() noexcept;
   void close() noexcept;  

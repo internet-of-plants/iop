@@ -8,11 +8,11 @@
 
 #ifndef IOP_DESKTOP
 #ifdef IOP_SSL
-namespace BearSSL {
-class WiFiClientSecure;
-}
+namespace BearSSL { class WiFiClientSecure; }
+namespace driver { using NetworkClientPtr = BearSSL::WiFiClientSecure *; }
 #else
 class WiFiClient;
+namespace driver { using NetworkClientPtr = WiFiClient *; }
 #endif
 #endif
 
@@ -31,13 +31,7 @@ enum class StationStatus {
 };
 
 struct Wifi {
-  #ifndef IOP_DESKTOP
-  #ifdef IOP_SSL
-  BearSSL::WiFiClientSecure *client;
-  #else
-  WiFiClient *client;
-  #endif
-  #endif
+  driver::NetworkClientPtr client;
 
   // TODO: document this
   

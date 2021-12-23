@@ -1,8 +1,12 @@
-#include <string_view>
-#include <WString.h>
+#include "driver/string.hpp"
+#include "pgmspace.h"
 
 namespace iop {
-auto to_view(const String& str) -> std::string_view {
-  return str.c_str();
+auto StaticString::toString() const noexcept -> std::string {
+  const auto len = this->length();
+  std::string msg(len, '\0');
+  memcpy_P(&msg.front(), this->asCharPtr(), len);
+  return msg;
 }
+auto StaticString::length() const noexcept -> size_t { return strlen_P(this->asCharPtr()); }
 }

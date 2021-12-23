@@ -1,5 +1,5 @@
 #include "driver/internal_cert_store.hpp"
-#include "core/panic.hpp"
+#include "driver/panic.hpp"
 
 namespace driver {
 CertStore::CertStore(CertList list) noexcept: internal(new (std::nothrow) InternalCertStore(list)) {

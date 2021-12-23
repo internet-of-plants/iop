@@ -1,4 +1,4 @@
-#include "core/panic.hpp"
+#include "driver/panic.hpp"
 #include "driver/device.hpp"
 #include "configuration.hpp"
 #include "loop.hpp"

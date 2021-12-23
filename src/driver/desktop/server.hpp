@@ -1,13 +1,11 @@
 #include "driver/server.hpp"
-#include "loop.hpp"
+#include "driver/log.hpp"
 
 #include <memory>
 #include <functional>
 #include <unordered_map>
 #include <unordered_set>
-#include <string>
 #include <optional>
-#include "core/log.hpp"
 
 // TODO: Make it multiplatform
 // Berkeley sockets, so assumes POSIX compliant OS //
@@ -183,7 +181,7 @@ void HttpServer::handleClient() noexcept {
       }
       firstLine = false;
       
-      iop_assert(buff.find("\n") != buff.npos, iop::StaticString(FLASH("First: ")).toString() + std::to_string(buff.length()) + iop::StaticString(FLASH(" bytes don't contain newline, the path is too long\n")).toString());
+      iop_assert(buff.find("\n") != buff.npos, FLASH("First: ").toString() + std::to_string(buff.length()) + FLASH(" bytes don't contain newline, the path is too long\n").toString());
       logger().debug(FLASH("Found first line"));
       const char* ptr = buff.begin() + buff.find("\n") + 1;
       memmove(buffer.data(), ptr, strlen(ptr) + 1);

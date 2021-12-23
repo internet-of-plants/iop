@@ -1,8 +1,8 @@
-#ifndef IOP_DRIVER_CLIENT
-#define IOP_DRIVER_CLIENT
+#ifndef IOP_DRIVER_CLIENT_HPP
+#define IOP_DRIVER_CLIENT_HPP
 
 #include "driver/wifi.hpp"
-#include "core/string.hpp"
+#include "driver/string.hpp"
 #include <vector>
 #include <string>
 #include <unordered_map>

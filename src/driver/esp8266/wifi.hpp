@@ -1,16 +1,11 @@
 #include "driver/wifi.hpp"
 #include "driver/interrupt.hpp"
 #include "driver/internal_cert_store.hpp"
-#include "core/panic.hpp"
+#include "driver/panic.hpp"
 #include "ESP8266WiFi.h"
-#include <string>
 
 namespace driver { 
-#ifdef IOP_SSL
-Wifi::Wifi() noexcept: client(new (std::nothrow) BearSSL::WiFiClientSecure()) {}
-#else
-Wifi::Wifi() noexcept: client(new (std::nothrow) WiFiClient()) {}
-#endif
+Wifi::Wifi() noexcept: client(new (std::nothrow) std::remove_pointer<driver::NetworkClientPtr>::type()) {}
 
 Wifi::~Wifi() noexcept {
     delete this->client;
@@ -51,7 +46,7 @@ StationStatus Wifi::status() const noexcept {
         case 255: // No idea what this is, but it's returned sometimes;
             return StationStatus::IDLE;
     }
-    iop_panic(iop::StaticString(FLASH("Unreachable status: ")).toString() + std::to_string(static_cast<uint8_t>(s)));
+    iop_panic(FLASH("Unreachable status: ").toString() + std::to_string(static_cast<uint8_t>(s)));
 }
 
 void Wifi::setupAP() const noexcept {

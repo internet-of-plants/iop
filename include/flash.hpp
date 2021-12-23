@@ -1,7 +1,7 @@
 #ifndef IOP_FLASH_HPP
 #define IOP_FLASH_HPP
 
-#include "core/log.hpp"
+#include "driver/log.hpp"
 #include "utils.hpp"
 
 /// Wraps flash memory to provide a safe and ergonomic API
@@ -23,21 +23,8 @@ public:
   void setWifi(const WifiCredentials &config) const noexcept;
 };
 
-#include "utils.hpp"
 #ifndef IOP_FLASH
 #define IOP_FLASH_DISABLED
-#endif
-// If we aren't online we will endup writing/removing dummy values, so let's not
-// waste writes
-#ifndef IOP_ONLINE
-#ifndef IOP_DESKTOP
-#define IOP_FLASH_DISABLED
-#endif
-#endif
-#ifndef IOP_MONITOR
-#ifndef IOP_DESKTOP
-#define IOP_FLASH_DISABLED
-#endif
 #endif
 
 #endif

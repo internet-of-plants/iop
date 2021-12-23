@@ -1,6 +1,6 @@
 #include "driver/client.hpp"
 #include "driver/server.hpp"
-#include "core/panic.hpp"
+#include "driver/panic.hpp"
 #include "generated/certificates.hpp"
 #include "api.hpp"
 #include "utils.hpp"
@@ -40,7 +40,6 @@ auto Api::makeJson(const iop::StaticString contextName, const JsonCallback &json
 }
 
 #ifdef IOP_ONLINE
-#ifndef IOP_DESKTOP
 static void upgradeScheduler() noexcept {
   utils::scheduleInterrupt(InterruptEvent::MUST_UPGRADE);
 }
@@ -48,13 +47,11 @@ void wifiCredentialsCallback() noexcept {
   utils::scheduleInterrupt(InterruptEvent::ON_CONNECTION);
 }
 #endif
-#endif
 
 auto Api::setup() const noexcept -> void {
   IOP_TRACE();
 #ifdef IOP_ONLINE
 
-#ifndef IOP_DESKTOP
   iop::data.wifi.onStationModeGotIP(wifiCredentialsCallback);
   // Initialize the wifi configurations
 
@@ -62,7 +59,6 @@ auto Api::setup() const noexcept -> void {
     utils::scheduleInterrupt(InterruptEvent::ON_CONNECTION);
 
   iop::Network::setUpgradeHook(iop::UpgradeHook(upgradeScheduler));
-#endif
 
 #ifdef IOP_SSL
   static driver::CertStore certStore(generated::certList);
@@ -279,14 +275,14 @@ switch (result) {
   #ifndef IOP_DESKTOP
     // TODO(pc): properly handle ESPhttpUpdate.getLastError()
     this->logger.error(FLASH("Update failed: "),
-                       iop::to_view(ESPhttpUpdate->getLastErrorString()));
+                       std::string_view(ESPhttpUpdate->getLastErrorString().c_str()));
   #endif
     return iop::NetworkStatus::BROKEN_SERVER;
   }
   #ifndef IOP_DESKTOP
   // TODO(pc): properly handle ESPhttpUpdate.getLastError()
   this->logger.error(FLASH("Update failed (UNKNOWN): "),
-                     iop::to_view(ESPhttpUpdate->getLastErrorString()));
+                     std::string_view(ESPhttpUpdate->getLastErrorString().c_str()));
   #endif
   #endif
   return iop::NetworkStatus::BROKEN_SERVER;

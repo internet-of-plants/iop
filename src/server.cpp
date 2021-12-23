@@ -6,7 +6,7 @@
 #include "driver/thread.hpp"
 
 #include "configuration.hpp"
-#include "core/network.hpp"
+#include "driver/network.hpp"
 #include "api.hpp"
 #include "driver/device.hpp"
 #include "configuration.hpp"
@@ -201,7 +201,7 @@ void CredentialsServer::start() noexcept {
       const auto hash = iop::hashString(iop::to_view(driver::device.macAddress()));
       const auto ssid = std::string("iop-") + std::to_string(hash);
 
-      iop::data.wifi.connectAP(ssid, iop::StaticString(FLASH("le$memester#passwordz")).toString());
+      iop::data.wifi.connectAP(ssid, FLASH("le$memester#passwordz").toString());
     }
     
     const auto ip = iop::data.wifi.APIP();

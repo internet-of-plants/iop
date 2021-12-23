@@ -1,6 +1,6 @@
 #include "driver/client.hpp"
-#include "core/panic.hpp"
-#include "core/network.hpp"
+#include "driver/panic.hpp"
+#include "driver/network.hpp"
 #include "ESP8266HTTPClient.h"
 #include "WiFiClientSecure.h"
 #include <charconv>
@@ -114,7 +114,7 @@ std::optional<Session> HTTPClient::begin(std::string uri) noexcept {
   uint16_t port;
   auto result = std::from_chars(portStr.data(), portStr.data() + portStr.size(), port);
   if (result.ec != std::errc()) {
-    iop_panic(iop::StaticString(FLASH("Unable to confert port to uint16_t: ")).toString() + portStr.begin() + iop::StaticString(FLASH(" ")).toString() + std::error_condition(result.ec).message());
+    iop_panic(FLASH("Unable to confert port to uint16_t: ").toString() + portStr.begin() + FLASH(" ").toString() + std::error_condition(result.ec).message());
   }
 
   iop_assert(iop::data.wifi.client, F("Wifi has been moved out, client is nullptr"));

@@ -1,8 +1,7 @@
-#include "core/panic.hpp"
-#include "core/log.hpp"
+#include "driver/panic.hpp"
+#include "driver/log.hpp"
 #include "driver/device.hpp"
 #include "driver/thread.hpp"
-#include <string>
 
 static bool isPanicking = false;
 

@@ -1,5 +1,5 @@
 #include "driver/interrupt.hpp"
-#include "core/panic.hpp"
+#include "driver/panic.hpp"
 #include <pthread.h>
 
 static pthread_mutex_t interruptLock;

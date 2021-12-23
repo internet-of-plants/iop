@@ -1,6 +1,6 @@
 #include "server.hpp"
 
-#include "core/network.hpp"
+#include "driver/network.hpp"
 #include "api.hpp"
 
 #include <pthread.h>

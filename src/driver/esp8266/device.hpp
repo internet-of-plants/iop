@@ -1,6 +1,6 @@
 #include "driver/device.hpp"
-#include "core/network.hpp"
-#include "core/panic.hpp"
+#include "driver/network.hpp"
+#include "driver/panic.hpp"
 #include "ESP8266HTTPClient.h"
 #include <umm_malloc/umm_heap_select.h>
 
@@ -54,12 +54,12 @@ iop::MD5Hash & Device::binaryMD5() const noexcept {
   // We could reimplement the internal function to avoid using String, but the
   // type safety and static cache are enough to avoid this complexity
   const auto hashedRaw = ESP.getSketchMD5();
-  const auto hashed = iop::to_view(hashedRaw);
+  const auto hashed = std::string_view(hashedRaw.c_str());
   if (hashed.length() != 32) {
-    iop_panic(iop::StaticString(FLASH("MD5 hex size is not 32, this is critical: ")).toString() + std::string(hashed));
+    iop_panic(FLASH("MD5 hex size is not 32, this is critical: ").toString() + std::string(hashed));
   }
   if (!iop::isAllPrintable(hashed)) {
-    iop_panic(iop::StaticString(FLASH("Unprintable char in MD5 hex, this is critical: ")).toString() + std::string(hashed));
+    iop_panic(FLASH("Unprintable char in MD5 hex, this is critical: ").toString() + std::string(hashed));
   }
 
   memcpy(iop::data.md5.data(), hashed.begin(), 32);

@@ -1,6 +1,6 @@
 
 #include "driver/wifi.hpp"
-#include "core/log.hpp"
+#include "driver/log.hpp"
 
 namespace driver {
 StationStatus Wifi::status() const noexcept {
