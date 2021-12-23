@@ -134,7 +134,6 @@ static driver::CaptivePortal dnsServer;
 
 void CredentialsServer::setup() const noexcept {
   IOP_TRACE();
-  // Self reference, but it's to a static
   server.on(FLASH("/favicon.ico"), [](driver::HttpConnection &conn, iop::Log const &logger) { conn.send(404, FLASH("text/plain"), FLASH("")); (void) logger; });
   server.on(FLASH("/submit"), [](driver::HttpConnection &conn, iop::Log const &logger) {
     IOP_TRACE();
