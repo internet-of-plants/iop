@@ -3,10 +3,6 @@
 
 #include "core/string.hpp"
 
-#ifdef IOP_DESKTOP
-#define IRAM_ATTR
-#endif
-
 namespace iop {
 enum class LogLevel;
 }

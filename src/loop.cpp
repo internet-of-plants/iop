@@ -55,8 +55,7 @@ void EventLoop::loop() noexcept {
     if (isConnected && this->nextNTPSync < now) {
       constexpr const uint32_t sixHours = 6 * 60 * 60 * 1000;
       this->logger.info(FLASH("Syncing NTP"));
-      // UTC by default, should we change according to the user? We currently only use this to validate SSL cert dates
-      configTime(0, 0, "pool.ntp.org", "time.nist.gov");
+      driver::device.syncNTP();
       this->nextNTPSync = now + sixHours;
       this->logger.info(FLASH("Time synced"));
 

@@ -6,22 +6,20 @@
 #include <stdint.h>
 #include <array>
 
-class String;
-
-#ifndef IOP_DESKTOP
-class HeapSelectIram;
-class HeapSelectDram;
+#ifdef IOP_DESKTOP
+#define IRAM_ATTR
+#else
+#define __ICACHE_STRINGIZE_NX(A) #A
+#define __ICACHE_STRINGIZE(A) __ICACHE_STRINGIZE_NX(A)
+#define IRAM_ATTR __attribute__((section("\".iram.text." __FILE__ "." __ICACHE_STRINGIZE(__LINE__) "." __ICACHE_STRINGIZE(__COUNTER__) "\"")))
 #endif
 
+class String;
+
+class HeapSelectIram;
+class HeapSelectDram;
+
 namespace driver {
-#ifdef IOP_DESKTOP
-class HeapSelectIram {
-  uint8_t dummy = 0;
-};
-class HeapSelectDram {
-  uint8_t dummy = 0;
-};
-#else
 class HeapSelectIram {
   ::HeapSelectIram *ptr;
 public:
@@ -34,10 +32,10 @@ public:
   HeapSelectDram() noexcept;
   ~HeapSelectDram() noexcept;
 };
-#endif
 
 class Device {
 public:
+  void syncNTP() const noexcept;
   auto availableFlash() const noexcept -> size_t;
   auto availableStack() const noexcept -> size_t;
   auto availableHeap() const noexcept -> size_t;

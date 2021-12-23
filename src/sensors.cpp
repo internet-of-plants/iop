@@ -12,7 +12,6 @@
 #undef LOW
 #undef OUTPUT
 
-
 void Sensors::setup() noexcept {
   IOP_TRACE();
   gpio::gpio.mode(this->soilResistivityPower, gpio::Mode::OUTPUT);

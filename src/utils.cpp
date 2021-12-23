@@ -1,4 +1,5 @@
 #include "core/log.hpp"
+#include "driver/device.hpp"
 #include "utils.hpp"
 
 static volatile InterruptEvent interruptEvents[interruptVariants] = { InterruptEvent::NONE, InterruptEvent::NONE, InterruptEvent::NONE, InterruptEvent::NONE };

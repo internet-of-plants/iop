@@ -111,8 +111,6 @@ struct PanicData {
   iop::StaticString func;
 };
 
-#include "utils.hpp"
-
 #ifndef IOP_MONITOR
 #define IOP_API_DISABLED
 #endif

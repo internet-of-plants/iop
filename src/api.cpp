@@ -253,12 +253,7 @@ auto Api::upgrade(const AuthToken &token) const noexcept
   (void) token;
   #else
   const iop::StaticString path = FLASH("/v1/update");
-
-  #ifndef IOP_DESKTOP
   const auto uri = String(this->network.uri().get()) + path.get();
-  #else
-  const auto uri = std::string(this->network.uri().asCharPtr()) + path.asCharPtr();
-  #endif
 
   auto *client = iop::data.wifi.client;
   iop_assert(client, F("Wifi has been moved out, client is nullptr"));

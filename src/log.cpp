@@ -77,10 +77,9 @@ static void staticPrinter(const iop::StaticString str,
                           const iop::LogType kind) noexcept {
   iop::LogHook::defaultStaticPrinter(str, level, kind);
 
-  const auto charArray = str.asCharPtr();
   if (logNetwork && level >= iop::LogLevel::INFO) {
-    currentLog += charArray;
-    byteRate.addBytes(strlen_P(charArray));
+    currentLog += str.asCharPtr();
+    byteRate.addBytes(str.length());
     if (kind == iop::LogType::END || kind == iop::LogType::STARTEND) {
       iop::LogHook::defaultStaticPrinter(FLASH("Logging to network\n"), iop::LogLevel::INFO, iop::LogType::STARTEND);
       reportLog();

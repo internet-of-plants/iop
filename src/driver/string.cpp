@@ -1,17 +1,10 @@
-#include "driver/string.hpp"
+#ifndef IOP_DESKTOP
+#include "driver/esp8266/string.hpp"
+#endif
+
 #include "core/panic.hpp"
 
-#ifndef IOP_DESKTOP
-#include <WString.h>
-#endif
-
 namespace iop {
-#ifndef IOP_DESKTOP
-auto to_view(const String& str) -> std::string_view {
-  return str.c_str();
-}
-#endif
-
 auto to_view(const std::string& str) -> std::string_view {
   return str.c_str();
 }

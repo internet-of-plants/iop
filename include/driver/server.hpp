@@ -1,7 +1,6 @@
 #ifndef IOP_DRIVER_SERVER
 #define IOP_DRIVER_SERVER
 
-#include "core/string.hpp"
 #include "core/log.hpp"
 #include <functional>
 #include <unordered_map>

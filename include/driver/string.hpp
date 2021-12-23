@@ -12,12 +12,8 @@ class __FlashStringHelper;
 #ifdef IOP_DESKTOP
 #define PROGMEM
 #define PGM_P const char *
-#define strstr_P strstr
 #define strlen_P strlen
-#define memmove_P memmove
-#define strcmp_P strcmp
 #define memcpy_P memcpy
-#define memcmp_P memcmp
 #define FLASH(string_literal) reinterpret_cast<const __FlashStringHelper *>(string_literal)
 #else
 #include <pgmspace.h>

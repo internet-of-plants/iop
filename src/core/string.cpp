@@ -1,5 +1,3 @@
-#include "core/string.hpp"
-#include "core/log.hpp"
 #include "core/panic.hpp"
 #include <string>
 
