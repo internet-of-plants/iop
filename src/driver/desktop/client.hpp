@@ -114,7 +114,8 @@ auto Session::sendRequest(std::string method, const uint8_t *data, size_t len) n
     iop::Log::print(FLASH("\n"), iop::LogLevel::TRACE, iop::LogType::END);
   clientDriverLogger.debug(FLASH("Sent data"));
   
-  std::unique_ptr<std::array<char, 4096>> buffer = std::make_unique<std::array<char, 4096>>();
+  auto buffer = std::unique_ptr<std::array<char, 4096>>(new (std::nothrow) std::array<char, 4096>>());
+  iop_assert(buffer, FLASH("OOM"));
   
   ssize_t size = 0;
   auto firstLine = true;

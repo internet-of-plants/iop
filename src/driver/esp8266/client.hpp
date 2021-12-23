@@ -24,7 +24,7 @@ auto Session::operator=(Session&& other) noexcept {
   this->uri_ = std::move(other.uri_);
 }
 void HTTPClient::headersToCollect(const char * headers[], size_t count) noexcept {
-  iop_assert(this->http, F("HTTP client is nullptr"));
+  iop_assert(this->http, FLASH("HTTP client is nullptr"));
   this->http->collectHeaders(headers, count);
 }
 std::string Response::header(iop::StaticString key) const noexcept {
@@ -68,7 +68,9 @@ auto Session::sendRequest(std::string method, const uint8_t *data, size_t len) n
   return response;
 }
 
-HTTPClient::HTTPClient() noexcept: http(new (std::nothrow) ::HTTPClient()) {}
+HTTPClient::HTTPClient() noexcept: http(new (std::nothrow) ::HTTPClient()) {
+  iop_assert(http, FLASH("OOM"));
+}
 HTTPClient::~HTTPClient() noexcept {
   delete this->http;
 }
@@ -76,7 +78,7 @@ HTTPClient::~HTTPClient() noexcept {
 std::optional<Session> HTTPClient::begin(std::string uri) noexcept {
   IOP_TRACE(); 
   
-  iop_assert(iop::data.wifi.client, F("Wifi has been moved out, client is nullptr"));
+  iop_assert(iop::data.wifi.client, FLASH("Wifi has been moved out, client is nullptr"));
   //iop::data.wifi.client.setNoDelay(false);
   //iop::data.wifi.client.setSync(true);
 
@@ -117,12 +119,12 @@ std::optional<Session> HTTPClient::begin(std::string uri) noexcept {
     iop_panic(FLASH("Unable to confert port to uint16_t: ").toString() + portStr.begin() + FLASH(" ").toString() + std::error_condition(result.ec).message());
   }
 
-  iop_assert(iop::data.wifi.client, F("Wifi has been moved out, client is nullptr"));
+  iop_assert(iop::data.wifi.client, FLASH("Wifi has been moved out, client is nullptr"));
   if (!iop::data.wifi.client->connect(std::string(host).c_str(), port)) {
     return std::nullopt;
   }
   
-  iop_assert(this->http, F("HTTP client is nullptr"));
+  iop_assert(this->http, FLASH("HTTP client is nullptr"));
   //this->http.setReuse(false);
   if (this->http->begin(*iop::data.wifi.client, String(uri.c_str()))) {
     return Session(*this, uri);

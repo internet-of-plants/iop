@@ -24,11 +24,12 @@ auto InternalCertStore::findHashedTA(void *ctx, void *hashed_dn, size_t len) -> 
 
     if (memcmp_P(hashed_dn, cert.index, hashSize) == 0) {
       const auto size = cert.size;
-      auto der = std::make_unique<uint8_t[]>(size);
+      auto der = std::unique_ptr<uint8_t[]>(new (std::nothrow) uint8_t[size]);
       iop_assert(der, FLASH("Cert allocation failed"));
 
       memcpy_P(der.get(), cert.cert, size);
       cs->x509 = new (std::nothrow) BearSSL::X509List(der.get(), size);
+      iop_assert(cs->x509, FLASH("OOM"));
       der.reset();
 
       // We can const cast because it's heap allocated

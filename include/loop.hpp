@@ -80,7 +80,7 @@ class Unused4KbSysStack {
   //static_assert(sizeof(StackStruct) <= 4096);
 
 public:
-  Unused4KbSysStack() noexcept: data(new StackStruct) {
+  Unused4KbSysStack() noexcept: data(new (std::nothrow) StackStruct()) {
     iop_assert(data, FLASH("Unable to allocate buffer"));
     memset((void*)data, 0, sizeof(StackStruct));
   }

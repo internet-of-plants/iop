@@ -196,8 +196,7 @@ Tracer::Tracer(CodePoint point) noexcept : point(std::move(point)) {
     return;
 
   Log::flush();
-  Log::print(FLASH("[TRACE] TRACER: Entering new scope, at line "), LogLevel::TRACE,
-             LogType::START);
+  Log::print(FLASH("[TRACE] TRACER: Entering new scope, at line "), LogLevel::TRACE, LogType::START);
   Log::print(std::to_string(this->point.line()), LogLevel::TRACE, LogType::CONTINUITY);
   Log::print(FLASH(", in function "), LogLevel::TRACE, LogType::CONTINUITY);
   Log::print(this->point.func(), LogLevel::TRACE, LogType::CONTINUITY);

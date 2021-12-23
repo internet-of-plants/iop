@@ -5,7 +5,9 @@
 #include "ESP8266WiFi.h"
 
 namespace driver { 
-Wifi::Wifi() noexcept: client(new (std::nothrow) std::remove_pointer<driver::NetworkClientPtr>::type()) {}
+Wifi::Wifi() noexcept: client(new (std::nothrow) std::remove_pointer<driver::NetworkClientPtr>::type()) {
+    iop_assert(client, FLASH("OOM"));
+}
 
 Wifi::~Wifi() noexcept {
     delete this->client;
@@ -117,7 +119,7 @@ void Wifi::wake() const noexcept {
 }
 
 void Wifi::setup(driver::CertStore *certStore) noexcept {
-  iop_assert(this->client, F("Wifi has been moved out, client is nullptr"));
+  iop_assert(this->client, FLASH("Wifi has been moved out, client is nullptr"));
 
   #ifdef IOP_SSL
   iop_assert(certStore && certStore->internal, FLASH("CertStore is not set, but SSL is enabled"));

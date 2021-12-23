@@ -5,7 +5,9 @@
 #include <umm_malloc/umm_heap_select.h>
 
 namespace driver {
-HeapSelectIram::HeapSelectIram() noexcept: ptr(new (std::nothrow) ::HeapSelectIram()) {}
+HeapSelectIram::HeapSelectIram() noexcept: ptr(new (std::nothrow) ::HeapSelectIram()) {
+  iop_assert(ptr, FLASH("Unable to allocate HeapSelectIram"));
+}
 HeapSelectIram::~HeapSelectIram() noexcept { delete this->ptr; }
 HeapSelectDram::HeapSelectDram() noexcept: ptr(new (std::nothrow) ::HeapSelectDram()) {
   iop_assert(ptr, FLASH("Unable to allocate HeapSelectDram"));

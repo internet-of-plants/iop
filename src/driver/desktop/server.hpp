@@ -97,6 +97,7 @@ void HttpServer::begin() noexcept {
   logger().info(FLASH("Listening to port "), std::to_string(this->port));
 
   this->address = new (std::nothrow) sockaddr_in(addr);
+  iop_assert(this->address, FLASH("OOM"));
 }
 void HttpServer::handleClient() noexcept {
   IOP_TRACE();

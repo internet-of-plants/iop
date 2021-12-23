@@ -22,7 +22,8 @@
 auto Api::makeJson(const iop::StaticString contextName, const JsonCallback &jsonObjectBuilder) const noexcept -> std::optional<std::reference_wrapper<std::array<char, 768>>> {
   IOP_TRACE();
   
-  auto doc = std::make_unique<StaticJsonDocument<768>>(); // TODO: handle OOM here
+  auto doc = std::unique_ptr<StaticJsonDocument<768>>(new (std::nothrow) StaticJsonDocument<768>());
+  iop_assert(doc, FLASH("OOM")); // TODO: properly handle OOM
   doc->clear();
   jsonObjectBuilder(*doc);
 
@@ -252,9 +253,9 @@ auto Api::upgrade(const AuthToken &token) const noexcept
   const auto uri = String(this->network.uri().get()) + path.get();
 
   auto *client = iop::data.wifi.client;
-  iop_assert(client, F("Wifi has been moved out, client is nullptr"));
+  iop_assert(client, FLASH("Wifi has been moved out, client is nullptr"));
 
-  auto ESPhttpUpdate = std::make_unique<ESP8266HTTPUpdate>();
+  auto ESPhttpUpdate = std::unique_ptr<ESP8266HTTPUpdate>(new (std::nothrow) ESP8266HTTPUpdate());
   iop_assert(ESPhttpUpdate, FLASH("Unable to allocate ESP8266HTTPUpdate"));
   ESPhttpUpdate->setAuthorization(std::string(iop::to_view(token)).c_str());
   ESPhttpUpdate->closeConnectionsOnUpdate(true);
