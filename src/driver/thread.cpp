@@ -3,7 +3,3 @@
 #else
 #include "driver/esp8266/thread.hpp"
 #endif
-
-namespace driver {
-    Thread thisThread;
-}

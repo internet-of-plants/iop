@@ -4,10 +4,6 @@
 #include "driver/esp8266/client.hpp"
 #endif
 
-namespace iop {
-  Data data;
-}
-
 namespace driver {
 auto rawStatus(const int code) noexcept -> RawStatus {
   IOP_TRACE();
@@ -73,4 +69,8 @@ auto rawStatusToString(const RawStatus status) noexcept -> iop::StaticString {
   }
   return FLASH("UNKNOWN-not-documented");
 }
+}
+
+namespace iop {
+  Data data;
 }

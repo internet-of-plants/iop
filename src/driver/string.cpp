@@ -1,4 +1,6 @@
-#ifndef IOP_DESKTOP
+#ifdef IOP_DESKTOP
+#include "driver/desktop/string.hpp"
+#else
 #include "driver/esp8266/string.hpp"
 #endif
 

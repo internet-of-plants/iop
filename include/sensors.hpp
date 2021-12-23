@@ -26,10 +26,10 @@ public:
           const uint8_t dhtVersion) noexcept;
   ~Sensors() noexcept;
 
-  Sensors(Sensors const &other) = delete;
+  Sensors(Sensors const &other) noexcept = delete;
   Sensors(Sensors &&other) noexcept;
-  auto operator=(Sensors const &other) -> Sensors & = delete;
-  auto operator=(Sensors &&other) -> Sensors &;
+  auto operator=(Sensors const &other) noexcept -> Sensors & = delete;
+  auto operator=(Sensors &&other) noexcept -> Sensors &;
 };
 
 #endif

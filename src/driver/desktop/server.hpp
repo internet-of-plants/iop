@@ -1,6 +1,8 @@
 #include "driver/server.hpp"
 #include "driver/log.hpp"
 
+#include "driver/panic.hpp"
+
 #include <memory>
 #include <functional>
 #include <unordered_map>
@@ -110,7 +112,7 @@ void HttpServer::handleClient() noexcept {
   iop_assert(this->maybeFD, FLASH("FD not found"));
   int32_t fd = *this->maybeFD;
 
-  sockaddr_in ip_addr = *this->address;
+  sockaddr_in addr = *this->address;
   socklen_t addr_len = sizeof(addr);
 
   HttpConnection conn;
@@ -296,7 +298,6 @@ static auto percentDecode(const std::string_view input) noexcept -> std::optiona
   return out;
 }
 
-HttpConnection::~HttpConnection() noexcept {}
 void HttpConnection::reset() noexcept {
   this->currentHeaders = "";
   this->currentPayload = "";
@@ -383,8 +384,9 @@ void HttpConnection::sendData(iop::StaticString content) const noexcept {
   if (iop::Log::isTracing())
     iop::Log::print(FLASH(""), iop::LogLevel::TRACE, iop::LogType::END);
 }
+CaptivePortal::CaptivePortal() noexcept {}
 CaptivePortal::~CaptivePortal() noexcept {}
-void CaptivePortal::start() const noexcept {}
-void CaptivePortal::close() const noexcept {}
+void CaptivePortal::start() noexcept {}
+void CaptivePortal::close() noexcept {}
 void CaptivePortal::handleClient() const noexcept {}
 }

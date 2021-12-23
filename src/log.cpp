@@ -6,9 +6,7 @@
 
 #include "driver/thread.hpp"
 
-static void staticPrinter(const iop::StaticString str,
-                          iop::LogLevel level, 
-                          iop::LogType kind) noexcept;
+static void staticPrinter(const iop::StaticString str, iop::LogLevel level, iop::LogType kind) noexcept;
 static void viewPrinter(const std::string_view, iop::LogLevel level, iop::LogType kind) noexcept;
 static void setuper(iop::LogLevel level) noexcept;
 static void flusher() noexcept;
@@ -67,6 +65,8 @@ void reportLog() noexcept {
   const auto token = eventLoop.flash().token();
   if (token) {
     eventLoop.api().registerLog(*token, currentLog);
+  } else {
+    iop::Log(iop::LogLevel::WARN, FLASH("NETWORK LOGGING")).warn(FLASH("Unable to log to the monitor server, not authenticated"));
   }
   logNetwork = true;
   currentLog.clear();

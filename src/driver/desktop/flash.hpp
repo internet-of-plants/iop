@@ -11,7 +11,6 @@ namespace driver {
 // Use fopen, properly report errors, keep the file open, memmap (?)...
 
 void Flash::setup(size_t size) noexcept {
-    IOP_TRACE();
     if (size == 0) return;
     this->buffer = new (std::nothrow) uint8_t[size];
     iop_assert(this->buffer, FLASH("Allocation failed"));
@@ -31,19 +30,16 @@ void Flash::setup(size_t size) noexcept {
     }
 }
 std::optional<uint8_t> Flash::read(const size_t address) const noexcept {
-    IOP_TRACE();
     if (address >= this->size) return std::optional<uint8_t>();
     return this->buffer[address];
 }
 void Flash::write(const size_t address, uint8_t const val) noexcept {
-    IOP_TRACE();
     iop_assert(this->buffer, FLASH("Unable to allocate buffer"));
     if (address >= this->size) return;
     this->shouldCommit = true;
     this->buffer[address] = val;
 }
 void Flash::commit() noexcept {
-    IOP_TRACE();
     iop_assert(this->buffer, FLASH("Unable to allocate storage"));
     //iop::Log(logLevel, FLASH("EEPROM")).debug(FLASH("Commit: "), utils::base64Encode(this->storage.get(), this->size));
     const auto fd = ::open("eeprom.dat", O_WRONLY | O_CREAT, 0777);
@@ -55,12 +51,10 @@ void Flash::commit() noexcept {
     iop_assert(::close(fd) != -1, FLASH("Close failed"));
 }
 uint8_t const * Flash::asRef() const noexcept {
-    IOP_TRACE();
     iop_assert(this->buffer, FLASH("Allocation failed"));
     return this->buffer;
 }
 uint8_t * Flash::asMut() noexcept {
-    IOP_TRACE();
     iop_assert(this->buffer, FLASH("Allocation failed"));
     return this->buffer;
 }

@@ -3,6 +3,8 @@
 #include "driver/log.hpp"
 
 namespace driver {
+Wifi::Wifi() noexcept {}
+Wifi::~Wifi() noexcept {}
 StationStatus Wifi::status() const noexcept {
     return StationStatus::GOT_IP;
 }

@@ -53,7 +53,7 @@ static auto iopPassword() -> std::optional<iop::StaticString> {
 [[maybe_unused]]
 static auto uri() -> iop::StaticString {
     #ifdef IOP_DESKTOP
-    return FLASH("http://127.0.0.1:4001"));
+    return FLASH("http://127.0.0.1:4001");
     #else
     return FLASH("https://iop-monitor-server.tk:4001");
     #endif

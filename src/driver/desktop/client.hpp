@@ -19,9 +19,15 @@
 #include <stdlib.h>
 #include <memory>
 
+#include <iostream>
+
 static iop::Log clientDriverLogger(iop::LogLevel::DEBUG, FLASH("HTTP Client"));
 
 namespace driver {
+HTTPClient::HTTPClient() noexcept: headersToCollect_() {}
+HTTPClient::~HTTPClient() noexcept {}
+
+
 static ssize_t send(uint32_t fd, const char * msg, const size_t len) noexcept {
   if (iop::Log::isTracing())
     iop::Log::print(msg, iop::LogLevel::TRACE, iop::LogType::STARTEND);
@@ -51,10 +57,10 @@ auto Session::operator=(Session&& other) noexcept {
 void HTTPClient::headersToCollect(const char * headers[], size_t count) noexcept {
   std::vector<std::string> vec;
   vec.reserve(count);
-  for (size_t index = 0; index <= count; ++index) {
+  for (size_t index = 0; index < count; ++index) {
     vec.push_back(headers[index]);
   }
-  this->headersToCollect_ = headers;
+  this->headersToCollect_ = std::move(vec);
 }
 std::string Response::header(iop::StaticString key) const noexcept {
   const auto keyString = key.toString();
@@ -114,7 +120,7 @@ auto Session::sendRequest(std::string method, const uint8_t *data, size_t len) n
     iop::Log::print(FLASH("\n"), iop::LogLevel::TRACE, iop::LogType::END);
   clientDriverLogger.debug(FLASH("Sent data"));
   
-  auto buffer = std::unique_ptr<std::array<char, 4096>>(new (std::nothrow) std::array<char, 4096>>());
+  auto buffer = std::unique_ptr<char[]>(new (std::nothrow) char[4096]);
   iop_assert(buffer, FLASH("OOM"));
   
   ssize_t size = 0;
@@ -122,17 +128,17 @@ auto Session::sendRequest(std::string method, const uint8_t *data, size_t len) n
   auto isPayload = false;
   
   auto status = std::make_optional(1000);
-  std::string_view buff(buffer->begin());
+  std::string_view buff(buffer.get());
   while (true) {
     clientDriverLogger.debug(FLASH("Try read: "), buff);
 
-    if (buff.length() < buffer->max_size() &&
-        (size = read(fd, buffer->data() + buff.length(), buffer->max_size() - buff.length())) < 0) {
+    if (buff.length() < 4096 &&
+        (size = read(fd, buffer.get() + buff.length(), 4096 - buff.length())) < 0) {
       clientDriverLogger.error(FLASH("Error reading from socket ("), std::to_string(size), FLASH("): "), std::to_string(errno), FLASH(" - "), strerror(errno)); 
       close(fd);
       return static_cast<int>(RawStatus::CONNECTION_FAILED);
     }
-    buff = buffer->begin();
+    buff = buffer.get();
     clientDriverLogger.debug(FLASH("Len: "), std::to_string(size));
     if (firstLine && size == 0) {
       close(fd);
@@ -155,20 +161,20 @@ auto Session::sendRequest(std::string method, const uint8_t *data, size_t len) n
     if (firstLine && size > 0) {
       clientDriverLogger.debug(FLASH("Found first line: "));
 
-      const std::string_view statusStr(buffer->begin() + 9); // len("HTTP/1.1 ") = 9
+      const std::string_view statusStr(buffer.get() + 9); // len("HTTP/1.1 ") = 9
       const auto codeEnd = statusStr.find(" ");
       if (codeEnd == statusStr.npos) {
         clientDriverLogger.error(FLASH("Bad server: "), statusStr, FLASH(" -- "), buff);
         return static_cast<int>(RawStatus::READ_FAILED);
       }
-      //iop_assert(buff.contains(FLASH("\n")), FLASH("First: ").toString() + std::to_string(buffer.length()) + FLASH(" bytes don't contain newline, the path is too long\n").toString());
+      //iop_assert(buff.contains(FLASH("\n")), FLASH("First: ").toString() + std::to_string(strnlen(buffer.get(), 4096)) + FLASH(" bytes don't contain newline, the path is too long\n").toString());
       status = atoi(std::string(statusStr.begin(), 0, codeEnd).c_str());
       clientDriverLogger.debug(FLASH("Status: "), std::to_string(status.value_or(500)));
       firstLine = false;
 
       const char* ptr = buff.begin() + buff.find("\n") + 1;
-      memmove(buffer->data(), ptr, strlen(ptr) + 1);
-      buff = buffer->begin();
+      memmove(buffer.get(), ptr, strlen(ptr) + 1);
+      buff = buffer.get();
     }
     if (!status) {
       clientDriverLogger.error(FLASH("No status"));
@@ -187,8 +193,8 @@ auto Session::sendRequest(std::string method, const uint8_t *data, size_t len) n
         isPayload = true;
 
         const char* ptr = buff.begin() + buff.find("\r\n") + 2;
-        memmove(buffer->data(), ptr, strlen(ptr) + 1);
-        buff = buffer->begin();
+        memmove(buffer.get(), ptr, strlen(ptr) + 1);
+        buff = buffer.get();
         continue;
       } else if (buff.find("\r\n") == buff.npos) {
         iop_panic(FLASH("Bad software bruh"));
@@ -196,12 +202,12 @@ auto Session::sendRequest(std::string method, const uint8_t *data, size_t len) n
         clientDriverLogger.debug(FLASH("Found headers (buffer length: "), std::to_string(buff.length()), FLASH(")"));
         for (const auto &key: this->http_->headersToCollect_) {
           if (buff.length() < key.length()) continue;
-          std::string headerKey(buffer->begin(), 0, key.length());
+          std::string headerKey(buffer.get(), 0, key.length());
           // Headers can't be UTF8 so we cool
           std::transform(headerKey.begin(), headerKey.end(), headerKey.begin(),
             [](unsigned char c){ return std::tolower(c); });
           clientDriverLogger.debug(headerKey, FLASH(" == "), key);
-          if (headerKey != key.asCharPtr())
+          if (headerKey != key.c_str())
             continue;
 
           auto valueView = buff.substr(key.length() + 1); // ":"
@@ -210,12 +216,12 @@ auto Session::sendRequest(std::string method, const uint8_t *data, size_t len) n
           iop_assert(valueView.find("\r\n") != valueView.npos, FLASH("Must contain endline"));
           std::string value(valueView, 0, valueView.find("\r\n"));
           clientDriverLogger.debug(FLASH("Found header "), key, FLASH(" = "), value, FLASH("\n"));
-          responseHeaders.emplace(std::string(key.asCharPtr()), value);
+          responseHeaders.emplace(std::string(key.c_str()), value);
 
           iop_assert(buff.find("\r\n") > 0, FLASH("Must contain endline"));
           const char* ptr = buff.begin() + buff.find("\r\n") + 2;
-          memmove(buffer->data(), ptr, strlen(ptr) + 1);
-          buff = buffer->begin();
+          memmove(buffer.get(), ptr, strlen(ptr) + 1);
+          buff = buffer.get();
           if (buff.find("\n") == buff.npos) iop_panic(FLASH("Fuuuc")); //continue;
         }
         if (buff.find("\n") == buff.npos) {
@@ -225,8 +231,8 @@ auto Session::sendRequest(std::string method, const uint8_t *data, size_t len) n
         clientDriverLogger.debug(FLASH("Buffer: "), buff.substr(0, buff.find("\n") - 1));
         clientDriverLogger.debug(FLASH("Skipping header ("), buff.substr(0, buff.find("\n") - 1), FLASH(")"));
         const char* ptr = buff.begin() + buff.find("\r\n") + 2;
-        memmove(buffer->data(), ptr, strlen(ptr) + 1);
-        buff = buffer->begin();
+        memmove(buffer.get(), ptr, strlen(ptr) + 1);
+        buff = buffer.get();
         if (buff.find("\n") == buff.npos) iop_panic(FLASH("Fuuk")); //continue;
       } else {
         iop_panic(FLASH("Press F to pay respect"));
@@ -242,7 +248,7 @@ auto Session::sendRequest(std::string method, const uint8_t *data, size_t len) n
     // Because it will continue, altough there isn't anything, but it's blocking on EOF
     // But this behavior is not documented. To replicate remove:
     // ` && len == buffer.size` and it will get stuck in the `read` above
-    if (len > 0 && buff.length() > 0 && len == buffer->max_size())
+    if (len > 0 && buff.length() > 0 && len == 4096)
       continue;
     break;
   }

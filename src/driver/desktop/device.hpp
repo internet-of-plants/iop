@@ -3,6 +3,11 @@
 #include <thread>
 
 namespace driver {
+HeapSelectIram::HeapSelectIram() noexcept {}
+HeapSelectIram::~HeapSelectIram() noexcept {}
+HeapSelectDram::HeapSelectDram() noexcept {}
+HeapSelectDram::~HeapSelectDram() noexcept {}
+void Device::syncNTP() const noexcept {}
 auto Device::platform() const noexcept -> ::iop::StaticString {
   return FLASH("DESKTOP");
 }

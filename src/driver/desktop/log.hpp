@@ -6,6 +6,7 @@ static pthread_mutex_t lock;
 
 namespace driver {
 void logSetup(const iop::LogLevel &level) noexcept {
+    (void) level;
     iop_assert(pthread_mutex_init(&lock, NULL) == 0, FLASH("Mutex init failed"));
 }
 void logPrint(const std::string_view msg) noexcept {

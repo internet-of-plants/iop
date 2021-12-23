@@ -95,7 +95,7 @@ auto CaptivePortal::operator=(CaptivePortal &&other) noexcept -> CaptivePortal &
   other.server = nullptr;
   return *this;
 }
-
+CaptivePortal::CaptivePortal() noexcept: server(nullptr) {}
 CaptivePortal::~CaptivePortal() noexcept {
   delete this->server;
 }

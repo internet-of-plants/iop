@@ -31,7 +31,9 @@ enum class StationStatus {
 };
 
 struct Wifi {
+#ifndef IOP_DESKTOP
   driver::NetworkClientPtr client;
+#endif
 
   // TODO: document this
   

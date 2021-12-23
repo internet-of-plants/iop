@@ -113,7 +113,9 @@ Sensors::Sensors(Sensors &&other) noexcept
   other.airTempAndHumiditySensor = nullptr;
 }
 #else
-{}
+{
+  (void) other;
+}
 #endif
 
 auto Sensors::operator=(Sensors &&other) noexcept -> Sensors & {
@@ -126,6 +128,8 @@ auto Sensors::operator=(Sensors &&other) noexcept -> Sensors & {
   other.soilTemperatureOneWireBus = nullptr;
   other.soilTemperatureSensor = nullptr;
   other.airTempAndHumiditySensor = nullptr;
+#else
+  (void) other;
 #endif
   return *this;
 }

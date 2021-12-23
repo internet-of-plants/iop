@@ -7,7 +7,7 @@
 #include <memory>
 
 #ifdef IOP_DESKTOP
-class sockaddr_in
+class sockaddr_in;
 #else
 class DNSServer;
 #endif
@@ -28,8 +28,8 @@ public:
 private:
   void *server; // ESP8266WebServer
 public:
-  HttpConnection(void *parent) noexcept;
   ~HttpConnection() noexcept;
+  HttpConnection(void *parent) noexcept;
   
   HttpConnection(HttpConnection &other) noexcept = delete;
   HttpConnection(HttpConnection &&other) noexcept;
@@ -78,10 +78,12 @@ public:
 };
 
 class CaptivePortal {
+#ifndef IOP_DESKTOP
   DNSServer *server;
+#endif
   
 public:
-  CaptivePortal() noexcept: server(nullptr) {}
+  CaptivePortal() noexcept;
   ~CaptivePortal() noexcept;
 
   CaptivePortal(CaptivePortal &other) noexcept = delete;
