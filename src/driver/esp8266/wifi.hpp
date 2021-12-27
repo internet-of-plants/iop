@@ -92,7 +92,7 @@ std::string Wifi::localIP() const noexcept {
 
 void Wifi::stationDisconnect() const noexcept {
     IOP_TRACE()
-    const iop::InterruptLock _guard;
+    const driver::InterruptLock _guard;
     wifi_station_disconnect();
 }
 

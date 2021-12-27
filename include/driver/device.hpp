@@ -5,10 +5,8 @@
 #include <stdint.h>
 #include <array>
 
-#ifdef IOP_ESP8266
-#define __ICACHE_STRINGIZE_NX(A) #A
-#define __ICACHE_STRINGIZE(A) __ICACHE_STRINGIZE_NX(A)
-#define IRAM_ATTR __attribute__((section("\".iram.text." __FILE__ "." __ICACHE_STRINGIZE(__LINE__) "." __ICACHE_STRINGIZE(__COUNTER__) "\"")))
+#if defined(IOP_ESP8266) || (defined(ARDUINO) && defined(IOP_NOOP))
+#include <c_types.h>
 #else
 #define IRAM_ATTR
 #endif

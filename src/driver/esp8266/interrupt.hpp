@@ -2,7 +2,7 @@
 #include "driver/log.hpp"
 #include "ets_sys.h"
 
-namespace iop {
+namespace driver {
 InterruptLock::InterruptLock() noexcept {
   IOP_TRACE();
   ETS_UART_INTR_DISABLE(); // NOLINT hicpp-signed-bitwise

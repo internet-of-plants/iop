@@ -1,7 +1,7 @@
 #ifndef IOP_DRIVER_INTERRUPT_HPP
 #define IOP_DRIVER_INTERRUPT_HPP
 
-namespace iop {
+namespace driver {
 struct InterruptLock {
   InterruptLock() noexcept;
   ~InterruptLock() noexcept;

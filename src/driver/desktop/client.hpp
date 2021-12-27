@@ -24,9 +24,25 @@
 static iop::Log clientDriverLogger(iop::LogLevel::DEBUG, FLASH("HTTP Client"));
 
 namespace driver {
+auto rawStatus(const int code) noexcept -> RawStatus {
+  IOP_TRACE();
+  switch (code) {
+  case 200:
+    return RawStatus::OK;
+  case 500:
+    return RawStatus::SERVER_ERROR;
+  case 403:
+    return RawStatus::FORBIDDEN;
+
+  // We generally don't use default to be able to use static-analyzers to check
+  // for exaustiveness, but this is a switch on a int, so...
+  default:
+    return RawStatus::UNKNOWN;
+  }
+}
+
 HTTPClient::HTTPClient() noexcept: headersToCollect_() {}
 HTTPClient::~HTTPClient() noexcept {}
-
 
 static ssize_t send(uint32_t fd, const char * msg, const size_t len) noexcept {
   if (iop::Log::isTracing())

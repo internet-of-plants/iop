@@ -1,6 +1,6 @@
 #include "driver/interrupt.hpp"
 
-namespace iop {
+namespace driver {
 InterruptLock::InterruptLock() noexcept {}
 InterruptLock::~InterruptLock() noexcept {}
 }

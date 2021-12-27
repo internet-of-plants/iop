@@ -7,6 +7,43 @@
 #include <system_error>
 
 namespace driver {
+
+auto rawStatus(const int code) noexcept -> RawStatus {
+  IOP_TRACE();
+  switch (code) {
+  case 200:
+    return RawStatus::OK;
+  case 500:
+    return RawStatus::SERVER_ERROR;
+  case 403:
+    return RawStatus::FORBIDDEN;
+  case HTTPC_ERROR_CONNECTION_FAILED:
+    return RawStatus::CONNECTION_FAILED;
+  case HTTPC_ERROR_SEND_HEADER_FAILED:
+  case HTTPC_ERROR_SEND_PAYLOAD_FAILED:
+    return RawStatus::SEND_FAILED;
+  case HTTPC_ERROR_NOT_CONNECTED:
+  case HTTPC_ERROR_CONNECTION_LOST:
+    return RawStatus::CONNECTION_LOST;
+  case HTTPC_ERROR_NO_STREAM:
+    return RawStatus::READ_FAILED;
+  case HTTPC_ERROR_NO_HTTP_SERVER:
+    return RawStatus::NO_SERVER;
+  case HTTPC_ERROR_ENCODING:
+    // Unsupported Transfer-Encoding header, if set it must be "chunked"
+    return RawStatus::ENCODING_NOT_SUPPORTED;
+  case HTTPC_ERROR_STREAM_WRITE:
+    return RawStatus::READ_FAILED;
+  case HTTPC_ERROR_READ_TIMEOUT:
+    return RawStatus::READ_TIMEOUT;
+
+  // We generally don't use default to be able to use static-analyzers to check
+  // for exaustiveness, but this is a switch on a int, so...
+  default:
+    return RawStatus::UNKNOWN;
+  }
+}
+
 Session::Session(HTTPClient &http, std::string uri) noexcept: http_(&http), uri_(std::move(uri)) { IOP_TRACE(); }
 Session::~Session() noexcept {
   IOP_TRACE();
@@ -79,7 +116,7 @@ HTTPClient::~HTTPClient() noexcept {
 std::optional<Session> HTTPClient::begin(std::string uri) noexcept {
   IOP_TRACE(); 
   
-  iop_assert(iop::data.wifi.client, FLASH("Wifi has been moved out, client is nullptr"));
+  //iop_assert(iop::data.wifi.client, FLASH("Wifi has been moved out, client is nullptr"));
   //iop::data.wifi.client.setNoDelay(false);
   //iop::data.wifi.client.setSync(true);
 
@@ -121,10 +158,6 @@ std::optional<Session> HTTPClient::begin(std::string uri) noexcept {
   }
 
   iop_assert(iop::data.wifi.client, FLASH("Wifi has been moved out, client is nullptr"));
-  if (!iop::data.wifi.client->connect(std::string(host).c_str(), port)) {
-    return std::nullopt;
-  }
-  
   iop_assert(this->http, FLASH("HTTP client is nullptr"));
   //this->http.setReuse(false);
   if (this->http->begin(*iop::data.wifi.client, String(uri.c_str()))) {

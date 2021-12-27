@@ -4,7 +4,7 @@
 
 static std::mutex interruptMutex;
 
-namespace iop {
+namespace driver {
 InterruptLock::InterruptLock() noexcept {
   interruptMutex.lock();
 }

@@ -12,42 +12,6 @@
 #include "driver/network.hpp"
 
 namespace driver {
-auto rawStatus(const int code) noexcept -> RawStatus {
-  IOP_TRACE();
-  switch (code) {
-  case 200:
-    return RawStatus::OK;
-  case 500:
-    return RawStatus::SERVER_ERROR;
-  case 403:
-    return RawStatus::FORBIDDEN;
-  case HTTPC_ERROR_CONNECTION_FAILED:
-    return RawStatus::CONNECTION_FAILED;
-  case HTTPC_ERROR_SEND_HEADER_FAILED:
-  case HTTPC_ERROR_SEND_PAYLOAD_FAILED:
-    return RawStatus::SEND_FAILED;
-  case HTTPC_ERROR_NOT_CONNECTED:
-  case HTTPC_ERROR_CONNECTION_LOST:
-    return RawStatus::CONNECTION_LOST;
-  case HTTPC_ERROR_NO_STREAM:
-    return RawStatus::READ_FAILED;
-  case HTTPC_ERROR_NO_HTTP_SERVER:
-    return RawStatus::NO_SERVER;
-  case HTTPC_ERROR_ENCODING:
-    // Unsupported Transfer-Encoding header, if set it must be "chunked"
-    return RawStatus::ENCODING_NOT_SUPPORTED;
-  case HTTPC_ERROR_STREAM_WRITE:
-    return RawStatus::READ_FAILED;
-  case HTTPC_ERROR_READ_TIMEOUT:
-    return RawStatus::READ_TIMEOUT;
-
-  // We generally don't use default to be able to use static-analyzers to check
-  // for exaustiveness, but this is a switch on a int, so...
-  default:
-    return RawStatus::UNKNOWN;
-  }
-}
-
 auto rawStatusToString(const RawStatus status) noexcept -> iop::StaticString {
   IOP_TRACE();
   switch (status) {
