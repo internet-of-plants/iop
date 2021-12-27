@@ -5,11 +5,10 @@ namespace iop {
 struct InterruptLock {
   InterruptLock() noexcept;
   ~InterruptLock() noexcept;
-  InterruptLock(InterruptLock const &other) noexcept = default;
-  InterruptLock(InterruptLock &&other) noexcept = default;
-  auto operator=(InterruptLock const &other) noexcept
-      -> InterruptLock & = default;
-  auto operator=(InterruptLock &&other) noexcept -> InterruptLock & = default;
+  InterruptLock(InterruptLock const &other) noexcept = delete;
+  InterruptLock(InterruptLock &&other) noexcept = delete;
+  auto operator=(InterruptLock const &other) noexcept -> InterruptLock & = delete;
+  auto operator=(InterruptLock &&other) noexcept -> InterruptLock & = delete;
 };
 }
 

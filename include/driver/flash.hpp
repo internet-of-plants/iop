@@ -3,7 +3,6 @@
 
 #include "driver/panic.hpp"
 #include <stdint.h>
-#include <stddef.h>
 #include <optional>
 
 namespace driver {
