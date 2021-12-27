@@ -17,11 +17,12 @@ Session::Session(Session&& other) noexcept: http_(other.http_), uri_(std::move(o
   IOP_TRACE();
   other.http_ = nullptr;
 }
-auto Session::operator=(Session&& other) noexcept {
+auto Session::operator=(Session&& other) noexcept -> Session & {
   IOP_TRACE();
   this->http_ = other.http_;
   other.http_ = nullptr;
   this->uri_ = std::move(other.uri_);
+  return *this;
 }
 void HTTPClient::headersToCollect(const char * headers[], size_t count) noexcept {
   iop_assert(this->http, FLASH("HTTP client is nullptr"));

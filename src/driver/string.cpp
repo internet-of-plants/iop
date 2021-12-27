@@ -1,7 +1,11 @@
 #ifdef IOP_DESKTOP
 #include "driver/desktop/string.hpp"
-#else
+#elif defined(IOP_ESP8266)
 #include "driver/esp8266/string.hpp"
+#elif defined(IOP_NOOP)
+#include "driver/noop/string.hpp"
+#else
+#error "Target not supported"
 #endif
 
 #include "driver/panic.hpp"

@@ -233,20 +233,18 @@ auto Api::registerLog(const AuthToken &authToken,
 #endif
 }
 
-#ifdef IOP_DESKTOP
-#define LED_BUILTIN 0
-//#include "driver/upgrade.hpp"
-#else
+#ifdef IOP_ESP8266
 #define HIGH 0x1
 #include "ESP8266httpUpdate.h"
 #endif
 
+// TODO: move upgrade logic to driver
 auto Api::upgrade(const AuthToken &token) const noexcept
     -> iop::NetworkStatus {
   IOP_TRACE();
   this->logger.info(FLASH("Upgrading sketch"));
 
-  #ifdef IOP_DESKTOP
+  #ifndef IOP_ESP8266
   (void) token;
   #else
   const iop::StaticString path = FLASH("/v1/update");
@@ -273,14 +271,14 @@ switch (result) {
     return iop::NetworkStatus::OK;
 
   case HTTP_UPDATE_FAILED:
-  #ifndef IOP_DESKTOP
+  #ifdef IOP_ESP8266
     // TODO(pc): properly handle ESPhttpUpdate.getLastError()
     this->logger.error(FLASH("Update failed: "),
                        std::string_view(ESPhttpUpdate->getLastErrorString().c_str()));
   #endif
     return iop::NetworkStatus::BROKEN_SERVER;
   }
-  #ifndef IOP_DESKTOP
+  #ifdef IOP_ESP8266
   // TODO(pc): properly handle ESPhttpUpdate.getLastError()
   this->logger.error(FLASH("Update failed (UNKNOWN): "),
                      std::string_view(ESPhttpUpdate->getLastErrorString().c_str()));

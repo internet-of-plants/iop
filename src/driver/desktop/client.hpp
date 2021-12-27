@@ -34,17 +34,17 @@ static ssize_t send(uint32_t fd, const char * msg, const size_t len) noexcept {
   return write(fd, msg, len);
 }
 
-Session::Session(HTTPClient &http, std::string uri, int32_t fd) noexcept: http_(&http), uri_(std::move(uri)), fd_(fd) { IOP_TRACE(); }
+Session::Session(HTTPClient &http, std::string uri, int32_t fd) noexcept: fd_(fd), http_(&http), headers{}, uri_(std::move(uri)) { IOP_TRACE(); }
 Session::~Session() noexcept {
   if (this->fd_ != -1)
     close(this->fd_);
 }
-Session::Session(Session&& other) noexcept: http_(other.http_), uri_(std::move(other.uri_)), fd_(other.fd_) {
+Session::Session(Session&& other) noexcept: fd_(other.fd_), http_(other.http_), headers(std::move(other.headers)), uri_(std::move(other.uri_)) {
   IOP_TRACE();
   other.http_ = nullptr;
   other.fd_ = -1;
 }
-auto Session::operator=(Session&& other) noexcept {
+auto Session::operator=(Session&& other) noexcept -> Session & {
   IOP_TRACE();
   this->http_ = other.http_;
   other.http_ = nullptr;
@@ -53,6 +53,7 @@ auto Session::operator=(Session&& other) noexcept {
 
   this->fd_ = other.fd_;
   other.fd_ = -1;
+  return *this;
 }
 void HTTPClient::headersToCollect(const char * headers[], size_t count) noexcept {
   std::vector<std::string> vec;

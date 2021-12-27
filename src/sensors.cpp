@@ -2,19 +2,25 @@
 #include "sensors.hpp"
 #include "utils.hpp"
 
+#if defined(IOP_NOOP) && defined(IOP_SENSORS)
+#undef IOP_SENSORS
+#endif
+
 #ifdef IOP_SENSORS
 #include "driver/panic.hpp"
 
+#ifdef IOP_ESP8266
 #include <DHT.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #undef HIGH
 #undef LOW
 #undef OUTPUT
+#endif
 
 void Sensors::setup() noexcept {
   IOP_TRACE();
-  driver::io::gpio.mode(this->soilResistivityPower, driver::io::Mode::OUTPUT);
+  driver::gpio.mode(this->soilResistivityPower, driver::io::Mode::OUTPUT);
   this->airTempAndHumiditySensor->begin();
   this->soilTemperatureSensor->begin();
 }

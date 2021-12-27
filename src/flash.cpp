@@ -142,11 +142,9 @@ void Flash::setWifi(const WifiCredentials &config) const noexcept {
   this->logger.debug(FLASH("WiFi Creds: "), iop::to_view(config.ssid, ssidSize), FLASH(" "), iop::to_view(config.password, pskSize));
 
   driver::flash.write(wifiConfigIndex, usedWifiConfigEEPROMFlag);
-  // TODO: for some reason this write is not working, the psk is written but not the ssid
   driver::flash.put(wifiConfigIndex + 1, config.ssid.get());
   driver::flash.put(wifiConfigIndex + 1 + 32, config.password.get());
   driver::flash.commit();
-  this->logger.info(FLASH("Wrote wifi credentials to storage: "), iop::to_view(iop::scapeNonPrintable(std::string_view(this->wifi().value().get().ssid.get().begin(), 32))));
 }
 #endif
 

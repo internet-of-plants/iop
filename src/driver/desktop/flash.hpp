@@ -1,10 +1,6 @@
 #include "driver/flash.hpp"
 #include "driver/panic.hpp"
-#include <unistd.h>
-#include <errno.h>
-#include <new>
-#include <cstdlib>
-#include <fcntl.h>
+#include <fstream>
 
 namespace driver {
 // This driver is horrible, please fix this
@@ -18,37 +14,28 @@ void Flash::setup(size_t size) noexcept {
 
     this->size = size;
 
-    const auto fd = ::open("eeprom.dat", O_RDONLY);
-    if (fd != -1) {
-        if (::read(fd, this->buffer, size) == -1) {
-            ::free(this->buffer);
-            this->buffer = nullptr;
-            this->size = 0;
-            return;
-        }
-        close(fd);
+    std::ifstream file("eeprom.dat");
+    if (!file.is_open()) {
+        return;
     }
-}
-std::optional<uint8_t> Flash::read(const size_t address) const noexcept {
-    if (address >= this->size) return std::optional<uint8_t>();
-    return this->buffer[address];
-}
-void Flash::write(const size_t address, uint8_t const val) noexcept {
-    iop_assert(this->buffer, FLASH("Unable to allocate buffer"));
-    if (address >= this->size) return;
-    this->shouldCommit = true;
-    this->buffer[address] = val;
+
+    file.read((char*) buffer, size);
+    iop_assert(!file.fail(), FLASH("Read failed"));
+
+    file.close();
+    iop_assert(!file.fail(), FLASH("Close failed"));
 }
 void Flash::commit() noexcept {
     iop_assert(this->buffer, FLASH("Unable to allocate storage"));
     //iop::Log(logLevel, FLASH("EEPROM")).debug(FLASH("Commit: "), utils::base64Encode(this->storage.get(), this->size));
-    const auto fd = ::open("eeprom.dat", O_WRONLY | O_CREAT, 0777);
-    iop_assert(fd != -1, FLASH("Unable to open file"));
-    if (::write(fd, this->buffer, size) == -1) {
-      iop_panic(std::to_string(errno) + ": " + strerror(errno));
-    }
-    
-    iop_assert(::close(fd) != -1, FLASH("Close failed"));
+    std::ofstream file("eeprom.dat");
+    iop_assert(file.is_open(), FLASH("Unable to open eeprom.dat file"));
+
+    file.write((char*) buffer, size);
+    iop_assert(!file.fail(), FLASH("Write failed"));
+
+    file.close();
+    iop_assert(!file.fail(), FLASH("Close failed"));
 }
 uint8_t const * Flash::asRef() const noexcept {
     iop_assert(this->buffer, FLASH("Allocation failed"));

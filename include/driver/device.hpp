@@ -39,7 +39,7 @@ public:
   auto availableHeap() const noexcept -> size_t;
   auto vcc() const noexcept -> uint16_t;
   auto biggestHeapBlock() const noexcept -> size_t;
-  void deepSleep(uint32_t seconds) const noexcept;
+  void deepSleep(size_t seconds) const noexcept;
   std::array<char, 32>& binaryMD5() const noexcept;
   std::array<char, 17>& macAddress() const noexcept;
   ::iop::StaticString platform() const noexcept;

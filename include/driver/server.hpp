@@ -8,8 +8,11 @@
 
 #ifdef IOP_DESKTOP
 class sockaddr_in;
-#else
+#elif defined(IOP_ESP8266)
 class DNSServer;
+#elif defined(IOP_NOOP)
+#else
+#error "Target not supported"
 #endif
 
 namespace driver {
@@ -24,7 +27,7 @@ public:
   std::string currentRoute;
   
   using Buffer = std::array<char, 1024>;
-#else
+#elif defined(IOP_ESP8266)
 private:
   void *server; // ESP8266WebServer
 public:
@@ -35,6 +38,9 @@ public:
   HttpConnection(HttpConnection &&other) noexcept;
   auto operator=(HttpConnection &other) noexcept -> HttpConnection & = delete;
   auto operator=(HttpConnection &&other) noexcept -> HttpConnection &;
+#elif defined(IOP_NOOP)
+#else
+#error "Target not supported"
 #endif
 
   auto arg(iop::StaticString arg) const noexcept -> std::optional<std::string>;
@@ -58,17 +64,20 @@ private:
 
   std::optional<uint32_t> maybeFD;
   sockaddr_in *address;
-#else
+#elif defined(IOP_ESP8266)
   void *server; // ESP8266WebServer
 public:
   HttpServer(HttpServer &other) noexcept = delete;
   HttpServer(HttpServer &&other) noexcept;
   auto operator=(HttpServer &other) noexcept -> HttpServer & = delete;
   auto operator=(HttpServer &&other) noexcept -> HttpServer &;
+  ~HttpServer() noexcept;
+#elif defined(IOP_NOOP)
+#else
+#error "Target not supported"
 #endif
 public:
   HttpServer(uint32_t port = 8082) noexcept;
-  ~HttpServer() noexcept;
 
   void begin() noexcept;
   void close() noexcept;
@@ -78,10 +87,8 @@ public:
 };
 
 class CaptivePortal {
-#ifndef IOP_DESKTOP
+#ifdef IOP_ESP8266
   DNSServer *server;
-#endif
-  
 public:
   CaptivePortal() noexcept;
   ~CaptivePortal() noexcept;
@@ -90,7 +97,9 @@ public:
   CaptivePortal(CaptivePortal &&other) noexcept;
   auto operator=(CaptivePortal &other) noexcept -> CaptivePortal & = delete;
   auto operator=(CaptivePortal &&other) noexcept -> CaptivePortal &;
-
+#endif
+  
+public:
   void start() noexcept;
   void close() noexcept;  
   void handleClient() const noexcept;

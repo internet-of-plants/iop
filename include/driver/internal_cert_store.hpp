@@ -5,7 +5,7 @@
 
 #include "driver/cert_store.hpp"
 
-#ifndef IOP_DESKTOP
+#ifdef IOP_ESP8266
 #include "CertStoreBearSSL.h"
 #undef LED_BUILTIN
 #undef OUTPUT

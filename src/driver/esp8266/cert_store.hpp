@@ -61,13 +61,4 @@ void InternalCertStore::installCertStore(br_x509_minimal_context *ctx) {
   IOP_TRACE();
   br_x509_minimal_set_dynamic(ctx, this, findHashedTA, freeHashedTA);
 }
-
-auto CertList::count() const noexcept -> uint16_t {
-  return this->numberOfCertificates;
-}
-
-auto CertList::cert(uint16_t index) const noexcept -> Cert {
-  // NOLINTNEXTLINE cppcoreguidelines-pro-bounds-pointer-a  rithmetic
-  return Cert(this->certs[index], this->indexes[index], this->sizes[index]);
-}
 }

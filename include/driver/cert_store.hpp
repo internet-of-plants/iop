@@ -1,7 +1,7 @@
 #ifndef IOP_DRIVER_CERTSTORE_HPP
 #define IOP_DRIVER_CERTSTORE_HPP
 
-#include <cstdint>
+#include <stdint.h>
 
 namespace driver {
 

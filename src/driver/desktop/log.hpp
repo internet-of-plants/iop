@@ -1,27 +1,21 @@
 #include "driver/panic.hpp"
 #include <iostream>
-#include <pthread.h>
+#include <mutex>
 
-static pthread_mutex_t lock;
+static std::mutex stdoutMutex;
 
 namespace driver {
-void logSetup(const iop::LogLevel &level) noexcept {
-    (void) level;
-    iop_assert(pthread_mutex_init(&lock, NULL) == 0, FLASH("Mutex init failed"));
-}
+void logSetup(const iop::LogLevel &level) noexcept { (void) level; }
 void logPrint(const std::string_view msg) noexcept {
-    pthread_mutex_lock(&lock);
+    std::lock_guard<std::mutex> guard(stdoutMutex);
     std::cout << msg;
-    pthread_mutex_unlock(&lock);
 }
 void logPrint(const iop::StaticString msg) noexcept {
-    pthread_mutex_lock(&lock);
+    std::lock_guard<std::mutex> guard(stdoutMutex);
     std::cout << msg.asCharPtr();
-    pthread_mutex_unlock(&lock);
 }
 void logFlush() noexcept { 
-    pthread_mutex_lock(&lock);
+    std::lock_guard<std::mutex> guard(stdoutMutex);
     std::cout << std::flush;
-    pthread_mutex_unlock(&lock);
 }
 }

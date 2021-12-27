@@ -12,9 +12,20 @@ class __FlashStringHelper;
 #ifdef IOP_DESKTOP
 #define PROGMEM
 #define FLASH(string_literal) iop::StaticString(reinterpret_cast<const __FlashStringHelper *>(string_literal))
-#else
+#elif defined(IOP_ESP8266)
 #include <pgmspace.h> // TODO: We leak a ton of stuff here
 #define FLASH(string_literal) iop::StaticString(reinterpret_cast<const __FlashStringHelper *>(PSTR(string_literal)))
+#elif defined(IOP_NOOP)
+#if ARDUINO
+#include <pgmspace.h> // TODO: We leak a ton of stuff here
+#else
+#define PROGMEM
+#define PSTR(x) x
+#endif
+
+#define FLASH(string_literal) iop::StaticString(reinterpret_cast<const __FlashStringHelper *>(PSTR(string_literal)))
+#else
+#error "Target not supported"
 #endif
 
 namespace iop {

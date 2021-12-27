@@ -14,6 +14,4 @@ void Thread::panic_() const noexcept {
 auto Thread::now() const noexcept -> iop::esp_time {
     return millis();
 }
-
-Thread thisThread;
 }

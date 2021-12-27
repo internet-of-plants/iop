@@ -68,37 +68,49 @@ public:
 class HTTPClient;
 
 class Session {
-  HTTPClient * http_;
-  std::unordered_map<std::string, std::string> headers;
-  std::string uri_;
-
   #ifdef IOP_DESKTOP
   int32_t fd_;
   #endif
+
+  #ifndef IOP_NOOP
+  HTTPClient *http_;
+  std::unordered_map<std::string, std::string> headers;
+  std::string uri_;
+  #endif
+
+  #ifdef IOP_DESKTOP
+  Session(HTTPClient &http, std::string uri, int32_t fd) noexcept;
+  #elif defined(IOP_ESP8266)
+  Session(HTTPClient &http, std::string uri) noexcept;
+  #elif defined(IOP_NOOP)
+  Session() noexcept = default;
+  #else
+  #error "Target is not valid"
+  #endif
+
+  friend HTTPClient;
 
 public:
   auto sendRequest(std::string method, const uint8_t *data, size_t len) noexcept -> std::variant<Response, int>;
   void addHeader(iop::StaticString key, iop::StaticString value) noexcept;
   void addHeader(iop::StaticString key, std::string_view value) noexcept;
   void setAuthorization(std::string auth) noexcept;
-  #ifdef IOP_DESKTOP
-  Session(HTTPClient &http, std::string uri, int32_t fd) noexcept;
-  #else
-  Session(HTTPClient &http, std::string uri) noexcept;
-  #endif
   
   Session(Session& other) noexcept = delete;
   Session(Session&& other) noexcept;
-  auto operator=(Session& other) noexcept = delete;
-  auto operator=(Session&& other) noexcept;
+  auto operator=(Session& other) noexcept -> Session & = delete;
+  auto operator=(Session&& other) noexcept -> Session &;
   ~Session() noexcept;
 };
 
 class HTTPClient {
 #ifdef IOP_DESKTOP
   std::vector<std::string> headersToCollect_;
-#else
+#elif defined(IOP_ESP8266)
   ::HTTPClient * http;
+#elif defined(IOP_NOOP)
+#else
+#error "Target not valid"
 #endif
 public:
   HTTPClient() noexcept;

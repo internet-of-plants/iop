@@ -6,7 +6,7 @@
 #include <array>
 #include <functional>
 
-#ifndef IOP_DESKTOP
+#ifdef IOP_ESP8266
 #ifdef IOP_SSL
 namespace BearSSL { class WiFiClientSecure; }
 namespace driver { using NetworkClientPtr = BearSSL::WiFiClientSecure *; }
@@ -31,7 +31,7 @@ enum class StationStatus {
 };
 
 struct Wifi {
-#ifndef IOP_DESKTOP
+#ifdef IOP_ESP8266
   driver::NetworkClientPtr client;
 #endif
 

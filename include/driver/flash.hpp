@@ -9,7 +9,6 @@
 namespace driver {
 class Flash {
   size_t size = 0;
-  bool shouldCommit = false;
   uint8_t *buffer = nullptr;
   
 public:

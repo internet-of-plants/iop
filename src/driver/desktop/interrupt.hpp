@@ -1,23 +1,16 @@
 #include "driver/interrupt.hpp"
 #include "driver/panic.hpp"
-#include <pthread.h>
+#include <mutex>
 
-static pthread_mutex_t interruptLock;
+static std::mutex interruptMutex;
 
 namespace iop {
 InterruptLock::InterruptLock() noexcept {
-  static bool interruptInitialized = false;
-
-  IOP_TRACE();
-  if (!interruptInitialized)
-    iop_assert(pthread_mutex_init(&interruptLock, NULL) != 0, FLASH("Mutex init failed"));
-  interruptInitialized = true;
-
-  pthread_mutex_lock(&interruptLock);
+  interruptMutex.lock();
 }
 
 InterruptLock::~InterruptLock() noexcept {
-  pthread_mutex_unlock(&interruptLock);
+  interruptMutex.unlock();
   IOP_TRACE();
 }
 }

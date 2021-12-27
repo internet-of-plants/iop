@@ -51,7 +51,6 @@ iop::Log & logger() noexcept {
   return logger_;
 }
 
-HttpServer::~HttpServer() noexcept {}
 HttpServer::HttpServer(const uint32_t port) noexcept: port(port) {
   this->notFoundHandler = [](HttpConnection &conn, iop::Log const &logger) {
     conn.send(404, FLASH("text/plain"), FLASH("Not Found"));
@@ -384,8 +383,6 @@ void HttpConnection::sendData(iop::StaticString content) const noexcept {
   if (iop::Log::isTracing())
     iop::Log::print(FLASH(""), iop::LogLevel::TRACE, iop::LogType::END);
 }
-CaptivePortal::CaptivePortal() noexcept {}
-CaptivePortal::~CaptivePortal() noexcept {}
 void CaptivePortal::start() noexcept {}
 void CaptivePortal::close() noexcept {}
 void CaptivePortal::handleClient() const noexcept {}

@@ -1,7 +1,15 @@
 #ifdef IOP_DESKTOP
 #include "driver/desktop/log.hpp"
-#else
+#elif defined(IOP_ESP8266)
 #include "driver/esp8266/log.hpp"
+#elif defined(IOP_NOOP)
+#ifdef ARDUINO
+#include "driver/esp8266/log.hpp"
+#else
+#include "driver/desktop/log.hpp"
+#endif
+#else
+#error "Target not supported"
 #endif
 
 #include "driver/network.hpp"

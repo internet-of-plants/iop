@@ -1,8 +1,15 @@
 #ifdef IOP_DESKTOP
 #include "driver/desktop/client.hpp"
-#else
+#elif defined(IOP_ESP8266)
 #include "driver/esp8266/client.hpp"
+#elif defined(IOP_NOOP)
+#include "driver/noop/client.hpp"
+#else
+#error "Target not supported"
 #endif
+
+#include "driver/log.hpp"
+#include "driver/network.hpp"
 
 namespace driver {
 auto rawStatus(const int code) noexcept -> RawStatus {
