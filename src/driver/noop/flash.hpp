@@ -10,6 +10,6 @@ void Flash::setup(size_t size) noexcept {
     }
 }
 void Flash::commit() noexcept {}
-uint8_t const * Flash::asRef() const noexcept { if (!buffer) iop_panic(FLASH("Buffer is nullptr")); return buffer; }
-uint8_t * Flash::asMut() noexcept { if (!buffer) iop_panic(FLASH("Buffer is nullptr")); return buffer; }
+uint8_t const * Flash::asRef() const noexcept { if (!buffer) iop_panic(IOP_STATIC_STRING("Buffer is nullptr")); return buffer; }
+uint8_t * Flash::asMut() noexcept { if (!buffer) iop_panic(IOP_STATIC_STRING("Buffer is nullptr")); return buffer; }
 }

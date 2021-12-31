@@ -4,6 +4,8 @@
 #include "driver/esp8266/cert_store.hpp"
 #elif defined(IOP_NOOP)
 #include "driver/noop/cert_store.hpp"
+#elif defined(IOP_ESP32)
+#include "driver/cert_store.hpp"
 #else
 #error "Target not valid"
 #endif

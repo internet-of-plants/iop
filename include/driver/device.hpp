@@ -5,12 +5,6 @@
 #include <stdint.h>
 #include <array>
 
-#if defined(IOP_ESP8266) || (defined(ARDUINO) && defined(IOP_NOOP))
-#include <c_types.h>
-#else
-#define IRAM_ATTR
-#endif
-
 class HeapSelectIram;
 class HeapSelectDram;
 

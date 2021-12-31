@@ -1,32 +1,41 @@
 #ifndef IOP_DRIVER_STRING_STATIC_HPP
 #define IOP_DRIVER_STRING_STATIC_HPP
 
+#ifdef IOP_ESP32
+#include <experimental/string_view>
+#include <experimental/variant>
+#else
 #include <string_view>
 #include <variant>
+#endif
+
 #include <array>
 #include <string>
 #include <cstring>
 
 class __FlashStringHelper;
 
-#ifdef IOP_DESKTOP
-#define PROGMEM
-#define FLASH(string_literal) iop::StaticString(reinterpret_cast<const __FlashStringHelper *>(string_literal))
-#elif defined(IOP_ESP8266)
-#include <pgmspace.h> // TODO: We leak a ton of stuff here
-#define FLASH(string_literal) iop::StaticString(reinterpret_cast<const __FlashStringHelper *>(PSTR(string_literal)))
-#elif defined(IOP_NOOP)
-#if ARDUINO
-#include <pgmspace.h> // TODO: We leak a ton of stuff here
-#else
-#define PROGMEM
-#define PSTR(x) x
-#endif
+#if defined(IOP_ESP8266) || (defined(IOP_NOOP) && defined(ESP8266))
+#define INTERNAL_IOP__STRINGIZE_NX(A) #A
+#define INTERNAL_IOP__STRINGIZE(A) INTERNAL_IOP__STRINGIZE_NX(A)\
 
-#define FLASH(string_literal) iop::StaticString(reinterpret_cast<const __FlashStringHelper *>(PSTR(string_literal)))
+// Arduino's ICACHE_RAM_ATTR
+#define IOP_RAM __attribute__((section("\".iram.text." __FILE__ "." INTERNAL_IOP__STRINGIZE(__LINE__) "." INTERNAL_IOP__STRINGIZE(__COUNTER__) "\"")))
+// Arduino's PROGMEM
+#define IOP_ROM __attribute__((section( "\".irom.text." __FILE__ "." INTERNAL_IOP__STRINGIZE(__LINE__) "."  INTERNAL_IOP__STRINGIZE(__COUNTER__) "\"")))
+
+#define IOP_INTERNAL_FLASH_RAW_N(s,n) (__extension__({static const char __pstr__[] __attribute__((__aligned__(n))) __attribute__((section( "\".irom0.pstr." __FILE__ "." INTERNAL_IOP__STRINGIZE(__LINE__) "."  INTERNAL_IOP__STRINGIZE(__COUNTER__) "\", \"aSM\", @progbits, 1 #"))) = (s); &__pstr__[0];}))
+#define IOP_FLASH_RAW(s) IOP_INTERNAL_FLASH_RAW_N(s, 4)
+
+#elif (defined(IOP_NOOP) && !defined(ESP8266)) || defined(IOP_ESP32) || defined(IOP_DESKTOP)
+#define IOP_RAM
+#define IOP_ROM
+#define IOP_FLASH_RAW(x) x
 #else
 #error "Target not supported"
 #endif
+
+#define IOP_STATIC_STRING(string_literal) iop::StaticString(reinterpret_cast<const __FlashStringHelper *>(IOP_FLASH_RAW(string_literal)))
 
 namespace iop {
 /// Allows for possibly destructive operations, like scaping non printable characters
@@ -57,7 +66,7 @@ using MacAddress = std::array<char, 17>;
 
 /// Helper string that holds a pointer to a string stored in PROGMEM
 ///
-/// It's here to provide a typesafe way to handle PROGMEM data and to avoid
+/// It's here to provide a typesafe way to handle IOP_ROM data and to avoid
 /// defaulting to the String(__FlashStringHelper*) constructor that allocates implicitly.
 ///
 /// It is not compatible with other strings because it requires 32 bits aligned reads, and
@@ -80,7 +89,7 @@ public:
 
   // Be careful when calling this function, if you pass a progmem stored `const char *`
   // to a function that expects a RAM stored `const char *`, a hardware exception _may_ happen
-  // As PROGMEM data needs to be read with 32 bits of alignment
+  // As IOP_ROM data needs to be read with 32 bits of alignment
   //
   // This has caused trouble in the past and will again.
   auto asCharPtr() const noexcept -> const char * { return reinterpret_cast<const char *>(this->get()); }

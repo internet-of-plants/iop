@@ -8,7 +8,7 @@ namespace driver {
 /// Individual certificate structure.
 /// Contains certificate array, its size. And its hash.
 ///
-/// Points to PROGMEM data
+/// Points to IOP_ROM data
 struct Cert {
   uint16_t size;
   const uint8_t *index;
@@ -22,7 +22,7 @@ struct Cert {
 ///
 /// The script downloads certificates and generates a header file with them (/include/generated/certificates.hpp)
 ///
-/// _Only_ pass pointers _from_ the PROGMEM to this class
+/// _Only_ pass pointers _from_ the IOP_ROM to this class
 ///
 /// Pointer's are just borrowed, this structure _must_ outlive the storage.
 ///

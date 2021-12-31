@@ -1,5 +1,6 @@
 #ifndef IOP_LOOP
 #define IOP_LOOP
+#include "api.hpp"
 
 #include "driver/device.hpp"
 #include "driver/thread.hpp"
@@ -9,7 +10,6 @@
 #include "flash.hpp"
 #include "sensors.hpp"
 #include "server.hpp"
-#include "api.hpp"
 #include "utils.hpp"
 
 #include <optional>
@@ -54,7 +54,7 @@ public:
   explicit EventLoop(iop::StaticString uri, iop::LogLevel logLevel_) noexcept
       : credentialsServer(logLevel_),
         api_(std::move(uri), logLevel_),
-        logger(logLevel_, FLASH("LOOP")), flash_(logLevel_),
+        logger(logLevel_, IOP_STATIC_STRING("LOOP")), flash_(logLevel_),
         sensors(config::soilResistivityPower, config::soilTemperature, config::airTempAndHumidity, config::dhtVersion),
         nextMeasurement(0), nextYieldLog(0), nextNTPSync(0), nextHandleConnectionLost(0),
         nextTryFlashWifiCredentials(0), nextTryHardcodedWifiCredentials(0), nextTryHardcodedIopCredentials(0) {
@@ -81,7 +81,7 @@ class Unused4KbSysStack {
 
 public:
   Unused4KbSysStack() noexcept: data(new (std::nothrow) StackStruct()) {
-    iop_assert(data, FLASH("Unable to allocate buffer"));
+    iop_assert(data, IOP_STATIC_STRING("Unable to allocate buffer"));
     memset((void*)data, 0, sizeof(StackStruct));
   }
   void reset() noexcept {

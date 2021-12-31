@@ -25,9 +25,9 @@ Most decisions are listed here. If you find some other questionable decision ple
 
 - No exceptions, but we halt using the `iop_panic` macro
 
-    Most errors should be propagated with `std::variant<T, E>` or even an `std::optional<T>`. Exceptions should not happen. And critical errors, that can't be recovered from, should panic as the last stand between us and UB. With the `iop_panic(FLASH("Explanation of what went wrong..."))` macro.
+    Most errors should be propagated with `std::variant<T, E>` or even an `std::optional<T>`. Exceptions should not happen. And critical errors, that can't be recovered from, should panic as the last stand between us and UB. With the `iop_panic(IOP_STATIC_STRING("Explanation of what went wrong..."))` macro.
 
-    We don't want to pay the overhead for exceptions. Nor have alternatives code paths. It either works and reports the error with the return type. Or `iop_panic(FLASH("Message...))` and halt, with no turning back. `iop_panic` logs the critical error, reports it through the network to the main server if it can, and keeps asking the server for updates. If network is available and working, when an update is provided it will download it and reboot.
+    We don't want to pay the overhead for exceptions. Nor have alternatives code paths. It either works and reports the error with the return type. Or `iop_panic(IOP_STATIC_STRING("Message...))` and halt, with no turning back. `iop_panic` logs the critical error, reports it through the network to the main server if it can, and keeps asking the server for updates. If network is available and working, when an update is provided it will download it and reboot.
 
     We have future plans to improve this, but we should never panic. Panics should be a way to avoid UB when everything went wrong, and quickly fix when detected.
 

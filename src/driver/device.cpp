@@ -4,6 +4,8 @@
 #include "driver/esp8266/device.hpp"
 #elif defined(IOP_NOOP)
 #include "driver/noop/device.hpp"
+#elif defined(IOP_ESP32)
+#include "driver/esp32/client.hpp"
 #else
 #error "Target not supported"
 #endif

@@ -1,7 +1,6 @@
 #include "driver/client.hpp"
 #include "driver/panic.hpp"
 #include "driver/network.hpp"
-#include "sys/pgmspace.h"
 #include "ESP8266HTTPClient.h"
 #include "WiFiClientSecure.h"
 #include <charconv>

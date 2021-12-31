@@ -66,7 +66,7 @@ void reportLog() noexcept {
   if (token) {
     eventLoop.api().registerLog(*token, currentLog);
   } else {
-    iop::Log(iop::LogLevel::WARN, FLASH("NETWORK LOGGING")).warn(FLASH("Unable to log to the monitor server, not authenticated"));
+    iop::Log(iop::LogLevel::WARN, IOP_STATIC_STRING("NETWORK LOGGING")).warn(IOP_STATIC_STRING("Unable to log to the monitor server, not authenticated"));
   }
   logNetwork = true;
   currentLog.clear();
@@ -81,9 +81,9 @@ static void staticPrinter(const iop::StaticString str,
     currentLog += str.asCharPtr();
     byteRate.addBytes(str.length());
     if (kind == iop::LogType::END || kind == iop::LogType::STARTEND) {
-      iop::LogHook::defaultStaticPrinter(FLASH("Logging to network\n"), iop::LogLevel::INFO, iop::LogType::STARTEND);
+      iop::LogHook::defaultStaticPrinter(IOP_STATIC_STRING("Logging to network\n"), iop::LogLevel::INFO, iop::LogType::STARTEND);
       reportLog();
-      iop::LogHook::defaultStaticPrinter(FLASH("Logged to network\n"), iop::LogLevel::INFO, iop::LogType::STARTEND);
+      iop::LogHook::defaultStaticPrinter(IOP_STATIC_STRING("Logged to network\n"), iop::LogLevel::INFO, iop::LogType::STARTEND);
     }
   }
 }
@@ -94,9 +94,9 @@ static void viewPrinter(const std::string_view str, const iop::LogLevel level, c
     currentLog += str;
     byteRate.addBytes(str.length());
     if (kind == iop::LogType::END || kind == iop::LogType::STARTEND) {
-      iop::LogHook::defaultStaticPrinter(FLASH("Logging to network\n"), iop::LogLevel::INFO, iop::LogType::STARTEND);
+      iop::LogHook::defaultStaticPrinter(IOP_STATIC_STRING("Logging to network\n"), iop::LogLevel::INFO, iop::LogType::STARTEND);
       reportLog();
-      iop::LogHook::defaultStaticPrinter(FLASH("Logged to network\n"), iop::LogLevel::INFO, iop::LogType::STARTEND);
+      iop::LogHook::defaultStaticPrinter(IOP_STATIC_STRING("Logged to network\n"), iop::LogLevel::INFO, iop::LogType::STARTEND);
     }
   }
 }

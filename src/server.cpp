@@ -13,7 +13,7 @@
 #include "loop.hpp"
 
 auto pageHTMLStart() -> iop::StaticString {
-  return FLASH(
+  return IOP_STATIC_STRING(
     "<!DOCTYPE HTML>\r\n"
     "<html><body>\r\n"
     "  <h1><center>Hello, I'm your plantomator</center></h1>\r\n"
@@ -25,7 +25,7 @@ auto pageHTMLStart() -> iop::StaticString {
 }
 
 auto wifiOverwriteHTML() -> iop::StaticString {
-  return FLASH(
+  return IOP_STATIC_STRING(
     "<h3>"
     "  <center>It seems you already have your wifi credentials set, if you "
     "want to rewrite it, please set the checkbox below and fill the "
@@ -46,7 +46,7 @@ auto wifiOverwriteHTML() -> iop::StaticString {
 }
 
 auto wifiHTML() -> iop::StaticString {
-  return FLASH(
+  return IOP_STATIC_STRING(
     "<h3><center>"
     "Please provide your Wifi credentials, so we can connect to it."
     "</center></h3>\r\n"
@@ -60,7 +60,7 @@ auto wifiHTML() -> iop::StaticString {
 }
 
 auto iopOverwriteHTML() -> iop::StaticString {
-  return FLASH(
+  return IOP_STATIC_STRING(
     "<h3><center>It seems you already have your Iop credentials set, if you "
     "want to rewrite it, please set the checkbox below and fill the "
     "fields. Otherwise they will be ignored</center></h3>\r\n"
@@ -79,7 +79,7 @@ auto iopOverwriteHTML() -> iop::StaticString {
 }
 
 auto iopHTML() -> iop::StaticString {
-  return FLASH(
+  return IOP_STATIC_STRING(
     "<h3><center>Please provide your Iop credentials, so we can get an "
     "authentication token to use</center></h3>\r\n"
     "<div>"
@@ -95,7 +95,7 @@ auto iopHTML() -> iop::StaticString {
 }
 
 auto script() -> iop::StaticString {
-  return FLASH(
+  return IOP_STATIC_STRING(
     "<script type='application/javascript'>"
     "document.querySelector(\"input[name='wifi']\").addEventListener('change', ev => {"
     "  for (const el of document.getElementsByClassName('wifi')) {"
@@ -119,7 +119,7 @@ auto script() -> iop::StaticString {
 }
 
 auto pageHTMLEnd() -> iop::StaticString {
-  return FLASH(
+  return IOP_STATIC_STRING(
     "<br>\r\n"
     "<input type='submit' value='Submit' />\r\n"
     "</form></body></html>");
@@ -134,35 +134,35 @@ static driver::CaptivePortal dnsServer;
 
 void CredentialsServer::setup() const noexcept {
   IOP_TRACE();
-  server.on(FLASH("/favicon.ico"), [](driver::HttpConnection &conn, iop::Log const &logger) { conn.send(404, FLASH("text/plain"), FLASH("")); (void) logger; });
-  server.on(FLASH("/submit"), [](driver::HttpConnection &conn, iop::Log const &logger) {
+  server.on(IOP_STATIC_STRING("/favicon.ico"), [](driver::HttpConnection &conn, iop::Log const &logger) { conn.send(404, IOP_STATIC_STRING("text/plain"), IOP_STATIC_STRING("")); (void) logger; });
+  server.on(IOP_STATIC_STRING("/submit"), [](driver::HttpConnection &conn, iop::Log const &logger) {
     IOP_TRACE();
-    logger.debug(FLASH("Received credentials form"));
+    logger.debug(IOP_STATIC_STRING("Received credentials form"));
 
-    const auto wifi = conn.arg(FLASH("wifi"));
-    const auto ssid = conn.arg(FLASH("ssid"));
-    const auto psk = conn.arg(FLASH("password"));
+    const auto wifi = conn.arg(IOP_STATIC_STRING("wifi"));
+    const auto ssid = conn.arg(IOP_STATIC_STRING("ssid"));
+    const auto psk = conn.arg(IOP_STATIC_STRING("password"));
     if (wifi && ssid && psk) {
-      logger.debug(FLASH("SSID: "), *ssid);
+      logger.debug(IOP_STATIC_STRING("SSID: "), *ssid);
       credentialsWifi = std::make_pair(*ssid, *psk);
     }
 
-    const auto iop = conn.arg(FLASH("iop"));
-    const auto email = conn.arg(FLASH("iopEmail"));
-    const auto password = conn.arg(FLASH("iopPassword"));
+    const auto iop = conn.arg(IOP_STATIC_STRING("iop"));
+    const auto email = conn.arg(IOP_STATIC_STRING("iopEmail"));
+    const auto password = conn.arg(IOP_STATIC_STRING("iopPassword"));
     if (iop && email && password) {
-      logger.debug(FLASH("Email: "), *email);
+      logger.debug(IOP_STATIC_STRING("Email: "), *email);
 
       credentialsIop = std::make_pair(*email, *password);
     }
 
-    conn.sendHeader(FLASH("Location"), FLASH("/"));
-    conn.send(302, FLASH("text/plain"), FLASH(""));
+    conn.sendHeader(IOP_STATIC_STRING("Location"), IOP_STATIC_STRING("/"));
+    conn.send(302, IOP_STATIC_STRING("text/plain"), IOP_STATIC_STRING(""));
   });
 
   server.onNotFound([](driver::HttpConnection &conn, iop::Log const &logger) {
     IOP_TRACE();
-    logger.info(FLASH("Serving captive portal"));
+    logger.info(IOP_STATIC_STRING("Serving captive portal"));
 
     const auto mustConnect = !iop::Network::isConnected();
     const auto needsIopAuth = !eventLoop.flash().token();
@@ -172,7 +172,7 @@ void CredentialsServer::setup() const noexcept {
     len += needsIopAuth ? iopHTML().length() : iopOverwriteHTML().length();
 
     conn.setContentLength(len);
-    conn.send(200, FLASH("text/html"), pageHTMLStart());
+    conn.send(200, IOP_STATIC_STRING("text/html"), pageHTMLStart());
 
     if (mustConnect) conn.sendData(wifiHTML());
     else conn.sendData(wifiOverwriteHTML());
@@ -182,7 +182,7 @@ void CredentialsServer::setup() const noexcept {
 
     conn.sendData(script());
     conn.sendData(pageHTMLEnd());
-    logger.debug(FLASH("Served HTML"));
+    logger.debug(IOP_STATIC_STRING("Served HTML"));
   });
 }
 
@@ -190,7 +190,7 @@ void CredentialsServer::start() noexcept {
   IOP_TRACE();
   if (!this->isServerOpen) {
     this->isServerOpen = true;
-    this->logger.info(FLASH("Setting our own wifi access point"));
+    this->logger.info(IOP_STATIC_STRING("Setting our own wifi access point"));
 
     // TODO: how to mock it in a reasonable way?
     iop::data.wifi.setMode(driver::WiFiMode::AP_STA);
@@ -201,7 +201,7 @@ void CredentialsServer::start() noexcept {
       const auto hash = iop::hashString(iop::to_view(driver::device.macAddress()));
       const auto ssid = std::string("iop-") + std::to_string(hash);
 
-      iop::data.wifi.connectAP(ssid, FLASH("le$memester#passwordz").toString());
+      iop::data.wifi.connectAP(ssid, IOP_STATIC_STRING("le$memester#passwordz").toString());
     }
     
     const auto ip = iop::data.wifi.APIP();
@@ -211,14 +211,14 @@ void CredentialsServer::start() noexcept {
     // Makes it a captive portal (redirects all wifi trafic to it)
     dnsServer.start();
 
-    this->logger.info(FLASH("Opened captive portal: "), iop::to_view(ip));
+    this->logger.info(IOP_STATIC_STRING("Opened captive portal: "), iop::to_view(ip));
   }
 }
 
 void CredentialsServer::close() noexcept {
   IOP_TRACE();
   if (this->isServerOpen) {
-    this->logger.debug(FLASH("Closing captive portal"));
+    this->logger.debug(IOP_STATIC_STRING("Closing captive portal"));
     this->isServerOpen = false;
     dnsServer.close();
     server.close();
@@ -261,19 +261,17 @@ auto CredentialsServer::serve(const Api &api) noexcept
 
 
   // Give processing time to the servers
-  this->logger.trace(FLASH("Serve captive portal"));
+  this->logger.trace(IOP_STATIC_STRING("Serve captive portal"));
   dnsServer.handleClient();
   server.handleClient();
   return std::nullopt;
 }
 #else
-auto CredentialsServer::serve(const std::optional<std::reference_wrapper<const WifiCredentials>> storedWifi,
-                              const Api &api) noexcept
+auto CredentialsServer::serve(const Api &api) noexcept
     -> std::optional<AuthToken> {
   IOP_TRACE();
-  (void)*this;
+  (void)this;
   (void)api;
-  (void)storedWifi;
   return std::optional<AuthToken>();
 }
 void CredentialsServer::setup() const noexcept {

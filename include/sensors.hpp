@@ -1,8 +1,12 @@
 #ifndef IOP_SENSORS_HPP
 #define IOP_SENSORS_HPP
 
-#include "driver/sensors.hpp"
+#include "driver/io.hpp"
 #include "utils.hpp"
+
+class DHT;
+class DallasTemperature;
+class OneWire;
 
 /// Abstracts away sensors access, providing a cohesive state.
 /// It's completely synchronous.

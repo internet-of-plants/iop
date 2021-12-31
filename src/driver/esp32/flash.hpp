@@ -1,6 +1,5 @@
 #include "driver/flash.hpp"
 #include "driver/panic.hpp"
-#include "sys/pgmspace.h"
 #include "EEPROM.h"
 
 // TODO: move this to global structure

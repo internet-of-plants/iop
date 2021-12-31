@@ -1,6 +1,5 @@
 #include "driver/interrupt.hpp"
 #include "driver/log.hpp"
-#include "sys/pgmspace.h"
 #include "ets_sys.h"
 
 namespace driver {

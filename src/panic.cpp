@@ -16,11 +16,11 @@ void upgrade() noexcept {
   case iop::NetworkStatus::FORBIDDEN:
     // TODO: think about allowing global updates (if you are logged out and panicking get a safe global version and recover from it)
     // This brings security problems of getting your app hijacked and complicates binary signing
-    iop::panicLogger().warn(FLASH("Invalid auth token, but keeping since at iop_panic"));
+    iop::panicLogger().warn(IOP_STATIC_STRING("Invalid auth token, but keeping since at iop_panic"));
     return;
 
   case iop::NetworkStatus::CLIENT_BUFFER_OVERFLOW:
-    iop_panic(FLASH("Api::upgrade internal buffer overflow"));
+    iop_panic(IOP_STATIC_STRING("Api::upgrade internal buffer overflow"));
 
   // Already logged at the network level
   case iop::NetworkStatus::CONNECTION_ISSUES:
@@ -33,7 +33,7 @@ void upgrade() noexcept {
   }
 
   const auto str = iop::Network::apiStatusToString(status);
-  iop::panicLogger().error(FLASH("Bad status, EventLoop::handleInterrupt "), str);
+  iop::panicLogger().error(IOP_STATIC_STRING("Bad status, EventLoop::handleInterrupt "), str);
 }
 
 // TODO(pc): save unique panics to flash
@@ -46,7 +46,7 @@ auto reportPanic(const std::string_view &msg, const iop::StaticString &file,
 
   const auto token = eventLoop.flash().token();
   if (!token) {
-    iop::panicLogger().crit(FLASH("No auth token, unable to report iop_panic"));
+    iop::panicLogger().crit(IOP_STATIC_STRING("No auth token, unable to report iop_panic"));
     return false;
   }
 
@@ -61,19 +61,19 @@ auto reportPanic(const std::string_view &msg, const iop::StaticString &file,
 
   switch (status) {
   case iop::NetworkStatus::FORBIDDEN:
-    iop::panicLogger().warn(FLASH("Invalid auth token, but keeping since at iop_panic"));
+    iop::panicLogger().warn(IOP_STATIC_STRING("Invalid auth token, but keeping since at iop_panic"));
     return false;
 
   case iop::NetworkStatus::CLIENT_BUFFER_OVERFLOW:
     // TODO(pc): deal with this, but how? Truncating the msg?
     // Should we have an endpoint to report this type of error that can't
     // trigger it?
-    iop::panicLogger().crit(FLASH("Api::reportPanic client buffer overflow"));
+    iop::panicLogger().crit(IOP_STATIC_STRING("Api::reportPanic client buffer overflow"));
     return false;
 
   case iop::NetworkStatus::BROKEN_SERVER:
     // Nothing we can do besides waiting.
-    iop::panicLogger().crit(FLASH("Api::reportPanic is broken"));
+    iop::panicLogger().crit(IOP_STATIC_STRING("Api::reportPanic is broken"));
     return false;
 
   case iop::NetworkStatus::CONNECTION_ISSUES:
@@ -81,11 +81,11 @@ auto reportPanic(const std::string_view &msg, const iop::StaticString &file,
     return false;
 
   case iop::NetworkStatus::OK:
-    iop::panicLogger().info(FLASH("Reported iop_panic to server successfully"));
+    iop::panicLogger().info(IOP_STATIC_STRING("Reported iop_panic to server successfully"));
     return true;
   }
   const auto str = iop::Network::apiStatusToString(status);
-  iop::panicLogger().error(FLASH("Unexpected status, iop_panic.h: reportPanic: "), str);
+  iop::panicLogger().error(IOP_STATIC_STRING("Unexpected status, iop_panic.h: reportPanic: "), str);
   return false;
 }
 
@@ -101,17 +101,17 @@ static void halt(const std::string_view &msg,
   constexpr const uint32_t oneHour = ((uint32_t)60) * 60;
   while (true) {
     if (!eventLoop.flash().wifi()) {
-      iop::panicLogger().warn(FLASH("Nothing we can do, no wifi config available"));
+      iop::panicLogger().warn(IOP_STATIC_STRING("Nothing we can do, no wifi config available"));
       break;
     }
 
     if (!eventLoop.flash().token()) {
-      iop::panicLogger().warn(FLASH("Nothing we can do, no auth token available"));
+      iop::panicLogger().warn(IOP_STATIC_STRING("Nothing we can do, no auth token available"));
       break;
     }
 
     if (iop::data.wifi.mode() == driver::WiFiMode::OFF) {
-      iop::panicLogger().crit(FLASH("WiFi is disabled, unable to recover"));
+      iop::panicLogger().crit(IOP_STATIC_STRING("WiFi is disabled, unable to recover"));
       break;
     }
 
@@ -124,7 +124,7 @@ static void halt(const std::string_view &msg,
       // Doesn't return if upgrade succeeds
       upgrade();
     } else {
-      iop::panicLogger().warn(FLASH("No network, unable to recover"));
+      iop::panicLogger().warn(IOP_STATIC_STRING("No network, unable to recover"));
     }
     driver::device.deepSleep(oneHour);
 

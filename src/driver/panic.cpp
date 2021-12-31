@@ -14,7 +14,7 @@ static iop::PanicHook hook(defaultHook);
 
 namespace iop {
 Log & panicLogger() noexcept {
-  static iop::Log logger(iop::LogLevel::CRIT, FLASH("PANIC"));
+  static iop::Log logger(iop::LogLevel::CRIT, IOP_STATIC_STRING("PANIC"));
   return logger;
 }
 
@@ -43,21 +43,21 @@ void setPanicHook(PanicHook newHook) noexcept { hook = std::move(newHook); }
 
 void PanicHook::defaultViewPanic(std::string_view const &msg,
                                  CodePoint const &point) noexcept {
-  iop::panicLogger().crit(FLASH("Line "), ::std::to_string(point.line()), FLASH(" of file "), point.file(),
-              FLASH(" inside "), point.func(), FLASH(": "), msg);
+  iop::panicLogger().crit(IOP_STATIC_STRING("Line "), ::std::to_string(point.line()), IOP_STATIC_STRING(" of file "), point.file(),
+              IOP_STATIC_STRING(" inside "), point.func(), IOP_STATIC_STRING(": "), msg);
 }
 void PanicHook::defaultStaticPanic(iop::StaticString const &msg,
                                    CodePoint const &point) noexcept {
-  iop::panicLogger().crit(FLASH("Line "), ::std::to_string(point.line()), FLASH(" of file "), point.file(),
-              FLASH(" inside "), point.func(), FLASH(": "), msg);
+  iop::panicLogger().crit(IOP_STATIC_STRING("Line "), ::std::to_string(point.line()), IOP_STATIC_STRING(" of file "), point.file(),
+              IOP_STATIC_STRING(" inside "), point.func(), IOP_STATIC_STRING(": "), msg);
 }
 void PanicHook::defaultEntry(std::string_view const &msg,
                              CodePoint const &point) noexcept {
   IOP_TRACE();
   if (isPanicking) {
-    iop::panicLogger().crit(FLASH("PANICK REENTRY: Line "), std::to_string(point.line()),
-                FLASH(" of file "), point.file(), FLASH(" inside "), point.func(),
-                FLASH(": "), msg);
+    iop::panicLogger().crit(IOP_STATIC_STRING("PANICK REENTRY: Line "), std::to_string(point.line()),
+                IOP_STATIC_STRING(" of file "), point.file(), IOP_STATIC_STRING(" inside "), point.func(),
+                IOP_STATIC_STRING(": "), msg);
     iop::logMemory(iop::panicLogger());
     driver::device.deepSleep(0);
     driver::thisThread.panic_();

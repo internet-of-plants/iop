@@ -17,8 +17,8 @@ auto descheduleInterrupt() noexcept -> InterruptEvent {
   return InterruptEvent::NONE;
 }
 // This function is called inside an interrupt, it can't be fancy (it can only
-// call functions stored in IRAM_ATTR)
-void IRAM_ATTR scheduleInterrupt(const InterruptEvent ev) noexcept {
+// call functions stored in IOP_RAM)
+void IOP_RAM scheduleInterrupt(const InterruptEvent ev) noexcept {
   volatile InterruptEvent *ptr = nullptr;
   for (volatile auto &el : interruptEvents) {
     if (el == InterruptEvent::NONE && ptr == nullptr) {
@@ -36,8 +36,7 @@ void IRAM_ATTR scheduleInterrupt(const InterruptEvent ev) noexcept {
     // If no space is available and we reach here there is a bug in the code,
     // interruptVariants is probably wrong. We used to panic here, but that
     // doesn't work when called from interrupts
-    iop::Log::print(FLASH("[CRIT] RESET: Unable to store interrupt, "
-                      "'interruptVariant' is probably wrong\n"),
+    iop::Log::print("[CRIT] RESET: Unable to store interrupt, 'interruptVariant' is probably wrong\n",
                     iop::LogLevel::INFO, iop::LogType::STARTEND);
   }
 }

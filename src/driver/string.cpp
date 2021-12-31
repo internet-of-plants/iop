@@ -4,6 +4,8 @@
 #include "driver/esp8266/string.hpp"
 #elif defined(IOP_NOOP)
 #include "driver/noop/string.hpp"
+#elif defined(IOP_ESP32)
+#include "driver/esp32/string.hpp"
 #else
 #error "Target not supported"
 #endif
@@ -77,6 +79,6 @@ auto to_view(const CowString& str) -> std::string_view {
   } else if (const auto *value = std::get_if<std::string>(&str)) {
     return iop::to_view(*value);
   }
-  iop_panic(FLASH("Invalid variant types"));
+  iop_panic(IOP_STATIC_STRING("Invalid variant types"));
 }
 } // namespace iop

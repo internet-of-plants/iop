@@ -45,7 +45,7 @@ class Response {
 public:
   Response(std::unordered_map<std::string, std::string> headers, const Payload payload, const int status) noexcept: headers_(headers), promise(payload), status_(status) {}
   explicit Response(const int status) noexcept: status_(status) {}
-  auto status() const noexcept { return this->status_; }
+  auto status() const noexcept -> int { return this->status_; }
   auto header(iop::StaticString key) const noexcept -> std::string;
   auto await() noexcept -> Payload {
     // TODO: make it actually lazy

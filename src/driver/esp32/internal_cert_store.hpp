@@ -5,7 +5,6 @@
 
 #include "driver/cert_store.hpp"
 
-#ifdef IOP_ESP8266
 #include "CertStoreBearSSL.h"
 #undef LED_BUILTIN
 #undef OUTPUT
@@ -32,6 +31,5 @@ struct InternalCertStore : public BearSSL::CertStoreBase {
   static void freeHashedTA(void *ctx, const br_x509_trust_anchor *ta);
 };
 }
-#endif
 
 #endif

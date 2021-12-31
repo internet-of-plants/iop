@@ -43,12 +43,12 @@ auto Flash::token() const noexcept -> std::optional<std::reference_wrapper<const
   const auto tok = iop::to_view(unused4KbSysStack.token());
   // AuthToken must be printable US-ASCII (to be stored in HTTP headers))
   if (!iop::isAllPrintable(tok) || tok.length() != 64) {
-    this->logger.error(FLASH("Auth token was non printable: "), iop::to_view(iop::scapeNonPrintable(tok)));
+    this->logger.error(IOP_STATIC_STRING("Auth token was non printable: "), iop::to_view(iop::scapeNonPrintable(tok)));
     this->removeToken();
     return std::nullopt;
   }
 
-  this->logger.trace(FLASH("Found Auth token: "), tok);
+  this->logger.trace(IOP_STATIC_STRING("Found Auth token: "), tok);
 
   return std::ref(unused4KbSysStack.token());
 }
@@ -60,7 +60,7 @@ void Flash::removeToken() const noexcept {
 
   // Checks if it's written to flash first, avoids wasting writes
   if (driver::flash.read(authTokenIndex) == usedAuthTokenEEPROMFlag) {
-    this->logger.info(FLASH("Deleting stored auth token"));
+    this->logger.info(IOP_STATIC_STRING("Deleting stored auth token"));
 
     // NOLINTNEXTLINE *-pro-bounds-pointer-arithmetic
     memset(driver::flash.asMut() + authTokenIndex, 0, authTokenSize);
@@ -75,11 +75,11 @@ void Flash::setToken(const AuthToken &token) const noexcept {
   const size_t size = sizeof(AuthToken);
   const auto *tok = driver::flash.asRef() + authTokenIndex + 1;  
   if (memcmp(tok, token.begin(), size) == 0) {
-    this->logger.debug(FLASH("Auth token already stored in flash"));
+    this->logger.debug(IOP_STATIC_STRING("Auth token already stored in flash"));
     return;
   }
 
-  this->logger.info(FLASH("Writing auth token to storage: "), iop::to_view(token));
+  this->logger.info(IOP_STATIC_STRING("Writing auth token to storage: "), iop::to_view(token));
   driver::flash.write(authTokenIndex, usedAuthTokenEEPROMFlag);
   driver::flash.put(authTokenIndex + 1, token);
   driver::flash.commit();
@@ -101,14 +101,14 @@ auto Flash::wifi() const noexcept -> std::optional<std::reference_wrapper<const 
   memcpy(unused4KbSysStack.psk().data(), ptr + 32, 64);
 
   const auto ssidStr = iop::scapeNonPrintable(std::string_view(unused4KbSysStack.ssid().data(), 32));
-  this->logger.trace(FLASH("Found network credentials: "), iop::to_view(ssidStr));
+  this->logger.trace(IOP_STATIC_STRING("Found network credentials: "), iop::to_view(ssidStr));
   const auto creds = WifiCredentials(unused4KbSysStack.ssid(), unused4KbSysStack.psk());
   return std::make_optional(std::ref(creds));
 }
 
 void Flash::removeWifi() const noexcept {
   IOP_TRACE();
-  this->logger.info(FLASH("Deleting stored wifi config"));
+  this->logger.info(IOP_STATIC_STRING("Deleting stored wifi config"));
 
   unused4KbSysStack.ssid().fill('\0');
   unused4KbSysStack.psk().fill('\0');
@@ -134,12 +134,12 @@ void Flash::setWifi(const WifiCredentials &config) const noexcept {
   const auto sameSSID = strncmp(reinterpret_cast<const char*>(ssid), config.ssid.get().begin(), ssidSize) == 0;
   const auto samePSK = strncmp(reinterpret_cast<const char*>(ssid + ssidSize), config.password.get().begin(), pskSize) == 0;
   if (sameSSID && samePSK) {
-    this->logger.debug(FLASH("WiFi credentials already stored in flash"));
+    this->logger.debug(IOP_STATIC_STRING("WiFi credentials already stored in flash"));
     return;
   }
 
-  this->logger.info(FLASH("Writing wifi credentials to storage: "), iop::to_view(config.ssid, ssidSize));
-  this->logger.debug(FLASH("WiFi Creds: "), iop::to_view(config.ssid, ssidSize), FLASH(" "), iop::to_view(config.password, pskSize));
+  this->logger.info(IOP_STATIC_STRING("Writing wifi credentials to storage: "), iop::to_view(config.ssid, ssidSize));
+  this->logger.debug(IOP_STATIC_STRING("WiFi Creds: "), iop::to_view(config.ssid, ssidSize), IOP_STATIC_STRING(" "), iop::to_view(config.password, pskSize));
 
   driver::flash.write(wifiConfigIndex, usedWifiConfigEEPROMFlag);
   driver::flash.put(wifiConfigIndex + 1, config.ssid.get());

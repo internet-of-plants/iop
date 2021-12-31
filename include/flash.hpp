@@ -9,7 +9,7 @@ class Flash {
   iop::Log logger;
 
 public:
-  explicit Flash(iop::LogLevel logLevel) noexcept: logger(logLevel, FLASH("FLASH")) {}
+  explicit Flash(iop::LogLevel logLevel) noexcept: logger(logLevel, IOP_STATIC_STRING("FLASH")) {}
 
   /// Initializes flash memory storage
   static auto setup() noexcept -> void;

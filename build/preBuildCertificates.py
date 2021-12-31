@@ -139,7 +139,7 @@ def preBuildCertificates(env):
                 cert = Certificate.load(bytestr)
                 idxHash = hashlib.sha256(cert.issuer.dump()).digest()
 
-                f.write("static const uint8_t cert_" + str(idx) + "[] PROGMEM = {")
+                f.write("static const uint8_t cert_" + str(idx) + "[] IOP_ROM = {")
                 for j in range(0, len(bytestr)):
                     totalbytes+=1
                     f.write(hex(bytestr[j]))
@@ -147,7 +147,7 @@ def preBuildCertificates(env):
                         f.write(", ")
                 f.write("};\n")
 
-                f.write("static const uint8_t idx_" + str(idx) + "[] PROGMEM = {")
+                f.write("static const uint8_t idx_" + str(idx) + "[] IOP_ROM = {")
                 for j in range(0, len(idxHash)):
                     totalbytes+=1
                     f.write(hex(idxHash[j]))
@@ -161,21 +161,21 @@ def preBuildCertificates(env):
 
     f.write("static const uint16_t numberOfCertificates = " + str(idx) + ";\n\n")
 
-    f.write("static const uint16_t certSizes[] PROGMEM = {")
+    f.write("static const uint16_t certSizes[] IOP_ROM = {")
     for i in range(0, idx):
         f.write(str(sizes[i]))
         if i<idx-1:
             f.write(", ")
     f.write("};\n\n")
 
-    f.write("static const uint8_t* const certificates[] PROGMEM = {")
+    f.write("static const uint8_t* const certificates[] IOP_ROM = {")
     for i in range(0, idx):
         f.write("cert_" + str(i))
         if i<idx-1:
             f.write(", ")
     f.write("};\n\n")
 
-    f.write("static const uint8_t* const indexes[] PROGMEM = {")
+    f.write("static const uint8_t* const indexes[] IOP_ROM = {")
     for i in range(0, idx):
         f.write("idx_" + str(i))
         if i<idx-1:

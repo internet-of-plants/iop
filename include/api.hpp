@@ -4,14 +4,6 @@
 #include "driver/network.hpp"
 #include "utils.hpp"
 #include <ArduinoJson.h>
-#undef LED_BUILTIN
-#undef OUTPUT
-#undef INPUT
-#undef LOW
-#undef HIGH
-#undef RISING
-#undef FALLING
-#undef CHANGE
 
 class PanicData;
 

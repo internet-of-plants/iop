@@ -7,7 +7,7 @@ HeapSelectDram::HeapSelectDram() noexcept {}
 HeapSelectDram::~HeapSelectDram() noexcept {}
 
 void Device::syncNTP() const noexcept {}
-auto Device::platform() const noexcept -> ::iop::StaticString { return FLASH("NOOP"); }
+auto Device::platform() const noexcept -> ::iop::StaticString { return IOP_STATIC_STRING("NOOP"); }
 auto Device::vcc() const noexcept -> uint16_t { return UINT16_MAX; }
 auto Device::availableFlash() const noexcept -> size_t { return 1000000; }
 auto Device::availableStack() const noexcept -> size_t { return 2000; }
