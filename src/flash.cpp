@@ -100,7 +100,7 @@ auto Flash::wifi() const noexcept -> std::optional<std::reference_wrapper<const 
   memcpy(unused4KbSysStack.ssid().data(), ptr, 32);
   memcpy(unused4KbSysStack.psk().data(), ptr + 32, 64);
 
-  const auto ssidStr = iop::scapeNonPrintable(std::string_view(unused4KbSysStack.ssid().data(), 32));
+  const auto ssidStr = iop::scapeNonPrintable(iop::StringView(unused4KbSysStack.ssid().data(), 32));
   this->logger.trace(IOP_STATIC_STRING("Found network credentials: "), iop::to_view(ssidStr));
   const auto creds = WifiCredentials(unused4KbSysStack.ssid(), unused4KbSysStack.psk());
   return std::make_optional(std::ref(creds));

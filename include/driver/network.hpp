@@ -43,9 +43,11 @@ public:
 
 class Response {
 public:
+  int error;
   NetworkStatus status;
   std::optional<std::string> payload;
 
+  explicit Response(int error) noexcept;
   explicit Response(const NetworkStatus &status) noexcept;
   Response(const NetworkStatus &status, std::string payload) noexcept;
 
@@ -80,7 +82,7 @@ class Network {
   StaticString uri_;
 
   /// Sends a custom HTTP request that may be authenticated to the monitor server (primitive used by higher level methods)
-  auto httpRequest(HttpMethod method, const std::optional<std::string_view> &token, StaticString path, const std::optional<std::string_view> &data) const noexcept -> std::variant<Response, int>;
+  auto httpRequest(HttpMethod method, const std::optional<iop::StringView> &token, StaticString path, const std::optional<iop::StringView> &data) const noexcept -> Response;
 public:
   Network(StaticString uri, const LogLevel &logLevel) noexcept;
 
@@ -105,10 +107,10 @@ public:
   static auto isConnected() noexcept -> bool;
 
   /// Sends an HTTP post that is authenticated to the monitor server.
-  auto httpPost(std::string_view token, StaticString path, std::string_view data) const noexcept -> std::variant<Response, int>;
+  auto httpPost(iop::StringView token, StaticString path, iop::StringView data) const noexcept -> Response;
 
   /// Sends an HTTP post that is not authenticated to the monitor server (used for authentication).
-  auto httpPost(StaticString path, std::string_view data) const noexcept -> std::variant<Response, int>;
+  auto httpPost(StaticString path, iop::StringView data) const noexcept -> Response;
 
   /// Allows properly logging network status
   static auto apiStatusToString(const NetworkStatus &status) noexcept -> StaticString;

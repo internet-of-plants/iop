@@ -9,13 +9,13 @@ namespace iop {
 class PanicHook {
 public:
   /// Represents a panic logger for runtime panic data
-  using ViewPanic = void (*)(std::string_view const &, CodePoint const &);
+  using ViewPanic = void (*)(iop::StringView const &, CodePoint const &);
   /// Represents a panic logger for compile time panic data
   using StaticPanic = void (*) (StaticString const &, CodePoint const &);
   /// Represents the complete process of a panic, calling halt on the end
-  using Entry = void (*) (std::string_view const &, CodePoint const &);
+  using Entry = void (*) (iop::StringView const &, CodePoint const &);
   /// Represents the last step on a panic (that either halts, reboots or waits for somethin - like a binary update from the monitor server)
-  using Halt = void (*) (std::string_view const &, CodePoint const &);
+  using Halt = void (*) (iop::StringView const &, CodePoint const &);
 
   ViewPanic viewPanic;
   StaticPanic staticPanic;
@@ -23,13 +23,13 @@ public:
   Halt halt;
 
   /// Prints runtime panic data
-  static void defaultViewPanic(std::string_view const &msg, CodePoint const &point) noexcept;
+  static void defaultViewPanic(iop::StringView const &msg, CodePoint const &point) noexcept;
   /// Prints compile time panic data
   static void defaultStaticPanic(StaticString const &msg, CodePoint const &point) noexcept;
   /// Handles reentry, prints the panic message and calls halt
-  static void defaultEntry(std::string_view const &msg, CodePoint const &point) noexcept;
+  static void defaultEntry(iop::StringView const &msg, CodePoint const &point) noexcept;
   /// Halts the system, waiting for manual intervention (reboot and serial update)
-  static void defaultHalt(std::string_view const &msg, CodePoint const &point) noexcept __attribute__((noreturn));
+  static void defaultHalt(iop::StringView const &msg, CodePoint const &point) noexcept __attribute__((noreturn));
 
   constexpr PanicHook(ViewPanic view, StaticPanic progmem, Entry entry,
             Halt halt) noexcept
@@ -46,7 +46,7 @@ void setPanicHook(PanicHook hook) noexcept;
 auto takePanicHook() noexcept -> PanicHook;
 
 /// Initiates panic process for a runtime string (prefer calling `iop_panic` and `iop_assert` instead of this)
-void panicHandler(std::string_view msg, CodePoint const &point) noexcept __attribute__((noreturn));
+void panicHandler(iop::StringView msg, CodePoint const &point) noexcept __attribute__((noreturn));
 /// Initiates panic process for a compile time string (prefer calling `iop_panic` and `iop_assert` instead of this)
 void panicHandler(StaticString msg, CodePoint const &point) noexcept __attribute__((noreturn));
 

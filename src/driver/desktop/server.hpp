@@ -7,7 +7,6 @@
 #include <functional>
 #include <unordered_map>
 #include <unordered_set>
-#include <optional>
 
 // TODO: Make it multiplatform
 // Berkeley sockets, so assumes POSIX compliant OS //
@@ -161,18 +160,18 @@ void HttpServer::handleClient() noexcept {
     }
     logger().debug(IOP_STATIC_STRING("Read: ("), std::to_string(len), IOP_STATIC_STRING(") ["), std::to_string(strnlen(buffer.begin(), 1024)));
 
-    std::string_view buff(buffer.begin());
+    iop::StringView buff(buffer.begin());
     if (len > 0 && firstLine) {
       if (buff.find("POST") != buff.npos) {
-        const ssize_t space = std::string_view(buff.begin() + 5).find(" ");
+        const ssize_t space = iop::StringView(buff.begin() + 5).find(" ");
         conn.currentRoute = std::string(buff.begin() + 5, space);
         logger().debug(IOP_STATIC_STRING("POST: "), conn.currentRoute);
       } else if (buff.find("GET") != buff.npos) {
-        const ssize_t space = std::string_view(buff.begin() + 4).find(" ");
+        const ssize_t space = iop::StringView(buff.begin() + 4).find(" ");
         conn.currentRoute = std::string(buff.begin() + 4, space);
         logger().debug(IOP_STATIC_STRING("GET: "), conn.currentRoute);
       } else if (buff.find("OPTIONS") != buff.npos) {
-        const ssize_t space = std::string_view(buff.begin() + 7).find(" ");
+        const ssize_t space = iop::StringView(buff.begin() + 7).find(" ");
         conn.currentRoute = std::string(buff.begin() + 7, space);
         logger().debug(IOP_STATIC_STRING("OPTIONS: "), conn.currentRoute);
       } else {
@@ -260,7 +259,7 @@ void HttpServer::onNotFound(HttpServer::Callback fn) noexcept {
   this->notFoundHandler = fn;
 }
 
-static auto percentDecode(const std::string_view input) noexcept -> std::optional<std::string> {
+static auto percentDecode(const iop::StringView input) noexcept -> std::optional<std::string> {
   logger().debug(IOP_STATIC_STRING("Decode: "), input);
   static const char tbl[256] = {
     -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
@@ -306,7 +305,7 @@ void HttpConnection::reset() noexcept {
 }
 std::optional<std::string> HttpConnection::arg(const iop::StaticString name) const noexcept {
   IOP_TRACE();
-  std::string_view view(this->currentPayload);
+  iop::StringView view(this->currentPayload);
 
   size_t argEncodingLen = 1 + name.length(); // len(name) + len('=')
   size_t index = view.find(name.toString() + "=");

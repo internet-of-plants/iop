@@ -1,7 +1,6 @@
 #include "driver/device.hpp"
 #include "driver/network.hpp"
 #include "driver/panic.hpp"
-#include "sys/pgmspace.h"
 #include "ESP8266HTTPClient.h"
 #include <umm_malloc/umm_heap_select.h>
 

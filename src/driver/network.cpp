@@ -30,11 +30,11 @@ void Network::disconnect() noexcept {
   return iop::data.wifi.stationDisconnect();
 }
 
-auto Network::httpPost(std::string_view token, const StaticString path, std::string_view data) const noexcept -> std::variant<Response, int> {
+auto Network::httpPost(iop::StringView token, const StaticString path, iop::StringView data) const noexcept -> Response {
   return this->httpRequest(HttpMethod::POST, token, path, data);
 }
 
-auto Network::httpPost(StaticString path, std::string_view data) const noexcept -> std::variant<Response, int> {
+auto Network::httpPost(StaticString path, iop::StringView data) const noexcept -> Response {
   return this->httpRequest(HttpMethod::POST, std::nullopt, path, data);
 }
 
@@ -95,12 +95,16 @@ Network::Network(StaticString uri, const LogLevel &logLevel) noexcept
   IOP_TRACE();
 }
 
+Response::Response(const int error) noexcept
+    : error(error), status(iop::NetworkStatus::BROKEN_SERVER), payload(std::nullopt) {
+  IOP_TRACE();
+}
 Response::Response(const NetworkStatus &status) noexcept
-    : status(status), payload(std::optional<std::string>()) {
+    : error(0), status(status), payload(std::nullopt) {
   IOP_TRACE();
 }
 Response::Response(const NetworkStatus &status, std::string payload) noexcept
-    : status(status), payload(payload) {
+    : error(0), status(status), payload(payload) {
   IOP_TRACE();
 }
 }
@@ -121,16 +125,16 @@ static auto methodToString(const HttpMethod &method) noexcept -> StaticString;
 // Returns Response if it can understand what the server sent, int is the raw
 // response given by ESP8266HTTPClient
 auto Network::httpRequest(const HttpMethod method_,
-                          const std::optional<std::string_view> &token, StaticString path,
-                          const std::optional<std::string_view> &data) const noexcept
-    -> std::variant<Response, int> {
+                          const std::optional<iop::StringView> &token, StaticString path,
+                          const std::optional<iop::StringView> &data) const noexcept
+    -> Response {
   IOP_TRACE();
   Network::setup();
 
   const auto uri = this->uri().toString() + path.toString();
   const auto method = methodToString(method_);
 
-  const auto data_ = data.value_or(std::string_view());
+  const auto data_ = data.value_or(iop::StringView());
 
   this->logger.debug(method, IOP_STATIC_STRING(" to "), this->uri(), path, IOP_STATIC_STRING(", data length: "), std::to_string(data_.length()));
 
@@ -188,54 +192,63 @@ auto Network::httpRequest(const HttpMethod method_,
 
   this->logger.debug(IOP_STATIC_STRING("Making HTTP request"));
 
-  auto responseVariant = session.sendRequest(method.toString().c_str(), data__, data_.length());
-  if (const auto *error = std::get_if<int>(&responseVariant)) {
-    return *error;
-  } else if (auto *response = std::get_if<driver::Response>(&responseVariant)) {
-    this->logger.debug(IOP_STATIC_STRING("Made HTTP request")); 
-
-    // Handle system upgrade request
-    const auto upgrade = response->header(IOP_STATIC_STRING("LATEST_VERSION"));
-    if (upgrade.length() > 0 && memcmp(upgrade.c_str(), driver::device.binaryMD5().data(), 32) != 0) {
-      this->logger.info(IOP_STATIC_STRING("Scheduled upgrade"));
-      hook.schedule();
-    }
-
-    // TODO: move this to inside driver::HTTPClient logic
-    const auto rawStatus = driver::rawStatus(response->status());
-    if (rawStatus == driver::RawStatus::UNKNOWN) {
-      this->logger.warn(IOP_STATIC_STRING("Unknown response code: "), std::to_string(response->status()));
-    }
-    
-    const auto rawStatusStr = driver::rawStatusToString(rawStatus);
-
-    this->logger.debug(IOP_STATIC_STRING("Response code ("), iop::to_view(std::to_string(response->status())), IOP_STATIC_STRING("): "), rawStatusStr);
-
-    // TODO: this is broken because it's not lazy, it should be a HTTPClient setting that bails out if it's bigger, and encapsulated in the API
-    /*
-    constexpr const int32_t maxPayloadSizeAcceptable = 2048;
-    if (unused4KbSysStack.http().getSize() > maxPayloadSizeAcceptable) {
-      unused4KbSysStack.http().end();
-      const auto lengthStr = std::to_string(response.payload.length());
-      this->logger.error(IOP_STATIC_STRING("Payload from server was too big: "), lengthStr);
-      unused4KbSysStack.response() = Response(NetworkStatus::BROKEN_SERVER);
-      return unused4KbSysStack.response();
-    }
-    */
-
-    // We have to simplify the errors reported by this API (but they are logged)
-    const auto maybeApiStatus = this->apiStatus(rawStatus);
-    if (maybeApiStatus) {
-      // The payload is always downloaded, since we check for its size and the
-      // origin is trusted. If it's there it's supposed to be there.
-      auto payload = response->await().payload;
-      this->logger.debug(IOP_STATIC_STRING("Payload (") , std::to_string(payload.length()), IOP_STATIC_STRING("): "), iop::to_view(payload));
-      // TODO: every response occupies 2x the size because we convert String -> std::string
-      return Response(*maybeApiStatus, std::string(payload));
-    }
-    return response->status();
+  auto response = session.sendRequest(method.toString().c_str(), data__, data_.length());
+  const auto rawStatus = driver::rawStatus(response.status());
+  switch (rawStatus) {
+    case driver::RawStatus::UNKNOWN:
+      // TODO: move this to inside driver::HTTPClient logic
+      if (rawStatus == driver::RawStatus::UNKNOWN) {
+        this->logger.warn(IOP_STATIC_STRING("Unknown response code: "), std::to_string(response.status()));
+      }
+    case driver::RawStatus::CONNECTION_FAILED:
+    case driver::RawStatus::CONNECTION_LOST:
+    case driver::RawStatus::ENCODING_NOT_SUPPORTED:
+    case driver::RawStatus::NO_SERVER:
+    case driver::RawStatus::READ_FAILED:
+    case driver::RawStatus::READ_TIMEOUT:
+    case driver::RawStatus::SEND_FAILED:
+      return Response(static_cast<int>(rawStatus));
+    case driver::RawStatus::OK:
+    case driver::RawStatus::FORBIDDEN:
+    case driver::RawStatus::SERVER_ERROR:
+      break;
   }
-  iop_panic(IOP_STATIC_STRING("Invalid variant types"));
+
+  this->logger.debug(IOP_STATIC_STRING("Made HTTP request")); 
+
+  // Handle system upgrade request
+  const auto upgrade = response.header(IOP_STATIC_STRING("LATEST_VERSION"));
+  if (upgrade.length() > 0 && memcmp(upgrade.c_str(), driver::device.binaryMD5().data(), 32) != 0) {
+    this->logger.info(IOP_STATIC_STRING("Scheduled upgrade"));
+    hook.schedule();
+  }
+  
+  const auto rawStatusStr = driver::rawStatusToString(rawStatus);
+  this->logger.debug(IOP_STATIC_STRING("Response code ("), iop::to_view(std::to_string(response.status())), IOP_STATIC_STRING("): "), rawStatusStr);
+
+  // TODO: this is broken because it's not lazy, it should be a HTTPClient setting that bails out if it's bigger, and encapsulated in the API
+  /*
+  constexpr const int32_t maxPayloadSizeAcceptable = 2048;
+  if (unused4KbSysStack.http().getSize() > maxPayloadSizeAcceptable) {
+    unused4KbSysStack.http().end();
+    const auto lengthStr = std::to_string(response.payload.length());
+    this->logger.error(IOP_STATIC_STRING("Payload from server was too big: "), lengthStr);
+    unused4KbSysStack.response() = Response(NetworkStatus::BROKEN_SERVER);
+    return unused4KbSysStack.response();
+  }
+  */
+
+  // We have to simplify the errors reported by this API (but they are logged)
+  const auto maybeApiStatus = this->apiStatus(rawStatus);
+  if (maybeApiStatus) {
+    // The payload is always downloaded, since we check for its size and the
+    // origin is trusted. If it's there it's supposed to be there.
+    auto payload = response.await().payload;
+    this->logger.debug(IOP_STATIC_STRING("Payload (") , std::to_string(payload.length()), IOP_STATIC_STRING("): "), iop::to_view(payload));
+    // TODO: every response occupies 2x the size because we convert String -> std::string
+    return Response(*maybeApiStatus, std::string(payload));
+  }
+  return Response(response.status());
 }
 
 void Network::setup() const noexcept {

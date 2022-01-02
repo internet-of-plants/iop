@@ -1,7 +1,6 @@
 #include "driver/client.hpp"
 #include "driver/panic.hpp"
 #include "driver/network.hpp"
-#include "sys/pgmspace.h"
 #include "ESP8266HTTPClient.h"
 #include "WiFiClientSecure.h"
 #include <charconv>
@@ -89,7 +88,7 @@ auto Session::sendRequest(std::string method, const uint8_t *data, size_t len) n
   iop_assert(this->http_ && this->http_->http, IOP_STATIC_STRING("Session has been moved out"));
   const auto code = this->http_->http->sendRequest(method.c_str(), data, len);
   if (code < 0) {
-    return Response(code);
+    return code;
   }
 
   std::unordered_map<std::string, std::string> headers;
@@ -102,7 +101,9 @@ auto Session::sendRequest(std::string method, const uint8_t *data, size_t len) n
 
   const auto httpString = this->http_->http->getString();
   const auto http_string = std::string(httpString.c_str());
-  return Response(headers, Payload(http_string), code);
+  const auto payload = Payload(http_string);
+  const auto response = Response(headers, payload, code);
+  return response;
 }
 
 HTTPClient::HTTPClient() noexcept: http(new (std::nothrow) ::HTTPClient()) {

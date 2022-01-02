@@ -44,9 +44,9 @@ struct Wifi {
   std::string localIP() const noexcept;
   void wake() const noexcept;
   std::pair<std::array<char, 32>, std::array<char, 64>> credentials() const noexcept;
-  bool begin(std::string_view ssid, std::string_view psk) const noexcept;
+  bool begin(iop::StringView ssid, iop::StringView psk) const noexcept;
   void setupAP() const noexcept;
-  void connectAP(std::string_view ssid, std::string_view psk) const noexcept;
+  void connectAP(iop::StringView ssid, iop::StringView psk) const noexcept;
   std::string APIP() const noexcept;
   void reconnect() const noexcept;
   void setup(driver::CertStore *certStore) noexcept;

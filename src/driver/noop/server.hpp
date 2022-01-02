@@ -1,5 +1,4 @@
 #include "driver/server.hpp"
-#include <optional>
 
 namespace driver {
 auto HttpConnection::arg(iop::StaticString arg) const noexcept -> std::optional<std::string> { (void) arg; return std::nullopt; }

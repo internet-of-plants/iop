@@ -6,7 +6,7 @@ static std::mutex stdoutMutex;
 
 namespace driver {
 void logSetup(const iop::LogLevel &level) noexcept { (void) level; }
-void logPrint(const std::string_view msg) noexcept {
+void logPrint(const iop::StringView msg) noexcept {
     std::lock_guard<std::mutex> guard(stdoutMutex);
     std::cout << msg;
 }

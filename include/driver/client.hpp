@@ -6,7 +6,6 @@
 #include <vector>
 #include <string>
 #include <unordered_map>
-#include <optional>
 
 class HTTPClient;
 
@@ -79,9 +78,9 @@ class Session {
   friend HTTPClient;
 
 public:
-  auto sendRequest(std::string method, const uint8_t *data, size_t len) noexcept -> std::variant<Response, int>;
+  auto sendRequest(std::string method, const uint8_t *data, size_t len) noexcept -> Response;
   void addHeader(iop::StaticString key, iop::StaticString value) noexcept;
-  void addHeader(iop::StaticString key, std::string_view value) noexcept;
+  void addHeader(iop::StaticString key, iop::StringView value) noexcept;
   void setAuthorization(std::string auth) noexcept;
   
   Session(Session& other) noexcept = delete;

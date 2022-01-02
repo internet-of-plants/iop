@@ -41,7 +41,7 @@ static iop::LogHook hook = defaultHook;
 namespace iop {
 void IOP_RAM Log::setup(LogLevel level) noexcept { hook.setup(level); }
 void Log::flush() noexcept { if (shouldFlush_) hook.flush(); }
-void IOP_RAM Log::print(const std::string_view view, const LogLevel level,
+void IOP_RAM Log::print(const iop::StringView view, const LogLevel level,
                                 const LogType kind) noexcept {
   if (level > LogLevel::TRACE)
     hook.viewPrint(view, level, kind);
@@ -104,7 +104,7 @@ void Log::log(const LogLevel &level, const StaticString &msg,
   Log::flush();
 }
 
-void Log::log(const LogLevel &level, const std::string_view &msg,
+void Log::log(const LogLevel &level, const iop::StringView &msg,
               const LogType &logType,
               const StaticString &lineTermination) const noexcept {
   if (this->level_ > level)
@@ -152,7 +152,7 @@ void IOP_RAM LogHook::defaultStaticPrinter(
   (void)level;
 }
 void IOP_RAM
-LogHook::defaultViewPrinter(const std::string_view str, const LogLevel level, const LogType type) noexcept {
+LogHook::defaultViewPrinter(const iop::StringView str, const LogLevel level, const LogType type) noexcept {
 #ifdef IOP_SERIAL
   driver::logPrint(str);
 #else

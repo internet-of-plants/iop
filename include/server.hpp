@@ -3,7 +3,6 @@
 
 #include "driver/log.hpp"
 #include "utils.hpp"
-#include <optional>
 
 class Api;
 

@@ -7,7 +7,7 @@
 #include "driver/thread.hpp"
 
 static void staticPrinter(const iop::StaticString str, iop::LogLevel level, iop::LogType kind) noexcept;
-static void viewPrinter(const std::string_view, iop::LogLevel level, iop::LogType kind) noexcept;
+static void viewPrinter(const iop::StringView, iop::LogLevel level, iop::LogType kind) noexcept;
 static void setuper(iop::LogLevel level) noexcept;
 static void flusher() noexcept;
 
@@ -87,7 +87,7 @@ static void staticPrinter(const iop::StaticString str,
     }
   }
 }
-static void viewPrinter(const std::string_view str, const iop::LogLevel level, const iop::LogType kind) noexcept {
+static void viewPrinter(const iop::StringView str, const iop::LogLevel level, const iop::LogType kind) noexcept {
   iop::LogHook::defaultViewPrinter(str, level, kind);
 
   if (logNetwork && level >= iop::LogLevel::INFO) {

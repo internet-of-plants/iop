@@ -4,6 +4,7 @@
 #include "driver/network.hpp"
 #include "utils.hpp"
 #include <ArduinoJson.h>
+#include <utility>
 
 class PanicData;
 
@@ -54,12 +55,12 @@ public:
   ///
   /// Return values:
   ///
-  /// OK: unreachable, as success returns an AuthToken
+  /// OK: success, AuthToken was received
   /// FORBIDDEN: unreachable, as this route doesn't expect an AuthToken
-  /// CONNECTION_ISSUES: problems with connection, retry later?
-  /// CLIENT_BUFFER_OVERFLOW: critical, means the method is broken and a buffer overflows happened
-  /// BROKEN_SERVER: must wait until server is fixed
-  auto authenticate(std::string_view username, std::string_view password) const noexcept -> std::variant<AuthToken, iop::NetworkStatus>;
+  /// CONNECTION_ISSUES: problems with connection, retry later? No AuthToken available
+  /// CLIENT_BUFFER_OVERFLOW: critical, means the method is broken and a buffer overflows happened, no AuthToken available
+  /// BROKEN_SERVER: must wait until server is fixed, no AuthToken available
+  auto authenticate(iop::StringView username, iop::StringView password) const noexcept -> std::pair<iop::NetworkStatus, std::optional<AuthToken>>;
 
   /// Reports log message to server.
   ///
@@ -70,7 +71,7 @@ public:
   /// CONNECTION_ISSUES: problems with connection, retry later?
   /// CLIENT_BUFFER_OVERFLOW: critical, means the method is broken and a buffer overflows happened
   /// BROKEN_SERVER: must wait until server is fixed
-  auto registerLog(const AuthToken &authToken, std::string_view log) const noexcept -> iop::NetworkStatus;
+  auto registerLog(const AuthToken &authToken, iop::StringView log) const noexcept -> iop::NetworkStatus;
 
   /// Tries to update the firmware. Returns OK if no updates are available.
   ///
@@ -103,7 +104,7 @@ public:
 
 /// Represents the data passed to the panic hook
 struct PanicData {
-  std::string_view msg;
+  iop::StringView msg;
   iop::StaticString file;
   uint32_t line;
   iop::StaticString func;

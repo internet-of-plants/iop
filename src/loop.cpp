@@ -102,8 +102,8 @@ void EventLoop::handleNotConnected() noexcept {
     this->nextTryFlashWifiCredentials = now + intervalTryFlashWifiCredentialsMillis;
 
     const auto &stored = wifi->get();
-    const auto ssid = std::string_view(stored.ssid.get().data(), stored.ssid.get().max_size());
-    const auto psk = std::string_view(stored.password.get().data(), stored.password.get().max_size());
+    const auto ssid = iop::StringView(stored.ssid.get().data(), stored.ssid.get().max_size());
+    const auto psk = iop::StringView(stored.password.get().data(), stored.password.get().max_size());
     this->logger.info(IOP_STATIC_STRING("Trying wifi credentials stored in flash: "), iop::to_view(iop::scapeNonPrintable(ssid)));
     this->logger.debug(IOP_STATIC_STRING("Password:"), iop::to_view(iop::scapeNonPrintable(psk)));
     this->connect(ssid, psk);
@@ -220,7 +220,7 @@ void EventLoop::handleInterrupt(const InterruptEvent event, const std::optional<
 
       unused4KbSysStack.ssid().fill('\0');
       memcpy(unused4KbSysStack.ssid().data(), config.first.begin(), sizeof(config.first));
-      this->logger.info(IOP_STATIC_STRING("Connected to network: "), iop::to_view(iop::scapeNonPrintable(std::string_view(unused4KbSysStack.ssid().data(), 32))));
+      this->logger.info(IOP_STATIC_STRING("Connected to network: "), iop::to_view(iop::scapeNonPrintable(iop::StringView(unused4KbSysStack.ssid().data(), 32))));
 
       unused4KbSysStack.psk().fill('\0');
       memcpy(unused4KbSysStack.psk().data(), config.second.begin(), sizeof(config.second));
@@ -273,8 +273,8 @@ void EventLoop::handleMeasurements(const AuthToken &token) noexcept {
 }
 
 
-void EventLoop::connect(std::string_view ssid,
-                                std::string_view password) const noexcept {
+void EventLoop::connect(iop::StringView ssid,
+                                iop::StringView password) const noexcept {
   IOP_TRACE();
   this->logger.info(IOP_STATIC_STRING("Connect: "), ssid);
   if (iop::data.wifi.status() == driver::StationStatus::CONNECTING) {
@@ -296,17 +296,17 @@ void EventLoop::connect(std::string_view ssid,
   }
 }
 
-auto EventLoop::authenticate(std::string_view username, std::string_view password, const Api &api) const noexcept -> std::optional<AuthToken> {
+auto EventLoop::authenticate(iop::StringView username, iop::StringView password, const Api &api) const noexcept -> std::optional<AuthToken> {
   IOP_TRACE();
 
   iop::data.wifi.setMode(driver::WiFiMode::STA);
-  auto authToken = api.authenticate(username, std::move(password));
+  auto [status, authToken] = api.authenticate(username, std::move(password));
   iop::data.wifi.setMode(driver::WiFiMode::AP_STA);
 
   this->logger.info(IOP_STATIC_STRING("Tried to authenticate"));
-  if (const auto *error = std::get_if<iop::NetworkStatus>(&authToken)) {
-    const auto &status = *error;
-
+  if (authToken) {
+    return *authToken;
+  } else {
     switch (status) {
     case iop::NetworkStatus::FORBIDDEN:
       this->logger.error(IOP_STATIC_STRING("Invalid IoP credentials ("), iop::Network::apiStatusToString(status), IOP_STATIC_STRING("): "), username);
@@ -329,9 +329,6 @@ auto EventLoop::authenticate(std::string_view username, std::string_view passwor
     const auto str = iop::Network::apiStatusToString(status);
     this->logger.crit(IOP_STATIC_STRING("CredentialsServer::authenticate bad status: "), str);
     return std::nullopt;
-
-  } else if (auto *token = std::get_if<AuthToken>(&authToken)) {
-    return *token;
   }
 
   iop_panic(IOP_STATIC_STRING("Invalid variant"));

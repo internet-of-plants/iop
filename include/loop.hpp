@@ -12,8 +12,6 @@
 #include "server.hpp"
 #include "utils.hpp"
 
-#include <optional>
-
 class EventLoop {
 private:
   CredentialsServer credentialsServer;
@@ -37,10 +35,10 @@ public:
   void setup() noexcept;
   void loop() noexcept;
   /// Connects to WiFi
-  void connect(std::string_view ssid, std::string_view password) const noexcept;
+  void connect(iop::StringView ssid, iop::StringView password) const noexcept;
   
   /// Uses IoP credentials to generate an authentication token for the device
-  auto authenticate(std::string_view username, std::string_view password, const Api &api) const noexcept -> std::optional<AuthToken>;
+  auto authenticate(iop::StringView username, iop::StringView password, const Api &api) const noexcept -> std::optional<AuthToken>;
   auto statusToString(const driver::StationStatus status) const noexcept -> std::optional<iop::StaticString>;
 
 private:

@@ -39,7 +39,7 @@ void upgrade() noexcept {
 // TODO(pc): save unique panics to flash
 // TODO(pc): dump stackstrace on iop_panic
 // https://github.com/sticilface/ESPmanager/blob/dce7fc06806a90c179a40eb2d74f4278fffad5b4/src/SaveStack.cpp
-auto reportPanic(const std::string_view &msg, const iop::StaticString &file,
+auto reportPanic(const iop::StringView &msg, const iop::StaticString &file,
                  const uint32_t line, const iop::StaticString &func) noexcept
     -> bool {
   IOP_TRACE();
@@ -89,11 +89,11 @@ auto reportPanic(const std::string_view &msg, const iop::StaticString &file,
   return false;
 }
 
-static void halt(const std::string_view &msg,
+static void halt(const iop::StringView &msg,
                  iop::CodePoint const &point) noexcept
     __attribute__((noreturn));
 
-static void halt(const std::string_view &msg,
+static void halt(const iop::StringView &msg,
                  iop::CodePoint const &point) noexcept {
   IOP_TRACE();
   auto reportedPanic = false;

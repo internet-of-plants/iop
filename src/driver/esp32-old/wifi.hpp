@@ -1,6 +1,6 @@
 #include "driver/wifi.hpp"
 #include "driver/interrupt.hpp"
-#include "driver/esp8266/internal_cert_store.hpp"
+#include "driver/esp32/internal_cert_store.hpp"
 #include "driver/panic.hpp"
 #include "ESP8266WiFi.h"
 

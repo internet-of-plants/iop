@@ -60,7 +60,7 @@ public:
 class LogHook {
 public:
   /// Primitive to print runtime strings
-  using ViewPrinter = void (*) (std::string_view, LogLevel, LogType);
+  using ViewPrinter = void (*) (iop::StringView, LogLevel, LogType);
   /// Primitive to print compile time strings
   using StaticPrinter = void (*) (StaticString, LogLevel, LogType);
   /// Primitive to initialize the logger
@@ -83,7 +83,7 @@ public:
   /// Prints runtime string.
   ///
   /// Interrupt safe
-  static void defaultViewPrinter(std::string_view, LogLevel level, LogType type) noexcept;
+  static void defaultViewPrinter(iop::StringView, LogLevel level, LogType type) noexcept;
   /// Prints compile time string.
   ///
   /// Interrupt safe
@@ -181,7 +181,7 @@ public:
   /// Primitive that allows printing an individual compile time string according to the log level
   static void print(StaticString progmem, LogLevel level, LogType kind) noexcept;
   /// Primitive that allows printing an individual runtime string according to the log level
-  static void print(std::string_view view, LogLevel level, LogType kind) noexcept;
+  static void print(iop::StringView view, LogLevel level, LogType kind) noexcept;
   /// Primitive that flushes the log
   static void flush() noexcept;
   /// Primitive that initializes the log, gets a log level as parameter to enable global tracing as needed
@@ -216,7 +216,7 @@ private:
   // "Recursive" variadic function
   template <typename... Args>
   void log_recursive(const LogLevel &level, const bool first,
-                     const std::string_view msg, const Args &...args) const noexcept {
+                     const iop::StringView msg, const Args &...args) const noexcept {
     if (first) {
       this->log(level, msg, LogType::START, IOP_STATIC_STRING(""));
     } else {
@@ -228,7 +228,7 @@ private:
   // Terminator
   template <typename... Args>
   void log_recursive(const LogLevel &level, const bool first,
-                     const std::string_view msg) const noexcept {
+                     const iop::StringView msg) const noexcept {
     if (first) {
       this->log(level, msg, LogType::STARTEND, IOP_STATIC_STRING("\n"));
     } else {
@@ -241,7 +241,7 @@ private:
 
   void log(const LogLevel &level, const StaticString &msg, const LogType &logType,
            const StaticString &lineTermination) const noexcept;
-  void log(const LogLevel &level, const std::string_view &msg, const LogType &logType,
+  void log(const LogLevel &level, const iop::StringView &msg, const LogType &logType,
            const StaticString &lineTermination) const noexcept;
 };
 void logMemory(const iop::Log &logger) noexcept;
@@ -250,7 +250,7 @@ void logMemory(const iop::Log &logger) noexcept;
 namespace driver {
 // Internals, don't use them. Use the Log abstraction instead
 void logSetup(const iop::LogLevel &level) noexcept;
-void logPrint(const std::string_view msg) noexcept;
+void logPrint(const iop::StringView msg) noexcept;
 void logPrint(const iop::StaticString msg) noexcept;
 void logFlush() noexcept;
 } // namespace driver

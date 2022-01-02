@@ -13,7 +13,7 @@
 #include "driver/panic.hpp"
 
 namespace iop {
-auto hashString(const std::string_view txt) noexcept -> uint64_t {
+auto hashString(const iop::StringView txt) noexcept -> uint64_t {
   IOP_TRACE();
   const auto *const bytes = txt.begin();
   const uint64_t p = 16777619; // NOLINT cppcoreguidelines-avoid-magic-numbers
@@ -38,7 +38,7 @@ auto isPrintable(const char ch) noexcept -> bool {
   return ch >= 32 && ch <= 126; // NOLINT cppcoreguidelines-avoid-magic-numbers
 }
 
-auto isAllPrintable(const std::string_view txt) noexcept -> bool {
+auto isAllPrintable(const iop::StringView txt) noexcept -> bool {
   const auto len = txt.length();
   for (uint8_t index = 0; index < len; ++index) {
     const auto ch = txt.begin()[index]; // NOLINT *-pro-bounds-pointer-arithmetic
@@ -49,7 +49,7 @@ auto isAllPrintable(const std::string_view txt) noexcept -> bool {
   return true;
 }
 
-auto scapeNonPrintable(const std::string_view txt) noexcept -> CowString {
+auto scapeNonPrintable(const iop::StringView txt) noexcept -> CowString {
   if (isAllPrintable(txt))
     return CowString(txt);
 
@@ -69,16 +69,11 @@ auto scapeNonPrintable(const std::string_view txt) noexcept -> CowString {
   return CowString(s);
 }
 
-auto to_view(const std::string& str) -> std::string_view {
+auto to_view(const std::string& str) -> iop::StringView {
   return str.c_str();
 }
 
-auto to_view(const CowString& str) -> std::string_view {
-  if (const auto *value = std::get_if<std::string_view>(&str)) {
-    return *value;
-  } else if (const auto *value = std::get_if<std::string>(&str)) {
-    return iop::to_view(*value);
-  }
-  iop_panic(IOP_STATIC_STRING("Invalid variant types"));
+auto to_view(const CowString& str) -> iop::StringView {
+  return str.borrow();
 }
 } // namespace iop

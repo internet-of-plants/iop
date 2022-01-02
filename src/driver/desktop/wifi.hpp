@@ -27,11 +27,11 @@ std::string Wifi::localIP() const noexcept {
 std::string Wifi::APIP() const noexcept {
     return "127.0.0.1";
 }
-void Wifi::connectAP(std::string_view ssid, std::string_view psk) const noexcept {
+void Wifi::connectAP(iop::StringView ssid, iop::StringView psk) const noexcept {
     (void) ssid;
     (void) psk;
 }
-bool Wifi::begin(std::string_view ssid, std::string_view psk) const noexcept {
+bool Wifi::begin(iop::StringView ssid, iop::StringView psk) const noexcept {
     (void) ssid;
     (void) psk;
     return true;

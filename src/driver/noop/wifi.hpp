@@ -26,6 +26,6 @@ void Wifi::wake() const noexcept {}
 void Wifi::setup(driver::CertStore *certStore) noexcept { (void) certStore; }
 WiFiMode Wifi::mode() const noexcept { return WiFiMode::STA; }
 
-void Wifi::connectAP(std::string_view ssid, std::string_view psk) const noexcept { (void) ssid; (void) psk; }
-bool Wifi::begin(std::string_view ssid, std::string_view psk) const noexcept { (void) ssid; (void) psk; return true; }
+void Wifi::connectAP(iop::StringView ssid, iop::StringView psk) const noexcept { (void) ssid; (void) psk; }
+bool Wifi::begin(iop::StringView ssid, iop::StringView psk) const noexcept { (void) ssid; (void) psk; return true; }
 }

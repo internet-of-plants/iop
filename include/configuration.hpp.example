@@ -5,7 +5,6 @@
 #include "driver/thread.hpp"
 #include "driver/log.hpp"
 #include "utils.hpp"
-#include <optional>
 
 namespace config {
 /// Minimum log level to print a message (if serial is enabled)
