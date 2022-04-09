@@ -1,0 +1,26 @@
+{
+  "name": "iop",
+  "description": "",
+  "homepage": "https://github.com/internet-of-plants/embedded",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/internet-of-plants/embedded.git"
+  },
+  "version": "0.1.0",
+  "authors": {
+    "name": "Paulo Cabral Sanz",
+    "url": "https://github.com/paulocsanz"
+  },
+  "license": "AGPL-3.0",
+  "frameworks": "*",
+  "dependencies": [
+    {
+      "name": "iop-hal",
+      "version": "https://github.com/internet-of-plants/iop-hal"
+    }
+  ],
+  "platforms": ["espressif8266", "espressif32","native"],
+  "build": {
+    "libArchive": false
+  }
+}
