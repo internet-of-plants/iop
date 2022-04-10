@@ -16,19 +16,17 @@
 namespace iop {
 class EventLoop;
 
-class TaskInterval {
+struct TaskInterval {
   iop::time::milliseconds interval;
   iop::time::milliseconds next;
   std::function<void(EventLoop&)> func;
-
   TaskInterval(iop::time::milliseconds interval, std::function<void(EventLoop&)> func) noexcept;
 };
 
-class AuthenticatedTaskInterval {
+struct AuthenticatedTaskInterval {
   iop::time::milliseconds interval;
   iop::time::milliseconds next;
   std::function<void(EventLoop&, AuthToken&)> func;
-
   AuthenticatedTaskInterval(iop::time::milliseconds interval, std::function<void(EventLoop&, AuthToken&)> func) noexcept;
 };
 
