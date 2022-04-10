@@ -3,7 +3,7 @@
 #include "iop/utils.hpp"
 
 namespace iop {
-static volatile InterruptEvent interruptEvents[interruptVariants] = { InterruptEvent::NONE, InterruptEvent::NONE, InterruptEvent::NONE, InterruptEvent::NONE };
+static volatile InterruptEvent interruptEvents[interruptVariants] = { InterruptEvent::NONE, InterruptEvent::NONE, InterruptEvent::NONE };
 
 auto descheduleInterrupt() noexcept -> InterruptEvent {
   IOP_TRACE();

@@ -100,15 +100,10 @@ auto EventLoop::loop() noexcept -> void {
     } else if (!isConnected) {
         this->handleNotConnected();
 
-    } else if (this->nextMeasurement <= now) {
-      this->nextHandleConnectionLost = 0;
-      constexpr const uint32_t interval = 180 * 1000;
-      this->nextMeasurement = now + interval;
-      iop_assert(authToken, IOP_STR("Auth Token not found"));
-      authenticatedLoop(*this, authToken->get());
-
     } else {
       this->nextHandleConnectionLost = 0;
+      iop_assert(authToken, IOP_STR("Auth Token not found"));
+      authenticatedLoop(*this, authToken->get());
     }
 }
 
@@ -195,12 +190,6 @@ auto EventLoop::handleInterrupt(const InterruptEvent event, const std::optional<
     switch (event) {
     case InterruptEvent::NONE:
       break;
-    case InterruptEvent::FACTORY_RESET:
-      this->logger().warn(IOP_STR("Factory Reset: deleting stored credentials"));
-      this->storage().removeWifi();
-      this->storage().removeToken();
-      iop::Network::disconnect();
-      break;
     case InterruptEvent::MUST_UPGRADE:
       if (token) {
         const auto status = this->api().upgrade(*token);
@@ -227,7 +216,6 @@ auto EventLoop::handleInterrupt(const InterruptEvent event, const std::optional<
       }
       break;
     case InterruptEvent::ON_CONNECTION:
-#ifdef IOP_ONLINE
       const auto status = iop_hal::statusToString(iop::wifi.status());
       this->logger().debug(IOP_STR("WiFi connected: "), status.value_or(IOP_STR("BadData")));
 
@@ -235,8 +223,6 @@ auto EventLoop::handleInterrupt(const InterruptEvent event, const std::optional<
 
       this->logger().info(IOP_STR("Connected to network: "), iop::to_view(iop::scapeNonPrintable(iop::to_view(ssid))));
       this->storage().setWifi(WifiCredentials(ssid, psk));
-#endif
-      (void)2; // Satisfies linter
       break;
     };
 }

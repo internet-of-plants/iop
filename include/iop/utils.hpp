@@ -6,8 +6,8 @@
 
 namespace iop {
 // If you change the number of interrupt types, please update interruptVariant to the correct size
-enum class InterruptEvent { NONE, FACTORY_RESET, ON_CONNECTION, MUST_UPGRADE };
-constexpr static uint8_t interruptVariants = 4;
+enum class InterruptEvent { NONE, ON_CONNECTION, MUST_UPGRADE };
+constexpr static uint8_t interruptVariants = 3;
 
 namespace panic {
   /// Sets custom panic hook to device, this hook logs the panic to the monitor server and requests for an update from the server constantly, rebooting when it succeeds

@@ -20,7 +20,6 @@ private:
   iop::Log logger_;
   Storage storage_;
 
-  iop::time::milliseconds nextMeasurement;
   iop::time::milliseconds nextNTPSync;
   iop::time::milliseconds nextHandleConnectionLost;
 
