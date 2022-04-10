@@ -4,6 +4,9 @@
 #include "iop-hal/io.hpp"
 #include "iop/utils.hpp"
 
+#define STRINGIFY(s) STRINGIFY_(s)
+#define STRINGIFY_(s) #s
+
 #ifdef IOP_WIFI_SSID
 const static char* wifiSSIDRaw = STRINGIFY(IOP_WIFI_SSID);
 const static std::optional<iop::StaticString> wifiSSID(reinterpret_cast<const __FlashStringHelper*>(wifiSSIDRaw));
@@ -19,10 +22,10 @@ const static std::optional<iop::StaticString> wifiPSK = std::nullopt;
 #endif
 
 #ifdef IOP_USERNAME
-const static char* iopEmailRaw = STRINGIFY(IOP_USERNAME);
-const static std::optional<iop::StaticString> iopEmail(reinterpret_cast<const __FlashStringHelper*>(iopEmailRaw));
+const static char* iopUsernameRaw = STRINGIFY(IOP_USERNAME);
+const static std::optional<iop::StaticString> iopUsername(reinterpret_cast<const __FlashStringHelper*>(iopUsernameRaw));
 #else
-const static std::optional<iop::StaticString> iopEmail = std::nullopt;
+const static std::optional<iop::StaticString> iopUsername = std::nullopt;
 #endif
 
 #ifdef IOP_PASSWORD
@@ -41,9 +44,6 @@ static const char* uriRaw IOP_ROM = "https://iop-monitor-server.tk:4001";
 static const StaticString uri(reinterpret_cast<const __FlashStringHelper*>(uriRaw));
 
 EventLoop eventLoop(uri, IOP_LOG_LEVEL);
-
-#define STRINGIFY(s) STRINGIFY_(s)
-#define STRINGIFY_(s) #s
 
 auto EventLoop::setup() noexcept -> void {
   iop::panic::setup();
@@ -178,12 +178,12 @@ auto EventLoop::handleIopCredentials() noexcept -> void {
 
   const auto now = iop_hal::thisThread.timeRunning();
 
-  if (iopEmail && iopPassword && this->nextTryHardcodedIopCredentials <= now) {
+  if (iopUsername && iopPassword && this->nextTryHardcodedIopCredentials <= now) {
     this->nextTryHardcodedIopCredentials = now + intervalTryHardcodedIopCredentialsMillis;
 
     this->logger().info(IOP_STR("Trying hardcoded iop credentials"));
 
-    const auto email = *iopEmail;
+    const auto email = *iopUsername;
     const auto password = *iopPassword;
     const auto tok = this->authenticate(email.toString(), password.toString(), this->api());
     if (tok)
