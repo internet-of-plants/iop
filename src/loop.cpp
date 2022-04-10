@@ -4,18 +4,28 @@
 #include "iop-hal/io.hpp"
 #include "iop/utils.hpp"
 
-#ifndef IOP_WIFI_SSID
-#define IOP_WIFI_SSID std::nullopt
-#endif
-#ifndef IOP_WIFI_PSK
-#define IOP_WIFI_PSK std::nullopt
+#ifdef IOP_WIFI_SSID
+const static std::optional<StaticString> wifiSSID = STRINGIFY(IOP_WIFI_SSID);
+#else
+const static std::optional<StaticString> wifiSSID = std::nullopt;
 #endif
 
-#ifndef IOP_EMAIL
-#define IOP_EMAIL std::nullopt
+#ifdef IOP_WIFI_PSK
+const static std::optional<StaticString> wifiPSK = STRINGIFY(IOP_WIFI_PSK);
+#else
+const static std::optional<StaticString> wifiPSK = std::nullopt;
 #endif
-#ifndef IOP_PASSWORD
-#define IOP_PASSWORD std::nullopt
+
+#ifdef IOP_EMAIL
+const static std::optional<StaticString> iopEmail = STRINGIFY(IOP_EMAIL);
+#else
+const static std::optional<StaticString> iopEmail = std::nullopt;
+#endif
+
+#ifdef IOP_PASSWORD
+const static std::optional<StaticString> iopPassword = STRINGIFY(IOP_PASSWORD);
+#else
+const static std::optional<StaticString> iopPassword = std::nullopt;
 #endif
 
 namespace iop {
@@ -28,10 +38,8 @@ static const StaticString uri(reinterpret_cast<const __FlashStringHelper*>(uriRa
 
 EventLoop eventLoop(uri, IOP_LOG_LEVEL);
 
-const static std::optional<StaticString> wifiSSID = IOP_WIFI_SSID;
-const static std::optional<StaticString> wifiPSK = IOP_WIFI_PSK;
-const static std::optional<StaticString> iopEmail = IOP_EMAIL;
-const static std::optional<StaticString> iopPassword = IOP_PASSWORD;
+#define STRINGIFY(s) STRINGIFY_(s)
+#define STRINGIFY_(s) #s
 
 auto EventLoop::setup() noexcept -> void {
   iop::panic::setup();
