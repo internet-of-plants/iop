@@ -51,8 +51,8 @@ public:
       : credentialsServer(logLevel_),
         api_(std::move(uri), logLevel_),
         logger_(logLevel_, IOP_STR("LOOP")), storage_(logLevel_),
-        nextMeasurement(0), nextNTPSync(0), nextHandleConnectionLost(0),
-        nextTryStorageWifiCredentials(0), nextTryHardcodedWifiCredentials(0), nextTryHardcodedIopCredentials(0) {
+        nextNTPSync(0), nextHandleConnectionLost(0), nextTryStorageWifiCredentials(0),
+        nextTryHardcodedWifiCredentials(0), nextTryHardcodedIopCredentials(0) {
     IOP_TRACE();
   }
   ~EventLoop() noexcept = default;
