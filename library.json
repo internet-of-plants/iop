@@ -1,10 +1,10 @@
 {
   "name": "iop",
   "description": "",
-  "homepage": "https://github.com/internet-of-plants/embedded",
+  "homepage": "https://github.com/internet-of-plants/iop",
   "repository": {
     "type": "git",
-    "url": "https://github.com/internet-of-plants/embedded.git"
+    "url": "https://github.com/internet-of-plants/iop.git"
   },
   "version": "0.1.0",
   "authors": {
