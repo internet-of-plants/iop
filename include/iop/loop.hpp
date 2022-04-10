@@ -59,8 +59,8 @@ public:
   /// Uses IoP credentials to generate an authentication token for the device
   auto authenticate(std::string_view username, std::string_view password, const Api &api) const noexcept -> std::optional<AuthToken>;
 
-  auto setInterval(iop::time::milliseconds interval, std::function<void(EventLoop&) func) noexcept -> void;
-  auto setAuthenticatedInterval(iop::time::milliseconds interval, std::function<void(EventLoop&, AuthToken&) func) noexcept -> void;
+  auto setInterval(iop::time::milliseconds interval, std::function<void(EventLoop&)> func) noexcept -> void;
+  auto setAuthenticatedInterval(iop::time::milliseconds interval, std::function<void(EventLoop&, AuthToken&)> func) noexcept -> void;
 
 private:
   void handleNotConnected() noexcept;
