@@ -5,25 +5,29 @@
 #include "iop/utils.hpp"
 
 #ifdef IOP_WIFI_SSID
-const static std::optional<StaticString> wifiSSID = STRINGIFY(IOP_WIFI_SSID);
+const static char* wifiSSIDRaw = STRINGIFY(IOP_WIFI_SSID);
+const static std::optional<StaticString> wifiSSID = iop::StaticString(reinterpret_cast<const __FlashStringSize*>(wifiSSIDRaw));
 #else
 const static std::optional<StaticString> wifiSSID = std::nullopt;
 #endif
 
 #ifdef IOP_WIFI_PSK
-const static std::optional<StaticString> wifiPSK = STRINGIFY(IOP_WIFI_PSK);
+const static char* wifiPSKRaw = STRINGIFY(IOP_WIFI_PSK);
+const static std::optional<StaticString> wifiPSK = iop::StaticString(reinterpret_cast<const __FlashStringSize*>(wifiPSKRaw));
 #else
 const static std::optional<StaticString> wifiPSK = std::nullopt;
 #endif
 
 #ifdef IOP_EMAIL
-const static std::optional<StaticString> iopEmail = STRINGIFY(IOP_EMAIL);
+const static char* iopEmailRaw = STRINGIFY(IOP_EMAIL);
+const static std::optional<StaticString> iopEmail = iop::StaticString(reinterpret_cast<const __FlashStringSize*>(iopEmailRaw));
 #else
 const static std::optional<StaticString> iopEmail = std::nullopt;
 #endif
 
 #ifdef IOP_PASSWORD
-const static std::optional<StaticString> iopPassword = STRINGIFY(IOP_PASSWORD);
+const static char* iopPasswordRaw = STRINGIFY(IOP_PASSWORD);
+const static std::optional<StaticString> iopPassword = iop::StaticString(reinterpret_cast<const __FlashStringSize*>(iopPasswordRaw));
 #else
 const static std::optional<StaticString> iopPassword = std::nullopt;
 #endif
