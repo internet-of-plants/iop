@@ -60,7 +60,7 @@ auto EventLoop::setup() noexcept -> void {
   this->logger().info(IOP_STR("Core setup finished, running user layer's setup"));
   this->logger().info(IOP_STR("MD5: "), iop::to_view(iop_hal::device.firmwareMD5()));
 
-  iopSetup(*this);
+  iop::setup(*this);
 }
 
 constexpr static uint64_t intervalTryStorageWifiCredentialsMillis =
@@ -117,7 +117,7 @@ auto EventLoop::loop() noexcept -> void {
     } else {
       this->nextHandleConnectionLost = 0;
       iop_assert(authToken, IOP_STR("Auth Token not found"));
-      iopLoop(*this, authToken->get());
+      iop::authenticatedloop(*this, authToken->get());
     }
 }
 
