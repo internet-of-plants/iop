@@ -18,8 +18,8 @@ const static std::optional<StaticString> wifiPSK = iop::StaticString(reinterpret
 const static std::optional<StaticString> wifiPSK = std::nullopt;
 #endif
 
-#ifdef IOP_EMAIL
-const static char* iopEmailRaw = STRINGIFY(IOP_EMAIL);
+#ifdef IOP_USERNAME
+const static char* iopEmailRaw = STRINGIFY(IOP_USERNAME);
 const static std::optional<StaticString> iopEmail = iop::StaticString(reinterpret_cast<const __FlashStringHelper*>(iopEmailRaw));
 #else
 const static std::optional<StaticString> iopEmail = std::nullopt;
