@@ -10,6 +10,7 @@
 #include "iop/server.hpp"
 #include "iop/utils.hpp"
 
+#include <functional>
 #include <optional>
 
 namespace iop {
