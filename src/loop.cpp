@@ -63,12 +63,12 @@ auto EventLoop::setup() noexcept -> void {
   iop::setup(*this);
 }
 
+AuthenticatedTaskInterval::AuthenticatedTaskInterval(iop::time::milliseconds interval, std::function<void(EventLoop&, const AuthToken&)> func) noexcept:
+  interval(interval), next(0), func(func) {}
 TaskInterval::TaskInterval(iop::time::milliseconds interval, std::function<void(EventLoop&)> func) noexcept:
   interval(interval), next(0), func(func) {}
-AuthenticatedTaskInterval::AuthenticatedTaskInterval(iop::time::milliseconds interval, std::function<void(EventLoop&, AuthToken&)> func) noexcept:
-  interval(interval), next(0), func(func) {}
 
-auto EventLoop::setAuthenticatedInterval(iop::time::milliseconds interval, std::function<void(EventLoop&, AuthToken&)> func) noexcept -> void {
+auto EventLoop::setAuthenticatedInterval(iop::time::milliseconds interval, std::function<void(EventLoop&, const AuthToken&)> func) noexcept -> void {
   this->authenticatedTasks.push_back(AuthenticatedTaskInterval(interval, func));
 }
 auto EventLoop::setInterval(iop::time::milliseconds interval, std::function<void(EventLoop&)> func) noexcept -> void {
