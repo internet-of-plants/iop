@@ -17,6 +17,11 @@
     {
       "name": "iop-hal",
       "version": "https://github.com/internet-of-plants/iop-hal"
+    },
+    {
+      "owner": "bblanchon",
+      "name": "ArduinoJson",
+      "version": "^6.18.1"
     }
   ],
   "platforms": ["espressif8266", "espressif32","native"],
