@@ -63,6 +63,18 @@ auto EventLoop::setup() noexcept -> void {
   iop::setup(*this);
 }
 
+TaskInterval::TaskInterval(iop::time::milliseconds interval, std::function<void(EventLoop&, AuthToken&)> func) noexcept:
+  interval(interval), next(0), func(func) {}
+AuthenticatedTaskInterval::AuthenticatedTaskInterval(iop::time::milliseconds interval, std::function<void(EventLoop&, AuthToken&)> func) noexcept:
+  interval(interval), next(0), func(func) {}
+
+auto EventLoop::setAuthenticatedInterval(iop::time::milliseconds interval, std::function<void(EventLoop&, AuthToken&)> func) noexcept -> void {
+  this->authenticatedTasks.push_back(AuthenticatedTaskInterval(interval, func));
+}
+auto EventLoop::setInterval(iop::time::milliseconds interval, std::function<void(EventLoop&)> func) noexcept -> void {
+  this->authenticatedTasks.push_back(TaskInterval(interval, func));
+}
+
 constexpr static uint64_t intervalTryStorageWifiCredentialsMillis =
     60 * 60 * 1000; // 1 hour
 
@@ -118,6 +130,12 @@ auto EventLoop::loop() noexcept -> void {
       this->nextHandleConnectionLost = 0;
       iop_assert(authToken, IOP_STR("Auth Token not found"));
       iop::authenticatedLoop(*this, authToken->get());
+      for (const task: this->authenticatedTask) {
+        if (task.next < now) {
+          task.next = now + task.interval;
+          task.func(*this, *authToken);
+        }
+      }
     }
 }
 

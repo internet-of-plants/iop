@@ -13,6 +13,22 @@
 #include <optional>
 
 namespace iop {
+class TaskInterval {
+  iop::time::milliseconds interval;
+  iop::time::milliseconds next;
+  std::function<void(EventLoop&)> func;
+
+  TaskInterval(iop::time::milliseconds interval, std::function<void(EventLoop&)> func) noexcept;
+}
+
+class AuthenticatedTaskInterval {
+  iop::time::milliseconds interval;
+  iop::time::milliseconds next;
+  std::function<void(EventLoop&, AuthToken&)> func;
+
+  AuthenticatedTaskInterval(iop::time::milliseconds interval, std::function<void(EventLoop&, AuthToken&)> func) noexcept;
+}
+
 class EventLoop {
 private:
   CredentialsServer credentialsServer;
@@ -27,6 +43,9 @@ private:
   iop::time::milliseconds nextTryHardcodedWifiCredentials;
   iop::time::milliseconds nextTryHardcodedIopCredentials;
 
+  std::vector<TaskInterval> tasks;
+  std::vector<AuthenticatedTaskInterval> authenticatedTasks;
+
 public:
   Api const & api() const noexcept { return this->api_; }
   Storage const & storage() const noexcept { return this->storage_; }
@@ -38,6 +57,9 @@ public:
   
   /// Uses IoP credentials to generate an authentication token for the device
   auto authenticate(std::string_view username, std::string_view password, const Api &api) const noexcept -> std::optional<AuthToken>;
+
+  auto setInterval(iop::time::milliseconds interval, std::function<void(EventLoop&) func) noexcept -> void;
+  auto setAuthenticatedInterval(iop::time::milliseconds interval, std::function<void(EventLoop&, AuthToken&) func) noexcept -> void;
 
 private:
   void handleNotConnected() noexcept;
@@ -63,7 +85,6 @@ public:
 };
 
 extern auto setup(EventLoop &loop) noexcept -> void;
-extern auto authenticatedLoop(EventLoop &loop, const AuthToken &token) noexcept -> void;
 extern EventLoop eventLoop;
 }
 #endif
