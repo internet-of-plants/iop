@@ -61,6 +61,7 @@ public:
 
   auto setInterval(iop::time::milliseconds interval, std::function<void(EventLoop&)> func) noexcept -> void;
   auto setAuthenticatedInterval(iop::time::milliseconds interval, std::function<void(EventLoop&, const AuthToken&)> func) noexcept -> void;
+  auto registerEvent(const AuthToken& token, const Api::Json json) const noexcept -> void;
 
 private:
   void handleNotConnected() noexcept;

@@ -292,6 +292,30 @@ auto EventLoop::connect(std::string_view ssid, std::string_view password) const 
   }
 }
 
+auto EventLoop::registerEvent(const AuthToken& token, const Api::Json json) const noexcept -> void {
+  const auto status = this->api().registerEvent(token, json);
+  switch (status) {
+  case iop::NetworkStatus::BROKEN_CLIENT:
+    this->logger().error(IOP_STR("Unable to send measurements"));
+    iop_panic(IOP_STR("EventLoop::registerEvent buffer overflow"));
+
+  case iop::NetworkStatus::FORBIDDEN:
+    this->logger().error(IOP_STR("Unable to send measurements"));
+    this->logger().warn(IOP_STR("Auth token was refused, deleting it"));
+    this->storage().removeToken();
+    return;
+
+  // Already logged at the Network level
+  case iop::NetworkStatus::BROKEN_SERVER:
+  case iop::NetworkStatus::IO_ERROR:
+    // Nothing to be done besides retrying later
+
+  case iop::NetworkStatus::OK: // Cool beans
+    return;
+  }
+  this->logger().error(IOP_STR("Unexpected status at EventLoop::registerEvent"));
+}
+
 auto EventLoop::authenticate(std::string_view username, std::string_view password, const Api &api) const noexcept -> std::optional<AuthToken> {
   IOP_TRACE();
 
