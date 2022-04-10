@@ -45,7 +45,7 @@ auto Api::reportPanic(const AuthToken &authToken, const PanicData &event) const 
       doc["func"] = event.func.toString();
       doc["msg"] = msg;
     };
-    json = this->makeJson(IOP_STR("Api::reportPanic"), make);
+    json = this->makeJson(IOP_FUNC, make);
 
     if (!json) {
       iop_assert(msg.length() / 2 != 0, IOP_STR("Message would be empty, function is broken"));
@@ -96,7 +96,7 @@ auto Api::authenticate(std::string_view username, std::string_view password) con
     doc["email"] = username;
     doc["password"] = password;
   };
-  const auto json = this->makeJson(IOP_STR("Api::authenticate"), make);
+  const auto json = this->makeJson(IOP_FUNC, make);
 
   if (!json)
     return iop::NetworkStatus::BROKEN_CLIENT;
