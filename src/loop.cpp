@@ -117,7 +117,7 @@ auto EventLoop::loop() noexcept -> void {
     } else {
       this->nextHandleConnectionLost = 0;
       iop_assert(authToken, IOP_STR("Auth Token not found"));
-      iop::authenticatedloop(*this, authToken->get());
+      iop::authenticatedLoop(*this, authToken->get());
     }
 }
 
