@@ -132,7 +132,7 @@ auto EventLoop::loop() noexcept -> void {
     for (auto& task: this->authenticatedTasks) {
       if (task.next < now) {
         task.next = now + task.interval;
-        task.func(*this, *authToken);
+        task.func(*this, authToken->get());
       }
     }
   }
