@@ -62,7 +62,8 @@ public:
   EventLoop(EventLoop &&other) noexcept = default;
 };
 
-extern auto authenticatedLoop(EventLoop &loop, const AuthToken &token) noexcept -> void;
+extern auto iopSetup(EventLoop &loop) noexcept -> void;
+extern auto iopLoop(EventLoop &loop, const AuthToken &token) noexcept -> void;
 extern EventLoop eventLoop;
 }
 #endif
