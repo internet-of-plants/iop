@@ -129,7 +129,7 @@ auto EventLoop::loop() noexcept -> void {
   } else {
     this->nextHandleConnectionLost = 0;
     iop_assert(authToken, IOP_STR("Auth Token not found"));
-    for (auto& task: this->authenticatedTask) {
+    for (auto& task: this->authenticatedTasks) {
       if (task.next < now) {
         task.next = now + task.interval;
         task.func(*this, *authToken);
@@ -137,7 +137,7 @@ auto EventLoop::loop() noexcept -> void {
     }
   }
 
-  for (auto& task: this->task) {
+  for (auto& task: this->tasks) {
     if (task.next < now) {
       task.next = now + task.interval;
       task.func(*this);
