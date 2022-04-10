@@ -52,7 +52,7 @@ auto EventLoop::setup() noexcept -> void {
   IOP_TRACE();
 
   this->logger().info(IOP_STR("Start Setup"));
-  iop_hal::gpio.setMode(iop_hal::io::LED_BUILTIN, iop_hal::io::Mode::OUTPUT);
+  //iop_hal::gpio.setMode(iop_hal::io::LED_BUILTIN, iop_hal::io::Mode::OUTPUT);
 
   Storage::setup();
   this->api().setup();
