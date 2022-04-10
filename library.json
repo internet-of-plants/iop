@@ -26,6 +26,12 @@
   ],
   "platforms": ["espressif8266", "espressif32","native"],
   "build": {
+    "flags": [
+      "-D ARDUINOJSON_ENABLE_ARDUINO_STRING=0",
+      "-D ARDUINOJSON_ENABLE_ARDUINO_STREAM=0",
+      "-D ARDUINOJSON_ENABLE_ARDUINO_PRINT=0",
+      "-D ARDUINOJSON_ENABLE_PROGMEM=0"
+    ],
     "libArchive": false
   }
 }
