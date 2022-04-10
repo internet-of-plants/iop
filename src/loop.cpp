@@ -72,7 +72,7 @@ auto EventLoop::setAuthenticatedInterval(iop::time::milliseconds interval, std::
   this->authenticatedTasks.push_back(AuthenticatedTaskInterval(interval, func));
 }
 auto EventLoop::setInterval(iop::time::milliseconds interval, std::function<void(EventLoop&)> func) noexcept -> void {
-  this->authenticatedTasks.push_back(TaskInterval(interval, func));
+  this->tasks.push_back(TaskInterval(interval, func));
 }
 
 constexpr static uint64_t intervalTryStorageWifiCredentialsMillis =
