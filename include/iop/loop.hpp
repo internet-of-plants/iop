@@ -14,6 +14,24 @@
 #include <optional>
 
 namespace iop {
+class EventLoop;
+
+class TaskInterval {
+  iop::time::milliseconds interval;
+  iop::time::milliseconds next;
+  std::function<void(EventLoop&)> func;
+
+  TaskInterval(iop::time::milliseconds interval, std::function<void(EventLoop&)> func) noexcept;
+};
+
+class AuthenticatedTaskInterval {
+  iop::time::milliseconds interval;
+  iop::time::milliseconds next;
+  std::function<void(EventLoop&, AuthToken&)> func;
+
+  AuthenticatedTaskInterval(iop::time::milliseconds interval, std::function<void(EventLoop&, AuthToken&)> func) noexcept;
+};
+
 class EventLoop {
 private:
   CredentialsServer credentialsServer;
@@ -67,22 +85,6 @@ public:
   auto operator=(EventLoop &&other) noexcept -> EventLoop & = default;
   EventLoop(EventLoop const &other) noexcept = delete;
   EventLoop(EventLoop &&other) noexcept = default;
-};
-
-class TaskInterval {
-  iop::time::milliseconds interval;
-  iop::time::milliseconds next;
-  std::function<void(EventLoop&)> func;
-
-  TaskInterval(iop::time::milliseconds interval, std::function<void(EventLoop&)> func) noexcept;
-};
-
-class AuthenticatedTaskInterval {
-  iop::time::milliseconds interval;
-  iop::time::milliseconds next;
-  std::function<void(EventLoop&, AuthToken&)> func;
-
-  AuthenticatedTaskInterval(iop::time::milliseconds interval, std::function<void(EventLoop&, AuthToken&)> func) noexcept;
 };
 
 extern auto setup(EventLoop &loop) noexcept -> void;

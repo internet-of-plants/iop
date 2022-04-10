@@ -63,7 +63,7 @@ auto EventLoop::setup() noexcept -> void {
   iop::setup(*this);
 }
 
-TaskInterval::TaskInterval(iop::time::milliseconds interval, std::function<void(EventLoop&, AuthToken&)> func) noexcept:
+TaskInterval::TaskInterval(iop::time::milliseconds interval, std::function<void(EventLoop&)> func) noexcept:
   interval(interval), next(0), func(func) {}
 AuthenticatedTaskInterval::AuthenticatedTaskInterval(iop::time::milliseconds interval, std::function<void(EventLoop&, AuthToken&)> func) noexcept:
   interval(interval), next(0), func(func) {}
@@ -85,58 +85,65 @@ constexpr static uint64_t intervalTryHardcodedIopCredentialsMillis =
     60 * 60 * 1000; // 1 hour
 
 auto EventLoop::loop() noexcept -> void {
-    this->logger().trace(IOP_STR("\n\n\n\n\n\n"));
+  this->logger().trace(IOP_STR("\n\n\n\n\n\n"));
 
-    IOP_TRACE();
+  IOP_TRACE();
 
 #ifdef LOG_MEMORY
-    iop::logMemory(this->logger());
+  iop::logMemory(this->logger());
 #endif
 
-    const auto authToken = this->storage().token();
+  const auto authToken = this->storage().token();
 
-    // Handle all queued interrupts (only allows one of each kind concurrently)
-    while (true) {
-        auto ev = iop::descheduleInterrupt();
-        if (ev == InterruptEvent::NONE)
-          break;
+  // Handle all queued interrupts (only allows one of each kind concurrently)
+  while (true) {
+      auto ev = iop::descheduleInterrupt();
+      if (ev == InterruptEvent::NONE)
+        break;
 
-        this->handleInterrupt(ev, authToken);
-        iop_hal::thisThread.yield();
-    }
-    const auto now = iop_hal::thisThread.timeRunning();
-    const auto isConnected = iop::Network::isConnected();
+      this->handleInterrupt(ev, authToken);
+      iop_hal::thisThread.yield();
+  }
+  const auto now = iop_hal::thisThread.timeRunning();
+  const auto isConnected = iop::Network::isConnected();
 
-    if (isConnected && authToken)
-        this->credentialsServer.close();
+  if (isConnected && authToken)
+      this->credentialsServer.close();
 
-    if (isConnected && this->nextNTPSync < now) {
-      this->logger().info(IOP_STR("Syncing NTP"));
+  if (isConnected && this->nextNTPSync < now) {
+    this->logger().info(IOP_STR("Syncing NTP"));
 
-      iop_hal::device.syncNTP();
-      
-      this->logger().info(IOP_STR("Time synced"));
+    iop_hal::device.syncNTP();
+    
+    this->logger().info(IOP_STR("Time synced"));
 
-      constexpr const uint32_t oneDay = 24 * 60 * 60 * 1000;
-      this->nextNTPSync = now + oneDay;
+    constexpr const uint32_t oneDay = 24 * 60 * 60 * 1000;
+    this->nextNTPSync = now + oneDay;
 
-    } else if (isConnected && !authToken) {
-        this->handleIopCredentials();
+  } else if (isConnected && !authToken) {
+      this->handleIopCredentials();
 
-    } else if (!isConnected) {
-        this->handleNotConnected();
+  } else if (!isConnected) {
+      this->handleNotConnected();
 
-    } else {
-      this->nextHandleConnectionLost = 0;
-      iop_assert(authToken, IOP_STR("Auth Token not found"));
-      iop::authenticatedLoop(*this, authToken->get());
-      for (const task: this->authenticatedTask) {
-        if (task.next < now) {
-          task.next = now + task.interval;
-          task.func(*this, *authToken);
-        }
+  } else {
+    this->nextHandleConnectionLost = 0;
+    iop_assert(authToken, IOP_STR("Auth Token not found"));
+    iop::authenticatedLoop(*this, authToken->get());
+    for (auto& task: this->authenticatedTask) {
+      if (task.next < now) {
+        task.next = now + task.interval;
+        task.func(*this, *authToken);
       }
     }
+  }
+
+  for (auto& task: this->task) {
+    if (task.next < now) {
+      task.next = now + task.interval;
+      task.func(*this);
+    }
+  }
 }
 
 auto EventLoop::handleNotConnected() noexcept -> void {
