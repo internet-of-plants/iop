@@ -4,9 +4,6 @@
 #include "iop-hal/network.hpp"
 #include "iop/utils.hpp"
 
-#ifndef ARDUINOJSON_ENABLE_ARDUINO_STRING
-#error "Must define ARDUINOJSON disable"
-#endif
 #include <ArduinoJson.h>
 
 namespace iop {
