@@ -26,8 +26,6 @@
   ],
   "platforms": ["espressif8266", "espressif32","native"],
   "build": {
-    "extraScript": "build_flags.py",
-    "unflags": "-std=gnu++11",
-    "libArchive": false
+    "extraScript": "build_flags.py"
   }
 }
