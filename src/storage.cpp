@@ -32,13 +32,17 @@ auto Storage::setup() noexcept -> void { iop_hal::storage.setup(EEPROM_SIZE); }
 
 static AuthToken authToken;
 
+#include <iostream>
 auto Storage::token() const noexcept -> std::optional<std::reference_wrapper<const AuthToken>> {
   IOP_TRACE();
+  std::cout << "Enter" << std::endl;
 
   // Check if magic byte is set in storage (as in, something is stored)
   const auto flag = iop_hal::storage.read(authTokenIndex);
+  std::cout << "Read" << std::endl;
   if (!flag || *flag != usedAuthTokenEEPROMFlag)
     return std::nullopt;
+  std::cout << "There" << std::endl;
 
   const auto maybeAuthToken = iop_hal::storage.read<sizeof(AuthToken)>(authTokenIndex + 1);
   iop_assert(maybeAuthToken, IOP_STR("Failed to read AuthToken from storage"));
