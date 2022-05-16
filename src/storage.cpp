@@ -36,11 +36,9 @@ static AuthToken authToken;
 
 auto Storage::token() const noexcept -> std::optional<std::reference_wrapper<const AuthToken>> {
   IOP_TRACE();
-  std::cout << "Enter" << std::endl;
-
+  
   // Check if magic byte is set in storage (as in, something is stored)
   const auto flag = iop_hal::storage.read(authTokenIndex);
-  std::cout << "Read" << std::endl;
   if (!flag || *flag != usedAuthTokenEEPROMFlag)
     return std::nullopt;
   std::cout << "There" << std::endl;
