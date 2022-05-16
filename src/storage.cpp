@@ -5,6 +5,8 @@
 #include "iop-hal/storage.hpp"
 #include "iop-hal/panic.hpp"
 
+#include <iostream>
+
 namespace iop {
 constexpr const uintmax_t EEPROM_SIZE = 512;
 
@@ -32,7 +34,6 @@ auto Storage::setup() noexcept -> void { iop_hal::storage.setup(EEPROM_SIZE); }
 
 static AuthToken authToken;
 
-#include <iostream>
 auto Storage::token() const noexcept -> std::optional<std::reference_wrapper<const AuthToken>> {
   IOP_TRACE();
   std::cout << "Enter" << std::endl;
