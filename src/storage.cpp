@@ -5,8 +5,6 @@
 #include "iop-hal/storage.hpp"
 #include "iop-hal/panic.hpp"
 
-#include <iostream>
-
 namespace iop {
 constexpr const uintmax_t EEPROM_SIZE = 512;
 
@@ -36,14 +34,11 @@ static AuthToken authToken;
 
 auto Storage::token() const noexcept -> std::optional<std::reference_wrapper<const AuthToken>> {
   IOP_TRACE();
-  std::cout << "Enter " << authTokenIndex << std::endl;
 
   // Check if magic byte is set in storage (as in, something is stored)
   const auto flag = iop_hal::storage.get(authTokenIndex);
-  std::cout << "Read" << std::endl;
   if (!flag || *flag != usedAuthTokenEEPROMFlag)
     return std::nullopt;
-  std::cout << "There" << std::endl;
 
   const auto maybeAuthToken = iop_hal::storage.read<sizeof(AuthToken)>(authTokenIndex + 1);
   iop_assert(maybeAuthToken, IOP_STR("Failed to read AuthToken from storage"));
