@@ -46,9 +46,9 @@ static void staticPrinter(const iop::StaticString str, const iop::LogLevel level
     currentLog += str.toString();
 
     if (kind == iop::LogType::END || kind == iop::LogType::STARTEND) {
-      iop::LogHook::defaultStaticPrinter(IOP_STR("Logging to network\n"), iop::LogLevel::INFO, iop::LogType::STARTEND);
+      iop::LogHook::defaultStaticPrinter(IOP_STR("[DEBUG] Logger: Logging to network\n"), iop::LogLevel::DEBUG, iop::LogType::STARTEND);
       reportLog();
-      iop::LogHook::defaultStaticPrinter(IOP_STR("Logged to network\n"), iop::LogLevel::INFO, iop::LogType::STARTEND);
+      iop::LogHook::defaultStaticPrinter(IOP_STR("[DEBUG] Logger: Logged to network\n"), iop::LogLevel::DEBUG, iop::LogType::STARTEND);
     }
   }
 }
@@ -59,9 +59,9 @@ static auto viewPrinter(const std::string_view str, const iop::LogLevel level, c
     currentLog += str;
 
     if (kind == iop::LogType::END || kind == iop::LogType::STARTEND) {
-      iop::LogHook::defaultStaticPrinter(IOP_STR("Logging to network\n"), iop::LogLevel::INFO, iop::LogType::STARTEND);
+      iop::LogHook::defaultStaticPrinter(IOP_STR("[DEBUG] Logger: Logging to network\n"), iop::LogLevel::DEBUG, iop::LogType::STARTEND);
       reportLog();
-      iop::LogHook::defaultStaticPrinter(IOP_STR("Logged to network\n"), iop::LogLevel::INFO, iop::LogType::STARTEND);
+      iop::LogHook::defaultStaticPrinter(IOP_STR("[DEBUG] Logger: Logged to network\n"), iop::LogLevel::DEBUG, iop::LogType::STARTEND);
     }
   }
 }

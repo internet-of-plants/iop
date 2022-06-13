@@ -132,7 +132,7 @@ auto Api::authenticate(std::string_view username, std::string_view password) con
 auto Api::registerLog(const AuthToken &authToken, std::string_view log) const noexcept -> iop::NetworkStatus {
   IOP_TRACE();
   const auto token = iop::to_view(authToken);
-  this->logger.info(IOP_STR("Register log. Token: "), token, IOP_STR(". Log: "), log);
+  this->logger.debug(IOP_STR("Register log. Token: "), token, IOP_STR(". Log: "), log);
   auto const response = this->network.httpPost(token, IOP_STR("/v1/log"), log);
 
   const auto status = response.status();
