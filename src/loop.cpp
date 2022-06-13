@@ -57,8 +57,8 @@ auto EventLoop::setup() noexcept -> void {
   Storage::setup();
   this->api().setup();
   this->credentialsServer.setup();
-  this->logger().info(IOP_STR("Core setup f inished, running user layer's setup"));
   this->logger().info(IOP_STR("MD5: "), iop::to_view(iop_hal::device.firmwareMD5()));
+  this->logger().info(IOP_STR("Core setup finished, running user layer's setup"));
 
   iop::setup(*this);
 }

@@ -39,7 +39,7 @@ auto Storage::token() const noexcept -> std::optional<std::reference_wrapper<con
   std::cout << "Enter " << authTokenIndex << std::endl;
 
   // Check if magic byte is set in storage (as in, something is stored)
-  const auto flag = iop_hal::storage.read(authTokenIndex);
+  const auto flag = iop_hal::storage.get(authTokenIndex);
   std::cout << "Read" << std::endl;
   if (!flag || *flag != usedAuthTokenEEPROMFlag)
     return std::nullopt;
@@ -68,12 +68,12 @@ void Storage::removeToken() const noexcept {
   authToken.fill('\0');
 
   // Checks if it's written to storage first, avoids wasting writes
-  const auto flag = iop_hal::storage.read(authTokenIndex);
+  const auto flag = iop_hal::storage.get(authTokenIndex);
   if (flag && *flag == usedAuthTokenEEPROMFlag) {
     this->logger.info(IOP_STR("Deleting stored auth token"));
 
-    iop_hal::storage.write(authTokenIndex, 0);
-    iop_hal::storage.write<sizeof(AuthToken)>(authTokenIndex + 1, authToken);
+    iop_hal::storage.set(authTokenIndex, 0);
+    iop_hal::storage.write(authTokenIndex + 1, authToken);
     iop_hal::storage.commit();
   }
 }
@@ -82,7 +82,7 @@ void Storage::setToken(const AuthToken &token) const noexcept {
   IOP_TRACE();
 
   // Avoids re-writing same data
-  const auto flag = iop_hal::storage.read(authTokenIndex);
+  const auto flag = iop_hal::storage.get(authTokenIndex);
   if (flag && *flag == usedAuthTokenEEPROMFlag) {
     const auto tok = iop_hal::storage.read<sizeof(AuthToken)>(authTokenIndex + 1);
     iop_assert(tok, IOP_STR("Failed to read AuthToken from storage"));
@@ -94,8 +94,8 @@ void Storage::setToken(const AuthToken &token) const noexcept {
   }
 
   this->logger.info(IOP_STR("Writing auth token to storage: "), iop::to_view(token));
-  iop_hal::storage.write(authTokenIndex, usedAuthTokenEEPROMFlag);
-  iop_hal::storage.write<sizeof(AuthToken)>(authTokenIndex + 1, token);
+  iop_hal::storage.set(authTokenIndex, usedAuthTokenEEPROMFlag);
+  iop_hal::storage.write(authTokenIndex + 1, token);
   iop_hal::storage.commit();
 }
 
@@ -106,7 +106,7 @@ auto Storage::wifi() const noexcept -> std::optional<std::reference_wrapper<cons
   IOP_TRACE();
 
   // Check if magic byte is set in storage (as in, something is stored)
-  const auto flag = iop_hal::storage.read(wifiConfigIndex);
+  const auto flag = iop_hal::storage.get(wifiConfigIndex);
   if (!flag || *flag != usedWifiConfigEEPROMFlag)
     return std::nullopt;
 
@@ -132,11 +132,11 @@ void Storage::removeWifi() const noexcept {
   psk.fill('\0');
 
   // Checks if it's written to storage first, avoids wasting writes
-  const auto flag = iop_hal::storage.read(wifiConfigIndex);
+  const auto flag = iop_hal::storage.get(wifiConfigIndex);
   if (flag && *flag == usedWifiConfigEEPROMFlag) {
-    iop_hal::storage.write(wifiConfigIndex, 0);
-    iop_hal::storage.write<sizeof(iop::NetworkName)>(wifiConfigIndex + 1, ssid);
-    iop_hal::storage.write<sizeof(iop::NetworkPassword)>(wifiConfigIndex + sizeof(iop::NetworkName) + 1, psk);
+    iop_hal::storage.set(wifiConfigIndex, 0);
+    iop_hal::storage.write(wifiConfigIndex + 1, ssid);
+    iop_hal::storage.write(wifiConfigIndex + sizeof(iop::NetworkName) + 1, psk);
     iop_hal::storage.commit();
   }
 }
@@ -145,7 +145,7 @@ void Storage::setWifi(const WifiCredentials &config) const noexcept {
   IOP_TRACE();
 
   // Avoids re-writing same data
-  const auto flag = iop_hal::storage.read(wifiConfigIndex);
+  const auto flag = iop_hal::storage.get(wifiConfigIndex);
   if (flag && *flag == usedWifiConfigEEPROMFlag) {
     const auto networkName = iop_hal::storage.read<sizeof(iop::NetworkName)>(wifiConfigIndex + 1);
     const auto networkPassword = iop_hal::storage.read<sizeof(iop::NetworkPassword)>(wifiConfigIndex + sizeof(iop::NetworkName) + 1);
@@ -163,9 +163,9 @@ void Storage::setWifi(const WifiCredentials &config) const noexcept {
   this->logger.info(IOP_STR("Writing wifi credentials to storage: "), iop::to_view(config.ssid.get()));
   this->logger.debug(IOP_STR("WiFi Creds: "), iop::to_view(config.ssid.get()), IOP_STR(" "), iop::to_view(config.password.get()));
 
-  iop_hal::storage.write(wifiConfigIndex, usedWifiConfigEEPROMFlag);
-  iop_hal::storage.write<sizeof(iop::NetworkName)>(wifiConfigIndex + 1, config.ssid.get());
-  iop_hal::storage.write<sizeof(iop::NetworkPassword)>(wifiConfigIndex + sizeof(iop::NetworkName) + 1, config.password.get());
+  iop_hal::storage.set(wifiConfigIndex, usedWifiConfigEEPROMFlag);
+  iop_hal::storage.write(wifiConfigIndex + 1, config.ssid.get());
+  iop_hal::storage.write(wifiConfigIndex + sizeof(iop::NetworkName) + 1, config.password.get());
   iop_hal::storage.commit();
 }
 }
