@@ -232,7 +232,7 @@ auto EventLoop::handleInterrupt(const InterruptEvent event, const std::optional<
       if (token) {
         const auto status = this->api().upgrade(*token);
         switch (status) {
-        case iop_hal::UpgradeStatus::FORBIDDEN:
+        case iop_hal::UpgradeStatus::UNAUTHORIZED:
           this->logger().warn(IOP_STR("Invalid auth token, but keeping since at OTA"));
           return;
 
@@ -299,7 +299,7 @@ auto EventLoop::registerEvent(const AuthToken& token, const Api::Json json) cons
     this->logger().error(IOP_STR("Unable to send measurements"));
     iop_panic(IOP_STR("EventLoop::registerEvent buffer overflow"));
 
-  case iop::NetworkStatus::FORBIDDEN:
+  case iop::NetworkStatus::UNAUTHORIZED:
     this->logger().error(IOP_STR("Unable to send measurements"));
     this->logger().warn(IOP_STR("Auth token was refused, deleting it"));
     this->storage().removeToken();
@@ -328,7 +328,7 @@ auto EventLoop::authenticate(std::string_view username, std::string_view passwor
     const auto &status = *error;
 
     switch (status) {
-    case iop::NetworkStatus::FORBIDDEN:
+    case iop::NetworkStatus::UNAUTHORIZED:
       this->logger().error(IOP_STR("Invalid IoP credentials: "), username);
       return std::nullopt;
 

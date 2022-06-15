@@ -12,7 +12,7 @@ auto upgrade() noexcept -> void {
   const auto status = eventLoop.api().upgrade(*token);
 
   switch (status) {
-  case iop_hal::UpgradeStatus::FORBIDDEN:
+  case iop_hal::UpgradeStatus::UNAUTHORIZED:
     // TODO: think about allowing global updates (if you are logged out and panicking get a safe global version and recover from it)
     // This brings security problems of getting your app hijacked and complicates binary signing
     iop::panicLogger().warn(IOP_STR("Invalid auth token, but keeping since at iop_panic"));
@@ -48,7 +48,7 @@ auto reportPanic(const std::string_view &msg, const iop::StaticString &file, con
   const auto status = eventLoop.api().reportPanic(*token, panicData);
 
   switch (status) {
-  case iop::NetworkStatus::FORBIDDEN:
+  case iop::NetworkStatus::UNAUTHORIZED:
     iop::panicLogger().warn(IOP_STR("Invalid auth token, but keeping since at iop_panic"));
     return false;
 

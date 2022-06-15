@@ -44,7 +44,7 @@ public:
   /// Return values:
   ///
   /// OK: success
-  /// FORBIDDEN: auth token is invalid
+  /// UNAUTHORIZED: auth token is invalid
   /// IO_ERROR: problems with connection, retry later?
   /// BROKEN_CLIENT: unreachable, as the route truncates the message until it fits the buffer
   /// BROKEN_SERVER: must wait until the server is fixed
@@ -55,7 +55,7 @@ public:
   /// Return values:
   ///
   /// OK: success
-  /// FORBIDDEN: auth token is invalid
+  /// UNAUTHORIZED: auth token is invalid
   /// IO_ERROR: problems with the connection, retry later?
   /// BROKEN_SERVER: must wait until the server is fixed
   /// BROKEN_CLIENT: unreachable
@@ -66,7 +66,7 @@ public:
   /// Return values:
   ///
   /// OK: unreachable, as success returns an AuthToken
-  /// FORBIDDEN: unreachable, as this route doesn't expect an AuthToken
+  /// UNAUTHORIZED: unreachable, as this route doesn't expect an AuthToken
   /// IO_ERROR: problems with connection, retry later?
   /// BROKEN_CLIENT: critical, means the method is broken and a buffer overflows happened
   /// BROKEN_SERVER: must wait until server is fixed
@@ -77,7 +77,7 @@ public:
   /// Return values:
   ///
   /// OK: success
-  /// FORBIDDEN: auth token is invalid
+  /// UNAUTHORIZED: auth token is invalid
   /// IO_ERROR: problems with connection, retry later?
   /// BROKEN_CLIENT: critical, means the method is broken and a buffer overflows happened
   /// BROKEN_SERVER: must wait until server is fixed
@@ -88,7 +88,7 @@ public:
   /// Doesn't return on success, as the device is restarted.
   ///
   /// OK: means no update is available
-  /// FORBIDDEN: auth token is invalid
+  /// UNAUTHORIZED: auth token is invalid
   /// IO_ERROR: problems with connection, retry later?
   /// BROKEN_CLIENT: unreachable as this route doesn't use the payload buffer
   /// BROKEN_SERVER: must wait until server is fixed

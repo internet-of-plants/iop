@@ -89,7 +89,7 @@ auto Api::authenticate(std::string_view username, std::string_view password) con
 
   if (!username.length() || !password.length()) {
     this->logger.warn(IOP_STR("Empty username or password, at Api::authenticate"));
-    return iop::NetworkStatus::FORBIDDEN;
+    return iop::NetworkStatus::UNAUTHORIZED;
   }
 
   const auto make = [username, password](JsonDocument &doc) {
