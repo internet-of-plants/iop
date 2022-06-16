@@ -36,7 +36,7 @@ const static std::optional<iop::StaticString> iopPassword = std::nullopt;
 #endif
 
 namespace iop {
-#ifdef IOP_POSIX
+#ifdef IOP_POSIX_MOCK
 static const char* uriRaw IOP_ROM = "http://127.0.0.1:4001";
 #else
 static const char* uriRaw IOP_ROM = "https://iop-monitor-server.tk:4001";
