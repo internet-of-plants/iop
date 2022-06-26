@@ -7,7 +7,7 @@ Integrated with [internet-of-plants/server](https://github.com/internet-of-plant
 ## Targets supported
 
 - ESP8266 (all boards supported by [esp8266/Arduino](https://github.com/esp8266/Arduino))
-- ESP32 (all boards supported by [espessif/arduino-esp32](https://github.com/espressif/arduino-esp32/))
+- ESP32 (all boards supported by [espressif/arduino-esp32](https://github.com/espressif/arduino-esp32/))
 - Posix (all targets that support POSIX)
 
 *Note: Some functionalities in the posix target are NOOP, most will be implemented to support Raspberry Pis and other boards that support posix. But for now this is mostly used for testing*
@@ -17,7 +17,7 @@ Integrated with [internet-of-plants/server](https://github.com/internet-of-plant
 - All features from [iop-hal](https://github.com/internet-of-plants/iop-hal)
     - Don't use iop-hal's entrypoints, use the setup entrypoint + the task system below
 - [`iop::setup`](https://github.com/internet-of-plants/iop/blob/main/include/iop/loop.hpp): User defined `iop` entrypoint, from `#include <iop/loop.hpp>`
-- [`iop::Api`](https://github.com/internet-of-plants/iop/blob/main/include/iop/api.hpp): Abstracts [internet-of-plants/server](https://github.com/internet-of-plants/server)'s API, from `#include <iop/hal>`
+- [`iop::Api`](https://github.com/internet-of-plants/iop/blob/main/include/iop/api.hpp): Abstracts [internet-of-plants/server](https://github.com/internet-of-plants/server)'s API, from `#include <iop/api.hpp>`
     - Unauthenticated: login
     - Authenticated: send measurements, register log, report panic, over the air upgrade
 - Network logging
