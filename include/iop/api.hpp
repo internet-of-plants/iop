@@ -94,8 +94,6 @@ public:
   /// BROKEN_SERVER: must wait until server is fixed
   auto upgrade(const AuthToken &token) const noexcept -> iop_hal::UpgradeStatus;
 
-
-
   using JsonCallback = std::function<void(JsonDocument &)>;
 
   /// Abstracs safe json serialization. Returns None on overflow.
