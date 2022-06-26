@@ -10,7 +10,7 @@
 // TODO: have an endpoint to report BROKEN_CLIENTS
 
 namespace iop {
-static void upgradeScheduler() noexcept {
+static void updateScheduler() noexcept {
   iop::scheduleInterrupt(iop::InterruptEvent::MUST_UPGRADE);
 }
 void onWifiConnect() noexcept {
@@ -25,8 +25,8 @@ auto Api::setup() const noexcept -> void {
   if (iop::Network::isConnected())
     iop::scheduleInterrupt(InterruptEvent::ON_CONNECTION);
 
-  // Sets scheduler for upgrade interrupt
-  iop::Network::setUpgradeHook(iop::UpgradeHook(upgradeScheduler));
+  // Sets scheduler for update interrupt
+  iop::Network::setUpdateHook(iop::UpdateHook(updateScheduler));
 
   this->network.setup();
 }
@@ -143,12 +143,12 @@ auto Api::registerLog(const AuthToken &authToken, std::string_view log) const no
   return *status;
 }
 
-auto Api::upgrade(const AuthToken &token) const noexcept
-    -> iop_hal::UpgradeStatus {
+auto Api::update(const AuthToken &token) const noexcept
+    -> iop_hal::UpdateStatus {
   IOP_TRACE();
   this->logger.info(IOP_STR("Upgrading sketch"));
 
-  return this->network.upgrade(IOP_STR("/v1/update"), iop::to_view(token));
+  return this->network.update(IOP_STR("/v1/update"), iop::to_view(token));
 }
 
 Api::Api(iop::StaticString uri, const iop::LogLevel logLevel) noexcept

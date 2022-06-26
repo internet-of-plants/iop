@@ -230,27 +230,27 @@ auto EventLoop::handleInterrupt(const InterruptEvent event, const std::optional<
       break;
     case InterruptEvent::MUST_UPGRADE:
       if (token) {
-        const auto status = this->api().upgrade(*token);
+        const auto status = this->api().update(*token);
         switch (status) {
-        case iop_hal::UpgradeStatus::UNAUTHORIZED:
+        case iop_hal::UpdateStatus::UNAUTHORIZED:
           this->logger().warn(IOP_STR("Invalid auth token, but keeping since at OTA"));
           return;
 
-        case iop_hal::UpgradeStatus::BROKEN_CLIENT:
-          iop_panic(IOP_STR("Api::upgrade internal buffer overflow"));
+        case iop_hal::UpdateStatus::BROKEN_CLIENT:
+          iop_panic(IOP_STR("Api::update internal buffer overflow"));
 
         // Already logged at the network level
-        case iop_hal::UpgradeStatus::IO_ERROR:
-        case iop_hal::UpgradeStatus::BROKEN_SERVER:
+        case iop_hal::UpdateStatus::IO_ERROR:
+        case iop_hal::UpdateStatus::BROKEN_SERVER:
           // Nothing to be done besides retrying later
 
-        case iop_hal::UpgradeStatus::NO_UPGRADE: // Shouldn't happen but ok
+        case iop_hal::UpdateStatus::NO_UPGRADE: // Shouldn't happen but ok
           return;
         }
 
         this->logger().error(IOP_STR("Bad status, EventLoop::handleInterrupt"));
       } else {
-        this->logger().error(IOP_STR("Upgrade expected, but no auth token available"));
+        this->logger().error(IOP_STR("Update expected, but no auth token available"));
       }
       break;
     case InterruptEvent::ON_CONNECTION:

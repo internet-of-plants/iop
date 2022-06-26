@@ -4,33 +4,33 @@
 #include "iop/api.hpp"
 
 namespace iop {
-auto upgrade() noexcept -> void {
+auto update() noexcept -> void {
   IOP_TRACE();
   const auto token = eventLoop.storage().token();
   if (!token)
     return;
-  const auto status = eventLoop.api().upgrade(*token);
+  const auto status = eventLoop.api().update(*token);
 
   switch (status) {
-  case iop_hal::UpgradeStatus::UNAUTHORIZED:
+  case iop_hal::UpdateStatus::UNAUTHORIZED:
     // TODO: think about allowing global updates (if you are logged out and panicking get a safe global version and recover from it)
     // This brings security problems of getting your app hijacked and complicates binary signing
     iop::panicLogger().warn(IOP_STR("Invalid auth token, but keeping since at iop_panic"));
     return;
 
-  case iop_hal::UpgradeStatus::BROKEN_CLIENT:
-    iop_panic(IOP_STR("Api::upgrade internal buffer overflow"));
+  case iop_hal::UpdateStatus::BROKEN_CLIENT:
+    iop_panic(IOP_STR("Api::update internal buffer overflow"));
 
   // Already logged at the network level
-  case iop_hal::UpgradeStatus::IO_ERROR:
-  case iop_hal::UpgradeStatus::BROKEN_SERVER:
+  case iop_hal::UpdateStatus::IO_ERROR:
+  case iop_hal::UpdateStatus::BROKEN_SERVER:
     // Nothing to be done besides retrying later
 
-  case iop_hal::UpgradeStatus::NO_UPGRADE: // Cool beans
+  case iop_hal::UpdateStatus::NO_UPGRADE: // Cool beans
     return;
   }
 
-  iop::panicLogger().error(IOP_STR("Bad status, iop::panic::upgrade"));
+  iop::panicLogger().error(IOP_STR("Bad status, iop::panic::update"));
 }
 
 // TODO(pc): dump stackstrace on iop_panic
@@ -95,9 +95,9 @@ static void halt(const std::string_view &msg, iop::CodePoint const &point) noexc
       if (!reportedPanic)
         reportedPanic = reportPanic(msg, point.file(), point.line(), point.func());
 
-      // Panic data is lost if report fails but upgrade works
-      // Doesn't return if upgrade succeeds
-      upgrade();
+      // Panic data is lost if report fails but update works
+      // Doesn't return if update succeeds
+      update();
     } else {
       iop::panicLogger().warn(IOP_STR("No network, unable to recover"));
     }
