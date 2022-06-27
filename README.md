@@ -98,3 +98,7 @@ https://github.com/internet-of-plants/example-firmware
 ## TODO
 
 Grep for "TODO"'s to find the known missing pieces
+
+## License
+
+[GNU Affero General Public License version 3 or later (AGPL-3.0+)](https://github.com/internet-of-plants/iop/blob/main/LICENSE.md)
