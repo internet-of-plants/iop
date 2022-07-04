@@ -39,7 +39,7 @@ namespace iop {
 #ifdef IOP_DEBUG
 static const char* uriRaw IOP_ROM = "http://127.0.0.1:4001";
 #else
-static const char* uriRaw IOP_ROM = "https://api.internet-of-plants.org";
+static const char* uriRaw IOP_ROM = "https://api.internet-of-plants.org:4001";
 #endif
 static const StaticString uri(reinterpret_cast<const __FlashStringHelper*>(uriRaw));
 
