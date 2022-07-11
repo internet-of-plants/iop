@@ -45,7 +45,7 @@ static const StaticString uri(reinterpret_cast<const __FlashStringHelper*>(uriRa
 
 EventLoop eventLoop(uri, IOP_LOG_LEVEL);
 
-auto EventLoop::setup(StaticString SSID, StaticString PSK) noexcept -> void {
+auto EventLoop::setup() noexcept -> void {
   iop::panic::setup();
   iop::network_logger::setup();
 

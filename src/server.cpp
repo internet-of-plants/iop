@@ -187,7 +187,7 @@ auto CredentialsServer::start() noexcept -> void {
     this->isServerOpen = true;
     this->logger.info(IOP_STR("Setting our own wifi access point"));
 
-    iop_assert(!this->credentialsAccessPoint, IOP_STR("Must configure Access Point credentials"));
+    iop_assert(this->credentialsAccessPoint, IOP_STR("Must configure Access Point credentials"));
     iop::wifi.enableOurAccessPoint(this->credentialsAccessPoint->first.toString(), this->credentialsAccessPoint->second.toString());
 
     // Makes it a captive portal (redirects all wifi trafic to it)
