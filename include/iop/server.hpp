@@ -26,12 +26,13 @@ class Api;
 /// to be able to store the credentials to storage
 class CredentialsServer {
 private:
-  iop::Log logger;
+  Log logger;
   
   iop_hal::HttpServer server;
   iop_hal::CaptivePortal dnsServer;
   bool isServerOpen = false;
 
+  std::optional<std::pair<StaticString, StaticString>> credentialsAccessPoint;
   std::optional<std::pair<std::string, std::string>> credentialsIop;
   std::optional<std::pair<std::string, std::string>> credentialsWifi;
 
@@ -39,10 +40,13 @@ private:
   auto start() noexcept -> void;
 
 public:
-  explicit CredentialsServer(const iop::LogLevel &logLevel) noexcept: logger(logLevel, IOP_STR("SERVER")) {}
+  explicit CredentialsServer(const iop::LogLevel &logLevel) noexcept;
 
   /// Setups everything the Captive Portal needs
   auto setup() noexcept -> void;
+
+  /// Configures Access Point credentials, must be called before `serve`
+  auto setAcessPointCredentials(StaticString SSID, StaticString PSK) noexcept -> void;
 
   /// Serves the captive portal and handles each user connected to each,
   /// authenticating to the wifi and the monitor server when possible

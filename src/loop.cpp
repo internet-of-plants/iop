@@ -45,7 +45,7 @@ static const StaticString uri(reinterpret_cast<const __FlashStringHelper*>(uriRa
 
 EventLoop eventLoop(uri, IOP_LOG_LEVEL);
 
-auto EventLoop::setup() noexcept -> void {
+auto EventLoop::setup(StaticString SSID, StaticString PSK) noexcept -> void {
   iop::panic::setup();
   iop::network_logger::setup();
 
@@ -61,6 +61,10 @@ auto EventLoop::setup() noexcept -> void {
   this->logger().info(IOP_STR("Core setup finished, running user layer's setup"));
 
   iop::setup(*this);
+}
+
+auto EventLoop::setAcessPointCredentials(StaticString SSID, StaticString PSK) noexcept -> void {
+  this->credentialsServer.setAccessPointCredentials(SSID, PSK);
 }
 
 AuthenticatedTaskInterval::AuthenticatedTaskInterval(iop::time::milliseconds interval, std::function<void(EventLoop&, const AuthToken&)> func) noexcept:

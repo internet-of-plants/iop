@@ -175,18 +175,20 @@ auto CredentialsServer::setup() noexcept -> void {
   });
 }
 
+CredentialsServer::CredentialsServer(const iop::LogLevel &logLevel) noexcept: logger(logLevel, IOP_STR("SERVER")) {}
+
+auto CredentialsServer::setAcessPointCredentials(StaticString SSID, StaticString PSK) noexcept -> void {
+  this->credentialsAccessPoint = std::make_optional(std::make_pair(SSID, PSK));
+}
+
 auto CredentialsServer::start() noexcept -> void {
   IOP_TRACE();
   if (!this->isServerOpen) {
     this->isServerOpen = true;
     this->logger.info(IOP_STR("Setting our own wifi access point"));
 
-    {
-      const auto hash = iop::hashString(iop::to_view(iop_hal::device.macAddress()));
-      const auto ssid = std::string("iop-") + std::to_string(hash);
-
-      iop::wifi.enableOurAccessPoint(ssid, IOP_STR("le$memester#passwordz").toString());
-    }
+    iop_assert(!this->credentialsAccessPoint, IOP_STR("Must configure Access Point credentials"));
+    iop::wifi.enableOurAccessPoint(this->credentialsAccessPoint->first.toString(), this->credentialsAccessPoint->second.toString());
 
     // Makes it a captive portal (redirects all wifi trafic to it)
     this->dnsServer.start();

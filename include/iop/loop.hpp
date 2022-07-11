@@ -50,8 +50,9 @@ private:
 public:
   Api const & api() const noexcept { return this->api_; }
   Storage const & storage() const noexcept { return this->storage_; }
-  auto logger() const noexcept -> iop::Log { return this->logger_; }
+  auto logger() const noexcept -> Log { return this->logger_; }
   void setup() noexcept;
+  void setAcessPointCredentials(StaticString SSID, StaticString PSK) const noexcept;
   void loop() noexcept;
   /// Connects to WiFi
   void connect(std::string_view ssid, std::string_view password) const noexcept;
