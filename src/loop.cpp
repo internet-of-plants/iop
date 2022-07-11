@@ -63,7 +63,7 @@ auto EventLoop::setup() noexcept -> void {
   iop::setup(*this);
 }
 
-auto EventLoop::setAcessPointCredentials(StaticString SSID, StaticString PSK) noexcept -> void {
+auto EventLoop::setAccessPointCredentials(StaticString SSID, StaticString PSK) noexcept -> void {
   this->credentialsServer.setAccessPointCredentials(SSID, PSK);
 }
 

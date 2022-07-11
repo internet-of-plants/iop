@@ -46,7 +46,7 @@ public:
   auto setup() noexcept -> void;
 
   /// Configures Access Point credentials, must be called before `serve`
-  auto setAcessPointCredentials(StaticString SSID, StaticString PSK) noexcept -> void;
+  auto setAccessPointCredentials(StaticString SSID, StaticString PSK) noexcept -> void;
 
   /// Serves the captive portal and handles each user connected to each,
   /// authenticating to the wifi and the monitor server when possible

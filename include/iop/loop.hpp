@@ -52,7 +52,7 @@ public:
   Storage const & storage() const noexcept { return this->storage_; }
   auto logger() const noexcept -> Log { return this->logger_; }
   auto setup() noexcept -> void;
-  auto setAcessPointCredentials(StaticString SSID, StaticString PSK) noexcept -> void;
+  auto setAccessPointCredentials(StaticString SSID, StaticString PSK) noexcept -> void;
   auto loop() noexcept -> void;
   /// Connects to WiFi
   auto connect(std::string_view ssid, std::string_view password) const noexcept -> void;
