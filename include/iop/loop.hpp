@@ -51,11 +51,11 @@ public:
   Api const & api() const noexcept { return this->api_; }
   Storage const & storage() const noexcept { return this->storage_; }
   auto logger() const noexcept -> Log { return this->logger_; }
-  void setup() noexcept;
-  void setAcessPointCredentials(StaticString SSID, StaticString PSK) const noexcept;
-  void loop() noexcept;
+  auto setup() noexcept -> void;
+  auto setAcessPointCredentials(StaticString SSID, StaticString PSK) noexcept -> void;
+  auto loop() noexcept -> void;
   /// Connects to WiFi
-  void connect(std::string_view ssid, std::string_view password) const noexcept;
+  auto connect(std::string_view ssid, std::string_view password) const noexcept -> void;
   
   /// Uses IoP credentials to generate an authentication token for the device
   auto authenticate(std::string_view username, std::string_view password, const Api &api) const noexcept -> std::optional<AuthToken>;
