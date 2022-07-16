@@ -56,8 +56,6 @@ When the device has a WiFi connection and has the appropriate credentials it wil
 
 If it isn't connected to a WiFi Access Point, or it isn't authenticated to [internet-of-plants/server](https://github.com/internet-of-plants/server), it will open its own WiFi Access Point with a Captive Portal that will collect the WiFi and IoP credentials.
 
-TODO: Currently the Access Point credentials are hardcoded, which is a liability, eventually we want to make this dynamic.
-
 When the credentials are supplied it will authenticate itself with the WiFi Access Point and then make a login request to [internet-of-plants/server](https://github.com/internet-of-plants/server). The IoP credentials aren't stored, they are just used to obtain an authentication token for that device, the token is stored (if the authentication succeeds).
 
 After the authentication it will periodically run the authenticated tasks. They generally will collect measurements and then register them to [internet-of-plants/server](https://github.com/internet-of-plants/server).
