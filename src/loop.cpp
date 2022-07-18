@@ -47,6 +47,7 @@ static const StaticString uri(reinterpret_cast<const __FlashStringHelper*>(uriRa
 EventLoop eventLoop(uri, IOP_LOG_LEVEL);
 
 auto EventLoop::setup() noexcept -> void {
+  iop::wifi.setup();
   iop::panic::setup();
   iop::network_logger::setup();
 
