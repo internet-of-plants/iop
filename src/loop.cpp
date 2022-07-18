@@ -47,10 +47,6 @@ static const StaticString uri(reinterpret_cast<const __FlashStringHelper*>(uriRa
 EventLoop eventLoop(uri, IOP_LOG_LEVEL);
 
 auto EventLoop::setup() noexcept -> void {
-  iop::wifi.setup();
-  iop::panic::setup();
-  iop::network_logger::setup();
-
   IOP_TRACE();
 
   this->logger().info(IOP_STR("Start Setup"));
@@ -58,6 +54,8 @@ auto EventLoop::setup() noexcept -> void {
 
   Storage::setup();
   this->api().setup();
+  iop::panic::setup();
+  iop::network_logger::setup();
   this->credentialsServer.setup();
   this->logger().info(IOP_STR("MD5: "), iop::to_view(iop_hal::device.firmwareMD5()));
   this->logger().info(IOP_STR("Core setup finished, running user layer's setup"));
