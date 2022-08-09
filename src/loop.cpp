@@ -114,10 +114,8 @@ auto EventLoop::loop() noexcept -> void {
       this->credentialsServer.close();
 
   if (isConnected && this->nextNTPSync < now) {
-    this->logger().info(IOP_STR("Syncing NTP"));
-
+    this->logger().debug(IOP_STR("Syncing NTP"));
     iop_hal::device.syncNTP();
-    
     this->logger().info(IOP_STR("Time synced"));
 
     constexpr const uint32_t oneDay = 24 * 60 * 60 * 1000;
@@ -136,6 +134,7 @@ auto EventLoop::loop() noexcept -> void {
       if (task.next < now) {
         task.next = now + task.interval;
         task.func(*this, authToken->get());
+        iop_hal::thisThread.yield();
       }
     }
   }
@@ -144,6 +143,7 @@ auto EventLoop::loop() noexcept -> void {
     if (task.next < now) {
       task.next = now + task.interval;
       task.func(*this);
+      iop_hal::thisThread.yield();
     }
   }
 }
@@ -189,13 +189,14 @@ auto EventLoop::handleNotConnected() noexcept -> void {
     // So we keep retrying
     this->nextTryHardcodedWifiCredentials = now + intervalTryHardcodedWifiCredentialsMillis;
 
-  } else if (this->nextHandleConnectionLost < now) {
+  } else {
+  //} else if (this->nextHandleConnectionLost < now) {
     // If network is offline for a while we open the captive portal to collect new wifi credentials
-    this->logger().debug(IOP_STR("Has creds, but no signal, opening server"));
+    //this->logger().debug(IOP_STR("Has creds, but no signal, opening server"));
     this->nextHandleConnectionLost = now + oneMinute;
     this->handleCredentials();
 
-  } else {
+  //} else {
     // No-op, we must just wait
   }
 }
@@ -324,7 +325,7 @@ auto EventLoop::authenticate(std::string_view username, std::string_view passwor
 
   iop::wifi.setMode(iop_hal::WiFiMode::STATION);
   auto authToken = api.authenticate(username, std::move(password));
-  iop::wifi.setMode(iop_hal::WiFiMode::ACCESS_POINT_AND_STATION);
+  //iop::wifi.setMode(iop_hal::WiFiMode::ACCESS_POINT_AND_STATION);
 
   this->logger().info(IOP_STR("Tried to authenticate"));
   if (const auto *error = std::get_if<iop::NetworkStatus>(&authToken)) {
