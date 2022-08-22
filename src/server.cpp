@@ -211,7 +211,7 @@ auto CredentialsServer::close() noexcept -> void {
   }
 }
 
-auto CredentialsServer::serve(const Api &api) noexcept -> std::optional<AuthToken> {
+auto CredentialsServer::serve(const Api &api) noexcept -> std::unique_ptr<AuthToken> {
   IOP_TRACE();
   this->start();
 
@@ -246,6 +246,6 @@ auto CredentialsServer::serve(const Api &api) noexcept -> std::optional<AuthToke
   this->logger.trace(IOP_STR("Serve captive portal"));
   this->dnsServer.handleClient();
   this->server.handleClient();
-  return std::nullopt;
+  return nullptr;
 }
 }

@@ -50,7 +50,7 @@ public:
 
   /// Serves the captive portal and handles each user connected to each,
   /// authenticating to the wifi and the monitor server when possible
-  auto serve(const Api &api) noexcept -> std::optional<AuthToken>;
+  auto serve(const Api &api) noexcept -> std::unique_ptr<AuthToken>;
 
   /// Closes the Captive Portal if it's still open
   auto close() noexcept -> void;

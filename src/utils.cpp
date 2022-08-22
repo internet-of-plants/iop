@@ -8,6 +8,7 @@ static volatile InterruptEvent interruptEvents[interruptVariants] = { InterruptE
 auto descheduleInterrupt() noexcept -> InterruptEvent {
   IOP_TRACE();
   for (volatile auto &el : interruptEvents) {
+    // TODO: lock interrupts
     if (el != InterruptEvent::NONE) {
       const auto tmp = el;
       el = InterruptEvent::NONE;

@@ -70,7 +70,7 @@ public:
   /// IO_ERROR: problems with connection, retry later?
   /// BROKEN_CLIENT: critical, means the method is broken and a buffer overflows happened
   /// BROKEN_SERVER: must wait until server is fixed
-  auto authenticate(std::string_view username, std::string_view password) const noexcept -> std::variant<AuthToken, iop::NetworkStatus>;
+  auto authenticate(std::string_view username, std::string_view password) const noexcept -> std::variant<std::unique_ptr<AuthToken>, iop::NetworkStatus>;
 
   /// Reports log message to server.
   ///

@@ -16,6 +16,12 @@
 namespace iop {
 class EventLoop;
 
+enum class ConnectResponse {
+  OK,
+  FAIL,
+  TIMEOUT,
+};
+
 struct TaskInterval {
   iop::time::milliseconds interval;
   iop::time::milliseconds next;
@@ -55,10 +61,10 @@ public:
   auto setAccessPointCredentials(StaticString SSID, StaticString PSK) noexcept -> void;
   auto loop() noexcept -> void;
   /// Connects to WiFi
-  auto connect(std::string_view ssid, std::string_view password) const noexcept -> void;
+  auto connect(std::string_view ssid, std::string_view password) const noexcept -> ConnectResponse;
   
   /// Uses IoP credentials to generate an authentication token for the device
-  auto authenticate(std::string_view username, std::string_view password, const Api &api) const noexcept -> std::optional<AuthToken>;
+  auto authenticate(std::string_view username, std::string_view password, const Api &api) const noexcept -> std::unique_ptr<AuthToken>;
 
   auto setInterval(iop::time::milliseconds interval, std::function<void(EventLoop&)> func) noexcept -> void;
   auto setAuthenticatedInterval(iop::time::milliseconds interval, std::function<void(EventLoop&, const AuthToken&)> func) noexcept -> void;
@@ -66,6 +72,7 @@ public:
 
 private:
   void handleNotConnected() noexcept;
+  void handleInterrupts(const std::optional<std::reference_wrapper<const AuthToken>> &token) const noexcept;
   void handleInterrupt(const InterruptEvent event, const std::optional<std::reference_wrapper<const AuthToken>> &token) const noexcept;
   void handleIopCredentials() noexcept;
   void handleCredentials() noexcept;
@@ -74,7 +81,7 @@ private:
 public:
   explicit EventLoop(iop::StaticString uri, iop::LogLevel logLevel_) noexcept
       : credentialsServer(logLevel_),
-        api_(std::move(uri), logLevel_),
+        api_(uri, logLevel_),
         logger_(logLevel_, IOP_STR("LOOP")), storage_(logLevel_),
         nextNTPSync(0), nextHandleConnectionLost(0), nextTryStorageWifiCredentials(0),
         nextTryHardcodedWifiCredentials(0), nextTryHardcodedIopCredentials(0) {
