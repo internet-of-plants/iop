@@ -248,6 +248,7 @@ auto EventLoop::handleInterrupt(const InterruptEvent event, const std::optional<
     (void)token;
 
     IOP_TRACE();
+    this->logger().debug(IOP_STR("Handling interrupt: "), std::to_string(static_cast<uint8_t>(event)));
 
     switch (event) {
     case InterruptEvent::NONE:
@@ -283,8 +284,8 @@ auto EventLoop::handleInterrupt(const InterruptEvent event, const std::optional<
 
       const auto [ssid, psk] = iop::wifi.credentials();
 
-      this->logger().info(IOP_STR("Connected to network: "), iop::to_view(iop::scapeNonPrintable(iop::to_view(ssid))));
       this->storage().setWifi(WifiCredentials(ssid, psk));
+      this->logger().info(IOP_STR("Connected to network: "), iop::to_view(iop::scapeNonPrintable(iop::to_view(ssid))));
       break;
     };
 }
@@ -348,7 +349,7 @@ auto EventLoop::authenticate(std::string_view username, std::string_view passwor
   auto authToken = api.authenticate(username, password);
   //iop::wifi.setMode(iop_hal::WiFiMode::ACCESS_POINT_AND_STATION);
 
-  this->logger().info(IOP_STR("Tried to authenticate"));
+  this->logger().debug(IOP_STR("Tried to authenticate"));
   if (const auto *error = std::get_if<iop::NetworkStatus>(&authToken)) {
     const auto &status = *error;
 

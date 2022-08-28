@@ -20,7 +20,7 @@ void onWifiConnect() noexcept {
 auto Api::setup() const noexcept -> void {
   IOP_TRACE();
 
-  iop::wifi.onConnect(onWifiConnect);
+  const static iop_hal::OnConnectHandler handler = iop::wifi.onConnect(onWifiConnect);
   // If we are already connected the callback won't be called
   if (iop::Network::isConnected())
     iop::scheduleInterrupt(InterruptEvent::ON_CONNECTION);
