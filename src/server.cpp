@@ -124,16 +124,17 @@ auto pageHTMLEnd() -> iop::StaticString {
 
 auto CredentialsServer::setup() noexcept -> void {
   IOP_TRACE();
-  this->server.on(IOP_STR("/favicon.ico"), [](iop_hal::HttpConnection &conn, iop::Log const &logger) { conn.send(404, IOP_STR("text/plain"), IOP_STR("")); (void) logger; });
-  this->server.on(IOP_STR("/submit"), [this](iop_hal::HttpConnection &conn, iop::Log const &logger) {
+  this->server.on(IOP_STR("/favicon.ico"), [](iop_hal::HttpConnection &conn, iop::Log &logger) { conn.send(404, IOP_STR("text/plain"), IOP_STR("")); (void) logger; });
+  this->server.on(IOP_STR("/submit"), [this](iop_hal::HttpConnection &conn, iop::Log &logger) {
     IOP_TRACE();
-    logger.debug(IOP_STR("Received credentials form"));
+    logger.debugln(IOP_STR("Received credentials form"));
 
     const auto wifi = conn.arg(IOP_STR("wifi"));
     const auto ssid = conn.arg(IOP_STR("ssid"));
     const auto psk = conn.arg(IOP_STR("password"));
     if (wifi && ssid && psk) {
-      logger.debug(IOP_STR("SSID: "), *ssid);
+      logger.debug(IOP_STR("SSID: "));
+      logger.debugln(*ssid);
       this->credentialsWifi = std::make_pair(*ssid, *psk);
     }
 
@@ -141,7 +142,8 @@ auto CredentialsServer::setup() noexcept -> void {
     const auto email = conn.arg(IOP_STR("iopEmail"));
     const auto password = conn.arg(IOP_STR("iopPassword"));
     if (iop && email && password) {
-      logger.debug(IOP_STR("Email: "), *email);
+      logger.debug(IOP_STR("Email: "));
+      logger.debugln(*email);
       this->credentialsIop = std::make_pair(*email, *password);
     }
 
@@ -149,9 +151,9 @@ auto CredentialsServer::setup() noexcept -> void {
     conn.send(302, IOP_STR("text/plain"), IOP_STR(""));
   });
 
-  this->server.onNotFound([](iop_hal::HttpConnection &conn, iop::Log const &logger) {
+  this->server.onNotFound([](iop_hal::HttpConnection &conn, iop::Log &logger) {
     IOP_TRACE();
-    logger.info(IOP_STR("Serving captive portal"));
+    logger.infoln(IOP_STR("Serving captive portal"));
 
     const auto mustConnect = !iop::Network::isConnected();
     const auto needsIopAuth = !eventLoop.storage().token();
@@ -171,11 +173,11 @@ auto CredentialsServer::setup() noexcept -> void {
 
     conn.sendData(script());
     conn.sendData(pageHTMLEnd());
-    logger.debug(IOP_STR("Served HTML"));
+    logger.debugln(IOP_STR("Served HTML"));
   });
 }
 
-CredentialsServer::CredentialsServer(const iop::LogLevel &logLevel) noexcept: logger(logLevel, IOP_STR("SERVER")) {}
+CredentialsServer::CredentialsServer(const iop::LogLevel logLevel) noexcept: logger(logLevel, IOP_STR("SERVER")) {}
 
 auto CredentialsServer::setAccessPointCredentials(StaticString SSID, StaticString PSK) noexcept -> void {
   this->credentialsAccessPoint = std::make_optional(std::make_pair(SSID, PSK));
@@ -185,7 +187,7 @@ auto CredentialsServer::start() noexcept -> void {
   IOP_TRACE();
   if (!this->isServerOpen) {
     this->isServerOpen = true;
-    this->logger.info(IOP_STR("Setting our own wifi access point"));
+    this->logger.infoln(IOP_STR("Setting our own wifi access point"));
 
     iop_assert(this->credentialsAccessPoint, IOP_STR("Must configure Access Point credentials"));
     iop::wifi.enableOurAccessPoint(this->credentialsAccessPoint->first.toString(), this->credentialsAccessPoint->second.toString());
@@ -194,14 +196,15 @@ auto CredentialsServer::start() noexcept -> void {
     this->dnsServer.start();
     this->server.begin();
 
-    this->logger.info(IOP_STR("Opened captive portal: "), iop::wifi.ourAccessPointIp());
+    this->logger.info(IOP_STR("Opened captive portal: "));
+    this->logger.infoln(iop::wifi.ourAccessPointIp());
   }
 }
 
 auto CredentialsServer::close() noexcept -> void {
   IOP_TRACE();
   if (this->isServerOpen) {
-    this->logger.debug(IOP_STR("Closing captive portal"));
+    this->logger.debugln(IOP_STR("Closing captive portal"));
     this->isServerOpen = false;
 
     this->dnsServer.close();
@@ -211,7 +214,7 @@ auto CredentialsServer::close() noexcept -> void {
   }
 }
 
-auto CredentialsServer::serve(const Api &api) noexcept -> std::unique_ptr<AuthToken> {
+auto CredentialsServer::serve(Api &api) noexcept -> std::unique_ptr<AuthToken> {
   IOP_TRACE();
   this->start();
 
@@ -243,7 +246,7 @@ auto CredentialsServer::serve(const Api &api) noexcept -> std::unique_ptr<AuthTo
 
 
   // Give processing time to the servers
-  this->logger.trace(IOP_STR("Serve captive portal"));
+  this->logger.traceln(IOP_STR("Serve captive portal"));
   this->dnsServer.handleClient();
   this->server.handleClient();
   return nullptr;

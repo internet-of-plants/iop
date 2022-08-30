@@ -54,26 +54,26 @@ private:
   std::vector<AuthenticatedTaskInterval> authenticatedTasks;
 
 public:
-  Api const & api() const noexcept { return this->api_; }
-  Storage const & storage() const noexcept { return this->storage_; }
-  auto logger() const noexcept -> Log { return this->logger_; }
+  auto api() noexcept -> Api &{ return this->api_; }
+  auto storage() noexcept -> Storage & { return this->storage_; }
+  auto logger() noexcept -> Log & { return this->logger_; }
   auto setup() noexcept -> void;
   auto setAccessPointCredentials(StaticString SSID, StaticString PSK) noexcept -> void;
   auto loop() noexcept -> void;
   /// Connects to WiFi
-  auto connect(std::string_view ssid, std::string_view password) const noexcept -> ConnectResponse;
+  auto connect(std::string_view ssid, std::string_view password) noexcept -> ConnectResponse;
   
   /// Uses IoP credentials to generate an authentication token for the device
-  auto authenticate(std::string_view username, std::string_view password, const Api &api) const noexcept -> std::unique_ptr<AuthToken>;
+  auto authenticate(std::string_view username, std::string_view password, Api &api) noexcept -> std::unique_ptr<AuthToken>;
 
   auto setInterval(iop::time::milliseconds interval, std::function<void(EventLoop&)> func) noexcept -> void;
   auto setAuthenticatedInterval(iop::time::milliseconds interval, std::function<void(EventLoop&, const AuthToken&)> func) noexcept -> void;
-  auto registerEvent(const AuthToken& token, const Api::Json json) const noexcept -> void;
+  auto registerEvent(const AuthToken& token, const Api::Json json) noexcept -> void;
 
 private:
   void handleNotConnected() noexcept;
-  void handleInterrupts(const std::optional<std::reference_wrapper<const AuthToken>> &token) const noexcept;
-  void handleInterrupt(const InterruptEvent event, const std::optional<std::reference_wrapper<const AuthToken>> &token) const noexcept;
+  void handleInterrupts(const std::optional<std::reference_wrapper<const AuthToken>> &token) noexcept;
+  void handleInterrupt(const InterruptEvent event, const std::optional<std::reference_wrapper<const AuthToken>> &token) noexcept;
   void handleIopCredentials() noexcept;
   void handleCredentials() noexcept;
   void handleMeasurements(const AuthToken &token) noexcept;

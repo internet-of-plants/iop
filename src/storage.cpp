@@ -32,7 +32,7 @@ auto Storage::setup() noexcept -> void { iop_hal::storage.setup(EEPROM_SIZE); }
 
 static AuthToken authToken;
 
-auto Storage::token() const noexcept -> std::optional<std::reference_wrapper<const AuthToken>> {
+auto Storage::token() noexcept -> std::optional<std::reference_wrapper<const AuthToken>> {
   IOP_TRACE();
 
   // Check if magic byte is set in storage (as in, something is stored)
@@ -47,17 +47,19 @@ auto Storage::token() const noexcept -> std::optional<std::reference_wrapper<con
   const auto tok = iop::to_view(authToken);
   // AuthToken must be printable US-ASCII (to be stored in HTTP headers))
   if (!iop::isAllPrintable(tok) || tok.length() != 64) {
-    this->logger.error(IOP_STR("Auth token was non printable: "), iop::to_view(iop::scapeNonPrintable(tok)));
+    this->logger.error(IOP_STR("Auth token was non printable: "));
+    this->logger.errorln(iop::to_view(iop::scapeNonPrintable(tok)));
     this->removeToken();
     return std::nullopt;
   }
 
-  this->logger.trace(IOP_STR("Found Auth token: "), tok);
+  this->logger.trace(IOP_STR("Found Auth token: "));
+  this->logger.traceln(tok);
   const auto ref = std::reference_wrapper<const AuthToken>(authToken);
   return std::make_optional(ref);
 }
 
-void Storage::removeToken() const noexcept {
+void Storage::removeToken() noexcept {
   IOP_TRACE();
 
   authToken.fill('\0');
@@ -65,7 +67,7 @@ void Storage::removeToken() const noexcept {
   // Checks if it's written to storage first, avoids wasting writes
   const auto flag = iop_hal::storage.get(authTokenIndex);
   if (flag && *flag == usedAuthTokenEEPROMFlag) {
-    this->logger.info(IOP_STR("Deleting stored auth token"));
+    this->logger.infoln(IOP_STR("Deleting stored auth token"));
 
     iop_hal::storage.set(authTokenIndex, 0);
     iop_hal::storage.write(authTokenIndex + 1, authToken);
@@ -73,7 +75,7 @@ void Storage::removeToken() const noexcept {
   }
 }
 
-void Storage::setToken(const AuthToken &token) const noexcept {
+void Storage::setToken(const AuthToken &token) noexcept {
   IOP_TRACE();
 
   // Avoids re-writing same data
@@ -83,12 +85,13 @@ void Storage::setToken(const AuthToken &token) const noexcept {
     iop_assert(tok, IOP_STR("Failed to read AuthToken from storage"));
 
     if (*tok == token) {
-      this->logger.debug(IOP_STR("Auth token already stored in storage"));
+      this->logger.debugln(IOP_STR("Auth token already stored in storage"));
       return;
     }
   }
 
-  this->logger.info(IOP_STR("Writing auth token to storage: "), iop::to_view(token));
+  this->logger.info(IOP_STR("Writing auth token to storage: "));
+  this->logger.infoln(iop::to_view(token));
   iop_hal::storage.set(authTokenIndex, usedAuthTokenEEPROMFlag);
   iop_hal::storage.write(authTokenIndex + 1, token);
   iop_hal::storage.commit();
@@ -97,7 +100,7 @@ void Storage::setToken(const AuthToken &token) const noexcept {
 static iop::NetworkName ssid;
 static iop::NetworkPassword psk;
 
-auto Storage::wifi() const noexcept -> std::optional<std::reference_wrapper<const WifiCredentials>> {
+auto Storage::wifi() noexcept -> std::optional<std::reference_wrapper<const WifiCredentials>> {
   IOP_TRACE();
 
   // Check if magic byte is set in storage (as in, something is stored)
@@ -114,14 +117,15 @@ auto Storage::wifi() const noexcept -> std::optional<std::reference_wrapper<cons
   psk = *maybePsk;
   
   const auto ssidStr = iop::scapeNonPrintable(iop::to_view(ssid));
-  this->logger.trace(IOP_STR("Found network credentials: "), iop::to_view(ssidStr));
+  this->logger.trace(IOP_STR("Found network credentials: "));
+  this->logger.traceln(iop::to_view(ssidStr));
   const auto creds = WifiCredentials(ssid, psk);
   return std::make_optional(std::ref(creds));
 }
 
-void Storage::removeWifi() const noexcept {
+void Storage::removeWifi() noexcept {
   IOP_TRACE();
-  this->logger.info(IOP_STR("Deleting stored wifi config"));
+  this->logger.infoln(IOP_STR("Deleting stored wifi config"));
 
   ssid.fill('\0');
   psk.fill('\0');
@@ -136,7 +140,7 @@ void Storage::removeWifi() const noexcept {
   }
 }
 
-void Storage::setWifi(const WifiCredentials &config) const noexcept {
+void Storage::setWifi(const WifiCredentials &config) noexcept {
   IOP_TRACE();
 
   // Avoids re-writing same data
@@ -150,13 +154,17 @@ void Storage::setWifi(const WifiCredentials &config) const noexcept {
     // Theoretically SSIDs can have a nullptr inside of it, but currently ESP8266 gives us random garbage after the first '\0' instead of zeroing the rest
     // So we do not accept SSIDs with a nullptr in the middle
     if (iop::to_view(*networkName) == iop::to_view(config.ssid.get()) && iop::to_view(*networkPassword) == iop::to_view(config.password.get())) {
-      this->logger.debug(IOP_STR("Wifi Credentials already stored in storage"));
+      this->logger.debugln(IOP_STR("Wifi Credentials already stored in storage"));
       return;
     }
   }
   
-  this->logger.info(IOP_STR("Writing wifi credentials to storage: "), iop::to_view(config.ssid.get()));
-  this->logger.debug(IOP_STR("WiFi Creds: "), iop::to_view(config.ssid.get()), IOP_STR(" "), iop::to_view(config.password.get()));
+  this->logger.info(IOP_STR("Writing wifi credentials to storage: "));
+  this->logger.infoln(iop::to_view(config.ssid.get()));
+  this->logger.debug(IOP_STR("WiFi Creds: "));
+  this->logger.debug(iop::to_view(config.ssid.get()));
+  this->logger.debug(IOP_STR(" "));
+  this->logger.debugln(iop::to_view(config.password.get()));
 
   iop_hal::storage.set(wifiConfigIndex, usedWifiConfigEEPROMFlag);
   iop_hal::storage.write(wifiConfigIndex + 1, config.ssid.get());

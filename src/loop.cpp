@@ -48,7 +48,7 @@ EventLoop eventLoop(uri, IOP_LOG_LEVEL);
 auto EventLoop::setup() noexcept -> void {
   IOP_TRACE();
 
-  this->logger().info(IOP_STR("Start Setup"));
+  this->logger().infoln(IOP_STR("Start Setup"));
   //iop_hal::gpio.setMode(iop_hal::io::LED_BUILTIN, iop_hal::io::Mode::OUTPUT);
 
   iop::Log::setup(IOP_LOG_LEVEL);
@@ -57,8 +57,9 @@ auto EventLoop::setup() noexcept -> void {
   iop::panic::setup();
   iop::network_logger::setup();
   this->credentialsServer.setup();
-  this->logger().info(IOP_STR("MD5: "), iop::to_view(iop_hal::device.firmwareMD5()));
-  this->logger().info(IOP_STR("Core setup finished, running user layer's setup"));
+  this->logger().info(IOP_STR("MD5: "));
+  this->logger().infoln(iop::to_view(iop_hal::device.firmwareMD5()));
+  this->logger().infoln(IOP_STR("Core setup finished, running user layer's setup"));
 
   iop::setup(*this);
 }
@@ -89,8 +90,7 @@ constexpr static uint64_t intervalTryHardcodedIopCredentialsMillis =
     60 * 60 * 1000; // 1 hour
 
 auto EventLoop::loop() noexcept -> void {
-  this->logger().trace(IOP_STR("\n\n\n\n\n\n"));
-
+  this->logger().traceln(IOP_STR("\n\n\n\n\n\n"));
   IOP_TRACE();
 
 #ifdef LOG_MEMORY
@@ -102,17 +102,19 @@ auto EventLoop::loop() noexcept -> void {
 
   const auto now = iop_hal::thisThread.timeRunning();
   const auto isConnected = iop::Network::isConnected();
-  this->logger().debug(IOP_STR("Connected: "), std::to_string(isConnected));
-  this->logger().debug(IOP_STR("Token: "), std::to_string(authToken.has_value()));
+  this->logger().debug(IOP_STR("Connected: "));
+  this->logger().debugln(isConnected);
+  this->logger().debug(IOP_STR("Token: "));
+  this->logger().debugln(authToken.has_value());
 
   if (isConnected && authToken) {
     this->credentialsServer.close();
   }
 
   if (isConnected && this->nextNTPSync < now) {
-    this->logger().debug(IOP_STR("Syncing NTP"));
+    this->logger().debugln(IOP_STR("Syncing NTP"));
     iop_hal::device.syncNTP();
-    this->logger().info(IOP_STR("Time synced"));
+    this->logger().infoln(IOP_STR("Time synced"));
 
     constexpr const uint32_t oneDay = 24 * 60 * 60 * 1000;
     this->nextNTPSync = now + oneDay;
@@ -163,8 +165,10 @@ auto EventLoop::handleNotConnected() noexcept -> void {
     const auto ssid = iop::to_view(stored.ssid.get());
     const auto psk = iop::to_view(stored.password.get());
 
-    this->logger().info(IOP_STR("Trying wifi credentials stored in storage: "), iop::to_view(iop::scapeNonPrintable(ssid)));
-    this->logger().debug(IOP_STR("Password:"), iop::to_view(iop::scapeNonPrintable(psk)));
+    this->logger().info(IOP_STR("Trying wifi credentials stored in storage: "));
+    this->logger().infoln(iop::scapeNonPrintable(ssid));
+    this->logger().debug(IOP_STR("Password:"));
+    this->logger().debugln(iop::scapeNonPrintable(psk));
     switch (this->connect(ssid, psk)) {
       case ConnectResponse::FAIL:
         // WiFi Credentials stored in persistent memory
@@ -179,7 +183,7 @@ auto EventLoop::handleNotConnected() noexcept -> void {
     }
 
   } else if (!isConnected && wifiSSID && wifiPSK && this->nextTryHardcodedWifiCredentials <= now) { 
-    this->logger().info(IOP_STR("Trying hardcoded wifi credentials"));
+    this->logger().infoln(IOP_STR("Trying hardcoded wifi credentials"));
 
     const auto ssid = *wifiSSID;
     const auto psk = *wifiPSK;
@@ -216,7 +220,7 @@ auto EventLoop::handleIopCredentials() noexcept -> void {
   if (iopUsername && iopPassword && this->nextTryHardcodedIopCredentials <= now) {
     this->nextTryHardcodedIopCredentials = now + intervalTryHardcodedIopCredentialsMillis;
 
-    this->logger().info(IOP_STR("Trying hardcoded iop credentials"));
+    this->logger().infoln(IOP_STR("Trying hardcoded iop credentials"));
 
     const auto email = *iopUsername;
     const auto password = *iopPassword;
@@ -228,7 +232,7 @@ auto EventLoop::handleIopCredentials() noexcept -> void {
   }
 }
 
-auto EventLoop::handleInterrupts(const std::optional<std::reference_wrapper<const AuthToken>> &token) const noexcept -> void {
+auto EventLoop::handleInterrupts(const std::optional<std::reference_wrapper<const AuthToken>> &token) noexcept -> void {
   IOP_TRACE();
 
   while (true) {
@@ -241,14 +245,15 @@ auto EventLoop::handleInterrupts(const std::optional<std::reference_wrapper<cons
   }
 }
 
-auto EventLoop::handleInterrupt(const InterruptEvent event, const std::optional<std::reference_wrapper<const AuthToken>> &token) const noexcept -> void {
+auto EventLoop::handleInterrupt(const InterruptEvent event, const std::optional<std::reference_wrapper<const AuthToken>> &token) noexcept -> void {
     // Satisfies linter when all interrupt features are disabled
     (void)*this;
     (void)event;
     (void)token;
 
     IOP_TRACE();
-    this->logger().debug(IOP_STR("Handling interrupt: "), std::to_string(static_cast<uint8_t>(event)));
+    this->logger().debug(IOP_STR("Handling interrupt: "));
+    this->logger().debugln(static_cast<uint64_t>(event));
 
     switch (event) {
     case InterruptEvent::NONE:
@@ -258,7 +263,7 @@ auto EventLoop::handleInterrupt(const InterruptEvent event, const std::optional<
         const auto status = this->api().update(*token);
         switch (status) {
         case iop_hal::UpdateStatus::UNAUTHORIZED:
-          this->logger().warn(IOP_STR("Invalid auth token, but keeping since at OTA"));
+          this->logger().warnln(IOP_STR("Invalid auth token, but keeping since at OTA"));
           return;
 
         case iop_hal::UpdateStatus::BROKEN_CLIENT:
@@ -273,19 +278,21 @@ auto EventLoop::handleInterrupt(const InterruptEvent event, const std::optional<
           return;
         }
 
-        this->logger().error(IOP_STR("Bad status, EventLoop::handleInterrupt"));
+        this->logger().errorln(IOP_STR("Bad status, EventLoop::handleInterrupt"));
       } else {
-        this->logger().error(IOP_STR("Update expected, but no auth token available"));
+        this->logger().errorln(IOP_STR("Update expected, but no auth token available"));
       }
       break;
     case InterruptEvent::ON_CONNECTION:
       const auto status = iop_hal::statusToString(iop::wifi.status());
-      this->logger().debug(IOP_STR("WiFi connected: "), status.value_or(IOP_STR("BadData")));
+      this->logger().debug(IOP_STR("WiFi connected: "));
+      this->logger().debugln(status.value_or(IOP_STR("BadData")));
 
       const auto [ssid, psk] = iop::wifi.credentials();
 
       this->storage().setWifi(WifiCredentials(ssid, psk));
-      this->logger().info(IOP_STR("Connected to network: "), iop::to_view(iop::scapeNonPrintable(iop::to_view(ssid))));
+      this->logger().info(IOP_STR("Connected to network: "));
+      this->logger().infoln(iop::scapeNonPrintable(iop::to_view(ssid)));
       break;
     };
 }
@@ -298,12 +305,13 @@ auto EventLoop::handleCredentials() noexcept -> void {
       this->storage().setToken(*token);
 }
 
-auto EventLoop::connect(std::string_view ssid, std::string_view password) const noexcept -> ConnectResponse {
+auto EventLoop::connect(std::string_view ssid, std::string_view password) noexcept -> ConnectResponse {
   IOP_TRACE();
-  this->logger().info(IOP_STR("Connect: "), ssid);
+  this->logger().info(IOP_STR("Connect: "));
+  this->logger().infoln(ssid);
 
   if (!iop::wifi.connectToAccessPoint(ssid, password)) {
-    this->logger().error(IOP_STR("Wifi authentication timed out"));
+    this->logger().errorln(IOP_STR("Wifi authentication timed out"));
     return ConnectResponse::TIMEOUT;
   }
 
@@ -313,21 +321,24 @@ auto EventLoop::connect(std::string_view ssid, std::string_view password) const 
     if (!statusStr)
       return ConnectResponse::FAIL; // It already will be logged by statusToString;
 
-    this->logger().error(IOP_STR("Invalid wifi credentials ("), *statusStr, IOP_STR("): "), ssid);
+    this->logger().error(IOP_STR("Invalid wifi credentials ("));
+    this->logger().error(*statusStr);
+    this->logger().error(IOP_STR("): "));
+    this->logger().errorln(ssid);
   }
   return ConnectResponse::OK;
 }
 
-auto EventLoop::registerEvent(const AuthToken& token, const Api::Json json) const noexcept -> void {
+auto EventLoop::registerEvent(const AuthToken& token, const Api::Json json) noexcept -> void {
   const auto status = this->api().registerEvent(token, json);
   switch (status) {
   case iop::NetworkStatus::BROKEN_CLIENT:
-    this->logger().error(IOP_STR("Unable to send measurements"));
+    this->logger().errorln(IOP_STR("Unable to send measurements"));
     iop_panic(IOP_STR("EventLoop::registerEvent buffer overflow"));
 
   case iop::NetworkStatus::UNAUTHORIZED:
-    this->logger().error(IOP_STR("Unable to send measurements"));
-    this->logger().warn(IOP_STR("Auth token was refused, deleting it"));
+    this->logger().errorln(IOP_STR("Unable to send measurements"));
+    this->logger().warnln(IOP_STR("Auth token was refused, deleting it"));
     this->storage().removeToken();
     return;
 
@@ -339,23 +350,24 @@ auto EventLoop::registerEvent(const AuthToken& token, const Api::Json json) cons
   case iop::NetworkStatus::OK: // Cool beans
     return;
   }
-  this->logger().error(IOP_STR("Unexpected status at EventLoop::registerEvent"));
+  this->logger().errorln(IOP_STR("Unexpected status at EventLoop::registerEvent"));
 }
 
-auto EventLoop::authenticate(std::string_view username, std::string_view password, const Api &api) const noexcept -> std::unique_ptr<AuthToken> {
+auto EventLoop::authenticate(std::string_view username, std::string_view password, Api &api) noexcept -> std::unique_ptr<AuthToken> {
   IOP_TRACE();
 
   iop::wifi.setMode(iop_hal::WiFiMode::STATION);
   auto authToken = api.authenticate(username, password);
   //iop::wifi.setMode(iop_hal::WiFiMode::ACCESS_POINT_AND_STATION);
 
-  this->logger().debug(IOP_STR("Tried to authenticate"));
+  this->logger().debugln(IOP_STR("Tried to authenticate"));
   if (const auto *error = std::get_if<iop::NetworkStatus>(&authToken)) {
     const auto &status = *error;
 
     switch (status) {
     case iop::NetworkStatus::UNAUTHORIZED:
-      this->logger().error(IOP_STR("Invalid IoP credentials: "), username);
+      this->logger().error(IOP_STR("Invalid IoP credentials: "));
+      this->logger().errorln(username);
       return nullptr;
 
     case iop::NetworkStatus::BROKEN_CLIENT:
@@ -372,7 +384,7 @@ auto EventLoop::authenticate(std::string_view username, std::string_view passwor
       iop_panic(IOP_STR("Unreachable"));
     }
 
-    this->logger().crit(IOP_STR("CredentialsServer::authenticate bad status"));
+    this->logger().critln(IOP_STR("CredentialsServer::authenticate bad status"));
     return nullptr;
 
   } else if (auto *token = std::get_if<std::unique_ptr<AuthToken>>(&authToken)) {

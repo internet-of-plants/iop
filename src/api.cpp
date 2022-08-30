@@ -31,9 +31,10 @@ auto Api::setup() const noexcept -> void {
   this->network.setup();
 }
 
-auto Api::reportPanic(const AuthToken &authToken, const PanicData &event) const noexcept -> iop::NetworkStatus {
+auto Api::reportPanic(const AuthToken &authToken, const PanicData &event) noexcept -> iop::NetworkStatus {
   IOP_TRACE();
-  this->logger.info(IOP_STR("Report iop_panic: "), event.msg);
+  this->logger.info(IOP_STR("Report iop_panic: "));
+  this->logger.infoln(event.msg);
 
   auto msg = event.msg;
   auto json = std::unique_ptr<Api::Json>();
@@ -63,53 +64,55 @@ auto Api::reportPanic(const AuthToken &authToken, const PanicData &event) const 
 
   const auto status = response.status();
   if (!status) {
-    this->logger.error(IOP_STR("Unexpected response at Api::reportPanic: "), std::to_string(response.code()));
+    this->logger.error(IOP_STR("Unexpected response at Api::reportPanic: "));
+    this->logger.errorln(static_cast<uint64_t>(response.code()));
     return iop::NetworkStatus::BROKEN_SERVER;
   }
   return *status;
 }
 
-auto Api::registerEvent(const AuthToken &authToken, const Api::Json &event) const noexcept -> iop::NetworkStatus {
+auto Api::registerEvent(const AuthToken &authToken, const Api::Json &event) noexcept -> iop::NetworkStatus {
   IOP_TRACE();
-  this->logger.info(IOP_STR("Send event"));
+  this->logger.infoln(IOP_STR("Send event"));
 
   const auto token = iop::to_view(authToken);
   const auto response = this->network.httpPost(token, IOP_STR("/v1/event"), iop::to_view(event));
 
   const auto status = response.status();
   if (!status) {
-    this->logger.error(IOP_STR("Unexpected response at Api::registerEvent: "), std::to_string(response.code()));
+    this->logger.error(IOP_STR("Unexpected response at Api::registerEvent: "));
+    this->logger.errorln(static_cast<uint64_t>(response.code()));
     return iop::NetworkStatus::BROKEN_SERVER;
   }
   return *status;
 }
-auto Api::authenticate(std::string_view username, std::string_view password) const noexcept -> std::variant<std::unique_ptr<AuthToken>, iop::NetworkStatus> {
+auto Api::authenticate(std::string_view username, std::string_view password) noexcept -> std::variant<std::unique_ptr<AuthToken>, iop::NetworkStatus> {
   IOP_TRACE();
-  auto json = std::unique_ptr<Api::Json>();
-  {
-    this->logger.info(IOP_STR("Authenticate IoP user: "), username);
 
-    if (!username.length() || !password.length()) {
-      this->logger.warn(IOP_STR("Empty username or password, at Api::authenticate"));
-      return iop::NetworkStatus::UNAUTHORIZED;
-    }
+  this->logger.info(IOP_STR("Authenticate IoP user: "));
+  this->logger.infoln(username);
 
-    const auto make = [username, password](JsonDocument &doc) {
-      doc["email"] = username;
-      doc["password"] = password;
-    };
+  if (!username.length() || !password.length()) {
+    this->logger.warnln(IOP_STR("Empty username or password, at Api::authenticate"));
+    return iop::NetworkStatus::UNAUTHORIZED;
+  }
 
-    json = this->makeJson(IOP_FUNC, make);
-    if (!json) {
-      return iop::NetworkStatus::BROKEN_CLIENT;
-    }
+  const auto make = [username, password](JsonDocument &doc) {
+    doc["email"] = username;
+    doc["password"] = password;
+  };
+
+  const auto json = this->makeJson(IOP_FUNC, make);
+  if (!json) {
+    return iop::NetworkStatus::BROKEN_CLIENT;
   }
 
   auto response = this->network.httpPost(IOP_STR("/v1/user/login"), iop::to_view(*json));
 
   const auto status = response.status();
   if (!status) {
-    this->logger.error(IOP_STR("Unexpected response at Api::authenticate: "), std::to_string(response.code()));
+    this->logger.error(IOP_STR("Unexpected response at Api::authenticate: "));
+    this->logger.errorln(static_cast<uint64_t>(response.code()));
     return iop::NetworkStatus::BROKEN_SERVER;
   }
 
@@ -117,47 +120,52 @@ auto Api::authenticate(std::string_view username, std::string_view password) con
   const auto payload = iop::to_view(payloadBuff);
 
   if (payload.length() == 0) {
-    logger.error(IOP_STR("Server answered OK, but payload is missing"));
+    this->logger.errorln(IOP_STR("Server answered OK, but payload is missing"));
     return iop::NetworkStatus::BROKEN_SERVER;
   }
 
   if (!iop::isAllPrintable(payload)) {
-    logger.error(IOP_STR("Unprintable payload, this isn't supported: "), iop::to_view(iop::scapeNonPrintable(payload)));
+    this->logger.error(IOP_STR("Unprintable payload, this isn't supported: "));
+    this->logger.errorln(iop::scapeNonPrintable(payload));
     return iop::NetworkStatus::BROKEN_SERVER;
   }
   if (payload.length() != 64) {
-    logger.error(IOP_STR("Auth token does not occupy 64 bytes: size = "), std::to_string(payload.length()));
+    this->logger.error(IOP_STR("Auth token does not occupy 64 bytes: size = "));
+    this->logger.errorln(static_cast<uint64_t>(payload.length()));
     return iop::NetworkStatus::BROKEN_SERVER;
   }
 
   auto token = std::unique_ptr<AuthToken>(new (std::nothrow) AuthToken());
   if (!token) {
-    this->logger.error(IOP_STR("Unable to allocate auth token"));
+    this->logger.errorln(IOP_STR("Unable to allocate auth token"));
     return iop::NetworkStatus::BROKEN_CLIENT;
   }
   memcpy(token->data(), payload.begin(), payload.length());
   return token;
 }
 
-auto Api::registerLog(const AuthToken &authToken, std::string_view log) const noexcept -> iop::NetworkStatus {
+auto Api::registerLog(const AuthToken &authToken, std::string_view log) noexcept -> iop::NetworkStatus {
   IOP_TRACE();
   const auto token = iop::to_view(authToken);
-  this->logger.debug(IOP_STR("Register log. Token: "), token);
-  this->logger.debug(IOP_STR("Log: "), log);
+  this->logger.debug(IOP_STR("Register logToken: "));
+  this->logger.debugln(token);
+  this->logger.debug(IOP_STR("Log: "));
+  this->logger.debugln(log);
   auto const response = this->network.httpPost(token, IOP_STR("/v1/log"), log);
 
   const auto status = response.status();
   if (!status) {
-    this->logger.error(IOP_STR("Unexpected response at Api::registerLog: "), std::to_string(response.code()));
+    this->logger.error(IOP_STR("Unexpected response at Api::registerLog: "));
+    this->logger.errorln(static_cast<uint64_t>(response.code()));
     return iop::NetworkStatus::BROKEN_SERVER;
   }
   return *status;
 }
 
-auto Api::update(const AuthToken &token) const noexcept
+auto Api::update(const AuthToken &token) noexcept
     -> iop_hal::UpdateStatus {
   IOP_TRACE();
-  this->logger.info(IOP_STR("Upgrading sketch"));
+  this->logger.infoln(IOP_STR("Upgrading sketch"));
 
   return this->network.update(IOP_STR("/v1/update"), iop::to_view(token));
 }
@@ -169,7 +177,7 @@ Api::Api(iop::StaticString uri, const iop::LogLevel logLevel) noexcept
 
 using FixedJsonBuffer = StaticJsonDocument<Api::JsonCapacity>;
 
-auto Api::makeJson(const iop::StaticString contextName, const Api::JsonCallback jsonObjectBuilder) const noexcept -> std::unique_ptr<Api::Json> {
+auto Api::makeJson(const iop::StaticString contextName, const Api::JsonCallback jsonObjectBuilder) noexcept -> std::unique_ptr<Api::Json> {
   IOP_TRACE();
   
   auto doc = std::unique_ptr<FixedJsonBuffer>(new (std::nothrow) FixedJsonBuffer());
@@ -178,7 +186,8 @@ auto Api::makeJson(const iop::StaticString contextName, const Api::JsonCallback 
   jsonObjectBuilder(*doc);
 
   if (doc->overflowed()) {
-    this->logger.error(IOP_STR("Payload doesn't fit buffer at "), contextName);
+    this->logger.error(IOP_STR("Payload doesn't fit buffer at "));
+    this->logger.errorln(contextName);
     return nullptr;
   }
 
@@ -188,7 +197,8 @@ auto Api::makeJson(const iop::StaticString contextName, const Api::JsonCallback 
   serializeJson(*doc, json->data(), json->size());
   
   // This might leak sensitive information
-  this->logger.debug(IOP_STR("Json: "), iop::to_view(*json));
+  this->logger.debug(IOP_STR("Json: "));
+  this->logger.debugln(iop::to_view(*json));
   return json;
 }
 }

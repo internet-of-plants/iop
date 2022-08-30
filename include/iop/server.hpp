@@ -40,7 +40,7 @@ private:
   auto start() noexcept -> void;
 
 public:
-  explicit CredentialsServer(const iop::LogLevel &logLevel) noexcept;
+  explicit CredentialsServer(const iop::LogLevel logLevel) noexcept;
 
   /// Setups everything the Captive Portal needs
   auto setup() noexcept -> void;
@@ -50,7 +50,7 @@ public:
 
   /// Serves the captive portal and handles each user connected to each,
   /// authenticating to the wifi and the monitor server when possible
-  auto serve(const Api &api) noexcept -> std::unique_ptr<AuthToken>;
+  auto serve(Api &api) noexcept -> std::unique_ptr<AuthToken>;
 
   /// Closes the Captive Portal if it's still open
   auto close() noexcept -> void;

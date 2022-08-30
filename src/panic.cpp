@@ -15,7 +15,7 @@ auto update() noexcept -> void {
   case iop_hal::UpdateStatus::UNAUTHORIZED:
     // TODO: think about allowing global updates (if you are logged out and panicking get a safe global version and recover from it)
     // This brings security problems of getting your app hijacked and complicates binary signing
-    iop::panicLogger().warn(IOP_STR("Invalid auth token, but keeping since at iop_panic"));
+    iop::panicLogger().warnln(IOP_STR("Invalid auth token, but keeping since at iop_panic"));
     return;
 
   case iop_hal::UpdateStatus::BROKEN_CLIENT:
@@ -30,7 +30,7 @@ auto update() noexcept -> void {
     return;
   }
 
-  iop::panicLogger().error(IOP_STR("Bad status, iop::panic::update"));
+  iop::panicLogger().errorln(IOP_STR("Bad status, iop::panic::update"));
 }
 
 // TODO(pc): dump stackstrace on iop_panic
@@ -40,7 +40,7 @@ auto reportPanic(const std::string_view &msg, const iop::StaticString &file, con
 
   const auto token = eventLoop.storage().token();
   if (!token) {
-    iop::panicLogger().crit(IOP_STR("No auth token, unable to report iop_panic"));
+    iop::panicLogger().critln(IOP_STR("No auth token, unable to report iop_panic"));
     return false;
   }
 
@@ -49,26 +49,26 @@ auto reportPanic(const std::string_view &msg, const iop::StaticString &file, con
 
   switch (status) {
   case iop::NetworkStatus::UNAUTHORIZED:
-    iop::panicLogger().warn(IOP_STR("Invalid auth token, but keeping since at iop_panic"));
+    iop::panicLogger().warnln(IOP_STR("Invalid auth token, but keeping since at iop_panic"));
     return false;
 
   case iop::NetworkStatus::BROKEN_CLIENT:
-    iop::panicLogger().crit(IOP_STR("Unreachable as Api::reportPanic truncates the msg until it works"));
+    iop::panicLogger().critln(IOP_STR("Unreachable as Api::reportPanic truncates the msg until it works"));
     return false;
 
   case iop::NetworkStatus::BROKEN_SERVER:
-    iop::panicLogger().crit(IOP_STR("Api::reportPanic is broken, will retry again later"));
+    iop::panicLogger().critln(IOP_STR("Api::reportPanic is broken, will retry again later"));
     return false;
 
   case iop::NetworkStatus::IO_ERROR:
-    iop::panicLogger().crit(IOP_STR("IO Error: will retry again later"));
+    iop::panicLogger().critln(IOP_STR("IO Error: will retry again later"));
     return false;
 
   case iop::NetworkStatus::OK:
-    iop::panicLogger().info(IOP_STR("Reported iop_panic to server successfully"));
+    iop::panicLogger().infoln(IOP_STR("Reported iop_panic to server successfully"));
     return true;
   }
-  iop::panicLogger().error(IOP_STR("Unexpected status Api::reportPanic"));
+  iop::panicLogger().errorln(IOP_STR("Unexpected status Api::reportPanic"));
   return false;
 }
 
@@ -82,12 +82,12 @@ static void halt(const std::string_view &msg, iop::CodePoint const &point) noexc
   auto reportedPanic = false;
   while (true) {
     if (!eventLoop.storage().wifi()) {
-      iop::panicLogger().warn(IOP_STR("Nothing we can do, no wifi config available"));
+      iop::panicLogger().warnln(IOP_STR("Nothing we can do, no wifi config available"));
       break;
     }
 
     if (!eventLoop.storage().token()) {
-      iop::panicLogger().warn(IOP_STR("Nothing we can do, no auth token available"));
+      iop::panicLogger().warnln(IOP_STR("Nothing we can do, no auth token available"));
       break;
     }
 
@@ -99,7 +99,7 @@ static void halt(const std::string_view &msg, iop::CodePoint const &point) noexc
       // Doesn't return if update succeeds
       update();
     } else {
-      iop::panicLogger().warn(IOP_STR("No network, unable to recover"));
+      iop::panicLogger().warnln(IOP_STR("No network, unable to recover"));
     }
     iop_hal::device.deepSleep(oneHour);
   }
