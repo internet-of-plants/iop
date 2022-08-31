@@ -65,7 +65,7 @@ auto Api::reportPanic(const AuthToken &authToken, const PanicData &event) noexce
   const auto status = response.status();
   if (!status) {
     this->logger.error(IOP_STR("Unexpected response at Api::reportPanic: "));
-    this->logger.errorln(static_cast<uint64_t>(response.code()));
+    this->logger.errorln(response.code());
     return iop::NetworkStatus::BROKEN_SERVER;
   }
   return *status;
@@ -81,7 +81,7 @@ auto Api::registerEvent(const AuthToken &authToken, const Api::Json &event) noex
   const auto status = response.status();
   if (!status) {
     this->logger.error(IOP_STR("Unexpected response at Api::registerEvent: "));
-    this->logger.errorln(static_cast<uint64_t>(response.code()));
+    this->logger.errorln(response.code());
     return iop::NetworkStatus::BROKEN_SERVER;
   }
   return *status;
@@ -112,7 +112,7 @@ auto Api::authenticate(std::string_view username, std::string_view password) noe
   const auto status = response.status();
   if (!status) {
     this->logger.error(IOP_STR("Unexpected response at Api::authenticate: "));
-    this->logger.errorln(static_cast<uint64_t>(response.code()));
+    this->logger.errorln(response.code());
     return iop::NetworkStatus::BROKEN_SERVER;
   }
 
@@ -131,7 +131,7 @@ auto Api::authenticate(std::string_view username, std::string_view password) noe
   }
   if (payload.length() != 64) {
     this->logger.error(IOP_STR("Auth token does not occupy 64 bytes: size = "));
-    this->logger.errorln(static_cast<uint64_t>(payload.length()));
+    this->logger.errorln(payload.length());
     return iop::NetworkStatus::BROKEN_SERVER;
   }
 
@@ -156,7 +156,7 @@ auto Api::registerLog(const AuthToken &authToken, std::string_view log) noexcept
   const auto status = response.status();
   if (!status) {
     this->logger.error(IOP_STR("Unexpected response at Api::registerLog: "));
-    this->logger.errorln(static_cast<uint64_t>(response.code()));
+    this->logger.errorln(response.code());
     return iop::NetworkStatus::BROKEN_SERVER;
   }
   return *status;

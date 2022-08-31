@@ -109,7 +109,7 @@ auto Storage::wifi() noexcept -> std::optional<std::reference_wrapper<const Wifi
     return std::nullopt;
 
   const auto maybeSsid = iop_hal::storage.read<sizeof(iop::NetworkName)>(wifiConfigIndex + 1);
-  const auto maybePsk = iop_hal::storage.read<sizeof(iop::NetworkPassword)>(wifiConfigIndex + 1);
+  const auto maybePsk = iop_hal::storage.read<sizeof(iop::NetworkPassword)>(wifiConfigIndex + sizeof(iop::NetworkName) + 1);
   iop_assert(maybeSsid, IOP_STR("Failed to read SSID from storage"));
   iop_assert(maybePsk, IOP_STR("Failed to read PSK from storage"));
 
