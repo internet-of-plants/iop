@@ -52,6 +52,7 @@ private:
 
   std::vector<TaskInterval> tasks;
   std::vector<AuthenticatedTaskInterval> authenticatedTasks;
+  auto syncNTP() noexcept -> void;
 
 public:
   auto api() noexcept -> Api &{ return this->api_; }
@@ -72,7 +73,7 @@ public:
 
 private:
   void handleNotConnected() noexcept;
-  void handleInterrupts(const std::optional<std::reference_wrapper<const AuthToken>> &token) noexcept;
+  auto handleInterrupts(const std::optional<std::reference_wrapper<const AuthToken>> &token) noexcept -> bool;
   void handleInterrupt(const InterruptEvent event, const std::optional<std::reference_wrapper<const AuthToken>> &token) noexcept;
   void handleIopCredentials() noexcept;
   void handleCredentials() noexcept;

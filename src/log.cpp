@@ -23,6 +23,12 @@ static auto currentLog = std::string();
 static auto logToNetwork = true;
 
 void reportLog() noexcept {
+  {
+    const auto memory = iop_hal::thisThread.availableMemory();
+    iop::LogHook::defaultStaticPrinter(IOP_STR("[DEBUG] Logger: Free Stack"), iop::LogLevel::DEBUG, iop::LogType::START);
+    iop::LogHook::defaultViewPrinter(std::to_string(memory.availableStack), iop::LogLevel::DEBUG, iop::LogType::CONTINUITY);
+    iop::LogHook::defaultStaticPrinter(IOP_STR("\n"), iop::LogLevel::DEBUG, iop::LogType::END);
+  }
   if (!logToNetwork || !currentLog.length() || iop::wifi.status() != iop_hal::StationStatus::GOT_IP)
     return;
   logToNetwork = false;

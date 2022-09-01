@@ -18,11 +18,11 @@ public:
 
   auto token() noexcept -> std::optional<std::reference_wrapper<const AuthToken>>;
   void removeToken() noexcept;
-  void setToken(const AuthToken &token) noexcept;
+  auto setToken(const AuthToken &token) noexcept -> bool;
 
   auto wifi() noexcept -> std::optional<std::reference_wrapper<const WifiCredentials>>;
   void removeWifi() noexcept;
-  void setWifi(const WifiCredentials &config) noexcept;
+  auto setWifi(const WifiCredentials &config) noexcept -> bool;
 };
 }
 #endif

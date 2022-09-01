@@ -75,7 +75,7 @@ void Storage::removeToken() noexcept {
   }
 }
 
-void Storage::setToken(const AuthToken &token) noexcept {
+auto Storage::setToken(const AuthToken &token) noexcept -> bool {
   IOP_TRACE();
 
   // Avoids re-writing same data
@@ -86,7 +86,7 @@ void Storage::setToken(const AuthToken &token) noexcept {
 
     if (*tok == token) {
       this->logger.debugln(IOP_STR("Auth token already stored in storage"));
-      return;
+      return false;
     }
   }
 
@@ -95,6 +95,7 @@ void Storage::setToken(const AuthToken &token) noexcept {
   iop_hal::storage.set(authTokenIndex, usedAuthTokenEEPROMFlag);
   iop_hal::storage.write(authTokenIndex + 1, token);
   iop_hal::storage.commit();
+  return true;
 }
 
 static iop::NetworkName ssid;
@@ -140,7 +141,7 @@ void Storage::removeWifi() noexcept {
   }
 }
 
-void Storage::setWifi(const WifiCredentials &config) noexcept {
+auto Storage::setWifi(const WifiCredentials &config) noexcept -> bool {
   IOP_TRACE();
 
   // Avoids re-writing same data
@@ -155,7 +156,7 @@ void Storage::setWifi(const WifiCredentials &config) noexcept {
     // So we do not accept SSIDs with a nullptr in the middle
     if (iop::to_view(*networkName) == iop::to_view(config.ssid.get()) && iop::to_view(*networkPassword) == iop::to_view(config.password.get())) {
       this->logger.debugln(IOP_STR("Wifi Credentials already stored in storage"));
-      return;
+      return false;
     }
   }
   
@@ -170,5 +171,6 @@ void Storage::setWifi(const WifiCredentials &config) noexcept {
   iop_hal::storage.write(wifiConfigIndex + 1, config.ssid.get());
   iop_hal::storage.write(wifiConfigIndex + sizeof(iop::NetworkName) + 1, config.password.get());
   iop_hal::storage.commit();
+  return true;
 }
 }
