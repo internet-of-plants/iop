@@ -23,15 +23,15 @@ enum class ConnectResponse {
 };
 
 struct TaskInterval {
-  iop::time::milliseconds interval;
   iop::time::milliseconds next;
+  uint32_t interval;
   std::function<void(EventLoop&)> func;
   TaskInterval(iop::time::milliseconds interval, std::function<void(EventLoop&)> func) noexcept;
 };
 
 struct AuthenticatedTaskInterval {
-  iop::time::milliseconds interval;
   iop::time::milliseconds next;
+  uint32_t interval;
   std::function<void(EventLoop&, const AuthToken&)> func;
   AuthenticatedTaskInterval(iop::time::milliseconds interval, std::function<void(EventLoop&, const AuthToken&)> func) noexcept;
 };

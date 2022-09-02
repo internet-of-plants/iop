@@ -69,9 +69,9 @@ auto EventLoop::setAccessPointCredentials(StaticString SSID, StaticString PSK) n
 }
 
 AuthenticatedTaskInterval::AuthenticatedTaskInterval(iop::time::milliseconds interval, std::function<void(EventLoop&, const AuthToken&)> func) noexcept:
-  interval(interval), next(0), func(func) {}
+  next(0), interval(interval), func(func) {}
 TaskInterval::TaskInterval(iop::time::milliseconds interval, std::function<void(EventLoop&)> func) noexcept:
-  interval(interval), next(0), func(func) {}
+  next(0), interval(interval), func(func) {}
 
 auto EventLoop::setAuthenticatedInterval(iop::time::milliseconds interval, std::function<void(EventLoop&, const AuthToken&)> func) noexcept -> void {
   this->authenticatedTasks.push_back(AuthenticatedTaskInterval(interval, func));
@@ -100,25 +100,25 @@ auto EventLoop::syncNTP() noexcept -> void {
   this->nextNTPSync = iop_hal::thisThread.timeRunning() + oneDay;
 }
 
-auto runAuthenticatedTasks(EventLoop & loop, const AuthToken & token, std::vector<AuthenticatedTaskInterval> &tasks) -> void {
-  const auto now = iop_hal::thisThread.timeRunning();
-  
+auto runAuthenticatedTasks(EventLoop & loop, const AuthToken & token, std::vector<AuthenticatedTaskInterval> & tasks) -> void {
+  IOP_TRACE();
+
   for (auto & task: tasks) {
-    if (task.next < now) {
-      task.next = now + task.interval;
-      task.func(loop, token);
+    if (task.next < iop_hal::thisThread.timeRunning()) {
+      task.next = iop_hal::thisThread.timeRunning() + task.interval;
+      (task.func)(loop, token);
       iop_hal::thisThread.yield();
     }
   }
 }
 
-auto runUnauthenticatedTasks(EventLoop & loop, std::vector<TaskInterval> &tasks) -> void {
-  const auto now = iop_hal::thisThread.timeRunning();
+auto runUnauthenticatedTasks(EventLoop & loop, std::vector<TaskInterval> & tasks) -> void {
+  IOP_TRACE();
 
-  for (auto& task: tasks) {
-    if (task.next < now) {
-      task.next = now + task.interval;
-      task.func(loop);
+  for (auto & task: tasks) {
+    if (task.next < iop_hal::thisThread.timeRunning()) {
+      task.next = iop_hal::thisThread.timeRunning() + task.interval;
+      (task.func)(loop);
       iop_hal::thisThread.yield();
     }
   }
@@ -133,14 +133,18 @@ auto EventLoop::loop() noexcept -> void {
 #endif
 
   const auto authToken = this->storage().token();
-  this->handleInterrupts(authToken);
+  if (this->handleInterrupts(authToken)) {
+    return;
+  }
 
   const auto now = iop_hal::thisThread.timeRunning();
   const auto isConnected = iop::Network::isConnected();
 
   if (isConnected && authToken) {
     this->credentialsServer.close();
-  } else if (isConnected && this->nextNTPSync < now) {
+  }
+
+  if (isConnected && this->nextNTPSync < now) {
     this->syncNTP();
   } if (isConnected && !authToken) {
     this->handleIopCredentials();
