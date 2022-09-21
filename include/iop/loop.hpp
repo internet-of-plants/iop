@@ -18,7 +18,6 @@ class EventLoop;
 
 enum class ConnectResponse {
   OK,
-  FAIL,
   TIMEOUT,
 };
 

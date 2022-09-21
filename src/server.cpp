@@ -214,41 +214,49 @@ auto CredentialsServer::close() noexcept -> void {
   }
 }
 
+auto handleWifiCreds() noexcept -> void;
+auto handleIopCreds() noexcept -> std::unique_ptr<AuthToken>;
+
 auto CredentialsServer::serve(Api &api) noexcept -> std::unique_ptr<AuthToken> {
   IOP_TRACE();
   this->start();
 
-  // The user provided those informations through the web form
-  // But we shouldn't act on it inside the server's callback, as callback
-  // should be rather simple, so we use globals. UNWRAP moves them out on use.
+  handleWifiCreds();
 
-  const auto isConnected = iop::Network::isConnected();
-
-  if (this->credentialsWifi) {
-    eventLoop.connect(this->credentialsWifi->first, this->credentialsWifi->second);
-  }
-  
-  if (isConnected && this->credentialsIop) {
-    auto tok = eventLoop.authenticate(this->credentialsIop->first, this->credentialsIop->second, api);
-    if (tok)
-      return tok;
-
-    // WiFi Credentials stored in persistent pemory
-
-    // Wifi connection errors are hard to debug
-    // (see countless open issues about it at esp8266/Arduino's github)
-    // One example citing others:
-    // https://github.com/esp8266/Arduino/issues/7432
-    //
-    // So we never delete a storage stored wifi credentials (outside of factory
-    // reset), we have a timer to avoid constantly retrying a bad credential.
-  }
-
+  const auto token = handleIopCreds();
+  if (token) return token;
 
   // Give processing time to the servers
   this->logger.traceln(IOP_STR("Serve captive portal"));
   this->dnsServer.handleClient();
   this->server.handleClient();
   return nullptr;
+}
+
+// The user provided those informations through the web form
+// But we shouldn't act on it inside the server's callback, as callback
+// should be rather simple, so we use globals. UNWRAP moves them out on use.
+
+auto handleWifiCreds() noexcept -> void {
+  IOP_TRACE();
+
+  if (this->credentialsWifi) {
+    this->logger.infoln(IOP_STR("Connecting to WiFi"));
+    eventLoop.connect(this->credentialsWifi->first, this->credentialsWifi->second);
+    this->credentialsWifi = std::nullopt;
+    return nullptr;
+  }
+}
+
+auto handleIopCreds() noexcept -> std::unique_ptr<AuthToken> {
+  IOP_TRACE();
+
+  if (iop::Network::isConnected() && this->credentialsIop) {
+    this->logger.infoln(IOP_STR("Connecting to IoP"));
+    auto tok = eventLoop.authenticate(this->credentialsIop->first, this->credentialsIop->second, api);
+    this->credentialsIop = std::nullopt;
+    if (tok)
+      return tok;
+  }
 }
 }

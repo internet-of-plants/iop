@@ -57,8 +57,9 @@ auto EventLoop::setup() noexcept -> void {
   iop::panic::setup();
   iop::network_logger::setup();
   this->credentialsServer.setup();
+  const auto md5 = iop::to_view(iop_hal::device.firmwareMD5());
   this->logger().info(IOP_STR("MD5: "));
-  this->logger().infoln(iop::to_view(iop_hal::device.firmwareMD5()));
+  this->logger().infoln(md5);
   this->logger().infoln(IOP_STR("Core setup finished, running user layer's setup"));
 
   iop::setup(*this);
@@ -146,11 +147,15 @@ auto EventLoop::loop() noexcept -> void {
 
   if (isConnected && this->nextNTPSync < now) {
     this->syncNTP();
+    return;
+
   } if (isConnected && !authToken) {
     this->handleIopCredentials();
+    return;
 
   } else if (!isConnected) {
     this->handleNotConnected();
+    return;
 
   } else {
     this->nextHandleConnectionLost = 0;
@@ -249,15 +254,17 @@ auto EventLoop::handleIopCredentials() noexcept -> void {
 auto EventLoop::handleInterrupts(const std::optional<std::reference_wrapper<const AuthToken>> &token) noexcept -> bool {
   IOP_TRACE();
 
+  auto handled = false;
+
   while (true) {
     auto ev = iop::descheduleInterrupt();
     if (ev == InterruptEvent::NONE)
-      return false;
+      return handled;
 
+    handled = true;
     this->handleInterrupt(ev, token);
     iop_hal::thisThread.yield();
   }
-  return true;
 }
 
 auto upgrade(EventLoop & loop, const std::optional<std::reference_wrapper<const AuthToken>> &token) noexcept -> void {
@@ -288,16 +295,13 @@ auto upgrade(EventLoop & loop, const std::optional<std::reference_wrapper<const 
 
 auto onConnect(EventLoop & loop) noexcept -> void {
   const auto status = iop_hal::statusToString(iop::wifi.status());
-  loop.logger().debug(IOP_STR("WiFi connected: "));
-  loop.logger().debugln(status.value_or(IOP_STR("BadData")));
+  loop.logger().info(IOP_STR("Connected to network: "));
+  loop.logger().info(iop::scapeNonPrintable(iop::to_view(ssid)));
+  loop.logger().info(IOP_STR(", status: "));
+  loop.logger().infoln(status);
 
   const auto [ssid, psk] = iop::wifi.credentials();
-
-  if (loop.storage().setWifi(WifiCredentials(ssid, psk))) {
-  }
-    loop.logger().info(IOP_STR("Connected to network: "));
-    loop.logger().infoln(iop::scapeNonPrintable(iop::to_view(ssid)));
-  //}
+  loop.storage().setWifi(WifiCredentials(ssid, psk));
 }
 
 auto EventLoop::handleInterrupt(const InterruptEvent event, const std::optional<std::reference_wrapper<const AuthToken>> &token) noexcept -> void {
@@ -343,13 +347,13 @@ auto EventLoop::connect(std::string_view ssid, std::string_view password) noexce
   if (!iop::Network::isConnected()) {
     const auto status = iop::wifi.status();
     auto statusStr = iop_hal::statusToString(status);
-    if (!statusStr)
-      return ConnectResponse::FAIL; // It already will be logged by statusToString;
 
     this->logger().error(IOP_STR("Invalid wifi credentials ("));
-    this->logger().error(*statusStr);
+    this->logger().error(statusStr);
     this->logger().error(IOP_STR("): "));
     this->logger().errorln(ssid);
+  } else {
+    this->logger().infoln(IOP_STR("Connected to WiFi"));
   }
   return ConnectResponse::OK;
 }
