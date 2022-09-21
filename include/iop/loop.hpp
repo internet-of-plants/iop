@@ -43,7 +43,6 @@ private:
   Storage storage_;
 
   iop::time::milliseconds nextNTPSync;
-  iop::time::milliseconds nextHandleConnectionLost;
 
   iop::time::milliseconds nextTryStorageWifiCredentials;
   iop::time::milliseconds nextTryHardcodedWifiCredentials;
@@ -71,19 +70,26 @@ public:
   auto registerEvent(const AuthToken& token, const Api::Json json) noexcept -> void;
 
 private:
-  void handleNotConnected() noexcept;
-  auto handleInterrupts(const std::optional<std::reference_wrapper<const AuthToken>> &token) noexcept -> bool;
-  void handleInterrupt(const InterruptEvent event, const std::optional<std::reference_wrapper<const AuthToken>> &token) noexcept;
-  void handleIopCredentials() noexcept;
-  void handleCredentials() noexcept;
-  void handleMeasurements(const AuthToken &token) noexcept;
+  auto handleNotConnected() noexcept -> void;
+  auto handleStoredWifiCreds() noexcept -> void;
+  auto handleHardcodedWifiCreds() noexcept -> void;
+
+  auto handleInterrupts() noexcept -> bool;
+  auto handleInterrupt(const InterruptEvent event, const std::optional<std::reference_wrapper<const AuthToken>> &token) noexcept -> void;
+
+  auto handleHardcodedIopCreds() noexcept -> void;
+  auto handleIopCredentials() noexcept -> void;
+
+  auto handleCredentials() noexcept -> void;
+
+  auto handleMeasurements(const AuthToken &token) noexcept -> void;
 
 public:
   explicit EventLoop(iop::StaticString uri, iop::LogLevel logLevel_) noexcept
       : credentialsServer(logLevel_),
         api_(uri, logLevel_),
         logger_(logLevel_, IOP_STR("LOOP")), storage_(logLevel_),
-        nextNTPSync(0), nextHandleConnectionLost(0), nextTryStorageWifiCredentials(0),
+        nextNTPSync(0), nextTryStorageWifiCredentials(0),
         nextTryHardcodedWifiCredentials(0), nextTryHardcodedIopCredentials(0) {
     IOP_TRACE();
   }

@@ -214,41 +214,42 @@ auto CredentialsServer::close() noexcept -> void {
   }
 }
 
-auto handleWifiCreds() noexcept -> void;
-auto handleIopCreds() noexcept -> std::unique_ptr<AuthToken>;
-
 auto CredentialsServer::serve(Api &api) noexcept -> std::unique_ptr<AuthToken> {
   IOP_TRACE();
   this->start();
 
-  handleWifiCreds();
+  if (this->handleWifiCreds()) return nullptr;
 
-  const auto token = handleIopCreds();
+  auto token = this->handleIopCreds(api);
   if (token) return token;
 
-  // Give processing time to the servers
+  this->handleClient();
+  return nullptr;
+}
+
+auto CredentialsServer::handleClient() noexcept -> void {
   this->logger.traceln(IOP_STR("Serve captive portal"));
   this->dnsServer.handleClient();
   this->server.handleClient();
-  return nullptr;
 }
 
 // The user provided those informations through the web form
 // But we shouldn't act on it inside the server's callback, as callback
 // should be rather simple, so we use globals. UNWRAP moves them out on use.
 
-auto handleWifiCreds() noexcept -> void {
+auto CredentialsServer::handleWifiCreds() noexcept -> bool {
   IOP_TRACE();
 
   if (this->credentialsWifi) {
     this->logger.infoln(IOP_STR("Connecting to WiFi"));
     eventLoop.connect(this->credentialsWifi->first, this->credentialsWifi->second);
     this->credentialsWifi = std::nullopt;
-    return nullptr;
+    return true;
   }
+  return false;
 }
 
-auto handleIopCreds() noexcept -> std::unique_ptr<AuthToken> {
+auto CredentialsServer::handleIopCreds(Api &api) noexcept -> std::unique_ptr<AuthToken> {
   IOP_TRACE();
 
   if (iop::Network::isConnected() && this->credentialsIop) {
@@ -258,5 +259,6 @@ auto handleIopCreds() noexcept -> std::unique_ptr<AuthToken> {
     if (tok)
       return tok;
   }
+  return nullptr;
 }
 }

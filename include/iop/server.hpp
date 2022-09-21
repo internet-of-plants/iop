@@ -39,6 +39,11 @@ private:
   /// Internal method to initialize the credential server, if not running
   auto start() noexcept -> void;
 
+  auto handleWifiCreds() noexcept -> bool;
+  auto handleIopCreds(Api &api) noexcept -> std::unique_ptr<AuthToken>;
+  /// Give processing time to the servers
+  auto handleClient() noexcept -> void;
+
 public:
   explicit CredentialsServer(const iop::LogLevel logLevel) noexcept;
 
