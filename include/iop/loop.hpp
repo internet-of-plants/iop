@@ -70,6 +70,8 @@ public:
   auto registerEvent(const AuthToken& token, const Api::Json json) noexcept -> void;
 
 private:
+  auto logIteration() noexcept -> void;
+
   auto handleNotConnected() noexcept -> void;
   auto handleStoredWifiCreds() noexcept -> void;
   auto handleHardcodedWifiCreds() noexcept -> void;

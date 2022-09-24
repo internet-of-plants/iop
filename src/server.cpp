@@ -218,7 +218,6 @@ auto CredentialsServer::close() noexcept -> void {
 }
 
 auto CredentialsServer::serve(Api &api) noexcept -> std::unique_ptr<AuthToken> {
-  IOP_TRACE();
   this->start();
 
   if (this->handleWifiCreds()) return nullptr;
@@ -236,13 +235,7 @@ auto CredentialsServer::handleClient() noexcept -> void {
   this->server.handleClient();
 }
 
-// The user provided those informations through the web form
-// But we shouldn't act on it inside the server's callback, as callback
-// should be rather simple, so we use globals. UNWRAP moves them out on use.
-
 auto CredentialsServer::handleWifiCreds() noexcept -> bool {
-  IOP_TRACE();
-
   if (this->credentialsWifi) {
     this->logger.infoln(IOP_STR("Connecting to WiFi"));
     eventLoop.connect(this->credentialsWifi->login, this->credentialsWifi->password);
@@ -253,8 +246,6 @@ auto CredentialsServer::handleWifiCreds() noexcept -> bool {
 }
 
 auto CredentialsServer::handleIopCreds(Api &api) noexcept -> std::unique_ptr<AuthToken> {
-  IOP_TRACE();
-
   if (iop::Network::isConnected() && this->credentialsIop) {
     this->logger.infoln(IOP_STR("Connecting to IoP"));
     auto tok = eventLoop.authenticate(this->credentialsIop->login, this->credentialsIop->password, api);
