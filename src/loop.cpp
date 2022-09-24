@@ -130,13 +130,15 @@ auto EventLoop::runUnauthenticatedTasks() noexcept -> void {
 
 auto EventLoop::logIteration() noexcept -> void {
   this->logger().traceln(IOP_STR("\n\n\n\n\n\n"));
-  iop::logMemory(this->logger());
+  IOP_TRACE();
 
+  const auto hasWifi = this->storage().wifi().has_value();
   this->logger().trace(IOP_STR("Has Wifi Creds: "));
-  this->logger().trace(std::to_string(this->storage().wifi().has_value()));
+  this->logger().traceln(std::to_string(hasWifi));
 
+  const auto hasIop = this->storage().token().has_value();
   this->logger().trace(IOP_STR("Has IoP Creds: "));
-  this->logger().trace(std::to_string(this->storage().token().has_value()));
+  this->logger().traceln(std::to_string(hasIop));
 }
 
 auto EventLoop::loop() noexcept -> void {
@@ -238,7 +240,7 @@ auto EventLoop::handleHardcodedIopCreds() noexcept -> void {
 
     this->logger().infoln(IOP_STR("Trying hardcoded iop credentials"));
 
-    const auto tok = this->authenticate(iopUsername->toString(), iopPassword->toString(), this->api());
+    const auto tok = this->authenticate(iopUsername->toString(), iopPassword->toString());
     if (tok)
       this->storage().setToken(*tok);
   }
@@ -333,11 +335,12 @@ auto EventLoop::handleInterrupt(const InterruptEvent event, const std::optional<
 }
 
 auto EventLoop::handleCredentials() noexcept -> void {
-    IOP_TRACE();
-
-    const auto token = this->credentialsServer.serve(this->api());
-    if (token)
-      this->storage().setToken(*token);
+    const auto creds = this->credentialsServer.serve();
+    if (creds) {
+      const auto tok = this->authenticate(creds->login, creds->password);
+      if (tok)
+        this->storage().setToken(*tok);
+    }
 }
 
 auto EventLoop::connect(std::string_view ssid, std::string_view password) noexcept -> ConnectResponse {
@@ -387,10 +390,9 @@ auto EventLoop::registerEvent(const AuthToken& token, const Api::Json json) noex
   this->logger().errorln(IOP_STR("Unexpected status at EventLoop::registerEvent"));
 }
 
-auto EventLoop::authenticate(std::string_view username, std::string_view password, Api &api) noexcept -> std::unique_ptr<AuthToken> {
-  iop::wifi.setMode(iop_hal::WiFiMode::STATION);
-  auto authToken = api.authenticate(username, password);
-  //iop::wifi.setMode(iop_hal::WiFiMode::ACCESS_POINT_AND_STATION);
+auto EventLoop::authenticate(std::string_view username, std::string_view password) noexcept -> std::unique_ptr<AuthToken> {
+  //iop::wifi.setMode(iop_hal::WiFiMode::STATION);
+  auto authToken = this->api().authenticate(username, password);
 
   this->logger().debugln(IOP_STR("Tried to authenticate"));
   if (const auto *error = std::get_if<iop::NetworkStatus>(&authToken)) {

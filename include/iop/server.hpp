@@ -54,11 +54,6 @@ private:
   /// Internal method to initialize the credential server, if not running
   auto start() noexcept -> void;
 
-  auto handleWifiCreds() noexcept -> bool;
-  auto handleIopCreds(Api &api) noexcept -> std::unique_ptr<AuthToken>;
-  /// Give processing time to the servers
-  auto handleClient() noexcept -> void;
-
 public:
   explicit CredentialsServer(const iop::LogLevel logLevel) noexcept;
 
@@ -69,8 +64,8 @@ public:
   auto setAccessPointCredentials(StaticString SSID, StaticString PSK) noexcept -> void;
 
   /// Serves the captive portal and handles each user connected to each,
-  /// authenticating to the wifi and the monitor server when possible
-  auto serve(Api &api) noexcept -> std::unique_ptr<AuthToken>;
+  /// authenticating to the wifi and returning the monitor server credentials when available
+  auto serve() noexcept -> std::unique_ptr<DynamicCredential>;
 
   /// Closes the Captive Portal if it's still open
   auto close() noexcept -> void;

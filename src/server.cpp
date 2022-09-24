@@ -146,7 +146,7 @@ auto CredentialsServer::setup() noexcept -> void {
       logger.debug(IOP_STR("Email: "));
       logger.debugln(*email);
       this->credentialsIop = std::unique_ptr<DynamicCredential>(new (std::nothrow) DynamicCredential(*email, *password));
-      iop_assert(this->credentialsWifi, IOP_STR("Unable to allocate credentialsIop"));
+      iop_assert(this->credentialsIop, IOP_STR("Unable to allocate credentialsIop"));
     }
 
     conn.sendHeader(IOP_STR("Location"), IOP_STR("/"));
@@ -192,8 +192,18 @@ auto CredentialsServer::start() noexcept -> void {
     this->isServerOpen = true;
     this->logger.infoln(IOP_STR("Setting our own wifi access point"));
 
+    const auto isConnected = iop::Network::isConnected();
     iop_assert(this->credentialsAccessPoint, IOP_STR("Must configure Access Point credentials"));
     iop::wifi.enableOurAccessPoint(this->credentialsAccessPoint->login.toString(), this->credentialsAccessPoint->password.toString());
+
+    // Some architectures force a disconnect when AP is enabled (AP_STA is fragile), so we reconnect
+    if (isConnected && !iop::Network::isConnected()) {
+      const auto wifi = eventLoop.storage().wifi();
+      // Should have something, but there might be a race so we can't be sure
+      if (wifi) {
+        eventLoop.connect(iop::to_view(wifi->get().ssid), iop::to_view(wifi->get().password.get()));
+      }
+    }
 
     // Makes it a captive portal (redirects all wifi trafic to it)
     this->dnsServer.start();
@@ -217,42 +227,28 @@ auto CredentialsServer::close() noexcept -> void {
   }
 }
 
-auto CredentialsServer::serve(Api &api) noexcept -> std::unique_ptr<AuthToken> {
+auto CredentialsServer::serve() noexcept -> std::unique_ptr<DynamicCredential> {
+  IOP_TRACE();
+
   this->start();
 
-  if (this->handleWifiCreds()) return nullptr;
+  if (this->credentialsWifi) {
+    this->logger.infoln(IOP_STR("Connecting to WiFi"));
+    //iop::wifi.setMode(iop_hal::WiFiMode::STATION);
+    eventLoop.connect(this->credentialsWifi->login, this->credentialsWifi->password);
+    this->credentialsWifi = nullptr;
+    return nullptr;
+  }
 
-  auto token = this->handleIopCreds(api);
-  if (token) return token;
+  if (iop::Network::isConnected() && this->credentialsIop) {
+    return std::move(this->credentialsIop);
+  }
 
-  this->handleClient();
-  return nullptr;
-}
+  //iop::wifi.setMode(iop_hal::WiFiMode::ACCESS_POINT);
 
-auto CredentialsServer::handleClient() noexcept -> void {
   this->logger.traceln(IOP_STR("Serve captive portal"));
   this->dnsServer.handleClient();
   this->server.handleClient();
-}
-
-auto CredentialsServer::handleWifiCreds() noexcept -> bool {
-  if (this->credentialsWifi) {
-    this->logger.infoln(IOP_STR("Connecting to WiFi"));
-    eventLoop.connect(this->credentialsWifi->login, this->credentialsWifi->password);
-    this->credentialsWifi = nullptr;
-    return true;
-  }
-  return false;
-}
-
-auto CredentialsServer::handleIopCreds(Api &api) noexcept -> std::unique_ptr<AuthToken> {
-  if (iop::Network::isConnected() && this->credentialsIop) {
-    this->logger.infoln(IOP_STR("Connecting to IoP"));
-    auto tok = eventLoop.authenticate(this->credentialsIop->login, this->credentialsIop->password, api);
-    this->credentialsIop = nullptr;
-    if (tok)
-      return tok;
-  }
   return nullptr;
 }
 }

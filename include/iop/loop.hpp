@@ -63,7 +63,7 @@ public:
   auto connect(std::string_view ssid, std::string_view password) noexcept -> ConnectResponse;
   
   /// Uses IoP credentials to generate an authentication token for the device
-  auto authenticate(std::string_view username, std::string_view password, Api &api) noexcept -> std::unique_ptr<AuthToken>;
+  auto authenticate(std::string_view username, std::string_view password) noexcept -> std::unique_ptr<AuthToken>;
 
   auto setInterval(iop::time::milliseconds interval, std::function<void(EventLoop&)> func) noexcept -> void;
   auto setAuthenticatedInterval(iop::time::milliseconds interval, std::function<void(EventLoop&, const AuthToken&)> func) noexcept -> void;
