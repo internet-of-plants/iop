@@ -7,6 +7,20 @@
 #include <optional>
 
 namespace iop {
+struct DynamicCredential {
+  std::string login;
+  std::string password;
+
+  DynamicCredential(std::string login, std::string password) noexcept: login(login), password(password) {}
+};
+
+struct StaticCredential {
+  iop::StaticString login;
+  iop::StaticString password;
+
+  StaticCredential(iop::StaticString login, iop::StaticString password) noexcept: login(login), password(password) {}
+};
+
 class Api;
 
 /// Server to safely collect wifi and Internet of Plants credentials from a HTML form.
@@ -26,15 +40,16 @@ class Api;
 /// to be able to store the credentials to storage
 class CredentialsServer {
 private:
+  std::unique_ptr<StaticCredential> credentialsAccessPoint;
+  std::unique_ptr<DynamicCredential> credentialsIop;
+  std::unique_ptr<DynamicCredential> credentialsWifi;
+
   Log logger;
   
   iop_hal::HttpServer server;
   iop_hal::CaptivePortal dnsServer;
   bool isServerOpen = false;
 
-  std::optional<std::pair<StaticString, StaticString>> credentialsAccessPoint;
-  std::optional<std::pair<std::string, std::string>> credentialsIop;
-  std::optional<std::pair<std::string, std::string>> credentialsWifi;
 
   /// Internal method to initialize the credential server, if not running
   auto start() noexcept -> void;

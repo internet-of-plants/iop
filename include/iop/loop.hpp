@@ -84,6 +84,9 @@ private:
 
   auto handleMeasurements(const AuthToken &token) noexcept -> void;
 
+  auto runAuthenticatedTasks() noexcept -> void;
+  auto runUnauthenticatedTasks() noexcept -> void;
+
 public:
   explicit EventLoop(iop::StaticString uri, iop::LogLevel logLevel_) noexcept
       : credentialsServer(logLevel_),

@@ -101,25 +101,28 @@ auto EventLoop::syncNTP() noexcept -> void {
   this->nextNTPSync = iop_hal::thisThread.timeRunning() + oneDay;
 }
 
-auto runAuthenticatedTasks(EventLoop & loop, const AuthToken & token, std::vector<AuthenticatedTaskInterval> & tasks) -> void {
+auto EventLoop::runAuthenticatedTasks() noexcept -> void {
   IOP_TRACE();
 
-  for (auto & task: tasks) {
+  const auto token = this->storage().token();
+  iop_assert(token, IOP_STR("Auth Token not found"));
+
+  for (auto & task: this->authenticatedTasks) {
     if (task.next < iop_hal::thisThread.timeRunning()) {
       task.next = iop_hal::thisThread.timeRunning() + task.interval;
-      (task.func)(loop, token);
+      (task.func)(*this, *token);
       iop_hal::thisThread.yield();
     }
   }
 }
 
-auto runUnauthenticatedTasks(EventLoop & loop, std::vector<TaskInterval> & tasks) -> void {
+auto EventLoop::runUnauthenticatedTasks() noexcept -> void {
   IOP_TRACE();
 
-  for (auto & task: tasks) {
+  for (auto & task: this->tasks) {
     if (task.next < iop_hal::thisThread.timeRunning()) {
       task.next = iop_hal::thisThread.timeRunning() + task.interval;
-      (task.func)(loop);
+      (task.func)(*this);
       iop_hal::thisThread.yield();
     }
   }
@@ -127,42 +130,30 @@ auto runUnauthenticatedTasks(EventLoop & loop, std::vector<TaskInterval> & tasks
 
 auto EventLoop::loop() noexcept -> void {
   this->logger().traceln(IOP_STR("\n\n\n\n\n\n"));
-  IOP_TRACE();
-
-#ifdef LOG_MEMORY
   iop::logMemory(this->logger());
-#endif
 
   if (this->handleInterrupts()) {
     return;
   }
   
-  const auto authToken = this->storage().token();
-  const auto now = iop_hal::thisThread.timeRunning();
-  const auto isConnected = iop::Network::isConnected();
-
-  if (isConnected && authToken) {
+  if (iop::Network::isConnected() && this->storage().token()) {
     this->credentialsServer.close();
   }
 
-  if (isConnected && this->nextNTPSync < now) {
+  if (iop::Network::isConnected() && this->nextNTPSync < iop_hal::thisThread.timeRunning()) {
     this->syncNTP();
-    return;
 
-  } if (isConnected && !authToken) {
+  } else if (iop::Network::isConnected() && !this->storage().token()) {
     this->handleIopCredentials();
-    return;
 
-  } else if (!isConnected) {
+  } else if (!iop::Network::isConnected()) {
     this->handleNotConnected();
-    return;
 
   } else {
-    iop_assert(authToken, IOP_STR("Auth Token not found"));
-    runAuthenticatedTasks(*this, authToken->get(), this->authenticatedTasks);
+    this->runAuthenticatedTasks();
   }
 
-  runUnauthenticatedTasks(*this, this->tasks);
+  this->runUnauthenticatedTasks();
 }
 
 auto EventLoop::handleStoredWifiCreds() noexcept -> void {
