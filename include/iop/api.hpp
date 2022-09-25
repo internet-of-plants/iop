@@ -32,7 +32,7 @@ public:
   static constexpr size_t JsonCapacity = IOP_JSON_CAPACITY;
   using Json = std::array<char, JsonCapacity>;
 
-  Api(iop::StaticString uri, iop::LogLevel logLevel) noexcept;
+  Api(iop::StaticString uri) noexcept;
 
   /// Initializes the networking internals, including TLS configuration
   void setup() const noexcept;

@@ -5,7 +5,7 @@
 
 static auto staticPrinter(const iop::StaticString str, iop::LogLevel level, iop::LogType kind) noexcept -> void;
 static auto viewPrinter(const std::string_view, iop::LogLevel level, iop::LogType kind) noexcept -> void;
-static auto setuper(iop::LogLevel level) noexcept -> void;
+static auto setuper() noexcept -> void;
 static auto flusher() noexcept -> void;
 
 static auto hook = iop::LogHook(viewPrinter, staticPrinter, setuper, flusher);
@@ -14,7 +14,7 @@ namespace iop {
 namespace network_logger {
   void setup() noexcept {
     iop::Log::setHook(hook);
-    iop::Log::setup(IOP_LOG_LEVEL);
+    iop::Log::setup();
   }
 }
 }
@@ -33,7 +33,7 @@ void reportLog() noexcept {
   if (token) {
     iop::eventLoop.api().registerLog(*token, currentLog);
   } else {
-    iop::Log(iop::LogLevel::WARN, IOP_STR("NETWORK LOGGING")).warnln(IOP_STR("Unable to log to the monitor server, not authenticated"));
+    iop::Log(IOP_STR("NETWORK LOGGING")).warnln(IOP_STR("Unable to log to the monitor server, not authenticated"));
   }
   logToNetwork = true;
   currentLog.clear();
@@ -66,4 +66,4 @@ static auto viewPrinter(const std::string_view str, const iop::LogLevel level, c
   }
 }
 static auto flusher() noexcept -> void { iop::LogHook::defaultFlusher(); }
-static auto setuper(iop::LogLevel level) noexcept -> void { iop::LogHook::defaultSetuper(level); }
+static auto setuper() noexcept -> void { iop::LogHook::defaultSetuper(); }

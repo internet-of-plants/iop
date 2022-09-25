@@ -179,7 +179,7 @@ auto CredentialsServer::setup() noexcept -> void {
   });
 }
 
-CredentialsServer::CredentialsServer(const iop::LogLevel logLevel) noexcept: logger(logLevel, IOP_STR("SERVER")) {}
+CredentialsServer::CredentialsServer() noexcept: logger(IOP_STR("SERVER")) {}
 
 auto CredentialsServer::setAccessPointCredentials(StaticString SSID, StaticString PSK) noexcept -> void {
   this->credentialsAccessPoint = std::unique_ptr<StaticCredential>(new (std::nothrow) StaticCredential(SSID, PSK));

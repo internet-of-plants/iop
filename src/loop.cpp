@@ -43,7 +43,7 @@ static const char* uriRaw IOP_ROM = "https://api.internet-of-plants.org:4001";
 #endif
 static const StaticString uri(reinterpret_cast<const __FlashStringHelper*>(uriRaw));
 
-EventLoop eventLoop(uri, IOP_LOG_LEVEL);
+EventLoop eventLoop(uri);
 
 auto EventLoop::setup() noexcept -> void {
   IOP_TRACE();
@@ -51,7 +51,7 @@ auto EventLoop::setup() noexcept -> void {
   this->logger().infoln(IOP_STR("Start Setup"));
   //iop_hal::gpio.setMode(iop_hal::io::LED_BUILTIN, iop_hal::io::Mode::OUTPUT);
 
-  iop::Log::setup(IOP_LOG_LEVEL);
+  iop::Log::setup();
   Storage::setup();
   this->api().setup();
   iop::panic::setup();

@@ -170,8 +170,8 @@ auto Api::update(const AuthToken &token) noexcept
   return this->network.update(IOP_STR("/v1/update"), iop::to_view(token));
 }
 
-Api::Api(iop::StaticString uri, const iop::LogLevel logLevel) noexcept
-    : network(uri, logLevel), logger(logLevel, IOP_STR("API")) {
+Api::Api(iop::StaticString uri) noexcept
+    : network(uri), logger(IOP_STR("API")) {
   IOP_TRACE();
 }
 

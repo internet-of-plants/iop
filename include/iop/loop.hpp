@@ -90,10 +90,10 @@ private:
   auto runUnauthenticatedTasks() noexcept -> void;
 
 public:
-  explicit EventLoop(iop::StaticString uri, iop::LogLevel logLevel_) noexcept
-      : credentialsServer(logLevel_),
-        api_(uri, logLevel_),
-        logger_(logLevel_, IOP_STR("LOOP")), storage_(logLevel_),
+  explicit EventLoop(iop::StaticString uri) noexcept
+      : credentialsServer(),
+        api_(uri),
+        logger_(IOP_STR("LOOP")), storage_(),
         nextNTPSync(0), nextTryStorageWifiCredentials(0),
         nextTryHardcodedWifiCredentials(0), nextTryHardcodedIopCredentials(0) {
     IOP_TRACE();

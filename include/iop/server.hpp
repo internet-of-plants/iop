@@ -55,7 +55,7 @@ private:
   auto start() noexcept -> void;
 
 public:
-  explicit CredentialsServer(const iop::LogLevel logLevel) noexcept;
+  explicit CredentialsServer() noexcept;
 
   /// Setups everything the Captive Portal needs
   auto setup() noexcept -> void;
