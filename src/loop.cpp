@@ -46,12 +46,13 @@ static const StaticString uri(reinterpret_cast<const __FlashStringHelper*>(uriRa
 EventLoop eventLoop(uri);
 
 auto EventLoop::setup() noexcept -> void {
+  iop::Log::setup();
+
   IOP_TRACE();
 
   this->logger().infoln(IOP_STR("Start Setup"));
   //iop_hal::gpio.setMode(iop_hal::io::LED_BUILTIN, iop_hal::io::Mode::OUTPUT);
 
-  iop::Log::setup();
   Storage::setup();
   this->api().setup();
   iop::panic::setup();

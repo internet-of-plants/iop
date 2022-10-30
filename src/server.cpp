@@ -183,7 +183,7 @@ CredentialsServer::CredentialsServer() noexcept: logger(IOP_STR("SERVER")) {}
 
 auto CredentialsServer::setAccessPointCredentials(StaticString SSID, StaticString PSK) noexcept -> void {
   this->credentialsAccessPoint = std::unique_ptr<StaticCredential>(new (std::nothrow) StaticCredential(SSID, PSK));
-  iop_assert(this->credentialsAccessPoint, IOP_STR("Unable to allocate credentialsAccessPoint"))
+  iop_assert(this->credentialsAccessPoint, IOP_STR("Unable to allocate credentialsAccessPoint"));
 }
 
 auto CredentialsServer::start() noexcept -> void {
