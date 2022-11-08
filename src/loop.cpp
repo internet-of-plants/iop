@@ -1,4 +1,4 @@
-#include "iop/loop.hpp" 
+#include "iop/loop.hpp"
 #include "iop-hal/panic.hpp"
 #include "iop-hal/wifi.hpp"
 #include "iop-hal/io.hpp"
@@ -148,7 +148,7 @@ auto EventLoop::loop() noexcept -> void {
   if (this->handleInterrupts()) {
     return;
   }
-  
+
   if (iop::Network::isConnected() && this->storage().token()) {
     this->credentialsServer.close();
   }
@@ -225,7 +225,7 @@ auto EventLoop::handleNotConnected() noexcept -> void {
   if (!iop::Network::isConnected() && this->storage().wifi() && this->nextTryStorageWifiCredentials <= iop_hal::thisThread.timeRunning()) {
     this->handleStoredWifiCreds();
 
-  } else if (!iop::Network::isConnected() && wifiSSID && wifiPSK && this->nextTryHardcodedWifiCredentials <= iop_hal::thisThread.timeRunning()) { 
+  } else if (!iop::Network::isConnected() && wifiSSID && wifiPSK && this->nextTryHardcodedWifiCredentials <= iop_hal::thisThread.timeRunning()) {
     this->handleHardcodedWifiCreds();
 
   } else {

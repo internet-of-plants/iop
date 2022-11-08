@@ -45,7 +45,7 @@ private:
   std::unique_ptr<DynamicCredential> credentialsWifi;
 
   Log logger;
-  
+
   iop_hal::HttpServer server;
   iop_hal::CaptivePortal dnsServer;
   bool isServerOpen = false;

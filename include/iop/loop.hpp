@@ -61,7 +61,7 @@ public:
   auto loop() noexcept -> void;
   /// Connects to WiFi
   auto connect(std::string_view ssid, std::string_view password) noexcept -> ConnectResponse;
-  
+
   /// Uses IoP credentials to generate an authentication token for the device
   auto authenticate(std::string_view username, std::string_view password) noexcept -> std::unique_ptr<AuthToken>;
 

@@ -179,7 +179,7 @@ using FixedJsonBuffer = StaticJsonDocument<Api::JsonCapacity>;
 
 auto Api::makeJson(const iop::StaticString contextName, const Api::JsonCallback jsonObjectBuilder) noexcept -> std::unique_ptr<Api::Json> {
   IOP_TRACE();
-  
+
   auto doc = std::unique_ptr<FixedJsonBuffer>(new (std::nothrow) FixedJsonBuffer());
   if (!doc) return nullptr;
   doc->clear(); // Zeroes heap memory
@@ -195,7 +195,7 @@ auto Api::makeJson(const iop::StaticString contextName, const Api::JsonCallback 
   if (!json) return nullptr;
   json->fill('\0'); // Zeroes heap memory
   serializeJson(*doc, json->data(), json->size());
-  
+
   // This might leak sensitive information
   this->logger.debug(IOP_STR("Json: "));
   this->logger.debugln(iop::to_view(*json));

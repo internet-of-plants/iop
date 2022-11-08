@@ -38,7 +38,7 @@ auto update() noexcept -> void {
 // https://github.com/sticilface/ESPmanager/blob/dce7fc06806a90c179a40eb2d74f4278fffad5b4/src/SaveStack.cpp
 auto reportPanic(const std::string_view &msg, const iop::StaticString &file, const uint32_t line, const iop::StaticString &func) noexcept -> bool {
   IOP_TRACE();
-  
+
   // Prevents network logging
   iop::Log::takeHook();
 

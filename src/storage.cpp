@@ -43,7 +43,7 @@ auto Storage::token() noexcept -> std::optional<std::reference_wrapper<const Aut
   const auto maybeAuthToken = iop_hal::storage.read<sizeof(AuthToken)>(authTokenIndex + 1);
   iop_assert(maybeAuthToken, IOP_STR("Failed to read AuthToken from storage"));
   authToken = *maybeAuthToken;
-  
+
   const auto tok = iop::to_view(authToken);
   // AuthToken must be printable US-ASCII (to be stored in HTTP headers))
   if (!iop::isAllPrintable(tok) || tok.length() != 64) {
@@ -116,7 +116,7 @@ auto Storage::wifi() noexcept -> std::optional<std::reference_wrapper<const Wifi
 
   ssid = *maybeSsid;
   psk = *maybePsk;
-  
+
   const auto ssidStr = iop::scapeNonPrintable(iop::to_view(ssid));
   this->logger.trace(IOP_STR("Found network credentials: "));
   this->logger.traceln(iop::to_view(ssidStr));
@@ -151,7 +151,7 @@ auto Storage::setWifi(const WifiCredentials &config) noexcept -> bool {
     const auto networkPassword = iop_hal::storage.read<sizeof(iop::NetworkPassword)>(wifiConfigIndex + sizeof(iop::NetworkName) + 1);
     iop_assert(networkName, IOP_STR("Failed to read SSID from storage"));
     iop_assert(networkPassword, IOP_STR("Failed to read PSK from storage"));
-    
+
     // Theoretically SSIDs can have a nullptr inside of it, but currently ESP8266 gives us random garbage after the first '\0' instead of zeroing the rest
     // So we do not accept SSIDs with a nullptr in the middle
     if (iop::to_view(*networkName) == iop::to_view(config.ssid.get()) && iop::to_view(*networkPassword) == iop::to_view(config.password.get())) {
@@ -159,7 +159,7 @@ auto Storage::setWifi(const WifiCredentials &config) noexcept -> bool {
       return false;
     }
   }
-  
+
   this->logger.info(IOP_STR("Writing wifi credentials to storage: "));
   this->logger.infoln(iop::to_view(config.ssid.get()));
   this->logger.debug(IOP_STR("WiFi Creds: "));
