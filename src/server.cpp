@@ -190,7 +190,8 @@ auto CredentialsServer::start() noexcept -> void {
   IOP_TRACE();
   if (!this->isServerOpen) {
     this->isServerOpen = true;
-    this->logger.infoln(IOP_STR("Setting our own wifi access point"));
+    this->logger.info(IOP_STR("Setting our own wifi access point: "));
+    this->logger.infoln(this->credentialsAccessPoint->login);
 
     const auto isConnected = iop::Network::isConnected();
     iop_assert(this->credentialsAccessPoint, IOP_STR("Must configure Access Point credentials"));

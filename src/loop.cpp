@@ -64,6 +64,8 @@ auto EventLoop::setup() noexcept -> void {
   this->logger().infoln(IOP_STR("Core setup finished, running user layer's setup"));
 
   iop::setup(*this);
+
+  this->logger().infoln(IOP_STR("User setup finished, starting event loop"));
 }
 
 auto EventLoop::setAccessPointCredentials(StaticString SSID, StaticString PSK) noexcept -> void {
