@@ -66,7 +66,7 @@ public:
   /// Return values:
   ///
   /// OK: unreachable, as success returns an AuthToken
-  /// UNAUTHORIZED: unreachable, as this route doesn't expect an AuthToken
+  /// UNAUTHORIZED: means credentials were invalid
   /// IO_ERROR: problems with connection, retry later?
   /// BROKEN_CLIENT: critical, means the method is broken and a buffer overflows happened
   /// BROKEN_SERVER: must wait until server is fixed
@@ -79,7 +79,7 @@ public:
   /// OK: success
   /// UNAUTHORIZED: auth token is invalid
   /// IO_ERROR: problems with connection, retry later?
-  /// BROKEN_CLIENT: critical, means the method is broken and a buffer overflows happened
+  /// BROKEN_CLIENT: unreachable, doesn't allocate for the payload
   /// BROKEN_SERVER: must wait until server is fixed
   auto registerLog(const AuthToken &authToken, std::string_view log) noexcept -> iop::NetworkStatus;
 
@@ -96,12 +96,11 @@ public:
 
   using JsonCallback = std::function<void(JsonDocument &)>;
 
-  /// Abstracs safe json serialization. Returns None on overflow.
+  /// Abstracts safe json serialization. Returns std::nullptr on overflow.
   ///
-  /// Generally it is a critical error and probably will break the system,
-  /// But some methods truncate the messages and try again, if they are critical.
+  /// Some callers fail hard and others truncate the messages and try again, if they are critical.
   ///
-  /// Gets a name for logging purposes. And a callback that insert data into the JSON serializer abstraction.
+  /// Gets a context name for logging purposes. And a callback that insert data into the JSON serializer abstraction.
   auto makeJson(iop::StaticString contextName, Api::JsonCallback jsonObjectBuilder) noexcept -> std::unique_ptr<Api::Json>;
 };
 

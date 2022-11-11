@@ -28,7 +28,7 @@ auto descheduleInterrupt() noexcept -> InterruptEvent;
 
 /// Represents an authentication token returned by the monitor server.
 ///
-/// Must be sent in every request to the monitor server.
+/// Must be sent in every authenticated request to the monitor server.
 using AuthToken = std::array<char, 64>;
 
 /// Helpful to pass around references to the cached stored WiFi credentials
