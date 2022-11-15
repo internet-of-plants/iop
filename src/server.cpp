@@ -93,25 +93,24 @@ auto iopHTML() -> iop::StaticString {
 
 auto script() -> iop::StaticString {
   return IOP_STR(
-    "<script type='application/javascript'>"
-    "document.querySelector(\"input[name='wifi']\").addEventListener('change', ev => {"
-    "  for (const el of document.getElementsByClassName('wifi')) {"
-    "    if (ev.currentTarget.checked) {"
-    "      el.style.display = 'block';"
+    "<script type='application/javascript'>\r\n"
+    "function toggleDisplay(className, checked) {\r\n"
+    "  for (const el of document.getElementsByClassName(className)) {\r\n"
+    "    if (checked) {\r\n"
+    "      el.style.display = 'block';\r\n"
     "    } else {"
-    "      el.style.display = 'none';"
-    "    }"
-    "  }"
-    "});"
-    "document.querySelector(\"input[name='iop']\").addEventListener('change', ev => {"
-    "  for (const el of document.getElementsByClassName('iop')) {"
-    "    if (ev.currentTarget.checked) {"
-    "      el.style.display = 'block';"
-    "    } else {"
-    "      el.style.display = 'none';"
-    "    }"
-    "  }"
-    "});"
+    "      el.style.display = 'none';\r\n"
+    "    }\r\n"
+    "  }\r\n"
+    "}\r\n"
+    "document.querySelector(\"input[name='wifi']\").addEventListener('change', ev => toggleDisplay('wifi', ev.currentTarget.checked));\r\n"
+    "document.querySelector(\"input[name='iop']\").addEventListener('change', ev => toggleDisplay('iop', ev.currentTarget.checked));\r\n"
+    "for (const el of document.getElementsByClassName('wifi')) {\r\n"
+    "  toggleDisplay('wifi', el.checked);\r\n"
+    "}\r\n"
+    "for (const el of document.getElementsByClassName('iop')) {\r\n"
+    "  toggleDisplay('iop', el.checked);\r\n"
+    "}\r\n"
     "</script>");
 }
 
@@ -153,12 +152,13 @@ auto CredentialsServer::setup() noexcept -> void {
     conn.send(302, IOP_STR("text/plain"), IOP_STR(""));
   });
 
-  this->server.onNotFound([](iop_hal::HttpConnection &conn, iop::Log &logger) {
+  this->server.onNotFound([this](iop_hal::HttpConnection &conn, iop::Log &logger) {
     IOP_TRACE();
-    logger.infoln(IOP_STR("Serving captive portal"));
+    logger.infoln(IOP_STR("Serving form"));
 
-    const auto mustConnect = !iop::Network::isConnected();
-    const auto needsIopAuth = !eventLoop.storage().token();
+    const auto needsIopAuth = !eventLoop.storage().token() && !this->credentialsIop;
+    // Not needing IoP auth means the WiFi credentials we have are invalid
+    const auto mustConnect = !eventLoop.storage().wifi() || !needsIopAuth;
 
     auto len = pageHTMLStart().length() + pageHTMLEnd().length() + script().length();
     len += mustConnect ? wifiHTML().length() : wifiOverwriteHTML().length();
@@ -190,8 +190,17 @@ auto CredentialsServer::start() noexcept -> void {
   IOP_TRACE();
   if (!this->isServerOpen) {
     this->isServerOpen = true;
+    this->logger.infoln(IOP_STR("Valid credentials are not available"));
     this->logger.info(IOP_STR("Setting our own wifi access point: "));
     this->logger.infoln(this->credentialsAccessPoint->login);
+
+    const auto hasWifi = eventLoop.storage().wifi() || this->credentialsWifi;
+    this->logger.debug(IOP_STR("Has Wifi Creds: "));
+    this->logger.debugln(hasWifi);
+
+    const auto hasIop = eventLoop.storage().token() || this->credentialsIop;
+    this->logger.debug(IOP_STR("Has IoP Creds: "));
+    this->logger.debugln(hasIop);
 
     const auto isConnected = iop::Network::isConnected();
     iop_assert(this->credentialsAccessPoint, IOP_STR("Must configure Access Point credentials"));
@@ -215,7 +224,7 @@ auto CredentialsServer::start() noexcept -> void {
   }
 }
 
-auto CredentialsServer::close() noexcept -> void {
+auto CredentialsServer::close() noexcept -> bool {
   IOP_TRACE();
   if (this->isServerOpen) {
     this->logger.debugln(IOP_STR("Closing captive portal"));
@@ -225,27 +234,29 @@ auto CredentialsServer::close() noexcept -> void {
     this->server.close();
 
     iop::wifi.disableOurAccessPoint();
+    return true;
   }
+  return false;
 }
 
 auto CredentialsServer::serve() noexcept -> std::unique_ptr<DynamicCredential> {
   IOP_TRACE();
 
-  this->start();
-
   if (this->credentialsWifi) {
+    this->close();
+
     this->logger.infoln(IOP_STR("Connecting to WiFi"));
-    //iop::wifi.setMode(iop_hal::WiFiMode::STATION);
     eventLoop.connect(this->credentialsWifi->login, this->credentialsWifi->password);
     this->credentialsWifi = nullptr;
     return nullptr;
   }
 
   if (iop::Network::isConnected() && this->credentialsIop) {
-    return std::move(this->credentialsIop);
+    if (!this->close()) return std::move(this->credentialsIop);
+    return nullptr;
   }
 
-  //iop::wifi.setMode(iop_hal::WiFiMode::ACCESS_POINT);
+  this->start();
 
   this->logger.traceln(IOP_STR("Serve captive portal"));
   this->dnsServer.handleClient();

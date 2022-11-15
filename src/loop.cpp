@@ -137,11 +137,11 @@ auto EventLoop::logIteration() noexcept -> void {
 
   const auto hasWifi = this->storage().wifi().has_value();
   this->logger().trace(IOP_STR("Has Wifi Creds: "));
-  this->logger().traceln(std::to_string(hasWifi));
+  this->logger().traceln(hasWifi);
 
   const auto hasIop = this->storage().token().has_value();
   this->logger().trace(IOP_STR("Has IoP Creds: "));
-  this->logger().traceln(std::to_string(hasIop));
+  this->logger().traceln(hasIop);
 }
 
 auto EventLoop::loop() noexcept -> void {
@@ -151,18 +151,46 @@ auto EventLoop::loop() noexcept -> void {
     return;
   }
 
-  if (iop::Network::isConnected() && this->storage().token()) {
-    this->credentialsServer.close();
-  }
+  if (iop::Network::isConnected() && !this->storage().wifi()) {
+    // Wait until onConnect callback runs
+    return;
 
-  if (iop::Network::isConnected() && this->nextNTPSync < iop_hal::thisThread.timeRunning()) {
+  } else if (iop::Network::isConnected() && this->nextNTPSync < iop_hal::thisThread.timeRunning()) {
     this->syncNTP();
 
-  } else if (iop::Network::isConnected() && !this->storage().token()) {
-    this->handleIopCredentials();
+  } else if (iop::Network::isConnected() && !this->storage().token() && iopUsername && iopPassword && this->nextTryHardcodedIopCredentials <= iop_hal::thisThread.timeRunning()) {
+    if (!this->credentialsServer.close()) {
+      this->handleHardcodedIopCreds();
+    }
 
-  } else if (!iop::Network::isConnected()) {
-    this->handleNotConnected();
+  } else if (!iop::Network::isConnected() || !this->storage().token()) {
+    // If connection is lost and all stored creds have been tried we open the credentials server,
+    // to allow for replacing the wifi credentials if they are wrong. Since we can't know if they are wrong
+    // or it's timing out, or the router is offline.
+    //
+    // But hardcoded or creds persisted in memory will be retried
+
+    if (!iop::Network::isConnected() && this->storage().wifi() && this->nextTryStorageWifiCredentials <= iop_hal::thisThread.timeRunning()) {
+      this->credentialsServer.close();
+      this->handleStoredWifiCreds();
+
+    } else if (!iop::Network::isConnected() && wifiSSID && wifiPSK && this->nextTryHardcodedWifiCredentials <= iop_hal::thisThread.timeRunning()) {
+      this->credentialsServer.close();
+      this->handleHardcodedWifiCreds();
+
+    } else {
+      const auto creds = this->credentialsServer.serve();
+      if (creds) {
+        auto authToken = this->api().authenticate(creds->login, creds->password);
+
+        this->logger().debugln(IOP_STR("Tried to authenticate"));
+        if (const auto *token = std::get_if<std::unique_ptr<AuthToken>>(&authToken)) {
+          this->storage().setToken(**token);
+        } else if (const auto *error = std::get_if<iop::NetworkStatus>(&authToken)) {
+          this->handleAuthenticationFailure(*error);
+        }
+      }
+    }
 
   } else {
     this->runAuthenticatedTasks();
@@ -183,7 +211,7 @@ auto EventLoop::handleStoredWifiCreds() noexcept -> void {
 
   this->logger().info(IOP_STR("Trying wifi credentials stored in storage: "));
   this->logger().infoln(iop::scapeNonPrintable(ssid));
-  this->logger().debug(IOP_STR("Password:"));
+  this->logger().debug(IOP_STR("Password: "));
   this->logger().debugln(iop::scapeNonPrintable(psk));
   switch (this->connect(ssid, psk)) {
     case ConnectResponse::OK:
@@ -217,24 +245,6 @@ auto EventLoop::handleHardcodedWifiCreds() noexcept -> void {
   }
 }
 
-auto EventLoop::handleNotConnected() noexcept -> void {
-  // If connection is lost and all stored creds have been tried we open the credentials server,
-  // to allow for replacing the wifi credentials if they are wrong. Since we can't know if they are wrong
-  // or it's timing out, or the router is offline.
-  //
-  // But hardcoded or creds persisted in memory will be retried
-
-  if (!iop::Network::isConnected() && this->storage().wifi() && this->nextTryStorageWifiCredentials <= iop_hal::thisThread.timeRunning()) {
-    this->handleStoredWifiCreds();
-
-  } else if (!iop::Network::isConnected() && wifiSSID && wifiPSK && this->nextTryHardcodedWifiCredentials <= iop_hal::thisThread.timeRunning()) {
-    this->handleHardcodedWifiCreds();
-
-  } else {
-    this->handleCredentials();
-  }
-}
-
 auto EventLoop::handleHardcodedIopCreds() noexcept -> void {
   IOP_TRACE();
 
@@ -243,17 +253,15 @@ auto EventLoop::handleHardcodedIopCreds() noexcept -> void {
 
     this->logger().infoln(IOP_STR("Trying hardcoded iop credentials"));
 
-    const auto tok = this->authenticate(iopUsername->toString(), iopPassword->toString());
-    if (tok)
-      this->storage().setToken(*tok);
-  }
-}
-
-auto EventLoop::handleIopCredentials() noexcept -> void {
-  if (iopUsername && iopPassword && this->nextTryHardcodedIopCredentials <= iop_hal::thisThread.timeRunning()) {
-    this->handleHardcodedIopCreds();
-  } else {
-    this->handleCredentials();
+    this->credentialsServer.close();
+    auto authToken = this->api().authenticate(iopUsername->toString(), iopPassword->toString());
+    this->logger().debugln(IOP_STR("Tried to authenticate"));
+    
+    if (const auto *token = std::get_if<std::unique_ptr<AuthToken>>(&authToken)) {
+      this->storage().setToken(**token);
+    } else if (const auto *error = std::get_if<iop::NetworkStatus>(&authToken)) {
+      this->handleAuthenticationFailure(*error);
+    }
   }
 }
 
@@ -337,15 +345,6 @@ auto EventLoop::handleInterrupt(const InterruptEvent event, const std::optional<
     };
 }
 
-auto EventLoop::handleCredentials() noexcept -> void {
-    const auto creds = this->credentialsServer.serve();
-    if (creds) {
-      const auto tok = this->authenticate(creds->login, creds->password);
-      if (tok)
-        this->storage().setToken(*tok);
-    }
-}
-
 auto EventLoop::connect(std::string_view ssid, std::string_view password) noexcept -> ConnectResponse {
   this->logger().info(IOP_STR("Connect: "));
   this->logger().infoln(iop::scapeNonPrintable(iop::to_view(ssid)));
@@ -393,41 +392,26 @@ auto EventLoop::registerEvent(const AuthToken& token, const Api::Json json) noex
   this->logger().errorln(IOP_STR("Unexpected status at EventLoop::registerEvent"));
 }
 
-auto EventLoop::authenticate(std::string_view username, std::string_view password) noexcept -> std::unique_ptr<AuthToken> {
-  //iop::wifi.setMode(iop_hal::WiFiMode::STATION);
-  auto authToken = this->api().authenticate(username, password);
+auto EventLoop::handleAuthenticationFailure(iop::NetworkStatus status) noexcept -> void {
+  switch (status) {
+  case iop::NetworkStatus::UNAUTHORIZED:
+    this->logger().errorln(IOP_STR("Invalid IoP credentials"));
+    return;
 
-  this->logger().debugln(IOP_STR("Tried to authenticate"));
-  if (const auto *error = std::get_if<iop::NetworkStatus>(&authToken)) {
-    const auto &status = *error;
+  case iop::NetworkStatus::BROKEN_CLIENT:
+    iop_panic(IOP_STR("CredentialsServer::authenticate internal buffer overflow"));
 
-    switch (status) {
-    case iop::NetworkStatus::UNAUTHORIZED:
-      this->logger().error(IOP_STR("Invalid IoP credentials: "));
-      this->logger().errorln(username);
-      return nullptr;
+  // Already logged at the Network level
+  case iop::NetworkStatus::IO_ERROR:
+  case iop::NetworkStatus::BROKEN_SERVER:
+    // Nothing to be done besides retrying later
+    return;
 
-    case iop::NetworkStatus::BROKEN_CLIENT:
-      iop_panic(IOP_STR("CredentialsServer::authenticate internal buffer overflow"));
-
-    // Already logged at the Network level
-    case iop::NetworkStatus::IO_ERROR:
-    case iop::NetworkStatus::BROKEN_SERVER:
-      // Nothing to be done besides retrying later
-      return nullptr;
-
-    case iop::NetworkStatus::OK:
-      // On success an AuthToken is returned, not OK
-      iop_panic(IOP_STR("Unreachable"));
-    }
-
-    this->logger().critln(IOP_STR("CredentialsServer::authenticate bad status"));
-    return nullptr;
-
-  } else if (auto *token = std::get_if<std::unique_ptr<AuthToken>>(&authToken)) {
-    return std::move(*token);
+  case iop::NetworkStatus::OK:
+    // On success an AuthToken is returned, not OK
+    iop_panic(IOP_STR("Unreachable"));
   }
 
-  iop_panic(IOP_STR("Invalid variant"));
+  this->logger().critln(IOP_STR("CredentialsServer::authenticate bad status"));
 }
 }

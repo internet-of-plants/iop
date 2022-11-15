@@ -50,6 +50,7 @@ private:
 
   std::vector<TaskInterval> tasks;
   std::vector<AuthenticatedTaskInterval> authenticatedTasks;
+
   auto syncNTP() noexcept -> void;
 
 public:
@@ -63,7 +64,7 @@ public:
   auto connect(std::string_view ssid, std::string_view password) noexcept -> ConnectResponse;
 
   /// Uses IoP credentials to generate an authentication token for the device
-  auto authenticate(std::string_view username, std::string_view password) noexcept -> std::unique_ptr<AuthToken>;
+  auto handleAuthenticationFailure(iop::NetworkStatus status) noexcept -> void;
 
   auto setInterval(iop::time::milliseconds interval, std::function<void(EventLoop&)> func) noexcept -> void;
   auto setAuthenticatedInterval(iop::time::milliseconds interval, std::function<void(EventLoop&, const AuthToken&)> func) noexcept -> void;
@@ -72,19 +73,15 @@ public:
 private:
   auto logIteration() noexcept -> void;
 
-  auto handleNotConnected() noexcept -> void;
   auto handleStoredWifiCreds() noexcept -> void;
+  
   auto handleHardcodedWifiCreds() noexcept -> void;
+  auto handleHardcodedIopCreds() noexcept -> void;
+
+  auto handleMeasurements(const AuthToken &token) noexcept -> void;
 
   auto handleInterrupts() noexcept -> bool;
   auto handleInterrupt(const InterruptEvent event, const std::optional<std::reference_wrapper<const AuthToken>> &token) noexcept -> void;
-
-  auto handleHardcodedIopCreds() noexcept -> void;
-  auto handleIopCredentials() noexcept -> void;
-
-  auto handleCredentials() noexcept -> void;
-
-  auto handleMeasurements(const AuthToken &token) noexcept -> void;
 
   auto runAuthenticatedTasks() noexcept -> void;
   auto runUnauthenticatedTasks() noexcept -> void;

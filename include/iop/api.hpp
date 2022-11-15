@@ -12,7 +12,7 @@ class PanicData;
 // Arbitrary Event might not fit in regular JSON, so it's up to the user to calibrate that
 // ESP32 might be needed for bigger events
 #ifndef IOP_JSON_CAPACITY
-#define IOP_JSON_CAPACITY 768
+#define IOP_JSON_CAPACITY 600
 #endif
 
 /// High level client, abstracts the monitor server's API in a safe and ergonomic way
@@ -37,6 +37,28 @@ public:
   /// Initializes the networking internals, including TLS configuration
   void setup() const noexcept;
 
+  /// Tries to authenticate to the server, getting an AuthToken on success.
+  ///
+  /// Return values:
+  ///
+  /// OK: unreachable, as success returns an AuthToken
+  /// UNAUTHORIZED: means credentials were invalid
+  /// IO_ERROR: problems with connection, retry later?
+  /// BROKEN_CLIENT: IOP_JSON_CAPACITY is too small to contain this payload
+  /// BROKEN_SERVER: must wait until server is fixed
+  auto authenticate(std::string_view username, std::string_view password) noexcept -> std::variant<std::unique_ptr<AuthToken>, iop::NetworkStatus>;
+
+  /// Sends a monitoring event to the server, also sends device metadata.
+  ///
+  /// Return values:
+  ///
+  /// OK: success
+  /// UNAUTHORIZED: auth token is invalid
+  /// IO_ERROR: problems with the connection, retry later?
+  /// BROKEN_CLIENT: unreachable, doesn't allocate for the payload
+  /// BROKEN_SERVER: must wait until the server is fixed
+  auto registerEvent(const AuthToken &token, const Api::Json &event) noexcept -> iop::NetworkStatus;
+
   /// Sends a panic message to the monitor server.
   ///
   /// Truncates the message as needed to avoid OOM.
@@ -46,31 +68,9 @@ public:
   /// OK: success
   /// UNAUTHORIZED: auth token is invalid
   /// IO_ERROR: problems with connection, retry later?
-  /// BROKEN_CLIENT: unreachable, as the route truncates the message until it fits the buffer
+  /// BROKEN_CLIENT: IOP_JSON_CAPACITY is too small to contain this payload
   /// BROKEN_SERVER: must wait until the server is fixed
   auto reportPanic(const AuthToken &authToken, const PanicData &event) noexcept -> iop::NetworkStatus;
-
-  /// Sends a monitoring event to the server, also sends device metadata.
-  ///
-  /// Return values:
-  ///
-  /// OK: success
-  /// UNAUTHORIZED: auth token is invalid
-  /// IO_ERROR: problems with the connection, retry later?
-  /// BROKEN_SERVER: must wait until the server is fixed
-  /// BROKEN_CLIENT: unreachable
-  auto registerEvent(const AuthToken &token, const Api::Json &event) noexcept -> iop::NetworkStatus;
-
-  /// Tries to authenticate to the server, getting an AuthToken on success.
-  ///
-  /// Return values:
-  ///
-  /// OK: unreachable, as success returns an AuthToken
-  /// UNAUTHORIZED: means credentials were invalid
-  /// IO_ERROR: problems with connection, retry later?
-  /// BROKEN_CLIENT: critical, means the method is broken and a buffer overflows happened
-  /// BROKEN_SERVER: must wait until server is fixed
-  auto authenticate(std::string_view username, std::string_view password) noexcept -> std::variant<std::unique_ptr<AuthToken>, iop::NetworkStatus>;
 
   /// Reports log message to server.
   ///

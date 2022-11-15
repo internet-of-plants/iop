@@ -68,7 +68,7 @@ public:
   auto serve() noexcept -> std::unique_ptr<DynamicCredential>;
 
   /// Closes the Captive Portal if it's still open
-  auto close() noexcept -> void;
+  auto close() noexcept -> bool;
 };
 }
 #endif
