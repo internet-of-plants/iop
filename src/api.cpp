@@ -13,17 +13,9 @@ namespace iop {
 static void updateScheduler() noexcept {
   iop::scheduleInterrupt(iop::InterruptEvent::MUST_UPGRADE);
 }
-void onWifiConnect() noexcept {
-  iop::scheduleInterrupt(iop::InterruptEvent::ON_CONNECTION);
-}
 
 auto Api::setup() const noexcept -> void {
   IOP_TRACE();
-
-  const static iop_hal::OnConnectHandler handler = iop::wifi.onConnect(onWifiConnect);
-  // If we are already connected the callback won't be called
-  if (iop::Network::isConnected())
-    iop::scheduleInterrupt(InterruptEvent::ON_CONNECTION);
 
   // Sets scheduler for update interrupt
   iop::Network::setUpdateHook(iop::UpdateHook(updateScheduler));

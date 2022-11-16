@@ -151,11 +151,7 @@ auto EventLoop::loop() noexcept -> void {
     return;
   }
 
-  if (iop::Network::isConnected() && !this->storage().wifi()) {
-    // Wait until onConnect callback runs
-    return;
-
-  } else if (iop::Network::isConnected() && this->nextNTPSync < iop_hal::thisThread.timeRunning()) {
+  if (iop::Network::isConnected() && this->nextNTPSync < iop_hal::thisThread.timeRunning()) {
     this->syncNTP();
 
   } else if (iop::Network::isConnected() && !this->storage().token() && iopUsername && iopPassword && this->nextTryHardcodedIopCredentials <= iop_hal::thisThread.timeRunning()) {
@@ -309,20 +305,6 @@ auto upgrade(EventLoop & loop, const std::optional<std::reference_wrapper<const 
   }
 }
 
-auto onConnect(EventLoop & loop) noexcept -> void {
-  IOP_TRACE();
-
-  const auto status = iop_hal::statusToString(iop::wifi.status());
-  const auto [ssid, psk] = iop::wifi.credentials();
-
-  loop.logger().info(IOP_STR("Connected to network: "));
-  loop.logger().info(iop::scapeNonPrintable(iop::to_view(ssid)));
-  loop.logger().info(IOP_STR(", status: "));
-  loop.logger().infoln(status);
-
-  loop.storage().setWifi(WifiCredentials(ssid, psk));
-}
-
 auto EventLoop::handleInterrupt(const InterruptEvent event, const std::optional<std::reference_wrapper<const AuthToken>> &token) noexcept -> void {
     // Satisfies linter when all interrupt features are disabled
     (void)*this;
@@ -338,9 +320,6 @@ auto EventLoop::handleInterrupt(const InterruptEvent event, const std::optional<
       break;
     case InterruptEvent::MUST_UPGRADE:
       upgrade(*this, token);
-      break;
-    case InterruptEvent::ON_CONNECTION:
-      onConnect(*this);
       break;
     };
 }
@@ -364,6 +343,16 @@ auto EventLoop::connect(std::string_view ssid, std::string_view password) noexce
     this->logger().errorln(iop::scapeNonPrintable(iop::to_view(ssid)));
   } else {
     this->logger().infoln(IOP_STR("Connected to WiFi"));
+
+    const auto status = iop_hal::statusToString(iop::wifi.status());
+    const auto [name, psk] = iop::wifi.credentials();
+
+    this->logger().info(IOP_STR("Connected to network: "));
+    this->logger().info(iop::scapeNonPrintable(iop::to_view(name)));
+    this->logger().info(IOP_STR(", status: "));
+    this->logger().infoln(status);
+
+    this->storage().setWifi(WifiCredentials(name, psk));
   }
   return ConnectResponse::OK;
 }

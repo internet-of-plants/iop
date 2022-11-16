@@ -6,7 +6,7 @@
 
 namespace iop {
 // If you change the number of interrupt types, please update interruptVariant to the correct size
-enum class InterruptEvent { NONE, ON_CONNECTION, MUST_UPGRADE };
+enum class InterruptEvent { NONE, MUST_UPGRADE };
 constexpr static uint8_t interruptVariants = 3;
 
 namespace panic {
