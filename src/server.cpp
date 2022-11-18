@@ -158,7 +158,7 @@ auto CredentialsServer::setup() noexcept -> void {
 
     const auto needsIopAuth = !eventLoop.storage().token() && !this->credentialsIop;
     // Not needing IoP auth means the WiFi credentials we have are invalid
-    const auto mustConnect = !eventLoop.storage().wifi() || !needsIopAuth;
+    const auto mustConnect = !iop::Network::isConnected() && (!eventLoop.storage().wifi() || !needsIopAuth);
 
     auto len = pageHTMLStart().length() + pageHTMLEnd().length() + script().length();
     len += mustConnect ? wifiHTML().length() : wifiOverwriteHTML().length();
@@ -190,6 +190,8 @@ auto CredentialsServer::start() noexcept -> void {
   IOP_TRACE();
   if (!this->isServerOpen) {
     this->isServerOpen = true;
+    this->logger.info(IOP_STR("Network connection: "));
+    this->logger.infoln(iop::Network::isConnected());
     this->logger.infoln(IOP_STR("Valid credentials are not available"));
     this->logger.info(IOP_STR("Setting our own wifi access point: "));
     this->logger.infoln(this->credentialsAccessPoint->login);

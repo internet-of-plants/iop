@@ -32,13 +32,16 @@ Integrated with [internet-of-plants/server](https://github.com/internet-of-plant
 
 ## Integrated Sensors
 
-- [Dallas Temperature](https://github.com/internet-of-plants/dallas_temperature)
+- [Light Relay](https://github.com/internet-of-plants/light)
+- [Water Pump](https://github.com/internet-of-plants/water-pump)
+- [Dallas Temperature](https://github.com/internet-of-plants/dallas-temperature)
     - DS18B20, DS18S20, DS1822, DS1820
 - [DHT](https://github.com/internet-of-plants/dht)
     - DHT11, DHT12, DHT21, DHT22, AM2301
-- [Factory Reset Button](https://github.com/internet-of-plants/factor_reset_button)
+- [Factory Reset Button](https://github.com/internet-of-plants/factor-reset-button)
     - Any digital input that works similar to a button
-- [Soil Resistivity](https://github.com/internet-of-plants/soil_resistivity)
+- [Soil Resistivity](https://github.com/internet-of-plants/soil-resistivity)
+- [Relay](https://github.com/internet-of-plants/relay)
 
 ## Managing it from [internet-of-plants/server](https://github.com/internet-of-plants/server)
 

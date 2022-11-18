@@ -58,8 +58,12 @@ public:
   auto storage() noexcept -> Storage & { return this->storage_; }
   auto logger() noexcept -> Log & { return this->logger_; }
   auto setup() noexcept -> void;
-  auto setAccessPointCredentials(StaticString SSID, StaticString PSK) noexcept -> void;
   auto loop() noexcept -> void;
+
+  auto setAccessPointCredentials(StaticString SSID, StaticString PSK) noexcept -> void;
+  auto setTimezone(int8_t timezone) const noexcept -> void;
+  auto setCleanup(iop::PanicHook::Cleanup) const noexcept -> void;
+
   /// Connects to WiFi
   auto connect(std::string_view ssid, std::string_view password) noexcept -> ConnectResponse;
 

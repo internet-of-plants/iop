@@ -7,10 +7,10 @@
 namespace iop {
 auto update() noexcept -> void {
   IOP_TRACE();
-  const auto token = eventLoop.storage().token();
+  const auto token = iop::eventLoop.storage().token();
   if (!token)
     return;
-  const auto status = eventLoop.api().update(*token);
+  const auto status = iop::eventLoop.api().update(*token);
 
   switch (status) {
   case iop_hal::UpdateStatus::UNAUTHORIZED:
@@ -31,7 +31,7 @@ auto update() noexcept -> void {
     return;
   }
 
-  iop::panicLogger().errorln(IOP_STR("Bad status, iop::panic::update"));
+  iop::panicLogger().errorln(IOP_STR("Bad status, panic::update"));
 }
 
 // TODO(pc): dump stackstrace on iop_panic
@@ -42,14 +42,14 @@ auto reportPanic(const std::string_view &msg, const iop::StaticString &file, con
   // Prevents network logging
   iop::Log::takeHook();
 
-  const auto token = eventLoop.storage().token();
+  const auto token = iop::eventLoop.storage().token();
   if (!token) {
     iop::panicLogger().critln(IOP_STR("No auth token, unable to report iop_panic"));
     return false;
   }
 
-  const auto panicData = PanicData(msg, file, line, func);
-  const auto status = eventLoop.api().reportPanic(*token, panicData);
+  const auto panicData = iop::PanicData(msg, file, line, func);
+  const auto status = iop::eventLoop.api().reportPanic(*token, panicData);
 
   switch (status) {
   case iop::NetworkStatus::UNAUTHORIZED:
@@ -85,12 +85,12 @@ static void halt(const std::string_view &msg, iop::CodePoint const &point) noexc
 
   auto reportedPanic = false;
   while (true) {
-    if (!eventLoop.storage().wifi()) {
+    if (!iop::eventLoop.storage().wifi()) {
       iop::panicLogger().warnln(IOP_STR("Nothing we can do, no wifi config available"));
       break;
     }
 
-    if (!eventLoop.storage().token()) {
+    if (!iop::eventLoop.storage().token()) {
       iop::panicLogger().warnln(IOP_STR("Nothing we can do, no auth token available"));
       break;
     }
@@ -111,9 +111,13 @@ static void halt(const std::string_view &msg, iop::CodePoint const &point) noexc
   iop_hal::thisThread.halt();
 }
 
-iop::PanicHook hook(iop::PanicHook::defaultViewPanic, iop::PanicHook::defaultStaticPanic, iop::PanicHook::defaultEntry, halt);
+iop::PanicHook hook(iop::PanicHook::defaultViewPanic, iop::PanicHook::defaultStaticPanic, iop::PanicHook::defaultEntry, halt, iop::PanicHook::defaultCleanup);
 
 namespace panic {
-void setup() noexcept { iop::setPanicHook(hook); }
+auto setup() noexcept -> void { iop::setPanicHook(hook); }
+auto setCleanup(iop::PanicHook::Cleanup cleanup) noexcept -> void {
+  hook.cleanup = cleanup;
+  iop::setPanicHook(hook);
+}
 }
 }

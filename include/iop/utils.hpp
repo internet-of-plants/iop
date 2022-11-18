@@ -2,6 +2,7 @@
 #define IOP_UTILS_HPP
 
 #include "iop-hal/string.hpp"
+#include "iop-hal/panic.hpp"
 #include <functional>
 
 namespace iop {
@@ -12,6 +13,9 @@ constexpr static uint8_t interruptVariants = 3;
 namespace panic {
   /// Sets custom panic hook to device, this hook logs the panic to the monitor server and requests for an update from the server constantly, rebooting when it succeeds
   void setup() noexcept;
+
+  /// Sets custom cleanup panic hook to device, should cleanup all needed resources before halting (like water pump, etc)
+  auto setCleanup(iop::PanicHook::Cleanup cleanup) noexcept -> void;
 }
 namespace network_logger {
   /// Sets custom logging hook to device, this hook also logs messages, from `iop::LogType::INFO` on, to the monitor server.

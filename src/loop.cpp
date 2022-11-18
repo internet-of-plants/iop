@@ -54,6 +54,8 @@ auto EventLoop::setup() noexcept -> void {
   //iop_hal::gpio.setMode(iop_hal::io::LED_BUILTIN, iop_hal::io::Mode::OUTPUT);
 
   Storage::setup();
+  this->logger().info(IOP_STR("Api endpoint: "));
+  this->logger().infoln(uri);
   this->api().setup();
   iop::panic::setup();
   iop::network_logger::setup();
@@ -70,6 +72,14 @@ auto EventLoop::setup() noexcept -> void {
 
 auto EventLoop::setAccessPointCredentials(StaticString SSID, StaticString PSK) noexcept -> void {
   this->credentialsServer.setAccessPointCredentials(SSID, PSK);
+}
+
+auto EventLoop::setTimezone(const int8_t timezone) const noexcept -> void {
+  iop_hal::device.setTimezone(timezone);
+}
+
+auto EventLoop::setCleanup(iop::PanicHook::Cleanup cleanup) const noexcept -> void {
+  panic::setCleanup(cleanup);
 }
 
 AuthenticatedTaskInterval::AuthenticatedTaskInterval(iop::time::milliseconds interval, std::function<void(EventLoop&, const AuthToken&)> func) noexcept:
