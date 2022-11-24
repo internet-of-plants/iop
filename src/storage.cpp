@@ -69,9 +69,9 @@ void Storage::removeToken() noexcept {
   if (flag && *flag == usedAuthTokenEEPROMFlag) {
     this->logger.infoln(IOP_STR("Deleting stored auth token"));
 
-    iop_hal::storage.set(authTokenIndex, 0);
-    iop_hal::storage.write(authTokenIndex + 1, authToken);
-    iop_hal::storage.commit();
+    iop_assert(iop_hal::storage.set(authTokenIndex, 0), IOP_STR("unable to reset auth token written flag"));
+    iop_assert(iop_hal::storage.write(authTokenIndex + 1, authToken), IOP_STR("unable to delete auth token"));
+    iop_assert(iop_hal::storage.commit(), IOP_STR("unable to commit auth token deletion"));
   }
 }
 
@@ -92,9 +92,9 @@ auto Storage::setToken(const AuthToken &token) noexcept -> bool {
 
   this->logger.info(IOP_STR("Writing auth token to storage: "));
   this->logger.infoln(iop::to_view(token));
-  iop_hal::storage.set(authTokenIndex, usedAuthTokenEEPROMFlag);
-  iop_hal::storage.write(authTokenIndex + 1, token);
-  iop_hal::storage.commit();
+  iop_assert(iop_hal::storage.set(authTokenIndex, usedAuthTokenEEPROMFlag), IOP_STR("unable to set auth token written flag"));
+  iop_assert(iop_hal::storage.write(authTokenIndex + 1, token), IOP_STR("unable to write auth token"));
+  iop_assert(iop_hal::storage.commit(), IOP_STR("unable to commit auth token"));
   return true;
 }
 
@@ -134,10 +134,12 @@ void Storage::removeWifi() noexcept {
   // Checks if it's written to storage first, avoids wasting writes
   const auto flag = iop_hal::storage.get(wifiConfigIndex);
   if (flag && *flag == usedWifiConfigEEPROMFlag) {
-    iop_hal::storage.set(wifiConfigIndex, 0);
-    iop_hal::storage.write(wifiConfigIndex + 1, ssid);
-    iop_hal::storage.write(wifiConfigIndex + sizeof(iop::NetworkName) + 1, psk);
-    iop_hal::storage.commit();
+    this->logger.infoln(IOP_STR("Deleting stored wifi creds"));
+
+    iop_assert(iop_hal::storage.set(wifiConfigIndex, 0), IOP_STR("unable to reset wifi creds written flag"));
+    iop_assert(iop_hal::storage.write(wifiConfigIndex + 1, ssid), IOP_STR("unable to delete wifi ssid"));
+    iop_assert(iop_hal::storage.write(wifiConfigIndex + sizeof(iop::NetworkName) + 1, psk), IOP_STR("unable to delete wifi psk"));
+    iop_assert(iop_hal::storage.commit(), IOP_STR("unable to commit wifi creds deletion"));
   }
 }
 
@@ -167,10 +169,10 @@ auto Storage::setWifi(const WifiCredentials &config) noexcept -> bool {
   this->logger.debug(IOP_STR(" "));
   this->logger.debugln(iop::to_view(config.password.get()));
 
-  iop_hal::storage.set(wifiConfigIndex, usedWifiConfigEEPROMFlag);
-  iop_hal::storage.write(wifiConfigIndex + 1, config.ssid.get());
-  iop_hal::storage.write(wifiConfigIndex + sizeof(iop::NetworkName) + 1, config.password.get());
-  iop_hal::storage.commit();
+  iop_assert(iop_hal::storage.set(wifiConfigIndex, usedWifiConfigEEPROMFlag), IOP_STR("unable to set wifi creds written flag"));
+  iop_assert(iop_hal::storage.write(wifiConfigIndex + 1, config.ssid.get()), IOP_STR("unable to write wifi ssid"));
+  iop_assert(iop_hal::storage.write(wifiConfigIndex + sizeof(iop::NetworkName) + 1, config.password.get()), IOP_STR("unable to write wifi psk"));
+  iop_assert(iop_hal::storage.commit(), IOP_STR("unable to commit wifi creds deletion"));
   return true;
 }
 }
