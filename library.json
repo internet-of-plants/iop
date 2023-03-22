@@ -21,7 +21,7 @@
     {
       "owner": "bblanchon",
       "name": "ArduinoJson",
-      "version": "^6.18.1"
+      "version": "6"
     }
   ],
   "platforms": ["espressif8266", "espressif32","native"],

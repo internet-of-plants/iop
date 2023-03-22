@@ -12,113 +12,169 @@ namespace iop {
 auto pageHTMLStart() -> iop::StaticString {
   return IOP_STR(
     "<!DOCTYPE HTML>\r\n"
-    "<html><body>\r\n"
-    "  <h1><center>Hello, I'm your plantomator</center></h1>\r\n"
-    "  <h4><center>If, in the future, you want to reset the "
-    "configurations set here, just press the factory reset button "
-    "for at least 15 seconds</center></h4>"
-    "<form style='margin: 0 auto; width: 500px;' action='/submit' "
-    "method='POST'>\r\n");
+    "<html><body><div class='center'>\r\n"
+    "  <h1>Internet of Plants</h1>\r\n"
+    "  <form class='center' action='/submit' method='POST'>\r\n");
 }
 
 auto wifiOverwriteHTML() -> iop::StaticString {
   return IOP_STR(
-    "<h3>"
-    "  <center>It seems you already have your wifi credentials set, if you "
-    "want to rewrite it, please set the checkbox below and fill the "
-    "fields. Otherwise they will be ignored</center>"
-    "</h3>\r\n"
-    "<div>"
-    "  <input type='checkbox' name='wifi'>"
-    "  <label for='wifi'>Overwrite wifi credentials</label>"
-    "</div>"
-    "<div class=\"wifi\" style=\"display: none\">"
-    "  <div><strong>Network name:</strong></div>"
-    "  <input name='ssid' type='text' style='width:100%' />"
-    "</div>\r\n"
-    "<div class=\"wifi\" style=\"display: none\">"
-    "  <div><strong>Password:</strong></div>"
-    "  <input name='password' type='password' style='width:100%' />"
-    "</div>\r\n");
+    "    <div class='border'>\r\n"
+    "      <h3>WiFi Credentials</h3>\r\n"
+    "      <em>Already connected to the network, if you want to update the WiFi credentials please check the box below and fill the fields.</em>\r\n"
+    "      <div class='overwrite'>\r\n"
+    "        <input type='checkbox' name='wifi'>\r\n"
+    "        <label for='wifi'>Overwrite wifi credentials</label>\r\n"
+    "      </div>\r\n"
+    "      <div class='center'>\r\n"
+    "        <div class='wifi input-padding' style='display: none'>\r\n"
+    "          <span>Network name:</span>\r\n"
+    "          <input name='ssid' type='text' class='input' />\r\n"
+    "        </div>\r\n"
+    "        <div class='wifi' style='display: none'>\r\n"
+    "          <span>Password:</span>\r\n"
+    "          <input name='password' type='password' class='input' />\r\n"
+    "        </div>\r\n"
+    "      </div>\r\n"
+    "    </div>\r\n");
 }
 
 auto wifiHTML() -> iop::StaticString {
   return IOP_STR(
-    "<h3><center>"
-    "Please provide your Wifi credentials, so we can connect to it."
-    "</center></h3>\r\n"
-    "<div><input type='hidden' value='true' name='wifi'></div>"
-    "<div>"
-    "  <div><strong>Network name:</strong></div>"
-    "  <input name='ssid' type='text' style='width:100%' />"
-    "</div>\r\n"
-    "<div><div><strong>Password:</strong></div>"
-    "<input name='password' type='password' style='width:100%' /></div>\r\n");
+    "    <div class='border'>\r\n"
+    "      <h3>WiFi Credentials</h3>\r\n"
+    "      <div><input type='hidden' value='true' name='wifi'></div>\r\n"
+    "      <div class='center'>\r\n"
+    "        <div class='wifi input-padding'>\r\n"
+    "          <span>Network name:</span>\r\n"
+    "          <input name='ssid' type='text' class='input' />\r\n"
+    "        </div>\r\n"
+    "        <div class='wifi'>\r\n"
+    "          <span>Password:</span>\r\n"
+    "          <input name='password' type='password' class='input' />\r\n"
+    "        </div>\r\n"
+    "      </div>\r\n"
+    "    </div>\r\n");
 }
 
 auto iopOverwriteHTML() -> iop::StaticString {
   return IOP_STR(
-    "<h3><center>It seems you already have your Iop credentials set, if you "
-    "want to rewrite it, please set the checkbox below and fill the "
-    "fields. Otherwise they will be ignored</center></h3>\r\n"
-    "<div>"
-    "  <input type='checkbox' name='iop'>"
-    "  <label for='iop'>Overwrite Iop credentials</label>"
-    "</div>"
-    "<div class=\"iop\" style=\"display: 'none'\">"
-    "  <div><strong>Email:</strong></div>"
-    "  <input name='iopEmail' type='text' style='width:100%' />"
-    "</div>\r\n"
-    "<div class=\"iop\" style=\"display: 'none'\">"
-    "  <div><strong>Password:</strong></div>"
-    "  <input name='iopPassword' type='password' style='width:100%' />"
-    "</div>\r\n");
+    "    <div class='border'>\r\n"
+    "      <h3>Internet of Plants Credentials</h3>\r\n"
+    "      <em>Already authenticated with the server, if you want to update the Internet of Plants credentials please check the box below and fill the fields.</em\r\n"
+    "      <div class='overwrite'>\r\n"
+    "        <input type='checkbox' name='iop'>\r\n"
+    "        <label for='iop'>Overwrite Internet of Plants Credentials</label>\r\n"
+    "      </div>\r\n"
+    "      <div class='center'>\r\n"
+    "        <div class='iop input-padding' style='display: none'>\r\n"
+    "          <span>Email:</span>\r\n"
+    "          <input name='iopEmail' type='text' class='input'' />\r\n"
+    "        </div>\r\n"
+    "        <div class='iop' style='display: none'>\r\n"
+    "          <span>Password:</span>\r\n"
+    "          <input name='iopPassword' type='password' class='input' />\r\n"
+    "        </div>\r\n"
+    "      </div>\r\n"
+    "    </div>\r\n");
 }
 
 auto iopHTML() -> iop::StaticString {
   return IOP_STR(
-    "<h3><center>Please provide your Iop credentials, so we can get an "
-    "authentication token to use</center></h3>\r\n"
-    "<div>"
-    "  <input type='hidden' value='true' name='iop'></div>"
-    "<div>"
-    "  <div><strong>Email:</strong></div>"
-    "  <input name='iopEmail' type='text' style='width:100%' />"
-    "</div>\r\n"
-    "<div>"
-    "  <div><strong>Password:</strong></div>"
-    "  <input name='iopPassword' type='password' style='width:100%' />"
-    "</div>\r\n");
+    "    <div class='border'>\r\n"
+    "      <h3>Internet of Plants Credentials</h3>\r\n"
+    "      <input type='hidden' value='true' name='iop' />\r\n"
+    "      <div>\r\n"
+    "        <div class='iop input-padding'>\r\n"
+    "          <span>Email:</span>\r\n"
+    "          <input name='iopEmail' type='text' class='input' />\r\n"
+    "        </div>\r\n"
+    "        <div class='iop'>\r\n"
+    "          <span>Password:</span>\r\n"
+    "          <input name='iopPassword' type='password' class='input' />\r\n"
+    "        </div>\r\n"
+    "      </div>\r\n"
+    "    </div>\r\n");
 }
 
 auto script() -> iop::StaticString {
   return IOP_STR(
-    "<script type='application/javascript'>\r\n"
-    "function toggleDisplay(className, checked) {\r\n"
-    "  for (const el of document.getElementsByClassName(className)) {\r\n"
-    "    if (checked) {\r\n"
-    "      el.style.display = 'block';\r\n"
-    "    } else {"
-    "      el.style.display = 'none';\r\n"
+    "    <script type='application/javascript'>\r\n"
+    "    function toggleDisplay(className, checked) {\r\n"
+    "      for (const el of document.getElementsByClassName(className)) {\r\n"
+    "        if (checked === true) {\r\n"
+    "          el.style.display = 'block';\r\n"
+    "        } else if (checked === false) {\r\n"
+    "          el.style.display = 'none';\r\n"
+    "        }\r\n"
+    "      }\r\n"
     "    }\r\n"
-    "  }\r\n"
-    "}\r\n"
-    "document.querySelector(\"input[name='wifi']\").addEventListener('change', ev => toggleDisplay('wifi', ev.currentTarget.checked));\r\n"
-    "document.querySelector(\"input[name='iop']\").addEventListener('change', ev => toggleDisplay('iop', ev.currentTarget.checked));\r\n"
-    "for (const el of document.getElementsByClassName('wifi')) {\r\n"
-    "  toggleDisplay('wifi', el.checked);\r\n"
-    "}\r\n"
-    "for (const el of document.getElementsByClassName('iop')) {\r\n"
-    "  toggleDisplay('iop', el.checked);\r\n"
-    "}\r\n"
-    "</script>");
+    "    document.querySelector(\"input[name='wifi']\").addEventListener('change', ev => toggleDisplay('wifi', ev.currentTarget.checked));\r\n"
+    "    document.querySelector(\"input[name='iop']\").addEventListener('change', ev => toggleDisplay('iop', ev.currentTarget.checked));\r\n"
+    "    for (const el of document.getElementsByClassName('wifi')) {\r\n"
+    "      toggleDisplay('wifi', el.checked);\r\n"
+    "    }\r\n"
+    "    for (const el of document.getElementsByClassName('iop')) {\r\n"
+    "      toggleDisplay('iop', el.checked);\r\n"
+    "    }\r\n"
+    "    </script>\r\n");
+}
+auto css() -> iop::StaticString {
+  return IOP_STR(
+    "    <style>\r\n"
+    "    html, body {\r\n"
+    "      height: 100%;\r\n"
+    "      width: 100%;\r\n"
+    "      display: flex;\r\n"
+    "      align-items: center;\r\n"
+    "      font-family: Tahoma, sans-serif;\r\n"
+    "      background-color: #DFDFDF;\r\n"
+    "      margin: 0;\r\n"
+    "    }\r\n"
+    "    .center {\r\n"
+    "      display: flex;\r\n"
+    "      width: 100%;\r\n"
+    "      flex-direction: column;\r\n"
+    "      align-items: center;\r\n"
+    "      text-align: center;\r\n"
+    "    }\r\n"
+    "    h3 { margin-top: 0; }\r\n"
+    "    h1 { padding-top: 2em; }\r\n"
+    "    .border {\r\n"
+    "      border: 1px solid;\r\n"
+    "      border-radius: 0.125rem;\r\n"
+    "      padding: 1em;\r\n"
+    "      margin-top: 3em;\r\n"
+    "    }\r\n"
+    "    .wifi, .iop {\r\n"
+    "      width: 300px;\r\n"
+    "    }\r\n"
+    "    form { width: 500px !important; }\r\n"
+    "    .submit {\r\n"
+    "      background-color: #A3A3A3;\r\n"
+    "      border: solid 1px #626262;\r\n"
+    "      border-radius: 3px;\r\n"
+    "      margin-top: 1em;\r\n"
+    "      color: #070707;\r\n"
+    "    }\r\n"
+    "    input { background-color: #DFDFDF; }\r\n"
+    "    .input {\r\n"
+    "      float: right;\r\n"
+    "      border: solid 1px #626262;\r\n"
+    "      border-radius: 3px;\r\n"
+    "      padding-left: 5px;\r\n"
+    "      height: calc(100% - 2px);\r\n"
+    "    }\r\n"
+    "    .overwrite { margin: 1em 0; }\r\n"
+    "    .input-padding { padding-bottom: 1em; }\r\n"
+    "    </style>\r\n");
 }
 
 auto pageHTMLEnd() -> iop::StaticString {
   return IOP_STR(
-    "<br>\r\n"
-    "<input type='submit' value='Submit' />\r\n"
-    "</form></body></html>");
+    "    <input type='submit' value='Submit' class='submit' />\r\n"
+    "  </form>\r\n"
+    "</div></body></html>");
 }
 
 auto CredentialsServer::setup() noexcept -> void {
@@ -160,7 +216,7 @@ auto CredentialsServer::setup() noexcept -> void {
     // Not needing IoP auth means the WiFi credentials we have are invalid
     const auto mustConnect = !iop::Network::isConnected() && (!eventLoop.storage().wifi() || !needsIopAuth);
 
-    auto len = pageHTMLStart().length() + pageHTMLEnd().length() + script().length();
+    auto len = pageHTMLStart().length() + pageHTMLEnd().length() + script().length() + css().length();
     len += mustConnect ? wifiHTML().length() : wifiOverwriteHTML().length();
     len += needsIopAuth ? iopHTML().length() : iopOverwriteHTML().length();
 
@@ -174,6 +230,7 @@ auto CredentialsServer::setup() noexcept -> void {
     else conn.sendData(iopOverwriteHTML());
 
     conn.sendData(script());
+    conn.sendData(css());
     conn.sendData(pageHTMLEnd());
     logger.debugln(IOP_STR("Served HTML"));
   });
