@@ -51,8 +51,6 @@ private:
   std::vector<TaskInterval> tasks;
   std::vector<AuthenticatedTaskInterval> authenticatedTasks;
 
-  auto syncNTP() noexcept -> void;
-
 public:
   auto api() noexcept -> Api &{ return this->api_; }
   auto storage() noexcept -> Storage & { return this->storage_; }
@@ -74,23 +72,6 @@ public:
   auto setAuthenticatedInterval(iop::time::milliseconds interval, std::function<void(EventLoop&, const AuthToken&)> func) noexcept -> void;
   auto registerEvent(const AuthToken& token, const Api::Json json) noexcept -> void;
 
-private:
-  auto logIteration() noexcept -> void;
-
-  auto handleStoredWifiCreds() noexcept -> void;
-  
-  auto handleHardcodedWifiCreds() noexcept -> void;
-  auto handleHardcodedIopCreds() noexcept -> void;
-
-  auto handleMeasurements(const AuthToken &token) noexcept -> void;
-
-  auto handleInterrupts() noexcept -> bool;
-  auto handleInterrupt(const InterruptEvent event, const std::optional<std::reference_wrapper<const AuthToken>> &token) noexcept -> void;
-
-  auto runAuthenticatedTasks() noexcept -> void;
-  auto runUnauthenticatedTasks() noexcept -> void;
-
-public:
   explicit EventLoop(iop::StaticString uri) noexcept
       : credentialsServer(),
         api_(uri),
@@ -104,6 +85,24 @@ public:
   auto operator=(EventLoop &&other) noexcept -> EventLoop & = default;
   EventLoop(EventLoop const &other) noexcept = delete;
   EventLoop(EventLoop &&other) noexcept = default;
+
+private:
+  auto logIteration() noexcept -> void;
+  auto syncNTP() noexcept -> void;
+  auto serve() noexcept -> void;
+
+  auto handleStoredWifiCreds() noexcept -> void;
+  
+  auto handleHardcodedWifiCreds() noexcept -> void;
+  auto handleHardcodedIopCreds() noexcept -> void;
+
+  auto handleMeasurements(const AuthToken &token) noexcept -> void;
+
+  auto handleInterrupts() noexcept -> bool;
+  auto handleInterrupt(const InterruptEvent event, const std::optional<std::reference_wrapper<const AuthToken>> &token) noexcept -> void;
+
+  auto runAuthenticatedTasks() noexcept -> void;
+  auto runUnauthenticatedTasks() noexcept -> void;
 };
 
 extern auto setup(EventLoop &loop) noexcept -> void;

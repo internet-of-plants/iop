@@ -30,7 +30,7 @@ private:
 
 public:
   static constexpr size_t JsonCapacity = IOP_JSON_CAPACITY;
-  using Json = std::array<char, JsonCapacity>;
+  using Json = std::unique_ptr<const std::array<char, JsonCapacity>>;
 
   Api(iop::StaticString uri) noexcept;
 
@@ -101,7 +101,7 @@ public:
   /// Some callers fail hard and others truncate the messages and try again, if they are critical.
   ///
   /// Gets a context name for logging purposes. And a callback that insert data into the JSON serializer abstraction.
-  auto makeJson(iop::StaticString contextName, Api::JsonCallback jsonObjectBuilder) noexcept -> std::unique_ptr<Api::Json>;
+  auto makeJson(iop::StaticString contextName, Api::JsonCallback jsonObjectBuilder) noexcept -> Api::Json;
 };
 
 /// Represents the data passed to the panic hook

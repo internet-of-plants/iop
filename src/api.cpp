@@ -29,7 +29,7 @@ auto Api::reportPanic(const AuthToken &authToken, const PanicData &event) noexce
   this->logger.infoln(event.msg);
 
   auto msg = event.msg;
-  auto json = std::unique_ptr<Api::Json>();
+  auto json = Api::Json();
 
   while (true) {
     const auto make = [event, &msg](JsonDocument &doc) {
@@ -178,7 +178,7 @@ Api::Api(iop::StaticString uri) noexcept
 
 using FixedJsonBuffer = StaticJsonDocument<Api::JsonCapacity>;
 
-auto Api::makeJson(const iop::StaticString contextName, const Api::JsonCallback jsonObjectBuilder) noexcept -> std::unique_ptr<Api::Json> {
+auto Api::makeJson(const iop::StaticString contextName, const Api::JsonCallback jsonObjectBuilder) noexcept -> Api::Json {
   IOP_TRACE();
 
   auto doc = std::unique_ptr<FixedJsonBuffer>(new (std::nothrow) FixedJsonBuffer());
@@ -192,7 +192,7 @@ auto Api::makeJson(const iop::StaticString contextName, const Api::JsonCallback 
     return nullptr;
   }
 
-  auto json = std::unique_ptr<Api::Json>(new (std::nothrow) Api::Json());
+  auto json = std::unique_ptr<std::array<char, JsonCapacity>>(new (std::nothrow) std::array<char, JsonCapacity>());
   if (!json) return nullptr;
   json->fill('\0'); // Zeroes heap memory
   serializeJson(*doc, json->data(), json->size());

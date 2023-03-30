@@ -114,6 +114,20 @@ auto EventLoop::syncNTP() noexcept -> void {
   this->nextNTPSync = iop_hal::thisThread.timeRunning() + oneDay;
 }
 
+auto EventLoop::serve() noexcept -> void {
+  const auto creds = this->credentialsServer.serve();
+  if (creds) {
+    auto authToken = this->api().authenticate(creds->login, creds->password);
+
+    this->logger().debugln(IOP_STR("Tried to authenticate"));
+    if (const auto *token = std::get_if<std::unique_ptr<AuthToken>>(&authToken)) {
+      this->storage().setToken(**token);
+    } else if (const auto *error = std::get_if<iop::NetworkStatus>(&authToken)) {
+      this->handleAuthenticationFailure(*error);
+    }
+  }
+}
+
 auto EventLoop::runAuthenticatedTasks() noexcept -> void {
   IOP_TRACE();
 
@@ -142,9 +156,6 @@ auto EventLoop::runUnauthenticatedTasks() noexcept -> void {
 }
 
 auto EventLoop::logIteration() noexcept -> void {
-  this->logger().traceln(IOP_STR("\n\n\n\n\n\n"));
-  IOP_TRACE();
-
   const auto hasWifi = this->storage().wifi().has_value();
   this->logger().trace(IOP_STR("Has Wifi Creds: "));
   this->logger().traceln(hasWifi);
@@ -155,6 +166,9 @@ auto EventLoop::logIteration() noexcept -> void {
 }
 
 auto EventLoop::loop() noexcept -> void {
+  this->logger().traceln(IOP_STR("\n\n\n\n\n\n"));
+  IOP_TRACE();
+
   this->logIteration();
 
   if (this->handleInterrupts()) {
@@ -185,17 +199,7 @@ auto EventLoop::loop() noexcept -> void {
       this->handleHardcodedWifiCreds();
 
     } else {
-      const auto creds = this->credentialsServer.serve();
-      if (creds) {
-        auto authToken = this->api().authenticate(creds->login, creds->password);
-
-        this->logger().debugln(IOP_STR("Tried to authenticate"));
-        if (const auto *token = std::get_if<std::unique_ptr<AuthToken>>(&authToken)) {
-          this->storage().setToken(**token);
-        } else if (const auto *error = std::get_if<iop::NetworkStatus>(&authToken)) {
-          this->handleAuthenticationFailure(*error);
-        }
-      }
+      this->serve();
     }
 
   } else {
