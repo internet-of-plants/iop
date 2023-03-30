@@ -264,7 +264,7 @@ auto CredentialsServer::start() noexcept -> void {
     const auto isConnected = iop::Network::isConnected();
     iop_assert(this->credentialsAccessPoint, IOP_STR("Must configure Access Point credentials"));
     iop::wifi.enableOurAccessPoint(this->credentialsAccessPoint->login.toString(), this->credentialsAccessPoint->password.toString());
-
+  
     // Some architectures force a disconnect when AP is enabled (AP_STA is fragile), so we reconnect
     if (isConnected && !iop::Network::isConnected()) {
       const auto wifi = eventLoop.storage().wifi();

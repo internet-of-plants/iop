@@ -41,6 +41,7 @@ Integrated with [internet-of-plants/server](https://github.com/internet-of-plant
 - [Factory Reset Button](https://github.com/internet-of-plants/factor-reset-button)
     - Any digital input that works similar to a button
 - [Soil Resistivity](https://github.com/internet-of-plants/soil-resistivity)
+- [Cooler](https://github.com/internet-of-plants/cooler)
 - [Relay](https://github.com/internet-of-plants/relay)
 
 ## Managing it from [internet-of-plants/server](https://github.com/internet-of-plants/server)
