@@ -7,11 +7,19 @@
 #include <optional>
 
 namespace iop {
-struct DynamicCredential {
+struct DynamicIopCredential {
+  std::string organization;
   std::string login;
   std::string password;
 
-  DynamicCredential(std::string login, std::string password) noexcept: login(login), password(password) {}
+  DynamicIopCredential(std::string organization, std::string login, std::string password) noexcept: organization(organization), login(login), password(password) {}
+};
+
+struct DynamicWifiCredential {
+  std::string login;
+  std::string password;
+
+  DynamicWifiCredential(std::string login, std::string password) noexcept: login(login), password(password) {}
 };
 
 struct StaticCredential {
@@ -41,8 +49,8 @@ class Api;
 class CredentialsServer {
 private:
   std::unique_ptr<StaticCredential> credentialsAccessPoint;
-  std::unique_ptr<DynamicCredential> credentialsIop;
-  std::unique_ptr<DynamicCredential> credentialsWifi;
+  std::unique_ptr<DynamicIopCredential> credentialsIop;
+  std::unique_ptr<DynamicWifiCredential> credentialsWifi;
 
   Log logger;
 
@@ -65,7 +73,7 @@ public:
 
   /// Serves the captive portal and handles each user connected to each,
   /// authenticating to the wifi and returning the monitor server credentials when available
-  auto serve() noexcept -> std::unique_ptr<DynamicCredential>;
+  auto serve() noexcept -> std::unique_ptr<DynamicIopCredential>;
 
   /// Closes the Captive Portal if it's still open
   auto close() noexcept -> bool;

@@ -46,7 +46,7 @@ public:
   /// IO_ERROR: problems with connection, retry later?
   /// BROKEN_CLIENT: IOP_JSON_CAPACITY is too small to contain this payload
   /// BROKEN_SERVER: must wait until server is fixed
-  auto authenticate(std::string_view username, std::string_view password) noexcept -> std::variant<std::unique_ptr<AuthToken>, iop::NetworkStatus>;
+  auto authenticate(std::string_view organization, std::string_view username, std::string_view password) noexcept -> std::variant<std::unique_ptr<AuthToken>, iop::NetworkStatus>;
 
   /// Sends a monitoring event to the server, also sends device metadata.
   ///

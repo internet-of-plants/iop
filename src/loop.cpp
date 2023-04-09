@@ -21,6 +21,13 @@ const static std::optional<iop::StaticString> wifiPSK(reinterpret_cast<const __F
 const static std::optional<iop::StaticString> wifiPSK = std::nullopt;
 #endif
 
+#ifdef IOP_ORGANIZATION
+const static char* iopOrganizationRaw = STRINGIFY(IOP_ORGANIZATION);
+const static std::optional<iop::StaticString> iopOrganization(reinterpret_cast<const __FlashStringHelper*>(iopOrganizationRaw));
+#else
+const static std::optional<iop::StaticString> iopOrganization = std::nullopt;
+#endif
+
 #ifdef IOP_USERNAME
 const static char* iopUsernameRaw = STRINGIFY(IOP_USERNAME);
 const static std::optional<iop::StaticString> iopUsername(reinterpret_cast<const __FlashStringHelper*>(iopUsernameRaw));
@@ -117,7 +124,7 @@ auto EventLoop::syncNTP() noexcept -> void {
 auto EventLoop::serve() noexcept -> void {
   const auto creds = this->credentialsServer.serve();
   if (creds) {
-    auto authToken = this->api().authenticate(creds->login, creds->password);
+    auto authToken = this->api().authenticate(creds->organization, creds->login, creds->password);
 
     this->logger().debugln(IOP_STR("Tried to authenticate"));
     if (const auto *token = std::get_if<std::unique_ptr<AuthToken>>(&authToken)) {
@@ -264,7 +271,7 @@ auto EventLoop::handleHardcodedIopCreds() noexcept -> void {
     this->logger().infoln(IOP_STR("Trying hardcoded iop credentials"));
 
     this->credentialsServer.close();
-    auto authToken = this->api().authenticate(iopUsername->toString(), iopPassword->toString());
+    auto authToken = this->api().authenticate(iopOrganization->toString(), iopUsername->toString(), iopPassword->toString());
     this->logger().debugln(IOP_STR("Tried to authenticate"));
     
     if (const auto *token = std::get_if<std::unique_ptr<AuthToken>>(&authToken)) {

@@ -81,20 +81,23 @@ auto Api::registerEvent(const AuthToken &authToken, const Api::Json &event) noex
   }
   return *status;
 }
-auto Api::authenticate(std::string_view username, std::string_view password) noexcept -> std::variant<std::unique_ptr<AuthToken>, iop::NetworkStatus> {
+auto Api::authenticate(std::string_view organization, std::string_view username, std::string_view password) noexcept -> std::variant<std::unique_ptr<AuthToken>, iop::NetworkStatus> {
   IOP_TRACE();
 
   this->logger.info(IOP_STR("Authenticate IoP user: "));
-  this->logger.infoln(username);
+  this->logger.info(username);
+  this->logger.info(IOP_STR(", organization: "));
+  this->logger.info(organization);
 
-  if (!username.length() || !password.length()) {
-    this->logger.warnln(IOP_STR("Empty username or password, at Api::authenticate"));
+  if (!username.length() || !password.length() || !organization.length()) {
+    this->logger.warnln(IOP_STR("Empty organization, username or password at Api::authenticate"));
     return iop::NetworkStatus::UNAUTHORIZED;
   }
 
-  const auto make = [username, password](JsonDocument &doc) {
+  const auto make = [username, password, organization](JsonDocument &doc) {
     doc["email"] = username;
     doc["password"] = password;
+    doc["organization"] = organization;
   };
 
   const auto json = this->makeJson(IOP_FUNC, make);

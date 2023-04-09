@@ -68,8 +68,12 @@ auto iopOverwriteHTML() -> iop::StaticString {
     "      </div>\r\n"
     "      <div class='center'>\r\n"
     "        <div class='iop input-padding' style='display: none'>\r\n"
+    "          <span>Organization:</span>\r\n"
+    "          <input name='iopOrganization' type='text' class='input' />\r\n"
+    "        </div>\r\n"
+    "        <div class='iop input-padding' style='display: none'>\r\n"
     "          <span>Email:</span>\r\n"
-    "          <input name='iopEmail' type='text' class='input'' />\r\n"
+    "          <input name='iopEmail' type='text' class='input' />\r\n"
     "        </div>\r\n"
     "        <div class='iop' style='display: none'>\r\n"
     "          <span>Password:</span>\r\n"
@@ -85,6 +89,10 @@ auto iopHTML() -> iop::StaticString {
     "      <h3>Internet of Plants Credentials</h3>\r\n"
     "      <input type='hidden' value='true' name='iop' />\r\n"
     "      <div>\r\n"
+    "        <div class='iop input-padding'>\r\n"
+    "          <span>Organization:</span>\r\n"
+    "          <input name='iopOrganization' type='text' class='input' />\r\n"
+    "        </div>\r\n"
     "        <div class='iop input-padding'>\r\n"
     "          <span>Email:</span>\r\n"
     "          <input name='iopEmail' type='text' class='input' />\r\n"
@@ -190,17 +198,20 @@ auto CredentialsServer::setup() noexcept -> void {
     if (wifi && ssid && psk) {
       logger.debug(IOP_STR("SSID: "));
       logger.debugln(*ssid);
-      this->credentialsWifi = std::unique_ptr<DynamicCredential>(new (std::nothrow) DynamicCredential(*ssid, *psk));
+      this->credentialsWifi = std::unique_ptr<DynamicWifiCredential>(new (std::nothrow) DynamicWifiCredential(*ssid, *psk));
       iop_assert(this->credentialsWifi, IOP_STR("Unable to allocate credentialsWifi"));
     }
 
     const auto iop = conn.arg(IOP_STR("iop"));
+    const auto organization = conn.arg(IOP_STR("iopOrganization"));
     const auto email = conn.arg(IOP_STR("iopEmail"));
     const auto password = conn.arg(IOP_STR("iopPassword"));
-    if (iop && email && password) {
+    if (iop && organization && email && password) {
       logger.debug(IOP_STR("Email: "));
       logger.debugln(*email);
-      this->credentialsIop = std::unique_ptr<DynamicCredential>(new (std::nothrow) DynamicCredential(*email, *password));
+      logger.debug(IOP_STR("Organization: "));
+      logger.debugln(*organization);
+      this->credentialsIop = std::unique_ptr<DynamicIopCredential>(new (std::nothrow) DynamicIopCredential(*organization, *email, *password));
       iop_assert(this->credentialsIop, IOP_STR("Unable to allocate credentialsIop"));
     }
 
@@ -298,7 +309,7 @@ auto CredentialsServer::close() noexcept -> bool {
   return false;
 }
 
-auto CredentialsServer::serve() noexcept -> std::unique_ptr<DynamicCredential> {
+auto CredentialsServer::serve() noexcept -> std::unique_ptr<DynamicIopCredential> {
   IOP_TRACE();
 
   if (this->credentialsWifi) {
