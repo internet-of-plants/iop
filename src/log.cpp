@@ -33,7 +33,7 @@ void reportLog() noexcept {
   if (token) {
     iop::eventLoop.api().registerLog(*token, currentLog);
   } else {
-    iop::Log(IOP_STR("NETWORK LOGGING")).warnln(IOP_STR("Unable to log to the monitor server, not authenticated"));
+    iop::Log(IOP_STR("NETWORK LOGGING")).debugln(IOP_STR("Unable to log to the monitor server, not authenticated"));
   }
   logToNetwork = true;
   currentLog.clear();
