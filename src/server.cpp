@@ -12,7 +12,7 @@ namespace iop {
 auto pageHTMLStart() -> iop::StaticString {
   return IOP_STR(
     "<!DOCTYPE HTML>\r\n"
-    "<html><body><div class='center'>\r\n"
+    "<html><meta charset='UTF-8'><body><div class='center'>\r\n"
     "  <h1>Internet of Plants</h1>\r\n"
     "  <form class='center' action='/submit' method='POST'>\r\n");
 }
