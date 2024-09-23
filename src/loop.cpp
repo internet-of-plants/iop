@@ -2,6 +2,7 @@
 #include "iop-hal/panic.hpp"
 #include "iop-hal/wifi.hpp"
 #include "iop-hal/io.hpp"
+#include "iop-hal/device.hpp"
 #include "iop/utils.hpp"
 
 #define STRINGIFY(s) STRINGIFY_(s)
@@ -115,7 +116,14 @@ auto EventLoop::syncNTP() noexcept -> void {
 
   this->logger().debugln(IOP_STR("Syncing NTP"));
   iop_hal::device.syncNTP();
-  this->logger().infoln(IOP_STR("Time synced"));
+
+  const auto now = iop_hal::Moment::now();
+  this->logger().info(IOP_STR("Time synced: "));
+  if (now.hour < 10) this->logger().info(IOP_STR("0"));
+  this->logger().info(now.hour);
+  this->logger().info(IOP_STR(":"));
+  if (now.minute < 10) this->logger().info(IOP_STR("0"));
+  this->logger().infoln(now.minute);
 
   constexpr const uint32_t oneDay = 24 * 60 * 60 * 1000;
   this->nextNTPSync = iop_hal::thisThread.timeRunning() + oneDay;
